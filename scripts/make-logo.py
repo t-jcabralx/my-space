@@ -46,6 +46,13 @@ ICONS = {
  'sword': (['.....##', '....##.', '...##..', '#.##...', '.##....', '.##....', '#..#...'], '#ffd23a'),
  'note': (['...####', '...#..#', '...#..#', '...#...', '.###...', '####...', '.##....'], '#ff4a8a'),
  'word': (['#.....#', '#..#..#', '#.#.#.#', '#.#.#.#', '##...##', '#.....#', '#.....#'], '#6aff9a'),
+
+ 'c4': (['.......', '.#.#.#.', '#.#.#.#', '.#.#.#.', '#.#.#.#', '.#.#.#.', '.......'], '#ff4a5a'),
+ 'snake': (['.......', '.####..', '.#.....', '.####..', '....#..', '.####..', '.......'], '#6aff9a'),
+ 'breaker': (['#######', '.#.#.#.', '#######', '.......', '...#...', '.......', '..###..'], '#3de8ff'),
+ 'mines': (['...#...', '.#.#.#.', '..###..', '#######', '..###..', '.#.#.#.', '...#...'], '#9a8aff'),
+ 'dragon': (['#.....#', '##...##', '.#####.', '#.###.#', '.#####.', '..###..', '...#...'], '#ff6a3a'),
+ 'castle': (['#.#.#.#', '#######', '.#####.', '.##.##.', '.##.##.', '.#####.', '#######'], '#ffd23a'),
  'tile': (['#######', '#.....#', '#.###.#', '#...#.#', '#.###.#', '#.....#', '#######'], '#edc22e'),
 }
 def logo():
@@ -81,12 +88,12 @@ def logo():
     for i in range(0, 520, 8):
         parts.append(f'<rect x="{tx+i}" y="188" width="8" height="4" fill="{["#ffe84a","#3de8ff","#ff4de1"][(i//8)%3]}" opacity="0.85"/>')
     # a strip of game icons: the arcade at a glance
-    names = ['ship', 'ball', 'bomb', 'tetris', 'chomp', 'card', 'car', 'fist', 'puck', 'eight', 'tower', 'sword', 'note', 'word', 'tile']
-    x = 26
+    names = ['ship', 'ball', 'bomb', 'tetris', 'chomp', 'card', 'car', 'fist', 'puck', 'eight', 'tower', 'sword', 'dragon', 'note', 'word', 'tile', 'c4', 'snake', 'breaker', 'mines', 'castle']
+    x = 14
     for n in names:
         rows, c = ICONS[n]
-        parts.append(f'<g filter="url(#g)">' + sprite(rows, x, 214, 5, {'#': c}) + '</g>')
-        x += 49
+        parts.append(f'<g filter="url(#g)">' + sprite(rows, x, 216, 4, {'#': c}) + '</g>')
+        x += 35
     parts.append('</svg>')
     return ''.join(parts)
 def icon():

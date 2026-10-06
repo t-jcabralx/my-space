@@ -26,8 +26,34 @@ const PERKS = [
   { id: 'magnet', name: 'MAGNET', ico: '🧲', desc: 'Pull gold from far away', f: (p) => { p.magnet += 14 } },
   { id: 'special', name: 'OVERCHARGE', ico: '🌀', desc: 'Special recharges 35% faster', f: (p) => { p.spCd *= 0.65 } },
 ]
+
+// ---------- the fantasy cast: races, pets and the skills each class learns as it levels up ----------
+const dp = () => profile.rogueDeep || 0
+export const RACES = [
+  { id: 'human', name: 'HALF-BLOOD', ico: '🧑', desc: 'Part human, part something older. +15% XP and a 4th perk to choose from.', hint: '', ok: () => true, f: (p) => { p.xpMul = 1.15; p.perkN = 4 } },
+  { id: 'elf', name: 'ELF', ico: '🧝', desc: 'Swift and sharp-eyed. +12% speed, +10% crit chance.', hint: 'Finish one run', ok: () => (profile.rogueRuns || 0) >= 1, f: (p) => { p.spd *= 1.12; p.crit += 0.1 } },
+  { id: 'dwarf', name: 'DWARF', ico: '🧔', desc: 'Stout and stubborn. +2 hearts and a 20% chance to shrug off a hit.', hint: 'Clear the first forest', ok: () => dp() >= 4, f: (p) => { p.max += 2; p.hp += 2; p.armor = 0.2 } },
+  { id: 'undead', name: 'UNDEAD', ico: '💀', desc: 'Death is a suggestion. Rises once per run, heals 1 heart per 6 kills, but has 1 less heart.', hint: 'Clear the marsh (room 8)', ok: () => dp() >= 8 || (profile.rogueWins || 0) >= 1, f: (p) => { p.max = Math.max(2, p.max - 1); p.hp = Math.min(p.hp, p.max); p.rise = 1 } },
+  { id: 'fairy', name: 'FAIRY', ico: '🧚', desc: 'Tiny and hovering. Dash recharges 40% faster and your light heals friends nearby.', hint: 'Clear the first forest', ok: () => dp() >= 4, f: (p) => { p.dashCd *= 0.6; p.glow = true; p.max = Math.max(2, p.max - 1); p.hp = Math.min(p.hp, p.max) } },
+]
+export const PETS = [
+  { id: 'wolf', name: 'WOLF PUP', ico: '🐺', color: '#9aa4b8', desc: 'Bites anything near you.', hint: '', ok: () => true },
+  { id: 'owl', name: 'FOREST OWL', ico: '🦉', color: '#c8a46a', desc: 'Throws feather bolts from the air.', hint: 'Finish one run', ok: () => (profile.rogueRuns || 0) >= 1 },
+  { id: 'sprite', name: 'FAIRY SPRITE', ico: '🧚‍♀️', color: '#ff9ae8', desc: 'Heals you, or shields you when you are healthy.', hint: 'Clear the first forest', ok: () => dp() >= 4 },
+  { id: 'dragon', name: 'DRAGON WHELP', ico: '🐉', color: '#ff6a3a', desc: 'Breathes fire on whatever you fight.', hint: 'Clear the marsh (room 8)', ok: () => dp() >= 8 || (profile.rogueWins || 0) >= 1 },
+]
+export const SKILLS = {
+  knight: [{ name: 'WHIRLWIND', lv: 1, cd: 9, ico: '🌀' }, { name: 'SHIELD BASH', lv: 3, cd: 7, ico: '🛡️' }, { name: 'WAR CRY', lv: 6, cd: 16, ico: '📣' }],
+  ranger: [{ name: 'ARROW VOLLEY', lv: 1, cd: 9, ico: '🏹' }, { name: 'SPIKE TRAP', lv: 3, cd: 8, ico: '🪤' }, { name: 'ARROW RAIN', lv: 6, cd: 16, ico: '🌧️' }],
+  mage: [{ name: 'FROST NOVA', lv: 1, cd: 9, ico: '❄️' }, { name: 'BLINK', lv: 3, cd: 6, ico: '✨' }, { name: 'METEOR', lv: 6, cd: 16, ico: '☄️' }],
+}
+export const MAXLV = 10
+export const xpNeed = (lv) => 22 + lv * 16 + lv * lv * 2
+const unlockSnapshot = () => ({ races: RACES.filter((r) => r.ok()).map((r) => r.id), pets: PETS.filter((r) => r.ok()).map((r) => r.id) })
 export const EN = {
   slime: { hp: 20, spd: 12, c: '#5aff7a', r: 1.6, dmg: 1, gold: 2 },
+  wolf: { hp: 14, spd: 21, c: '#8a93a8', r: 1.4, dmg: 1, gold: 2 },
+  skeleton: { hp: 30, spd: 11, c: '#e8e8cc', r: 1.5, dmg: 1, gold: 4, shoot: 2.8 },
   bat: { hp: 10, spd: 22, c: '#c06aff', r: 1.1, dmg: 1, gold: 2 },
   archer: { hp: 16, spd: 10, c: '#ffb04a', r: 1.4, dmg: 1, gold: 3, shoot: 1.9 },
   brute: { hp: 70, spd: 9, c: '#ff5a5a', r: 2.3, dmg: 2, gold: 6 },
@@ -51,16 +77,23 @@ const TALE = {
   win: 'The Last Lantern blazes in your hands. Across the Grid, every deleted game flickers awake. The Depths bloom, and the forest finally sleeps.',
   who: { sys: ['THE DEPTHS', '#6aff9a', '🌲'], nova: ['NOVA', '#ff4de1', '🤖'], hero: ['YOU', '#3de8ff', '🧑‍🚀'], ovl: ['OVERLORD', '#ff3a3a', '👁'], king: ['SLIME KING', '#3adf6a', '👑'], lord: ['BONE LORD', '#e8e8ff', '💀'], eye: ['VOID EYE', '#ff4adf', '👁️'] },
 }
+const RACE_LINE = { human: ['hero', 'Half of me belongs to the old world, half to the Grid. The forest cannot decide which half to fear.'], elf: ['hero', 'The elder trees know my people. They lean away, in respect, or in fear.'], dwarf: ['hero', 'Stone and beard and a very bad temper. Let the forest come.'], undead: ['hero', 'I have died before. It was boring. I am not afraid of the dark; I grew up in it.'], fairy: ['hero', 'I am small, yes. But a lantern is small too, and look what it does to the dark.'] }
 function say(lines) {
   if (!lines || !lines.length) return
   if (RG.net || RG.players.length > 1) { RG.msg = { text: TALE.who[lines[0][0]][0], sub: lines[0][1].slice(0, 90), color: TALE.who[lines[0][0]][1], t: 4 }; return }
   RG.tale = { lines, i: 0 }
 }
-const mkPlayer = (cls, name, remote) => {
+const mkPlayer = (cls, name, remote, race = 0, pet = 0) => {
   const c = CLASSES[clamp(cls | 0, 0, 2)]
-  return { cls: clamp(cls | 0, 0, 2), name, remote: !!remote, x: -AX + 6, y: 0, hp: c.hp, max: c.hp, spd: c.spd, dmg: c.dmg, rate: c.rate, multi: 1, crit: 0.05, vamp: 0, shield: 0, aegis: false, pierce: 0, magnet: 4, dashCd: 1.3, spCd: 9, dashT: 0, spT: 0, atkT: 0, inv: 0, dash: 0, dx: 1, dy: 0, face: 0, mx: 0, my: 0, walk: 0, alive: true, perks: [], choices: null, swing: null, aimPt: null, aimT: -9, dashN: 0, spN: 0, seenDash: 0, seenSp: 0, inp: { mx: 0, my: 0 }, hurtT: 0, vx: 0, vy: 0 }
+  const pl = mkBase(cls, name, remote, c)
+  pl.race = clamp(race | 0, 0, RACES.length - 1); pl.pet = clamp(pet | 0, 0, PETS.length - 1)
+  RACES[pl.race].f(pl)
+  return pl
 }
-export const RG = { mode: 'idle', paused: false, floors: 3, floor: 0, room: 0, players: [], me: 0, p: null, en: [], eb: [], pb: [], loot: [], obst: [], open: false, gold: 0, kills: 0, t: 0, emitT: 0, msg: null, over: null, stick: [0, 0], fx: [], spawnQ: [], net: null, eid: 1, tale: null, rk: 0, bossT: 0, ambT: 4, heartT: 0, cam: null, doorT: 0 }
+const mkBase = (cls, name, remote, c) => {
+  return { cls: clamp(cls | 0, 0, 2), xp: 0, lv: 1, xpMul: 1, perkN: 3, armor: 0, rise: 0, killHeal: 0, glow: false, race: 0, pet: 0, buff: 0, sT2: 0, sT3: 0, hold: false, sn: [0, 0, 0], seenSn: [0, 0, 0], lvT: 0, name, remote: !!remote, x: -AX + 6, y: 0, hp: c.hp, max: c.hp, spd: c.spd, dmg: c.dmg, rate: c.rate, multi: 1, crit: 0.05, vamp: 0, shield: 0, aegis: false, pierce: 0, magnet: 4, dashCd: 1.3, spCd: 9, dashT: 0, spT: 0, atkT: 0, inv: 0, dash: 0, dx: 1, dy: 0, face: 0, mx: 0, my: 0, walk: 0, alive: true, perks: [], choices: null, swing: null, aimPt: null, aimT: -9, dashN: 0, spN: 0, seenDash: 0, seenSp: 0, inp: { mx: 0, my: 0 }, hurtT: 0, vx: 0, vy: 0 }
+}
+export const RG = { mode: 'idle', paused: false, floors: 3, floor: 0, room: 0, players: [], me: 0, p: null, en: [], eb: [], pb: [], loot: [], obst: [], open: false, gold: 0, kills: 0, t: 0, emitT: 0, msg: null, over: null, stick: [0, 0], fx: [], spawnQ: [], net: null, eid: 1, tale: null, rk: 0, pets: [], traps: [], rains: [], meteors: [], unlocked: null, bossT: 0, ambT: 4, heartT: 0, cam: null, doorT: 0 }
 let snap = null
 const subs = new Set()
 export const subscribeRogue = (f) => { subs.add(f); return () => subs.delete(f) }
@@ -76,7 +109,8 @@ function emitR() {
     choices: p && p.choices ? p.choices.map((c) => ({ id: c.id, name: c.name, ico: c.ico, desc: c.desc })) : null, msg: RG.msg ? { ...RG.msg } : null, over: RG.over,
     boss: bossE ? { name: bossE.def.name, hp: Math.max(0, bossE.hp) / bossE.max } : null, perks: p ? p.perks.slice() : [], open: RG.open, rooms: RG.floor * 4 + RG.room,
     coop: RG.players.length > 1 || !!RG.net, net: RG.net ? RG.net.role : null, waiting: RG.players.filter((x) => x.choices).length,
-    team: RG.players.map((x, i) => ({ name: x.name, cls: x.cls, hp: x.hp, max: x.max, alive: x.alive, me: i === RG.me })), theme: THEMES[RG.floor % 3].name, dead: !!(p && !p.alive), tale: RG.tale ? { who: TALE.who[RG.tale.lines[RG.tale.i][0]], text: RG.tale.lines[RG.tale.i][1], i: RG.tale.i, n: RG.tale.lines.length } : null,
+    team: RG.players.map((x, i) => ({ name: x.name, cls: x.cls, race: x.race, lv: x.lv, hp: x.hp, max: x.max, alive: x.alive, me: i === RG.me })), theme: THEMES[RG.floor % 3].name, dead: !!(p && !p.alive), lv: p ? p.lv : 1, xp: p ? p.xp : 0, need: p ? (p.lv >= MAXLV ? 1 : xpNeed(p.lv)) : 1, race: p ? p.race : 0, pet: p ? p.pet : 0, buff: p ? p.buff > 0 : false,
+    skills: p ? SKILLS[CLASSES[p.cls].id].map((k, i) => ({ name: k.name, ico: k.ico, lv: k.lv, open: p.lv >= k.lv, cd: Math.max(0, i === 0 ? p.spT : i === 1 ? p.sT2 : p.sT3) / (k.cd * p.spCd / 9) })) : [], tale: RG.tale ? { who: TALE.who[RG.tale.lines[RG.tale.i][0]], text: RG.tale.lines[RG.tale.i][1], i: RG.tale.i, n: RG.tale.lines.length } : null,
   }
   subs.forEach((f) => f())
 }
@@ -84,13 +118,13 @@ function start(cfg = {}) {
   const net = RG.net && cfg.type === 'online' ? RG.net : null
   RG.net = net
   RG.floors = clamp(cfg.floors | 0 || 3, 1, 3)
-  const me = mkPlayer(cfg.cls | 0, (profile.name || 'YOU').slice(0, 10), false)
-  RG.players = [me]; RG.me = 0; RG.p = me
+  const me = mkPlayer(cfg.cls | 0, (profile.name || 'YOU').slice(0, 10), false, cfg.race | 0, cfg.pet | 0)
+  RG.players = [me]; RG.me = 0; RG.p = me; RG.pets = [mkPet(me)]; RG.traps = []; RG.rains = []; RG.meteors = []; RG.unlocked = unlockSnapshot()
   RG.floor = 0; RG.room = 0; RG.gold = 0; RG.kills = 0; RG.over = null; RG.paused = false; RG.t = 0; RG.fx = []; RG.eid = 1; RG.rk = 0; RG.bossT = 0
   G.mode = 'rogue'; engineEmit(); G.parts = []; G.pops = []; G.shake = 0; G.flash = 0
   RG.mode = 'play'; RG.tale = null
   enterRoom()
-  say(TALE.start)
+  { const me2 = lp(), line = RACE_LINE[RACES[me2.race].id], pl = PETS[me2.pet]; say([...TALE.start, line, ['nova', 'Your ' + pl.name.toLowerCase() + ' will watch your back. Level up, learn new skills, and do not let the lantern go out.']]) }
   music.set('slugboss', 0); sfx('mission'); emitR()
 }
 function stop() { RG.mode = 'idle'; RG.paused = false; if (RG.net) { const n = RG.net; RG.net = null; if (n.onStop) try { n.onStop() } catch { /* ignore */ } } music.set('menu'); emitR() }
@@ -101,7 +135,8 @@ function enterRoom() {
     if (!p.alive) { p.alive = true; p.hp = Math.max(1, Math.ceil(p.max / 2)) }
     p.choices = null; p.swing = null
   })
-  RG.en = []; RG.eb = []; RG.pb = []; RG.loot = []; RG.open = false; RG.spawnQ = []; RG.rk++; RG.doorT = 0
+  RG.en = []; RG.eb = []; RG.pb = []; RG.loot = []; RG.open = false; RG.spawnQ = []; RG.rk++; RG.doorT = 0; RG.traps = []; RG.rains = []; RG.meteors = []
+  for (const pt of RG.pets) { pt.x = pt.owner.x - 2; pt.y = pt.owner.y + 2 }
   RG.obst = []
   const boss = RG.room === 3
   const k = (boss ? 2 : 3 + RG.floor + ((Math.random() * 3) | 0))
@@ -119,8 +154,8 @@ function enterRoom() {
   if (boss) { spawn(BOSS[RG.floor], AX - 14, 0, 1.6); RG.bossT = 3.2; sfx('rgBoss'); speak(EN[BOSS[RG.floor]].name, 0.4, 0.9) }
   else {
     let b = budget, i = 0
-    const pool = ['slime', 'bat', 'archer'].concat(RG.floor >= 1 ? ['brute', 'caster'] : [], RG.room >= 2 ? ['brute'] : [])
-    while (b > 0) { const t = pool[(Math.random() * pool.length) | 0], cost = t === 'brute' ? 4 : t === 'caster' ? 3 : t === 'archer' ? 2 : 1.5; b -= cost; spawn(t, R(-8, AX - 6), R(-AY + 4, AY - 4), 0.8 + i * 0.35); i++ }
+    const pool = ['slime', 'bat', 'archer', 'wolf'].concat(RG.floor >= 1 ? ['brute', 'caster', 'skeleton', 'skeleton'] : [], RG.room >= 2 ? ['brute'] : [])
+    while (b > 0) { const t = pool[(Math.random() * pool.length) | 0], cost = t === 'brute' ? 4 : t === 'caster' ? 3 : t === 'archer' || t === 'skeleton' ? 2 : 1.5; b -= cost; if (t === 'wolf') { const bx = R(-8, AX - 8), by = R(-AY + 6, AY - 6); for (let k = 0; k < 3; k++) spawn('wolf', bx + R(-3, 3), by + R(-3, 3), 0.8 + i * 0.35); b -= 2.5; i++ } else { spawn(t, R(-8, AX - 6), R(-AY + 4, AY - 4), 0.8 + i * 0.35); i++ } }
   }
   if (RG.room === 0 && RG.floor > 0 && RG.t > 0) say(TALE['f' + RG.floor])
   if (boss) say(TALE.boss[RG.floor])
@@ -146,6 +181,68 @@ function nearestPlayer(x, y) {
   for (const p of RG.players) { if (!p.alive) continue; const d = Math.hypot(p.x - x, p.y - y); if (!best || d < best.d) best = { p, d } }
   return best
 }
+
+// ---------- levelling ----------
+function gainXp(p, base) {
+  if (!p.alive) return
+  p.xp += base * p.xpMul
+  while (p.lv < MAXLV && p.xp >= xpNeed(p.lv)) {
+    p.xp -= xpNeed(p.lv); p.lv++
+    p.dmg *= 1.06; if (p.lv % 2 === 0) { p.max += 1 } p.hp = Math.min(p.max, p.hp + 2); p.lvT = 1.6
+    const sk = SKILLS[CLASSES[p.cls].id].find((k) => k.lv === p.lv)
+    ring(p.x, p.y, 36, 46, [col('#ffe84a')]); for (let i = 0; i < 24; i++) part(p.x, p.y, R(-26, 26), R(10, 50), R(0.5, 1.1), col('#ffe84a'), R(0.9, 1.6))
+    if (p === lp()) { sfx('rgPerk'); sfx('mission'); RG.msg = { text: 'LEVEL UP!  LV ' + p.lv, sub: sk ? 'NEW SKILL: ' + sk.name + ' (' + ['Q', 'E', 'R'][SKILLS[CLASSES[p.cls].id].indexOf(sk)] + ')' : (p.lv % 2 === 0 ? '+1 HEART · STRONGER' : 'STRONGER'), color: '#ffe84a', t: 3 } }
+  }
+}
+const xpFor = (e) => Math.round(e.def.hp * 0.22) + 3 + (e.def.boss ? 40 : 0)
+function mkPet(p) { return { type: PETS[p.pet].id, owner: p, x: p.x - 3, y: p.y, face: 0, atkT: 1, act: 0, hv: 0, t: Math.random() * 6, heal: 8 } }
+function stepPets(dt) {
+  for (const pt of RG.pets) {
+    const o = pt.owner
+    if (!o || !o.alive) continue
+    pt.t += dt; pt.atkT -= dt; pt.act = Math.max(0, pt.act - dt)
+    const lv = o.lv
+    const ne = nearestEnemy(o.x, o.y, 26)
+    // follow the owner, or chase an enemy (wolf)
+    let tx = o.x - Math.cos(o.face) * 3.2 + Math.sin(pt.t * 1.5) * 1.4, ty = o.y - Math.sin(o.face) * 3.2 + Math.cos(pt.t * 1.3) * 1.4
+    if (pt.type === 'wolf' && ne && ne.d < 22) { tx = ne.e.x; ty = ne.e.y }
+    if (pt.type === 'dragon' || pt.type === 'owl' || pt.type === 'sprite') { tx = o.x + Math.cos(pt.t * 0.9) * 4.5; ty = o.y + Math.sin(pt.t * 0.9) * 3.5 + 1.5 }
+    const dx = tx - pt.x, dy = ty - pt.y, d = Math.hypot(dx, dy) || 1, sp = pt.type === 'wolf' ? 34 : 26
+    if (d > 0.6) { pt.x += (dx / d) * Math.min(d, sp * dt * (d > 10 ? 2 : 1)); pt.y += (dy / d) * Math.min(d, sp * dt * (d > 10 ? 2 : 1)); pt.face = Math.atan2(dy, dx) }
+    if (ne) pt.face = Math.atan2(ne.e.y - pt.y, ne.e.x - pt.x)
+    if (pt.type === 'wolf' && ne && pt.atkT <= 0 && Math.hypot(ne.e.x - pt.x, ne.e.y - pt.y) < ne.e.def.r + 2.6) { pt.atkT = 0.7; pt.act = 0.25; hitEnemy(ne.e, 5 + lv * 1.6, false, 25, Math.cos(pt.face), Math.sin(pt.face), o); sfx('rgSwing') }
+    else if (pt.type === 'owl' && ne && pt.atkT <= 0) { pt.atkT = 1.1; pt.act = 0.2; const a = Math.atan2(ne.e.y - pt.y, ne.e.x - pt.x); RG.pb.push({ x: pt.x, y: pt.y, vx: Math.cos(a) * 70, vy: Math.sin(a) * 70, dmg: 4 + lv * 1.4, crit: false, pierce: 0, homing: true, life: 1.2, c: '#e8d29a', hit: new Set(), by: o }); sfx('rgShot') }
+    else if (pt.type === 'dragon' && ne && pt.atkT <= 0 && ne.d < 18) {
+      pt.atkT = 2.4; pt.act = 0.6
+      const a = Math.atan2(ne.e.y - pt.y, ne.e.x - pt.x)
+      for (const e of RG.en) { if (e.dead || e.spawnT > 0) continue; const ex = e.x - pt.x, ey = e.y - pt.y, dist = Math.hypot(ex, ey); if (dist > 15 + e.def.r) continue; let da = Math.atan2(ey, ex) - a; da = Math.atan2(Math.sin(da), Math.cos(da)); if (Math.abs(da) < 0.55) hitEnemy(e, 9 + lv * 2.2, false, 0, 0, 0, o) }
+      for (let i = 0; i < 26; i++) { const aa = a + R(-0.45, 0.45), sp2 = R(20, 46); part(pt.x, pt.y, Math.cos(aa) * sp2, Math.sin(aa) * sp2, R(0.25, 0.6), col(['#ff6a3a', '#ffb04a', '#ffe84a'][(Math.random() * 3) | 0]), R(1.1, 2)) }
+      sfx('rgBoss')
+    } else if (pt.type === 'sprite') {
+      pt.heal -= dt
+      if (pt.heal <= 0) { pt.heal = 9; if (o.hp < o.max) { o.hp = Math.min(o.max, o.hp + 1); pt.act = 0.5; ring(o.x, o.y, 14, 24, [col('#ff9ae8')]); sfx('rgPerk') } else if (o.shield < 1) { o.shield = 1; pt.act = 0.5; ring(o.x, o.y, 14, 24, [col('#6ac8ff')]) } }
+    }
+  }
+}
+// ---------- skills 2 and 3 (traps, rain, blink, meteor, war cry, shield bash) ----------
+function tickWorld(dt) {
+  for (const t of RG.traps) {
+    t.l -= dt; t.tick -= dt
+    for (const e of RG.en) { if (e.dead || e.spawnT > 0) continue; if (Math.hypot(e.x - t.x, e.y - t.y) < t.r + e.def.r) { e.frozen = Math.max(e.frozen || 0, 0.5); if (t.tick <= 0) hitEnemy(e, t.dmg, false, 0, 0, 0, t.by) } }
+    if (t.tick <= 0) t.tick = 0.35
+  }
+  RG.traps = RG.traps.filter((t) => t.l > 0)
+  for (const r of RG.rains) {
+    r.l -= dt; r.tick -= dt
+    if (r.tick <= 0) { r.tick = 0.35; sfx('rgShot'); for (const e of RG.en) if (!e.dead && e.spawnT <= 0 && Math.hypot(e.x - r.x, e.y - r.y) < r.r + e.def.r) hitEnemy(e, r.dmg, false, 0, 0, 0, r.by); for (let i = 0; i < 6; i++) part(r.x + R(-r.r, r.r), r.y + R(-r.r, r.r), 0, R(-10, 10), 0.3, col('#6aff9a'), 1.2) }
+  }
+  RG.rains = RG.rains.filter((r) => r.l > 0)
+  for (const m of RG.meteors) {
+    m.l -= dt
+    if (m.l <= 0 && !m.done) { m.done = true; shake(1.6); flash(0.3, [1, 0.6, 0.3]); sfx('tdBoom'); ring(m.x, m.y, 40, 60, [col('#ff9a3a')]); for (let i = 0; i < 40; i++) part(m.x, m.y, R(-50, 50), R(-50, 50), R(0.3, 0.9), col(['#ff6a3a', '#ffb04a', '#ffe84a'][(Math.random() * 3) | 0]), R(1.2, 2.4)); for (const e of RG.en) if (!e.dead && e.spawnT <= 0 && Math.hypot(e.x - m.x, e.y - m.y) < m.r + e.def.r) hitEnemy(e, m.dmg, false, 60, (e.x - m.x) / 8, (e.y - m.y) / 8, m.by) }
+  }
+  RG.meteors = RG.meteors.filter((m) => !m.done)
+}
 function hitEnemy(e, d, crit, kb = 0, ax = 0, ay = 0, by = null) {
   if (e.dead || e.spawnT > 0) return
   e.hp -= d; e.flash = 0.1; e.by = by || e.by
@@ -161,13 +258,17 @@ function killEnemy(e) {
   if (Math.random() < 0.07 || e.def.boss) RG.loot.push({ k: 'heart', x: e.x, y: e.y, vx: 0, vy: 0, v: 1 })
   const by = e.by
   if (by && by.alive && by.vamp && Math.random() < by.vamp) { by.hp = Math.min(by.max, by.hp + 1) }
+  const xp = xpFor(e)
+  for (const q of RG.players) { gainXp(q, q === by ? xp : Math.round(xp * 0.6)); if (q.alive && q.race === 3 && q === by) { q.killHeal++; if (q.killHeal >= 6) { q.killHeal = 0; q.hp = Math.min(q.max, q.hp + 1); part(q.x, q.y, 0, 14, 0.6, col('#6aff9a'), 1.6) } } }
 }
 function hurtPlayer(p, d) {
   if (!p.alive || p.inv > 0 || p.dash > 0 || RG.mode !== 'play') return
   if (p.shield > 0) { p.shield--; p.inv = 0.6; sfx('deflect'); ring(p.x, p.y, 16, 30, [col('#6ac8ff')]); return }
+  if (p.armor && Math.random() < p.armor) { p.inv = 0.5; sfx('deflect'); for (let i = 0; i < 6; i++) part(p.x, p.y, R(-20, 20), R(-20, 20), 0.3, col('#cfd6e8'), 1.1); return }
   p.hp -= d; p.inv = 1.0; p.hurtT = 0.3
   if (p === lp()) { sfx('rgHurt'); shake(1); flash(0.2, [1, 0.2, 0.2]) }
   for (let i = 0; i < 10; i++) part(p.x, p.y, R(-30, 30), R(-30, 30), 0.4, col('#ff4a5a'), R(0.8, 1.4))
+  if (p.hp <= 0 && p.rise > 0) { p.rise--; p.hp = Math.max(1, Math.ceil(p.max / 2)); p.inv = 2; RG.msg = { text: 'THE UNDEAD RISE AGAIN', sub: '', color: '#6aff9a', t: 2 }; ring(p.x, p.y, 40, 50, [col('#6aff9a')]); sfx('rgBoss'); return }
   if (p.hp <= 0) {
     p.hp = 0; p.alive = false; sfx('rgBoss')
     ring(p.x, p.y, 30, 40, [col('#ff4a5a')])
@@ -180,26 +281,28 @@ function finish(win) {
   const rooms = RG.floor * 4 + RG.room + (win ? 1 : 0)
   const score = Math.round((RG.floor * 1500 + rooms * 150 + RG.kills * 10 + RG.gold * 2 + (win ? 4000 : 0)) * 1)
   const me = lp()
-  RG.over = { win, floor: RG.floor + 1, room: RG.room + 1, kills: RG.kills, gold: RG.gold, score, perks: me ? me.perks.length : 0, cls: CLASSES[me ? me.cls : 0].name, coop: RG.players.length > 1, epilogue: win ? TALE.win : '' }
+  RG.over = { win, floor: RG.floor + 1, room: RG.room + 1, kills: RG.kills, gold: RG.gold, score, perks: me ? me.perks.length : 0, cls: CLASSES[me ? me.cls : 0].name, coop: RG.players.length > 1, epilogue: win ? TALE.win : '', lv: me ? me.lv : 1, race: me ? RACES[me.race].name : '', pet: me ? PETS[me.pet].name : '' }
   profile.rogueRuns = (profile.rogueRuns || 0) + 1
   if (win) profile.rogueWins = (profile.rogueWins || 0) + 1
   profile.rogueKills = (profile.rogueKills || 0) + RG.kills
   profile.rogueDeep = Math.max(profile.rogueDeep || 0, rooms)
   recordScore('rogue', score); saveProfile()
+  { const now = unlockSnapshot(), old = RG.unlocked || now; RG.over.unlocks = [...RACES.filter((r) => now.races.includes(r.id) && !old.races.includes(r.id)).map((r) => r.ico + ' ' + r.name + ' (race)'), ...PETS.filter((r) => now.pets.includes(r.id) && !old.pets.includes(r.id)).map((r) => r.ico + ' ' + r.name + ' (pet)')] }
   sfx(win ? 'win' : 'over'); speak(win ? 'Dungeon conquered' : 'You died', 0.5, 1)
   emitR()
 }
 function ebullet(x, y, a, spd, dmg = 1, r = 0.9, c = '#ff8a5a') { RG.eb.push({ x, y, vx: Math.cos(a) * spd, vy: Math.sin(a) * spd, dmg, r, c, life: 6 }) }
 function playerAttack(p, dt) {
   const cl = CLASSES[p.cls]
-  p.atkT -= dt
+  p.atkT -= dt * (p.buff > 0 ? 1.35 : 1)
   if (p.atkT > 0) return
   const ne = nearestEnemy(p.x, p.y, cl.id === 'knight' ? 11 : 60)
-  if (!ne) return
-  let a = Math.atan2(ne.e.y - p.y, ne.e.x - p.x)
-  if (p.aimPt && G.time - p.aimT < 2) a = Math.atan2(p.aimPt.y - p.y, p.aimPt.x - p.x)
+  const manual = p.hold && p.aimPt
+  if (!ne && !manual) return
+  let a = ne ? Math.atan2(ne.e.y - p.y, ne.e.x - p.x) : 0
+  if (p.aimPt && (manual || G.time - p.aimT < 2)) a = Math.atan2(p.aimPt.y - p.y, p.aimPt.x - p.x)
   p.face = a; p.atkT = p.rate
-  const crit = Math.random() < p.crit, d = p.dmg * (crit ? 2.2 : 1)
+  const crit = Math.random() < p.crit, d = p.dmg * (crit ? 2.2 : 1) * (p.buff > 0 ? 1.5 : 1)
   if (cl.id === 'knight') {
     const arc = 1.3 + (p.multi - 1) * 0.45, reach = 8 + (p.multi - 1) * 0.8
     p.swing = { a, arc, reach, t: 0.2, max: 0.2 }
@@ -221,15 +324,34 @@ function playerAttack(p, dt) {
     sfx(cl.id === 'ranger' ? 'rgShot' : 'rgMagic')
   }
 }
-function special(p) {
-  const cl = CLASSES[p.cls]
-  if (RG.mode !== 'play' || p.spT > 0 || !p.alive) return
-  p.spT = p.spCd
-  if (cl.id === 'knight') { RG.fx.push({ k: 'whirl', l: 0.5, p }); for (const e of RG.en) if (!e.dead && Math.hypot(e.x - p.x, e.y - p.y) < 13) hitEnemy(e, p.dmg * 3, false, 90, (e.x - p.x) / 5, (e.y - p.y) / 5, p); p.inv = Math.max(p.inv, 0.5); shake(0.8); sfx('rgBoss') }
-  else if (cl.id === 'ranger') { for (let i = 0; i < 18; i++) { const a = (i / 18) * Math.PI * 2; RG.pb.push({ x: p.x, y: p.y, vx: Math.cos(a) * 85, vy: Math.sin(a) * 85, dmg: p.dmg * 1.6, pierce: 3, life: 1.2, c: cl.color, hit: new Set(), by: p }) } sfx('rgShot') }
-  else { RG.fx.push({ k: 'nova', l: 0.6, p }); for (const e of RG.en) if (!e.dead && Math.hypot(e.x - p.x, e.y - p.y) < 20) { hitEnemy(e, p.dmg * 2, false, 0, 0, 0, p); e.frozen = 2.5 } RG.eb = RG.eb.filter((b) => Math.hypot(b.x - p.x, b.y - p.y) > 20); shake(0.6); sfx('tdIce') }
+function skill(p, slot = 0) {
+  const cl = CLASSES[p.cls], sk = SKILLS[cl.id][slot]
+  if (RG.mode !== 'play' || !p.alive || !sk || p.lv < sk.lv) return
+  const key = slot === 0 ? 'spT' : slot === 1 ? 'sT2' : 'sT3'
+  if (p[key] > 0) return
+  const cdm = p.spCd / 9
+  const aimAt = () => { if (p.aimPt && G.time - p.aimT < 2.5) return p.aimPt; const ne = nearestEnemy(p.x, p.y, 40); return ne ? { x: ne.e.x, y: ne.e.y } : { x: p.x + Math.cos(p.face) * 14, y: p.y + Math.sin(p.face) * 14 } }
+  if (slot === 0) {
+    p.spT = sk.cd * cdm
+    if (cl.id === 'knight') { RG.fx.push({ k: 'whirl', l: 0.5, p }); for (const e of RG.en) if (!e.dead && Math.hypot(e.x - p.x, e.y - p.y) < 13) hitEnemy(e, p.dmg * 3, false, 90, (e.x - p.x) / 5, (e.y - p.y) / 5, p); p.inv = Math.max(p.inv, 0.5); shake(0.8); sfx('rgBoss') }
+    else if (cl.id === 'ranger') { for (let i = 0; i < 18; i++) { const a = (i / 18) * Math.PI * 2; RG.pb.push({ x: p.x, y: p.y, vx: Math.cos(a) * 85, vy: Math.sin(a) * 85, dmg: p.dmg * 1.6, pierce: 3, life: 1.2, c: cl.color, hit: new Set(), by: p }) } sfx('rgShot') }
+    else { RG.fx.push({ k: 'nova', l: 0.6, p }); for (const e of RG.en) if (!e.dead && Math.hypot(e.x - p.x, e.y - p.y) < 20) { hitEnemy(e, p.dmg * 2, false, 0, 0, 0, p); e.frozen = 2.5 } RG.eb = RG.eb.filter((b) => Math.hypot(b.x - p.x, b.y - p.y) > 20); shake(0.6); sfx('tdIce') }
+  } else if (slot === 1) {
+    p[key] = sk.cd * cdm
+    if (cl.id === 'knight') { const t = aimAt(); const a = Math.atan2(t.y - p.y, t.x - p.x); p.dx = Math.cos(a); p.dy = Math.sin(a); p.dash = 0.22; p.bash = 0.3; p.inv = Math.max(p.inv, 0.4); p.face = a; sfx('rgBoss'); RG.fx.push({ k: 'whirl', l: 0.3, p }) }
+    else if (cl.id === 'ranger') { RG.traps.push({ x: p.x, y: p.y, r: 5, l: 12, tick: 0.2, dmg: p.dmg * 1.4, by: p }); sfx('tdBuild') }
+    else { const t = aimAt(), d = Math.hypot(t.x - p.x, t.y - p.y), k = Math.min(1, 24 / (d || 1)); let nx = p.x + (t.x - p.x) * k, ny = p.y + (t.y - p.y) * k; if (!walkable(nx, ny, 1.4)) { nx = p.x; ny = p.y }
+      for (const q of [[p.x, p.y], [nx, ny]]) { ring(q[0], q[1], 24, 40, [col('#c58aff')]); for (const e of RG.en) if (!e.dead && e.spawnT <= 0 && Math.hypot(e.x - q[0], e.y - q[1]) < 8 + e.def.r) hitEnemy(e, p.dmg * 1.8, false, 40, (e.x - q[0]) / 6, (e.y - q[1]) / 6, p) }
+      p.x = nx; p.y = ny; p.inv = Math.max(p.inv, 0.5); sfx('tdZap') }
+  } else {
+    p[key] = sk.cd * cdm
+    if (cl.id === 'knight') { p.buff = 7; p.hp = Math.min(p.max, p.hp + 1); for (const q of RG.players) if (q.alive && Math.hypot(q.x - p.x, q.y - p.y) < 22) { q.buff = 7 } ring(p.x, p.y, 40, 40, [col('#ffd23a')]); shake(0.6); sfx('rgBoss') }
+    else if (cl.id === 'ranger') { const t = aimAt(); RG.rains.push({ x: t.x, y: t.y, r: 10, l: 3.2, tick: 0.3, dmg: p.dmg * 1.1, by: p }); sfx('rgShot') }
+    else { const t = aimAt(); RG.meteors.push({ x: t.x, y: t.y, r: 9, l: 1.1, dmg: p.dmg * 6, by: p }); sfx('rgBoss') }
+  }
   ring(p.x, p.y, 30, 50, [col(cl.color)])
 }
+const special = (p) => skill(p, 0)
 function dash(p) {
   if (RG.mode !== 'play' || p.dashT > 0 || !p.alive) return
   let dx = p.mx || 0, dy = p.my || 0
@@ -248,7 +370,20 @@ function enemyAI(e, dt) {
   let vx = 0, vy = 0
   if (d.boss) return boss(e, dt, dx, dy, dist, slow, p)
   if (e.type === 'slime') { vx = dx / dist; vy = dy / dist; const hop = 0.5 + 0.5 * Math.sin(e.t * 4); vx *= hop * 1.6; vy *= hop * 1.6 }
+  else if (e.type === 'wolf') {
+    // pack hunter: circles, then lunges
+    e.cd -= dt
+    if (e.charge > 0) { e.charge -= dt; vx = e.cdx * 3.4; vy = e.cdy * 3.4 }
+    else if (dist < 14 && e.cd <= 0) { e.charge = 0.35; e.cd = R(1.6, 2.6); e.cdx = dx / dist; e.cdy = dy / dist; sfx('rgSwing') }
+    else { const w = Math.sin(e.t * 3 + e.seed) * 0.8; vx = dx / dist + (-dy / dist) * w * 0.6; vy = dy / dist + (dx / dist) * w * 0.6 }
+  }
   else if (e.type === 'bat') { const w = Math.sin(e.t * 6 + e.seed) * 0.9; vx = dx / dist + (-dy / dist) * w; vy = dy / dist + (dx / dist) * w }
+  else if (e.type === 'skeleton') {
+    if (dist > 12) { vx = dx / dist; vy = dy / dist } else if (dist < 7) { vx = -dx / dist * 0.5; vy = -dy / dist * 0.5 }
+    e.shoot -= dt
+    if (e.shoot <= 0) { e.shoot = d.shoot * R(0.8, 1.2); e.cast = 0.3; ebullet(e.x, e.y, Math.atan2(dy, dx), 24, 1, 1.1, '#f0f0d8'); sfx('tdShot') }
+    e.cast = Math.max(0, (e.cast || 0) - dt)
+  }
   else if (e.type === 'archer' || e.type === 'caster') {
     const want = e.type === 'archer' ? 22 : 26
     if (dist < want - 4) { vx = -dx / dist; vy = -dy / dist } else if (dist > want + 6) { vx = dx / dist; vy = dy / dist } else { vx = -dy / dist * e.dir; vy = dx / dist * e.dir }
@@ -317,21 +452,25 @@ function update(dtRaw) {
     let my = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0) + RG.stick[1]
     const ml = Math.hypot(mx, my); if (ml > 1) { mx /= ml; my /= ml }
     me.inp.mx = mx; me.inp.my = my
-    if (keys.KeyQ || keys.KeyK) special(me)
+    if (keys.KeyQ || keys.KeyK) skill(me, 0)
+    if (keys.KeyE) skill(me, 1)
+    if (keys.KeyR) skill(me, 2)
   }
   for (const p of RG.players) {
-    p.inv = Math.max(0, p.inv - dt); p.dashT = Math.max(0, p.dashT - dt); p.spT = Math.max(0, p.spT - dt); p.hurtT = Math.max(0, p.hurtT - dt)
+    p.inv = Math.max(0, p.inv - dt); p.dashT = Math.max(0, p.dashT - dt); p.spT = Math.max(0, p.spT - dt); p.sT2 = Math.max(0, p.sT2 - dt); p.sT3 = Math.max(0, p.sT3 - dt); p.hurtT = Math.max(0, p.hurtT - dt); p.buff = Math.max(0, p.buff - dt); p.lvT = Math.max(0, p.lvT - dt); p.bash = Math.max(0, (p.bash || 0) - dt)
     if (p.swing) { p.swing.t -= dt; if (p.swing.t <= 0) p.swing = null }
     if (!p.alive) continue
-    if (p.remote) { if (p.dashN !== p.seenDash) { p.seenDash = p.dashN; dash(p) } if (p.spN !== p.seenSp) { p.seenSp = p.spN; special(p) } }
+    if (p.remote) { if (p.dashN !== p.seenDash) { p.seenDash = p.dashN; dash(p) } for (let k = 0; k < 3; k++) if (p.sn[k] !== p.seenSn[k]) { p.seenSn[k] = p.sn[k]; skill(p, k) } }
     const mx = p.inp.mx, my = p.inp.my
     p.mx = mx; p.my = my
     const ox = p.x, oy = p.y
-    if (p.dash > 0) { p.dash -= dt; move(p, p.dx * 95 * dt, p.dy * 95 * dt, 1.4); part(p.x, p.y, 0, 0, 0.25, col(CLASSES[p.cls].color), 1.2) }
+    if (p.dash > 0) { p.dash -= dt; move(p, p.dx * 95 * dt, p.dy * 95 * dt, 1.4); part(p.x, p.y, 0, 0, 0.25, col(CLASSES[p.cls].color), 1.2); if (p.bash > 0) { for (const e of RG.en) if (!e.dead && e.spawnT <= 0 && Math.hypot(e.x - p.x, e.y - p.y) < 3.6 + e.def.r && !(e.bashed === p.dash)) { e.bashed = p.dash; hitEnemy(e, p.dmg * 2.2, false, 70, p.dx, p.dy, p); e.frozen = 1.2 } } }
     else { move(p, mx * p.spd * dt, my * p.spd * dt, 1.4); if (mx || my) p.face = Math.atan2(my, mx) }
     p.walk += Math.hypot(p.x - ox, p.y - oy) * 0.5
     playerAttack(p, dt)
   }
+  tickWorld(dt); stepPets(dt)
+  for (const q of RG.players) if (q.glow && q.alive) for (const o of RG.players) if (o !== q && o.alive && o.hp < o.max && Math.hypot(o.x - q.x, o.y - q.y) < 12) { o.regen = (o.regen || 0) + dt; if (o.regen > 14) { o.regen = 0; o.hp++ } }
   // spawn queue
   const n = RG.players.length
   for (const s of RG.spawnQ) s.t -= dt
@@ -408,7 +547,7 @@ function ambience(dt) {
 function offerPerks() {
   for (const p of RG.players) {
     const pool = PERKS.filter((x) => !(x.id === 'shield' && p.aegis)).sort(() => Math.random() - 0.5)
-    p.choices = pool.slice(0, 3)
+    p.choices = pool.slice(0, p.perkN || 3)
   }
   sfx('rgPerk'); emitR()
 }
@@ -429,7 +568,9 @@ function onKey(code) {
   if (me && me.choices) { const n = ['Digit1', 'Digit2', 'Digit3'].indexOf(code); if (n >= 0) rogueActions.pick(n); return }
   if (RG.mode === 'over') { if (code === 'Enter') rogueActions.rematch(); return }
   if (code === 'Space' || code === 'ShiftLeft' || code === 'ShiftRight') rogueActions.dash()
-  else if (code === 'KeyQ' || code === 'KeyK') rogueActions.special()
+  else if (code === 'KeyQ' || code === 'KeyK') rogueActions.special(0)
+  else if (code === 'KeyE') rogueActions.special(1)
+  else if (code === 'KeyR') rogueActions.special(2)
 }
 export const rogueActions = {
   start, stop, quit() { toMenu() },
@@ -441,7 +582,8 @@ export const rogueActions = {
     pickPerk(RG.me, i)
   },
   dash() { const p = lp(); if (!p) return; if (RG.net && RG.net.role === 'guest') { p.dashN++; return } dash(p) },
-  special() { const p = lp(); if (!p) return; if (RG.net && RG.net.role === 'guest') { p.spN++; return } special(p) },
+  special(slot = 0) { const p = lp(); if (!p) return; if (RG.net && RG.net.role === 'guest') { p.sn[slot]++; return } skill(p, slot) },
+  hold(on) { const p = lp(); if (p) p.hold = !!on },
   nextTale() { const t = RG.tale; if (!t) return; sfx('wdKey'); if (t.i < t.lines.length - 1) t.i++; else RG.tale = null; emitR() },
   skipTale() { RG.tale = null; emitR() },
   stick(x, y) { RG.stick = [x, y] },
@@ -462,14 +604,15 @@ export const rogueNet = {
     let p = RG.players.find((x) => x.pid === pid)
     if (!p) {
       if (RG.players.length >= 3) return
-      p = mkPlayer(m.cls, String(m.name || 'FRIEND').slice(0, 10), true); p.pid = pid
+      p = mkPlayer(m.cls, String(m.name || 'FRIEND').slice(0, 10), true, m.race, m.pet); p.pid = pid; RG.pets.push(mkPet(p))
       p.x = -AX + 6; p.y = RG.players.length * 7 - 7
       RG.players.push(p); RG.msg = { text: p.name + ' JOINED', sub: '', color: '#6aff9a', t: 1.6 }
       if (RG.open) p.choices = null
     }
     p.inp.mx = clamp(+m.mx || 0, -1, 1); p.inp.my = clamp(+m.my || 0, -1, 1)
     if (typeof m.dn === 'number') p.dashN = m.dn
-    if (typeof m.sn === 'number') p.spN = m.sn
+    if (Array.isArray(m.sn)) p.sn = m.sn.map((v) => v | 0)
+    p.hold = !!m.hd
     if (m.ax !== undefined) { p.aimPt = { x: +m.ax, y: +m.ay }; p.aimT = G.time } else p.aimPt = null
     p.guestPos = m.x !== undefined ? [m.x, m.y] : null
     if (p.guestPos && p.alive && !p.dash && Math.hypot(p.guestPos[0] - p.x, p.guestPos[1] - p.y) < 4 && walkable(p.guestPos[0], p.guestPos[1], 1.4)) { p.x += (p.guestPos[0] - p.x) * 0.5; p.y += (p.guestPos[1] - p.y) * 0.5 }
@@ -478,7 +621,7 @@ export const rogueNet = {
   playerLeft(pid) {
     const k = RG.players.findIndex((x) => x.pid === pid)
     if (k <= 0) return
-    const p = RG.players[k]; RG.players.splice(k, 1)
+    const p = RG.players[k]; RG.players.splice(k, 1); RG.pets = RG.pets.filter((t) => t.owner !== p)
     RG.msg = { text: p.name + ' LEFT', sub: '', color: '#ff8a96', t: 1.6 }
     if (!alive().length && RG.mode === 'play') finish(false)
     emitR()
@@ -506,10 +649,14 @@ export const rogueNet = {
       if (mineNow && q[2] < p.hp) { sfx('rgHurt'); shake(1); flash(0.2, [1, 0.2, 0.2]); p.hurtT = 0.3 }
       p.hp = q[2]; p.max = q[3]; p.face = q[4]; p.cls = q[5]; p.inv = q[6]; p.dash = q[7]; p.alive = !!q[9]; p.shield = q[10]; p.name = q[11]; p.dashT = q[12]; p.spT = q[13]; p.dashCd = q[14]; p.spCd = q[15]
       p.swing = q[16] ? { a: q[16][0], arc: q[16][1], reach: q[16][2], t: q[16][3], max: 0.2 } : null
-      p.mx = q[17]; p.my = q[18]
+      p.mx = q[17]; p.my = q[18]; p.race = q[19] | 0; p.lv = q[20] | 1; p.xp = q[21] | 0; p.buff = q[22] ? 1 : 0; p.pet = q[23] | 0; p.sT2 = q[24] || 0; p.sT3 = q[25] || 0
       if (!mineNow) { p.walk += 0.5 * Math.hypot(q[17], q[18]) * 0.05 }
       p.hasState = true
     })
+    // pets, traps, rain and meteors (visuals only; the host does the damage)
+    const oldPets = RG.pets
+    RG.pets = (s.pt || []).map((q, i) => { const o = oldPets[i], owner = RG.players[q[0]]; const t = o && o.type === q[1] ? o : { type: q[1], x: q[2], y: q[3], t: Math.random() * 6, act: 0 }; if (q[5] && !(t.act > 0)) { t.act = q[1] === 'dragon' ? 0.6 : 0.25; if (q[1] === 'dragon') for (let k = 0; k < 20; k++) { const aa = q[4] + R(-0.45, 0.45), sp2 = R(20, 46); part(t.x, t.y, Math.cos(aa) * sp2, Math.sin(aa) * sp2, R(0.25, 0.6), col(['#ff6a3a', '#ffb04a', '#ffe84a'][(Math.random() * 3) | 0]), R(1.1, 2)) } } t.owner = owner; t.tx = q[2]; t.ty = q[3]; t.face = q[4]; return t })
+    RG.traps = (s.tr || []).map((t) => ({ x: t[0], y: t[1], r: t[2], l: t[3] })); RG.rains = (s.rn || []).map((t) => ({ x: t[0], y: t[1], r: t[2], l: t[3] })); RG.meteors = (s.mt || []).map((t) => ({ x: t[0], y: t[1], r: t[2], l: t[3] }))
     // enemies (match by id, lerp positions)
     const old = new Map(RG.en.map((e) => [e.id, e]))
     const next = []
@@ -553,7 +700,9 @@ function netTick(dt) {
   void mk
   const common = {
     n: ++nSeq, rk: RG.rk, fl: RG.floor, ro: RG.room, fs: RG.floors, ob: RG.obst.map((o) => [r1(o.x), r1(o.y), o.w, o.h, o.s]),
-    pl: RG.players.map((p) => [r1(p.x), r1(p.y), p.hp, p.max, Math.round(p.face * 100) / 100, p.cls, p.inv > 0 ? 1 : 0, p.dash > 0 ? 1 : 0, 0, p.alive ? 1 : 0, p.shield, p.name, Math.max(0, p.dashT), Math.max(0, p.spT), p.dashCd, p.spCd, p.swing ? [Math.round(p.swing.a * 100) / 100, p.swing.arc, p.swing.reach, p.swing.t] : 0, r1(p.mx), r1(p.my)]),
+    pl: RG.players.map((p) => [r1(p.x), r1(p.y), p.hp, p.max, Math.round(p.face * 100) / 100, p.cls, p.inv > 0 ? 1 : 0, p.dash > 0 ? 1 : 0, 0, p.alive ? 1 : 0, p.shield, p.name, Math.max(0, p.dashT), Math.max(0, p.spT), p.dashCd, p.spCd, p.swing ? [Math.round(p.swing.a * 100) / 100, p.swing.arc, p.swing.reach, p.swing.t] : 0, r1(p.mx), r1(p.my), p.race, p.lv, Math.round(p.xp), p.buff > 0 ? 1 : 0, p.pet, Math.max(0, p.sT2), Math.max(0, p.sT3)]),
+    pt: RG.pets.map((t) => [RG.players.indexOf(t.owner), t.type, r1(t.x), r1(t.y), Math.round(t.face * 100) / 100, t.act > 0 ? 1 : 0]),
+    tr: RG.traps.map((t) => [r1(t.x), r1(t.y), t.r, Math.round(t.l * 10) / 10]), rn: RG.rains.map((t) => [r1(t.x), r1(t.y), t.r, Math.round(t.l * 10) / 10]), mt: RG.meteors.map((t) => [r1(t.x), r1(t.y), t.r, Math.round(t.l * 100) / 100]),
     en: RG.en.map((e) => [e.id, e.type, r1(e.x), r1(e.y), Math.round((Math.max(0, e.hp) / e.max) * 1000) / 1000, Math.round((e.fa || 0) * 100) / 100, e.frozen > 0 ? 1 : 0, e.spawnT > 0 ? Math.round(e.spawnT * 100) / 100 : 0, e.wind > 0 ? 1 : 0, e.charge > 0 ? 1 : 0, e.cast > 0 ? 1 : 0, e.flash > 0 ? 1 : 0]),
     pb: RG.pb.map((b) => [r1(b.x), r1(b.y), r1(b.vx), r1(b.vy), b.big ? 1 : 0, b.c]),
     eb: RG.eb.map((b) => [r1(b.x), r1(b.y), r1(b.vx), r1(b.vy), b.r, b.c]),
@@ -580,10 +729,12 @@ function guestStep(dt) {
     move(p, nx * p.spd * dt, ny * p.spd * dt, 1.4)
     if (nx || ny) p.face = Math.atan2(ny, nx)
     p.walk += Math.hypot(p.x - ox, p.y - oy) * 0.5
-    if (keys.KeyQ || keys.KeyK) { if (!RG.spLatch) { p.spN++; RG.spLatch = true } } else RG.spLatch = false
+    RG.skLatch = RG.skLatch || [false, false, false]
+    ;[[keys.KeyQ || keys.KeyK, 0], [keys.KeyE, 1], [keys.KeyR, 2]].forEach(([on, k]) => { if (on) { if (!RG.skLatch[k]) { p.sn[k]++; RG.skLatch[k] = true } } else RG.skLatch[k] = false })
   }
-  p.dashT = Math.max(0, p.dashT - dt); p.spT = Math.max(0, p.spT - dt); p.hurtT = Math.max(0, p.hurtT - dt)
+  p.dashT = Math.max(0, p.dashT - dt); p.spT = Math.max(0, p.spT - dt); p.sT2 = Math.max(0, p.sT2 - dt); p.sT3 = Math.max(0, p.sT3 - dt); p.hurtT = Math.max(0, p.hurtT - dt)
   for (const q of RG.players) { if (q !== p && q.tx !== undefined) { const ox = q.x, oy = q.y; q.x += (q.tx - q.x) * k; q.y += (q.ty - q.y) * k; q.walk += Math.hypot(q.x - ox, q.y - oy) * 0.5 } if (q.swing) q.swing.t -= dt }
+  for (const t of RG.pets) { t.t += dt; t.act = Math.max(0, (t.act || 0) - dt); if (t.tx !== undefined) { t.x += (t.tx - t.x) * k; t.y += (t.ty - t.y) * k } }
   for (const e of RG.en) { e.t += dt; if (e.tx !== undefined) { e.x += (e.tx - e.x) * k; e.y += (e.ty - e.y) * k } }
   for (const b of RG.pb) { b.x += b.vx * dt; b.y += b.vy * dt }
   for (const b of RG.eb) { b.x += b.vx * dt; b.y += b.vy * dt }
@@ -593,15 +744,15 @@ function guestStep(dt) {
   if (inT <= 0 && RG.net) {
     inT = RG.net.fast && RG.net.fast() ? 0.05 : 0.1
     const aim = p && p.aimPt && G.time - p.aimT < 2 ? p.aimPt : null
-    RG.net.input({ mx: r1(p ? p.mx : 0), my: r1(p ? p.my : 0), dn: p ? p.dashN : 0, sn: p ? p.spN : 0, cls: RG.myCls | 0, name: profile.name || 'FRIEND', ax: aim ? r1(aim.x) : undefined, ay: aim ? r1(aim.y) : undefined, x: p ? r1(p.x) : undefined, y: p ? r1(p.y) : undefined })
+    RG.net.input({ mx: r1(p ? p.mx : 0), my: r1(p ? p.my : 0), dn: p ? p.dashN : 0, sn: p ? p.sn : [0, 0, 0], hd: p && p.hold ? 1 : 0, race: RG.myRace | 0, pet: RG.myPet | 0, cls: RG.myCls | 0, name: profile.name || 'FRIEND', ax: aim ? r1(aim.x) : undefined, ay: aim ? r1(aim.y) : undefined, x: p ? r1(p.x) : undefined, y: p ? r1(p.y) : undefined })
   }
   RG.emitT -= dt
   if (RG.emitT <= 0) { RG.emitT = 0.1; emitR() }
 }
 // the guest joins the host's game as a fresh hero of the chosen class (the host creates it when the first input arrives)
-export function joinAsGuest(cls) {
-  RG.myCls = cls | 0
-  RG.players = [mkPlayer(cls, 'YOU', false)]; RG.me = 0; RG.p = RG.players[0]
+export function joinAsGuest(cls, race = 0, pet = 0) {
+  RG.myCls = cls | 0; RG.myRace = race | 0; RG.myPet = pet | 0
+  RG.players = [mkPlayer(cls, 'YOU', false, race, pet)]; RG.pets = []; RG.traps = []; RG.rains = []; RG.meteors = []; RG.me = 0; RG.p = RG.players[0]
   RG.floor = 0; RG.room = 0; RG.gold = 0; RG.kills = 0; RG.over = null; RG.paused = false; RG.t = 0; RG.fx = []; RG.rk = -1; RG.en = []; RG.eb = []; RG.pb = []; RG.loot = []; RG.obst = []; RG.open = false
   G.mode = 'rogue'; engineEmit(); G.parts = []; G.pops = []
   RG.mode = 'play'; music.set('slugboss', 0); sfx('mission'); emitR()
