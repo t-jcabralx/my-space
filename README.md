@@ -44,7 +44,7 @@ Without these the games still work; the global leaderboard just shows empty.
 ## Also in the box
 
 - **🔥 FLAMES**: type two names, watch the shared letters get crossed out, count the rest and eliminate F-L-A-M-E-S letters until one remains: Friends, Lovers, Affection, Marriage, Enemies, Siblings. Every result has its own animated voxel scene (high-five and rainbow, kiss and hearts, bouquet, wedding bells and rings, a proper punch-up, piggyback and noogie).
-- **Space Impact squad**: fly with up to **2 teammates (3 spacecraft)**. Teammates are AI wingmen that follow, dodge, shoot and respawn; switch a teammate to **P2 HUMAN** on the Space Impact card (WASD + Space for P1, arrows + Enter for P2). Choose SOLO / DUO / TRIO. **Invite friends** to fly the teammate ships from another computer (🌐 Online tab or the INVITE FRIEND button on the Space Impact card): the host runs the missions, bosses and shop, friends see the same world and share the score and lives. It works best over the direct WebRTC link (⚡).
+- **Space Impact squad**: fly with up to **2 teammates (3 spacecraft)**. Teammates are **people first**: friends who join online, or a second player on the same keyboard (**P2**: WASD + Space for P1, arrows + Enter for P2). Optionally turn on **AI fills empty slots** for wingmen that follow, dodge, shoot and respawn. Choose SOLO / DUO / TRIO on the Space Impact card; by default you fly alone until friends join. **Invite friends** to fly the teammate ships from another computer (🌐 Online tab or the INVITE FRIEND button on the Space Impact card): the host runs the missions, bosses and shop, friends see the same world and share the score and lives. It works best over the direct WebRTC link (⚡).
 
 ## Online multiplayer (no extra server)
 

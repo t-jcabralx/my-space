@@ -17,7 +17,7 @@ const PUP_WEIGHTS = { P: 22, S: 14, R: 14, W: 12, L: 9, M: 9, H: 10, B: 8, U: 2,
 export const keys = {}
 const ARCADE = new Set(['slug', 'pickle', 'bomber', 'tetris', 'chomp', 'cards', 'flames'])
 export const games = {} // other game modes register themselves here (see slug.js)
-export const profile = { squad: 2, squadHuman: false, quests: null, awardsDone: {}, awardsInit: false, jackpot: 1000, chips: 1000, cardWins: 0, cardGames: 0, unoWins: 0, pusoyWins: 0, luckyNines: 0, tongitsWins: 0, chompDots: 0, chompGhosts: 0, chompGames: 0, chompLevels: 0, chompHi: 0, tetrisLines: 0, tetrises: 0, tspins: 0, tetrisGames: 0, tetrisWins: 0, sprints: 0, bomberGames: 0, bomberWins: 0, bomberKills: 0, bricks: 0, seen: {}, name: '', pickleGames: 0, pickleWins: 0, aces: 0, ship: { model: 0, paint: 0, trail: 0, bullet: 0 }, kills: 0, bosses: 0, pows: 0, skills: 0, bonus: 0, spaceWins: 0, slugWins: 0, played: 0, spaceHi: 0, slugHi: 0, tops: { space: [], slug: [], pickle: [], bomber: [], tetris: [], chomp: [], uno: [], pusoy: [], lucky9: [], tongits: [] } }
+export const profile = { squad: 2, squadHuman: false, squadBots: false, quests: null, awardsDone: {}, awardsInit: false, jackpot: 1000, chips: 1000, cardWins: 0, cardGames: 0, unoWins: 0, pusoyWins: 0, luckyNines: 0, tongitsWins: 0, chompDots: 0, chompGhosts: 0, chompGames: 0, chompLevels: 0, chompHi: 0, tetrisLines: 0, tetrises: 0, tspins: 0, tetrisGames: 0, tetrisWins: 0, sprints: 0, bomberGames: 0, bomberWins: 0, bomberKills: 0, bricks: 0, seen: {}, name: '', pickleGames: 0, pickleWins: 0, aces: 0, ship: { model: 0, paint: 0, trail: 0, bullet: 0 }, kills: 0, bosses: 0, pows: 0, skills: 0, bonus: 0, spaceWins: 0, slugWins: 0, played: 0, spaceHi: 0, slugHi: 0, tops: { space: [], slug: [], pickle: [], bomber: [], tetris: [], chomp: [], uno: [], pusoy: [], lucky9: [], tongits: [] } }
 try { const sv = JSON.parse(localStorage.getItem('si_profile') || '{}'); Object.assign(profile, sv); profile.tops = { space: [], slug: [], pickle: [], bomber: [], tetris: [], chomp: [], uno: [], pusoy: [], lucky9: [], tongits: [], ...(sv.tops || {}) }; profile.ship = { model: 0, paint: 0, trail: 0, bullet: 0, ...(sv.ship || {}) }; profile.seen = { ...(sv.seen || {}) } } catch { /* ignore */ }
 export const saveProfile = () => { try { localStorage.setItem('si_profile', JSON.stringify(profile)) } catch { /* ignore */ } }
 export function recordScore(game, score) {
@@ -718,13 +718,17 @@ function stepPlayer(dt) {
 // ---------- squad: teammates that fly with you (up to 2, so 3 spacecraft in total) ----------
 const SLOTS = [[-3, 11], [-3, -11]]
 function newSquad() {
-  const rem = G.net && G.net.role === 'host' ? G.net.remotes || [] : []
-  const n = Math.max(rem.length, Math.min(2, profile.squad === undefined ? 2 : profile.squad))
+  // teammates are people first: invited friends, then a local P2; AI wingmen only fill the rest when the player opts in
+  const rem = (G.net && G.net.role === 'host' ? G.net.remotes || [] : []).filter(Boolean)
+  const slots = Math.max(rem.length, Math.min(2, profile.squad === undefined ? 2 : profile.squad))
   const m = profile.ship.model, nm = SHIP_DEFS.length
+  const kinds = rem.map((cid) => ({ remote: cid }))
+  if (profile.squadHuman && kinds.length < 2 && profile.squad > 0) kinds.push({ human: true })
+  while (profile.squadBots && kinds.length < slots) kinds.push({})
   const out = []
-  for (let i = 0; i < n; i++) {
-    out.push({ id: i, remote: rem[i] || null, in: { ix: 0, iy: 0, fire: false }, human: !rem[i] && i === 0 && !!profile.squadHuman, model: (m + 1 + i) % nm, paint: (profile.ship.paint + 2 + i * 2) % 6, x: -40, y: i ? -10 : 10, vx: 0, vy: 0, hw: 2, hh: 1.4, hp: 3, maxHp: 3, alive: true, respawn: 0, inv: 2, cd: R(0, 0.3), hitT: 0 })
-  }
+  kinds.slice(0, 2).forEach((k, i) => {
+    out.push({ id: i, remote: k.remote || null, in: { ix: 0, iy: 0, fire: false }, human: !!k.human, model: (m + 1 + i) % nm, paint: (profile.ship.paint + 2 + i * 2) % 6, x: -40, y: i ? -10 : 10, vx: 0, vy: 0, hw: 2, hh: 1.4, hp: 3, maxHp: 3, alive: true, respawn: 0, inv: 2, cd: R(0, 0.3), hitT: 0 })
+  })
   return out
 }
 function squadHitFx(m) { part(m.x, m.y, 0, 0, 0.2, COLS.fire[1], 1.4) }
@@ -1071,7 +1075,7 @@ export function startGame() {
   Object.assign(G, { score: 0, credits: 0, lives: 3, nextLife: 20000, wlKeep: 1, droneKeep: 0, up: { fire: 0, rate: 0, armor: 0, magnet: 0, drone: 0, laser: 0, bomb: 0, shield: 0 }, toasts: [], final: null })
   profile.played++; saveProfile(); sfx('ui'); startMission(0)
 }
-export function setSquad(n, human) { profile.squad = Math.max(0, Math.min(2, n | 0)); profile.squadHuman = !!human && profile.squad > 0; saveProfile(); sfx('ui'); emit() }
+export function setSquad(n, human, bots) { profile.squad = Math.max(0, Math.min(2, n | 0)); profile.squadHuman = !!human && profile.squad > 0; if (bots !== undefined) profile.squadBots = !!bots && profile.squad > 0; saveProfile(); sfx('ui'); emit() }
 export function startGameAt(i) {
   if (i > G.unlocked) { sfx('deny'); return }
   startGame(); if (i > 0) { G.credits = 300 * i; startMission(i) }
@@ -1206,7 +1210,7 @@ function buildSnap() {
     quests: (() => { const q = ensureQuests(); return { streak: q.streak, bonusClaimed: q.bonusClaimed, list: q.list.map((x) => ({ id: x.id, desc: x.desc, goal: x.goal, reward: x.reward, done: x.done, value: questProgress(x) })) } })(),
     seen: { ...profile.seen }, unlocked: G.unlocked, mode: G.mode, score: G.score, hi: G.hi, credits: G.credits, lives: G.lives,
     mission: G.mission, missionName: m.name, missionSub: m.sub, missions: MISSIONS.length, color: m.color,
-    hp: G.net && G.net.mine ? Math.max(0, G.net.mine.hp) : p ? Math.max(0, p.hp) : 0, maxHp: G.net && G.net.mine ? G.net.mine.maxHp : p ? p.maxHp : 3, squad: (G.squad || []).map((m) => ({ human: m.human, hp: Math.max(0, m.hp), max: m.maxHp, alive: m.alive, respawn: Math.ceil(m.respawn) })), net: G.net ? { role: G.net.role, me: G.net.me, wait: G.net.wait || '', hostMode: G.net.hostMode || '', mates: G.net.mates || [] } : null, squadSize: profile.squad === undefined ? 2 : profile.squad, squadHuman: !!profile.squadHuman,
+    hp: G.net && G.net.mine ? Math.max(0, G.net.mine.hp) : p ? Math.max(0, p.hp) : 0, maxHp: G.net && G.net.mine ? G.net.mine.maxHp : p ? p.maxHp : 3, squad: (G.squad || []).map((m) => ({ human: m.human, hp: Math.max(0, m.hp), max: m.maxHp, alive: m.alive, respawn: Math.ceil(m.respawn) })), net: G.net ? { role: G.net.role, me: G.net.me, wait: G.net.wait || '', hostMode: G.net.hostMode || '', mates: G.net.mates || [] } : null, squadSize: profile.squad === undefined ? 2 : profile.squad, squadHuman: !!profile.squadHuman, squadBots: !!profile.squadBots,
     skills: p ? Object.keys(SK).map((k) => ({ k, key: SK[k].key, name: SK[k].name, color: SK[k].color, lv: skillLv(k), cd: p.cd[k], max: p.cdMax[k], active: k === 'laser' ? !!G.lz : k === 'shield' ? p.skT > 0 : p.cd.bomb > p.cdMax.bomb - 0.6 })).concat([{ k: 'od', key: 'R', name: 'OVERDRIVE', color: '#ff4de1', lv: '', label: p.od > 0 ? `${Math.ceil(p.od)}s` : G.meter >= 100 ? 'READY' : Math.floor(G.meter) + '%', cd: p.od > 0 ? 0 : G.meter >= 100 ? 0 : 100 - G.meter, max: 100, active: p.od > 0 }]) : [],
     profile: { ...profile, tops: { space: profile.tops.space.slice(), slug: profile.tops.slug.slice(), pickle: (profile.tops.pickle || []).slice(), bomber: (profile.tops.bomber || []).slice(), tetris: (profile.tops.tetris || []).slice(), chomp: (profile.tops.chomp || []).slice(), uno: (profile.tops.uno || []).slice(), pusoy: (profile.tops.pusoy || []).slice(), lucky9: (profile.tops.lucky9 || []).slice(), tongits: (profile.tops.tongits || []).slice() } }, wl: p ? p.wl : 1,
     special: p ? p.special : 'normal', specialT: p ? p.specialT : 0, rapidT: p ? p.rapidT : 0, shieldT: p ? p.shieldT : 0,
