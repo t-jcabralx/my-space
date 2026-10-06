@@ -8,7 +8,7 @@ Three games in one Next.js app (React Three Fiber, WebAudio, no asset files):
 - **Tetra Blast** - full Tetris: SRS rotation + wall kicks, hold, ghost, T-spins, combos, back-to-back, perfect clears; Marathon, Sprint 40, Ultra, Zen, **1v1 vs bot**, **2P local versus** (garbage battles)
 - **Maze Chomp** - a Pac-Man-style maze chase: procedural mazes, 4 ghosts with classic personalities, power pellets, fruit, tunnel; classic, 2P co-op, play-as-a-ghost
 - **Card Room** - **UNO** (2-4 players, stacking, call-UNO/catch), **Pusoy Dos** (Filipino Big Two with all 5-card hands), **Lucky 9** (betting, naturals, suited/trips bonuses) and **Tong-its** (melds, sapaw, Draw challenge, burned players). Fully animated table: dealing, 3D flips, fanned hands, confetti. Chips persist between sessions
-- **Pickleball** - real rules (diagonal serve, two-bounce, kitchen, side-out scoring, win by 2); modes: vs Bot, 1v1 local, 2v2 + bot partner, 2v2 co-op, bots vs bots
+- **Pickleball** - real rules (diagonal serve, two-bounce, kitchen, rally scoring by default or classic side-out scoring, win by 2); modes: vs Bot, 1v1 local, 2v2 + bot partner, 2v2 co-op, bots vs bots
 
 Built-in **How to play** helper (opens automatically the first time you play each game), **Settings** (volume sliders, voice, screen shake, graphics) and **gamepad** support.
 

@@ -8,6 +8,7 @@ import { subscribeSlug, getSlugSnap, slugActions } from '../game/slug.js'
 import { subscribePickle, getPickleSnap, pickleActions, MODES } from '../game/pickle.js'
 import { subscribeBomber, getBomberSnap, bomberActions, MODES as BMODES } from '../game/bomber.js'
 import { subscribeTetris, getTetrisSnap, tetrisActions, MODES as TMODES, COLORS as TCOL, SHAPES as TSH } from '../game/tetris.js'
+import { pickleScoring } from '../game/pickle.js'
 import { subscribeChomp, getChompSnap, chompActions, MODES as CMODES } from '../game/chomp.js'
 import { subscribeFlames, getFlamesSnap, flamesActions, OUTCOMES as FOUT } from '../game/flames.js'
 import CardsHUD from './CardsUI.jsx'
@@ -114,7 +115,7 @@ const HELP = {
           <li><b>Serve</b> underhand and <b>diagonally</b> into the opposite service box (the green markers show where).</li>
           <li><b>Two-bounce rule:</b> the serve and the return must each bounce before anyone hits it out of the air.</li>
           <li><b>The kitchen</b> (the teal zone by the net): you cannot hit a ball out of the air while standing in it.</li>
-          <li>Only the <b>serving side scores</b>. Win a rally on the other side's serve and you get the serve (side-out). In doubles each side has two servers.</li>
+          <li><b>Rally scoring (default):</b> whoever wins the rally gets the point, and the winners take the serve. <b>Classic:</b> only the <b>serving side scores</b>; win a rally on the other side's serve and you only get the serve (side-out). Pick it in the lobby under SCORING.</li>
           <li>Faults: ball in the net, out of bounds, two-bounce or kitchen violations, bad serves.</li>
         </ul>
         <h5>TIPS</h5>
@@ -654,7 +655,7 @@ function Skills() {
         <h4>PICKLEBALL</h4>
         <p><kbd>WASD</kbd> MOVE · <kbd>F</kbd> DRIVE (smash when high) · <kbd>G</kbd> DINK · <kbd>H</kbd> LOB</p>
         <p>Hold a direction while hitting to aim. Player 2: <kbd>ARROWS</kbd> + <kbd>,</kbd> <kbd>.</kbd> <kbd>/</kbd></p>
-        <p>Rules: serve diagonally underhand · two-bounce rule · no volleys in the kitchen · only the server scores · first to 11, win by 2.</p>
+        <p>Rules: serve diagonally underhand · two-bounce rule · no volleys in the kitchen · every rally scores (or classic: only the server) · first to 11, win by 2.</p>
       </div>
       <div>
         <h4>OPERATION GROUND ZERO</h4>
@@ -679,6 +680,7 @@ function AudioNotice() {
 const MODE_ICON = { bot: ['🧍', '🤖'], local: ['🧍', '🧍'], duo: ['🧍🤖', '🤖🤖'], coop: ['🧍🧍', '🤖🤖'], demo: ['🤖🤖', '🤖🤖'] }
 function PickleLobby({ s, mode, setMode, diff, setDiff, target, setTarget }) {
   const p = s.profile
+  const [scoring, setScoring] = useState(pickleScoring.get())
   const m = MODES[mode]
   const CTRL = {
     bot: 'WASD / arrows move · F drive · G dink · H lob',
@@ -702,10 +704,11 @@ function PickleLobby({ s, mode, setMode, diff, setDiff, target, setTarget }) {
         <div className="lobbyopts">
           <div><h4>2 · BOT LEVEL</h4><div className="chips">{['EASY', 'MEDIUM', 'HARD'].map((d, i) => <button key={d} className={'chip ' + (diff === i + 1 ? 'sel' : '')} onClick={() => setDiff(i + 1)}>{d}</button>)}</div></div>
           <div><h4>3 · PLAY TO</h4><div className="chips">{[7, 11, 15].map((t) => <button key={t} className={'chip ' + (target === t ? 'sel' : '')} onClick={() => setTarget(t)}>{t} POINTS</button>)}</div></div>
+          <div><h4>4 · SCORING</h4><div className="chips">{[['rally', 'RALLY: EVERY RALLY SCORES'], ['side', 'CLASSIC: ONLY THE SERVER SCORES']].map(([k, l]) => <button key={k} className={'chip ' + (scoring === k ? 'sel' : '')} onClick={() => { setScoring(k); pickleScoring.set(k) }}>{l}</button>)}</div></div>
         </div>
         <div className="lobbyinfo"><b>{m.name}</b> · {m.desc}<br /><small>{CTRL[mode]}</small></div>
-        <button className="big" onClick={() => pickleActions.start(mode, diff, target)}>▶ START MATCH</button>
-        <small className="hint">Rules: serve diagonally underhand · ball must bounce once on each side before volleys · no volleys in the kitchen (teal zone) · only the server scores · win by 2.</small>
+        <button className="big" onClick={() => pickleActions.start(mode, diff, target, { scoring })}>▶ START MATCH</button>
+        <small className="hint">Rules: serve diagonally underhand · ball must bounce once on each side before volleys · no volleys in the kitchen (teal zone) · RALLY scoring: the winner of every rally gets the point and takes the serve · CLASSIC: only the server scores (side-out) · win by 2.</small>
       </div>
       <div className="lobbyR">
         <div className="panel"><h4>MY PICKLEBALL</h4><div className="kv"><span>WINS</span><b>{p.pickleWins || 0}</b><span>GAMES</span><b>{p.pickleGames || 0}</b><span>ACES</span><b>{p.aces || 0}</b></div></div>

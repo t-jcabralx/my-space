@@ -86,16 +86,17 @@ function placeForServe() {
   const a = P.score[st], b = P.score[rt]
   P.call = P.doubles ? `${a}-${b}-${P.serverNum}` : `${a}-${b}`
 }
-function start(type = 'bot', diff = 2, target = 11) {
+export const pickleScoring = { get: () => profile.pickleScoring || 'rally', set(v) { profile.pickleScoring = v === 'side' ? 'side' : 'rally'; saveProfile() } }
+function start(type = 'bot', diff = 2, target = 11, opts = {}) {
   if (type !== 'online') P.net = null
-  initState(type, diff, target)
+  initState(type, diff, target, opts.scoring || pickleScoring.get())
   G.mode = 'pickle'; G.parts = []; G.pops = []
   profile.pickleGames = (profile.pickleGames || 0) + (type === 'demo' ? 0 : 0)
   music.set('pickle', 0)
   placeForServe(); sfx('mission'); speak('Pickleball. Game on.'); emitP()
 }
-function initState(type, diff, target) {
-  P.cfg = { type, diff, target }
+function initState(type, diff, target, scoring = 'rally') {
+  P.cfg = { type, diff, target, scoring }
   P.pl = makePlayers(type)
   P.doubles = MODES[type].a > 1
   P.score = [0, 0]; P.serveTeam = 0; P.serverNum = P.doubles ? 2 : 1; P.firstIdx = [0, 0]; P.newTurn = true
@@ -109,9 +110,14 @@ function endRally(winner, reason) {
   const B = P.B
   B.live = false
   const serverWon = winner === P.serveTeam
+  const rally = P.cfg.scoring !== 'side' // rally scoring: whoever wins the rally gets the point
   const ace = serverWon && B.hitCount === 1 && reason === 'WINNER'
   const humanSide = P.pl.some((p) => p.human && p.team === winner)
-  if (serverWon) {
+  if (rally) {
+    P.score[winner]++
+    if (serverWon) teamOf(winner).forEach((p) => { p.lane = -p.lane })
+    else { P.serveTeam = winner; P.serverNum = 1; P.newTurn = true } // the winners take over the serve
+  } else if (serverWon) {
     P.score[winner]++
     teamOf(winner).forEach((p) => { p.lane = -p.lane })
   } else if (P.doubles && P.serverNum === 1) { P.serverNum = 2 }
@@ -124,7 +130,7 @@ function endRally(winner, reason) {
   else if (hi0 >= tgt - 1 && Math.abs(sa0 - sb0) >= 1) drama = ` · MATCH POINT ${sa0 > sb0 ? 'TEAM A' : 'TEAM B'}!`
   if (drama && !(hi0 >= tgt && Math.abs(sa0 - sb0) >= 2)) { sfx('crowd'); speak(drama.includes('DEUCE') ? 'Deuce!' : 'Match point!', 0.7, 1.1) }
   if (P.rally >= 10 && !P.over) sfx('crowd')
-  P.msg = { text: label, team: winner, sub: (serverWon ? 'POINT' : 'SIDE OUT') + drama + (P.rally >= 10 ? ` · ${P.rally}-SHOT RALLY!` : '') }
+  P.msg = { text: label, team: winner, sub: (rally ? (serverWon ? 'POINT' : 'POINT · SERVE CHANGES') : serverWon ? 'POINT' : 'SIDE OUT') + drama + (P.rally >= 10 ? ` · ${P.rally}-SHOT RALLY!` : '') }
   if (ace && humanSide) profile.aces = (profile.aces || 0) + 1
   P.phase = 'point'; P.pointT = 2.3
   sfx(reason === 'WINNER' || ace ? 'point' : 'fault')
@@ -469,7 +475,7 @@ function update(dtRaw) {
 export const pickleActions = {
   pause() { if (P.mode === 'play' && !P.paused && !P.net) { P.paused = true; emitP(); return true } return false },
   start, stop, quit() { toMenu() }, resume() { P.paused = false; emitP() },
-  rematch() { if (P.net) { P.net.rematch(); return } start(P.cfg.type, P.cfg.diff, P.cfg.target) },
+  rematch() { if (P.net) { P.net.rematch(); return } start(P.cfg.type, P.cfg.diff, P.cfg.target, { scoring: P.cfg.scoring }) },
 }
 
 // ---------- online (host simulates; the guest sends inputs and mirrors the state) ----------
