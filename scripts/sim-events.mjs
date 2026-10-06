@@ -34,9 +34,12 @@ const check = (n, c, i) => { if (!c) failures++; console.log(c ? 'PASS' : 'FAIL'
 // ---- Bomber: power-up rain ----
 {
   const { B, bomberActions } = await import('../src/game/bomber.js')
-  bomberActions.start('demo', 3, 1)
   let rain = 0, dropping = 0
-  for (let i = 0; i < 60 * 120 && B.mode === 'play'; i++) { update(1 / 60); if (B.msg && /RAIN/.test(B.msg.text)) rain++; if (B.items.some((it) => it.drop > 0)) dropping++ }
+  // a bots-only round can end before the rain timer fires, so allow a few attempts
+  for (let attempt = 0; attempt < 5 && !(rain > 0 && dropping > 0); attempt++) {
+    bomberActions.start('demo', 3, 1)
+    for (let i = 0; i < 60 * 120 && B.mode === 'play'; i++) { update(1 / 60); if (B.msg && /RAIN/.test(B.msg.text)) rain++; if (B.items.some((it) => it.drop > 0)) dropping++ }
+  }
   check('bomber: power-up rain fires', rain > 0 && dropping > 0, `msg frames ${rain} falling frames ${dropping}`)
 }
 // ---- Tetris: fever (hot combo) ----
