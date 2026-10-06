@@ -3,6 +3,7 @@ import { SP, PUP_COLORS, rgb, SHIP_DEFS, BULLET_SPR, TRAIL_COLS } from './sprite
 import { ENEMIES, MISSIONS, BOSSES, UPGRADES, BONUS_AFTER } from './levels.js'
 import { sfx, music, initAudio, speak } from './audio.js'
 import { submitScore } from './online.js'
+import { settings } from './settings.js'
 
 export const W = 100, H = 56, HW = 50, HH = 28
 const TAU = Math.PI * 2
@@ -13,9 +14,10 @@ const hit = (a, b) => Math.abs(a.x - b.x) < a.hw + b.hw && Math.abs(a.y - b.y) <
 const PUP_WEIGHTS = { P: 22, S: 14, R: 14, W: 12, L: 9, M: 9, H: 10, B: 8, U: 2, X: 6, G: 6, D: 8 }
 
 export const keys = {}
+const ARCADE = new Set(['slug', 'pickle', 'bomber'])
 export const games = {} // other game modes register themselves here (see slug.js)
-export const profile = { name: '', pickleGames: 0, pickleWins: 0, aces: 0, ship: { model: 0, paint: 0, trail: 0, bullet: 0 }, kills: 0, bosses: 0, pows: 0, skills: 0, bonus: 0, spaceWins: 0, slugWins: 0, played: 0, spaceHi: 0, slugHi: 0, tops: { space: [], slug: [], pickle: [] } }
-try { const sv = JSON.parse(localStorage.getItem('si_profile') || '{}'); Object.assign(profile, sv); profile.tops = { space: [], slug: [], pickle: [], ...(sv.tops || {}) }; profile.ship = { model: 0, paint: 0, trail: 0, bullet: 0, ...(sv.ship || {}) } } catch { /* ignore */ }
+export const profile = { bomberGames: 0, bomberWins: 0, bomberKills: 0, bricks: 0, seen: {}, name: '', pickleGames: 0, pickleWins: 0, aces: 0, ship: { model: 0, paint: 0, trail: 0, bullet: 0 }, kills: 0, bosses: 0, pows: 0, skills: 0, bonus: 0, spaceWins: 0, slugWins: 0, played: 0, spaceHi: 0, slugHi: 0, tops: { space: [], slug: [], pickle: [], bomber: [] } }
+try { const sv = JSON.parse(localStorage.getItem('si_profile') || '{}'); Object.assign(profile, sv); profile.tops = { space: [], slug: [], pickle: [], bomber: [], ...(sv.tops || {}) }; profile.ship = { model: 0, paint: 0, trail: 0, bullet: 0, ...(sv.ship || {}) }; profile.seen = { ...(sv.seen || {}) } } catch { /* ignore */ }
 export const saveProfile = () => { try { localStorage.setItem('si_profile', JSON.stringify(profile)) } catch { /* ignore */ } }
 export function recordScore(game, score) {
   const t = profile.tops[game] || (profile.tops[game] = [])
@@ -56,9 +58,9 @@ const bsp = () => 24 + Math.min(G.mission, 9) * 1.9
 const toast = (text, color = '#ffffff') => { G.toasts.push({ id: ++G.uid, text, color, t: 2.4 }); if (G.toasts.length > 4) G.toasts.shift() }
 
 // ---------- effects ----------
-export function part(x, y, vx, vy, life, c, s = 1, drag = 0) {
-  if (G.parts.length > 1600) return
-  G.parts.push({ x, y, vx, vy, life, max: life, c, s, drag })
+export function part(x, y, vx, vy, life, c, s = 1, drag = 0, g = 0) {
+  if (G.parts.length > 1800) return
+  G.parts.push({ x, y, vx, vy, life, max: life, c, s, drag, g })
 }
 export const COLS = {
   fire: [rgb('#ffffff'), rgb('#ffe84a'), rgb('#ff9a2e'), rgb('#ff3b4e')],
@@ -79,7 +81,7 @@ export function ring(x, y, n = 40, speed = 60, cols = COLS.cyan) {
     part(x, y, Math.cos(a) * speed, Math.sin(a) * speed, 0.6, pick(cols), 1.1, 2.5)
   }
 }
-export const shake = (v) => { G.shake = Math.max(G.shake, v) }
+export const shake = (v) => { if (settings.shake) G.shake = Math.max(G.shake, v) }
 export const flash = (a, c = [1, 1, 1]) => { G.flash = Math.max(G.flash, a); G.flashC = c }
 export function popup(x, y, text, c = [1, 1, 0.5]) { G.pops.push({ x, y, text, life: 0.9, c }) }
 
@@ -873,6 +875,7 @@ function stepBonus(dt) {
 export function stepParticles(dt) {
   for (const q of G.parts) {
     q.life -= dt
+    if (q.g) q.vy -= q.g * dt
     q.x += q.vx * dt; q.y += q.vy * dt
     if (q.drag) { const k = Math.max(0, 1 - q.drag * dt); q.vx *= k; q.vy *= k }
   }
@@ -944,7 +947,7 @@ export function update(dtRaw) {
 }
 function tick(dt) {
   G.time += dt
-  if (G.mode === 'slug' || G.mode === 'pickle') { G.dtc = dt; if (games[G.mode]) games[G.mode].update(dt) }
+  if (ARCADE.has(G.mode)) { G.dtc = dt; if (games[G.mode]) games[G.mode].update(dt) }
   else if (G.mode === 'playing') stepPlaying(dt)
   else if (G.mode !== 'paused') { G.dtc = dt; stepParticles(dt); G.scroll = lerp(G.scroll, G.mode === 'menu' ? 0.7 : 1, dt * 2) }
   emitT -= dt
@@ -961,7 +964,7 @@ export function startGameAt(i) {
   if (i > G.unlocked) { sfx('deny'); return }
   startGame(); if (i > 0) { G.credits = 300 * i; startMission(i) }
 }
-export function toMenu() { if (games.slug) games.slug.stop(); if (games.pickle) games.pickle.stop(); G.parts = []; G.pops = []; G.shake = 0; G.flash = 0; saveProfile(); G.mode = 'menu'; G.banner = null; G.boss = null; G.enemies = []; G.ebul = []; G.pbul = []; G.pups = []; G.beams = []; initAudio(); music.set('menu'); sfx('ui'); emit() }
+export function toMenu() { if (games.slug) games.slug.stop(); if (games.pickle) games.pickle.stop(); if (games.bomber) games.bomber.stop(); G.parts = []; G.pops = []; G.shake = 0; G.flash = 0; saveProfile(); G.mode = 'menu'; G.banner = null; G.boss = null; G.enemies = []; G.ebul = []; G.pbul = []; G.pups = []; G.beams = []; initAudio(); music.set('menu'); sfx('ui'); emit() }
 export function retryMission() {
   const s = G.save
   G.score = s.score; G.credits = s.credits; G.lives = Math.max(3, s.lives); G.up = { ...s.up }; G.wlKeep = s.wl; G.droneKeep = s.droneKeep || 0; G.nextLife = s.nextLife
@@ -980,6 +983,7 @@ export function buy(key) {
   if (key === 'life') G.lives++; else G.up[key]++
   sfx('buy'); emit()
 }
+export function markSeen(g) { if (!profile.seen[g]) { profile.seen[g] = true; saveProfile() } }
 export function setName(n) { profile.name = String(n || '').replace(/[^\w .-]/g, '').slice(0, 14); saveProfile(); emit() }
 export function setShip(k, v) { profile.ship[k] = v; saveProfile(); sfx('ui'); emit() }
 export function togglePause() {
@@ -995,7 +999,7 @@ export function onKey(code, down) {
   keys[code] = down
   if (!down) return
   initAudio()
-  if (G.mode === 'slug' || G.mode === 'pickle') { if (games[G.mode]) games[G.mode].onKey(code); return }
+  if (ARCADE.has(G.mode)) { if (games[G.mode]) games[G.mode].onKey(code); return }
   if (code === 'KeyP' || code === 'Escape') togglePause()
   else if (G.mode === 'playing' && (code === 'KeyB' || code === 'KeyX' || code === 'ShiftLeft' || code === 'Digit2')) bomb()
   else if (G.mode === 'playing' && (code === 'KeyQ' || code === 'Digit1')) laser()
@@ -1018,11 +1022,11 @@ function buildSnap() {
   const ch = G.stats && G.stats.kills !== undefined ? chalProgress() : null
   const b = G.boss
   return {
-    unlocked: G.unlocked, mode: G.mode, score: G.score, hi: G.hi, credits: G.credits, lives: G.lives,
+    seen: { ...profile.seen }, unlocked: G.unlocked, mode: G.mode, score: G.score, hi: G.hi, credits: G.credits, lives: G.lives,
     mission: G.mission, missionName: m.name, missionSub: m.sub, missions: MISSIONS.length, color: m.color,
     hp: p ? Math.max(0, p.hp) : 0, maxHp: p ? p.maxHp : 3,
     skills: p ? Object.keys(SK).map((k) => ({ k, key: SK[k].key, name: SK[k].name, color: SK[k].color, lv: skillLv(k), cd: p.cd[k], max: p.cdMax[k], active: k === 'laser' ? !!G.lz : k === 'shield' ? p.skT > 0 : p.cd.bomb > p.cdMax.bomb - 0.6 })).concat([{ k: 'od', key: 'R', name: 'OVERDRIVE', color: '#ff4de1', lv: '', label: p.od > 0 ? `${Math.ceil(p.od)}s` : G.meter >= 100 ? 'READY' : Math.floor(G.meter) + '%', cd: p.od > 0 ? 0 : G.meter >= 100 ? 0 : 100 - G.meter, max: 100, active: p.od > 0 }]) : [],
-    profile: { ...profile, tops: { space: profile.tops.space.slice(), slug: profile.tops.slug.slice(), pickle: (profile.tops.pickle || []).slice() } }, wl: p ? p.wl : 1,
+    profile: { ...profile, tops: { space: profile.tops.space.slice(), slug: profile.tops.slug.slice(), pickle: (profile.tops.pickle || []).slice(), bomber: (profile.tops.bomber || []).slice() } }, wl: p ? p.wl : 1,
     special: p ? p.special : 'normal', specialT: p ? p.specialT : 0, rapidT: p ? p.rapidT : 0, shieldT: p ? p.shieldT : 0,
     magnetT: p ? p.magnetT : 0, multT: p ? p.multT : 0,
     combo: G.combo, comboMult: comboMult(), comboT: G.comboT,
@@ -1049,3 +1053,4 @@ export function debugStart(m, seconds = 0, boss = false) {
 }
 
 export function debugBonus(next, seconds = 0) { startGame(); G.up.drone = 2; startBonus(next); keys.Space = true; for (let i = 0; i < seconds * 60; i++) update(1 / 60); keys.Space = false }
+if (typeof window !== 'undefined') window.__update = update

@@ -433,6 +433,7 @@ function update(dtRaw) {
   if (P.emitT <= 0) { P.emitT = 0.07; emitP() }
 }
 export const pickleActions = {
+  pause() { if (P.mode === 'play' && !P.paused) { P.paused = true; emitP(); return true } return false },
   start, stop, quit() { toMenu() }, resume() { P.paused = false; emitP() },
   rematch() { start(P.cfg.type, P.cfg.diff, P.cfg.target) },
 }
@@ -509,4 +510,5 @@ function draw(api) {
   for (const q of G.parts) { const f = q.life / q.max; put(q.x, q.y, 4, q.s * (0.35 + 0.65 * f) * 0.9, q.s * (0.35 + 0.65 * f) * 0.9, q.c[0] * 1.6, q.c[1] * 1.6, q.c[2] * 1.6) }
   api.pops(G.pops, 0)
 }
+if (typeof window !== 'undefined') { window.__P = P; window.__pickle = pickleActions }
 games.pickle = { update, onKey, draw, stop, sky: () => '#0a1a14' }

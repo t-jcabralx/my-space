@@ -230,3 +230,36 @@ Object.assign(SP, {
   bm: mk(['.K.', 'KKK', 'KKK', '.o.'], SPAL),
   sandbag: mk(['tbtbtb', 'btbtbt'], SPAL),
 })
+
+// ---------- ground zero v2: detailed soldiers with 4-frame run, vehicles, props, scenery ----------
+function soldier(c, frame) {
+  const L = {
+    S: ['.dPPPd.', '.dPdPd.', '.dbdbd.'], 0: ['.dPPPd.', 'dPd.dPd', 'db...bd'], 1: ['.dPPPd.', '..dPd..', '..dbd..'],
+    2: ['.dPPPd.', 'dPd..dP.', 'db..db.'], 3: ['.dPPPd.', '.dPdPd.', 'dbd.dbd'], J: ['.dPPPd.', 'dP...Pd', '.db.bd.'],
+  }[frame]
+  const rows = ['.dHHHd.', 'dHhHHHd', 'dkkkkkd', '.kkkek.', '..dkd..', '.dTTTd.', 'dTTtTTd', 'dBBBBBd', ...L]
+  return mk(rows, { d: '#15181f', H: c.H, h: c.h, k: '#f2c08a', e: '#15181f', T: c.T, t: c.t, B: c.B, P: c.P, b: c.b })
+}
+const SOLDIERS = {
+  hero: { H: '#d03030', h: '#ff6a6a', T: '#3a8a3a', t: '#5ac05a', B: '#7a5a2a', P: '#3a4a7a', b: '#4a2a1a' },
+  sol:  { H: '#7a5a2a', h: '#a88848', T: '#c8a860', t: '#e0c880', B: '#5a4020', P: '#4a4a3a', b: '#22221e' },
+  run:  { H: '#e03030', h: '#ff6060', T: '#d8c890', t: '#f0e0b0', B: '#5a4020', P: '#4a4a3a', b: '#22221e' },
+  gre:  { H: '#3a6ad8', h: '#6a9aff', T: '#c8a860', t: '#e0c880', B: '#5a4020', P: '#3a3a4a', b: '#22221e' },
+  baz:  { H: '#6b7690', h: '#9aa6c0', T: '#4a5a2a', t: '#6a7a3a', B: '#3a2a10', P: '#2a3a2a', b: '#22221e' },
+  snp:  { H: '#2a3a2a', h: '#4a5a4a', T: '#3a4a3a', t: '#5a6a5a', B: '#2a2a20', P: '#2a3a2a', b: '#15181f' },
+  pow:  { H: '#8a6a4a', h: '#a8886a', T: '#ececec', t: '#ffffff', B: '#a07a40', P: '#9a9a8a', b: '#5a4a3a' },
+}
+for (const [name, c] of Object.entries(SOLDIERS)) for (const f of ['S', 0, 1, 2, 3, 'J']) SP[name + f] = soldier(c, f)
+const GP = { d: '#15181f', G: '#4a5a2a', h: '#7a8a4a', K: '#6b7690', y: '#ffd84a', o: '#ff9a2e', e: '#ff3b4e', g: '#3a8a3a', b: '#6b4a2a', M: '#a8783a', m: '#c89a58', R: '#d03030', r: '#ff6a6a', s: '#b9c6dc', c: '#3de8ff', w: '#f2f2f2', p: '#7a8a9a' }
+Object.assign(SP, {
+  vsv: mk(['........dddddd.......', '.......dGGGGGGd......', '......dGGhhhhGGd.....', '.....dGGGGGGGGGd.....', '..dddddddddddddddd...', '.dGGGGGGGGGGGGGGGGd..', 'dGGhGGGGGGGGGGGGhGGd.', 'dddddddddddddddddddd.', 'dKdKdKdKdKdKdKdKdKd..', '.dddddddddddddddddd..'], GP),
+  jeep: mk(['....dddddd.....', '...dGGhhGGd....', '..dGGhhhhGGd...', 'dddddddddddddd.', 'dGGGGGGGGGGGGGd', 'dGGGGGGGGGGyGGd', '.dKKdddddddKKd.', '..KKK.....KKK..'], GP),
+  plane: mk(['......dd.........', '.dddddGGGGGGGGGd.', 'dGGGGGGGhhGGGGGGd', '.dddddGGGGGGGGGd.', '......dd.........'], GP),
+  barrel: mk(['.ddd.', 'dRRRd', 'drrRd', 'dyyyd', 'dRRRd', '.ddd.'], GP),
+  crate: mk(['dMMMMd', 'dMmmMd', 'dMmmMd', 'dMmmMd', 'dMMMMd', 'dddddd'], GP),
+  palm: mk(['...gg.gg...', '.gggggggggg', 'ggg.gg.ggg.', '.g..bb..g..', '.....b.....', '.....b.....', '.....b.....', '.....b.....', '.....b.....', '.....bb....'], GP),
+  cactus: mk(['..g..', 'g.g.g', 'g.g.g', 'ggggg', '..g..', '..g..', '..g..', '..g..'], GP),
+  stack: mk(['.dddd.', 'dMMMMd', 'dMmmMd', 'dMMMMd', 'dMmmMd', 'dMMMMd', 'dMmmMd', 'dMMMMd', 'dMmmMd', 'dMMMMd', 'dMmmMd', 'dMMMMd', 'dddddd'], GP),
+  tire: mk(['.ddd.', 'dKKKd', 'dKdKd', 'dKKKd', '.ddd.'], GP),
+  crown: mk(['y.y.y', 'yyyyy'], GP),
+})

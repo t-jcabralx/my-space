@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test:sim": "node scripts/sim.mjs && node scripts/sim-slug.mjs && node scripts/sim-pickle.mjs"
+    "test:sim": "node scripts/sim.mjs && node scripts/sim-slug.mjs && node scripts/sim-pickle-modes.mjs && node scripts/sim-bomber.mjs"
   },
   "dependencies": {
     "@react-three/fiber": "^9.8.1",

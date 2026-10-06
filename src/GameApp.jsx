@@ -1,23 +1,30 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing'
 import { World, Stars, Planet, Rig, FlashPlane } from './game/Scene.jsx'
-import HUD from './ui/HUD.jsx'
+import HUD, { openHelp } from './ui/HUD.jsx'
 import './game/slug.js'
 import './game/pickle.js'
-import { onKey, G, dragShip, setTouchFire, togglePause } from './game/engine.js'
+import { onKey, G, dragShip, setTouchFire, togglePause, subscribe, getSnap } from './game/engine.js'
 import { unlockAudio, setMuted, isMuted } from './game/audio.js'
+import './game/bomber.js'
+import { subscribeSettings, getSettings } from './game/settings.js'
 
 export default function GameApp() {
   const stage = useRef()
-  const [low, setLow] = useState(false)
+  const snap = useSyncExternalStore(subscribe, getSnap)
+  const menu = snap && snap.mode === 'menu'
+  const [autoLow, setLow] = useState(false)
+  const set = useSyncExternalStore(subscribeSettings, getSettings)
+  const low = set.quality === 'low' || (set.quality === 'auto' && autoLow)
   useEffect(() => { G.onQuality = () => setLow(true); return () => { G.onQuality = null } }, [])
 
   useEffect(() => {
     const down = (e) => {
       if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault()
+      if ((e.code === 'F1' || e.key === '?') && !e.repeat) { e.preventDefault(); openHelp(); return }
       if (e.code === 'KeyM' && !e.repeat) { unlockAudio(); setMuted(!isMuted()) }
       if (!e.repeat) onKey(e.code, true)
     }
@@ -32,6 +39,35 @@ export default function GameApp() {
     window.addEventListener('keyup', up)
     document.addEventListener('visibilitychange', vis)
     return () => { window.removeEventListener('pointerdown', unlock, true); window.removeEventListener('click', unlock, true); window.removeEventListener('touchend', unlock, true); window.removeEventListener('keydown', unlock, true); window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); document.removeEventListener('visibilitychange', vis) }
+  }, [])
+
+  // gamepad: pad 1 -> WASD side, pad 2 -> arrows side
+  useEffect(() => {
+    const prev = [{}, {}]
+    let raf
+    const MAPS = [
+      { axes: ['KeyA', 'KeyD', 'KeyW', 'KeyS'], btn: { 0: ['Space'], 2: ['KeyJ', 'KeyF'], 3: ['KeyG'], 1: ['KeyB', 'KeyH'], 4: ['KeyE'], 5: ['KeyR'], 6: ['KeyQ'], 7: ['KeyV'], 9: ['Escape'], 12: ['KeyW'], 13: ['KeyS'], 14: ['KeyA'], 15: ['KeyD'] } },
+      { axes: ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'], btn: { 0: ['Enter'], 2: ['Comma'], 3: ['Period'], 1: ['Slash'], 12: ['ArrowUp'], 13: ['ArrowDown'], 14: ['ArrowLeft'], 15: ['ArrowRight'] } },
+    ]
+    const press = (code, on, st) => { if (!!st[code] === on) return; st[code] = on; onKey(code, on) }
+    const loop = () => {
+      const pads = (navigator.getGamepads && navigator.getGamepads()) || []
+      const list = [...pads].filter(Boolean).slice(0, 2)
+      list.forEach((pad, i) => {
+        const m = MAPS[i], st = prev[i]
+        const [l, r, u, d] = m.axes
+        const ax = pad.axes[0] || 0, ay = pad.axes[1] || 0
+        press(l, ax < -0.45, st); press(r, ax > 0.45, st); press(u, ay < -0.45, st); press(d, ay > 0.45, st)
+        for (const [b, codes] of Object.entries(m.btn)) {
+          const on = !!(pad.buttons[b] && pad.buttons[b].pressed)
+          for (const c of codes) { if (b >= 12 && b <= 15) { if (on !== !!st['b' + b]) { onKey(c, on) } } else press(c, on, st) }
+          if (b >= 12 && b <= 15) st['b' + b] = on
+        }
+      })
+      raf = requestAnimationFrame(loop)
+    }
+    raf = requestAnimationFrame(loop)
+    return () => cancelAnimationFrame(raf)
   }, [])
 
   // touch / mouse drag: ship follows finger movement and auto-fires
@@ -53,7 +89,7 @@ export default function GameApp() {
 
   return (
     <div className="wrap">
-      <div className={'stage' + (low ? ' low' : '')} ref={stage} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} onPointerLeave={onUp}>
+      <div className={'stage' + (low ? ' low' : '') + (menu ? ' menu' : '')} ref={stage} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} onPointerLeave={onUp}>
         <Canvas camera={{ position: [0, 0, 77], fov: 40, near: 1, far: 400 }} dpr={low ? 0.75 : [1, 1.5]} gl={{ antialias: false, powerPreference: 'high-performance' }}>
           <color attach="background" args={['#04050d']} />
           <ambientLight intensity={1.2} />

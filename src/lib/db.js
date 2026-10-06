@@ -20,5 +20,5 @@ export function getRedis() {
   if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN) return null
   return new Redis({ url: process.env.UPSTASH_REDIS_REST_URL, token: process.env.UPSTASH_REDIS_REST_TOKEN })
 }
-export const GAMES = { space: 6_000_000, slug: 1_000_000, pickle: 5_000 } // max plausible score per game
+export const GAMES = { space: 6_000_000, slug: 1_000_000, pickle: 5_000, bomber: 100_000 } // max plausible score per game
 export const cleanName = (n) => String(n || '').replace(/[^\w .-]/g, '').trim().slice(0, 14) || 'ANON'

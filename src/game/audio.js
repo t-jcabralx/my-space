@@ -1,4 +1,5 @@
 // Procedural WebAudio: synthesized SFX + chiptune sequencer + announcer voice. No audio files needed.
+import { settings, subscribeSettings } from './settings.js'
 let ctx = null, master, sfxG, musG, noiseBuf, analyser, anBuf
 let muted = false // session-only on purpose: a saved mute made the game look "broken" after a reload
 try { localStorage.removeItem('si_muted') } catch { /* ignore */ }
@@ -19,9 +20,9 @@ export function initAudio() {
     const comp = ctx.createDynamicsCompressor()
     comp.threshold.value = -14; comp.knee.value = 12; comp.ratio.value = 6; comp.attack.value = 0.003; comp.release.value = 0.2
     comp.connect(ctx.destination)
-    master = ctx.createGain(); master.gain.value = muted ? 0 : 1; master.connect(comp)
-    sfxG = ctx.createGain(); sfxG.gain.value = 2.2; sfxG.connect(master)
-    musG = ctx.createGain(); musG.gain.value = 2.1; musG.connect(master)
+    master = ctx.createGain(); master.gain.value = muted ? 0 : settings.master; master.connect(comp)
+    sfxG = ctx.createGain(); sfxG.gain.value = 2.2 * settings.sfx; sfxG.connect(master)
+    musG = ctx.createGain(); musG.gain.value = 2.1 * settings.music; musG.connect(master)
     analyser = ctx.createAnalyser(); analyser.fftSize = 256; master.connect(analyser)
     anBuf = new Uint8Array(analyser.fftSize)
     noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate)
@@ -32,10 +33,16 @@ export function initAudio() {
     if (M.mode) { M.next = ctx.currentTime + 0.05; startTimer() }
   } catch (e) { console.error('[audio] init failed', e); ctx = null }
 }
+subscribeSettings(() => {
+  if (!ctx) return
+  master.gain.setTargetAtTime(muted ? 0 : settings.master, ctx.currentTime, 0.03)
+  sfxG.gain.setTargetAtTime(2.2 * settings.sfx, ctx.currentTime, 0.03)
+  musG.gain.setTargetAtTime(2.1 * settings.music, ctx.currentTime, 0.03)
+})
 export function unlockAudio() { initAudio(); if (ctx && ctx.state !== 'running') ctx.resume().then(ping).catch(() => {}) }
 export function setMuted(v) {
   muted = v
-  if (master) master.gain.setTargetAtTime(v ? 0 : 1, ctx.currentTime, 0.02)
+  if (master) master.gain.setTargetAtTime(v ? 0 : settings.master, ctx.currentTime, 0.02)
   if (v && typeof speechSynthesis !== 'undefined') try { speechSynthesis.cancel() } catch { /* ignore */ }
   ping()
 }
@@ -110,6 +117,29 @@ const SFX = {
   phase: () => { noise(0.8, 0.4, 2000, 50); tone('sawtooth', 80, 400, 0.8, 0.2) },
   warp: () => { tone('sawtooth', 100, 1600, 1.4, 0.12); noise(1.4, 0.2, 300, 5000, 0, 'bandpass') },
   // run & gun
+  bombPlace: () => { tone('sine', 220, 120, 0.1, 0.22); noise(0.05, 0.12, 900, 300) },
+  bombBoom: () => { noise(0.6, 0.6, 2400, 70); tone('sawtooth', 150, 32, 0.5, 0.3); tone('sine', 80, 28, 0.45, 0.4); noise(0.12, 0.3, 6000, 1200, 0.02, 'highpass') },
+  die: () => { [520, 420, 330, 230, 150].forEach((f, i) => tone('square', f, f * 0.8, 0.12, 0.14, i * 0.07)); noise(0.3, 0.2, 900, 120, 0.1) },
+  kick: () => { tone('sine', 180, 90, 0.1, 0.25); noise(0.05, 0.1, 700, 300) },
+  beep: () => tone('square', 880, 880, 0.14, 0.14),
+  go: () => { tone('square', 1320, 1320, 0.28, 0.16); tone('square', 1760, 1760, 0.35, 0.12, 0.06) },
+  knife: () => { noise(0.1, 0.25, 6000, 1500, 0, 'highpass'); tone('sawtooth', 1800, 500, 0.08, 0.1) },
+  vulcan: () => { noise(0.04, 0.35, 2800, 500, 0, 'highpass'); tone('square', 520, 150, 0.05, 0.12); tone('sine', 110, 60, 0.05, 0.2) },
+  cannon: () => { noise(0.45, 0.6, 2200, 120); tone('sawtooth', 130, 38, 0.4, 0.3); tone('sine', 70, 30, 0.35, 0.4) },
+  tankEngine: () => { tone('sawtooth', 62, 48, 0.2, 0.12); noise(0.2, 0.08, 220, 90) },
+  crate: () => { noise(0.12, 0.3, 1500, 300); tone('square', 240, 120, 0.08, 0.12) },
+  chute: () => noise(0.5, 0.12, 400, 2200, 0, 'bandpass'),
+  jeep: () => { tone('sawtooth', 95, 70, 0.18, 0.1); noise(0.16, 0.08, 400, 200, 0, 'bandpass') },
+  plane: () => { tone('sawtooth', 150, 130, 0.35, 0.07); noise(0.35, 0.07, 500, 300, 0, 'bandpass') },
+  grunt: () => { tone('sawtooth', 300, 110, 0.18, 0.16); noise(0.1, 0.12, 900, 200) },
+  sniperAim: () => tone('sine', 2400, 2600, 0.25, 0.05),
+  bird: () => { tone('sine', 2400, 3200, 0.07, 0.05); tone('sine', 3000, 2300, 0.08, 0.05, 0.1); tone('sine', 2600, 3400, 0.06, 0.04, 0.22) },
+  wind: () => noise(1.6, 0.1, 300, 900, 0, 'bandpass'),
+  distant: () => noise(0.9, 0.2, 500, 60),
+  clank: () => { tone('square', 620, 480, 0.05, 0.1); tone('triangle', 310, 240, 0.12, 0.12, 0.03); noise(0.05, 0.1, 5000, 3000, 0, 'highpass') },
+  hum: () => tone('sawtooth', 58, 56, 0.9, 0.05),
+  medal: () => { arp([1175, 1568, 2349], 'square', 0.07, 0.08, 0.05) },
+  vehIn: () => { arp([262, 330, 392, 523], 'sawtooth', 0.1, 0.12, 0.06); noise(0.3, 0.2, 400, 120) },
   pistol: () => { noise(0.06, 0.3, 4000, 800, 0, 'highpass'); tone('square', 1100, 260, 0.06, 0.09) },
   hmg: () => { noise(0.05, 0.28, 3500, 700, 0, 'highpass'); tone('square', 760, 210, 0.045, 0.09) },
   shotgun: () => { noise(0.3, 0.55, 3200, 250); tone('sawtooth', 170, 45, 0.25, 0.22) },
@@ -138,7 +168,7 @@ const SFX = {
   fault: () => { tone('sawtooth', 160, 120, 0.3, 0.14); tone('square', 120, 90, 0.3, 0.1, 0.05) },
   test: () => { arp([523, 659, 784, 1046], 'square', 0.16, 0.12, 0.11); noise(0.3, 0.3, 2000, 100, 0.5) },
 }
-const MIN_GAP = { shoot: 50, pistol: 60, hmg: 42, eshot: 90, rotor: 110, hit: 25, boom: 35, coin: 30, ding: 40, step: 80, whistle: 70, bossHit: 40, deflect: 50 }
+const MIN_GAP = { vulcan: 45, tankEngine: 150, grunt: 60, jeep: 200, plane: 300, crate: 60, shoot: 50, pistol: 60, hmg: 42, eshot: 90, rotor: 110, hit: 25, boom: 35, coin: 30, ding: 40, step: 80, whistle: 70, bossHit: 40, deflect: 50 }
 const lastAt = {}
 export function sfx(name, arg) {
   if (!ctx || muted || !SFX[name]) return
@@ -149,7 +179,7 @@ export function sfx(name, arg) {
 
 // ---------- announcer voice (browser speech synthesis) ----------
 export function speak(text, pitch = 0.55, rate = 1.05) {
-  if (muted || typeof speechSynthesis === 'undefined' || typeof SpeechSynthesisUtterance === 'undefined') return
+  if (muted || !settings.voice || typeof speechSynthesis === 'undefined' || typeof SpeechSynthesisUtterance === 'undefined') return
   try {
     const u = new SpeechSynthesisUtterance(text)
     u.pitch = pitch; u.rate = rate; u.volume = 1
@@ -161,7 +191,7 @@ export function testSound() { unlockAudio(); sfx('test'); speak('Sound check. Re
 // ---------------- music ----------------
 const M = { mode: null, step: 0, next: 0, timer: null, mission: 0, bpm: 120, trans: 0 }
 const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12)
-const PROG = { pickle: [0, 5, 7, 9], play: [0, -4, -2, -5], boss: [0, 0, 1, -1], menu: [0, -4, -7, -5], slug: [0, 0, -5, -2], slugboss: [0, 1, 0, -2] }
+const PROG = { bomber: [0, 3, 5, 2], pickle: [0, 5, 7, 9], play: [0, -4, -2, -5], boss: [0, 0, 1, -1], menu: [0, -4, -7, -5], slug: [0, 0, -5, -2], slugboss: [0, 1, 0, -2] }
 const CH = [[0, 3, 7, 12], [0, 4, 7, 12], [0, 4, 7, 12], [0, 4, 7, 11]]
 const ARP = [0, 1, 2, 3, 2, 1, 2, 1, 0, 1, 2, 3, 2, 3, 2, 1]
 const CHP = [[0, 4, 7, 12], [0, 4, 7, 12], [0, 4, 7, 12], [0, 3, 7, 12]]
@@ -182,6 +212,17 @@ function playStep(step, t) {
   if (mode === 'menu') {
     if (s % 2 === 0) tn('triangle', root + 12 + CH[bar][ARP[s]], 0.2, 0.14)
     if (s === 0) tn('sine', root - 12, 1.2, 0.3)
+    return
+  }
+  if (mode === 'bomber') {
+    const rb = 50 + PROG.bomber[bar], ch = [0, 3, 7, 12]
+    if (s % 2 === 0) tone('sawtooth', mtof(rb - 12 + (s % 4 === 2 ? 12 : 0)), mtof(rb - 12 + (s % 4 === 2 ? 12 : 0)), 0.1, 0.26, w, musG)
+    const m = MEL[bar][s]
+    if (m !== null) { const n = rb + 12 + m; tone('square', mtof(n), mtof(n), 0.11, 0.07, w, musG); tone('triangle', mtof(n + 12), mtof(n + 12), 0.09, 0.05, w, musG) }
+    else if (s % 2 === 1) { const n = rb + 24 + ch[(s >> 1) % 4]; tone('square', mtof(n), mtof(n), 0.05, 0.035, w, musG) }
+    if (s % 4 === 0) tone('sine', 150, 40, 0.14, 0.5, w, musG)
+    if (s % 8 === 4) { noise(0.1, 0.22, 4800, 1500, w, 'highpass', musG); tone('triangle', 210, 120, 0.07, 0.12, w, musG) }
+    noise(0.025, 0.05, 9500, 8000, w, 'highpass', musG)
     return
   }
   if (mode === 'pickle') {
@@ -234,7 +275,7 @@ export const music = {
     M.mode = mode; M.mission = mission
     const m = mission
     const bpms = [120, 124, 128, 132, 136, 140, 144, 148, 152, 156]
-    M.bpm = mode === 'menu' ? 92 : mode === 'pickle' ? 116 : mode === 'boss' ? 150 + m * 2 : mode === 'slug' ? 112 + m * 6 : mode === 'slugboss' ? 146 + m * 4 : bpms[m] || 120
+    M.bpm = mode === 'menu' ? 92 : mode === 'bomber' ? 134 : mode === 'pickle' ? 116 : mode === 'boss' ? 150 + m * 2 : mode === 'slug' ? 112 + m * 6 : mode === 'slugboss' ? 146 + m * 4 : bpms[m] || 120
     M.trans = mode === 'slug' || mode === 'slugboss' ? [0, 2, -3][m] || 0 : [0, 2, -2, 3, 5, -3, 1, -5, 4, 0][m] || 0
     if (!keepStep) M.step = 0
     if (ctx) { M.next = Math.max(M.next, ctx.currentTime + 0.05); startTimer() }
