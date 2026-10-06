@@ -5,6 +5,7 @@ import { sfx, music, speak } from './audio.js'
 import { col, disk, rect, circle, clamp, R, rng } from './pxl.js'
 import { drawEmpire3, empireCamera, empireLights } from './empire3d.js'
 import { unprojectGround } from './rogue3d.js'
+import { EMCAMP, EMWHO } from './empirestory.js'
 
 export const MW = 96, MH = 96, T = 2
 const WORLD = MW * T
@@ -36,7 +37,7 @@ export const UDEF = {
 export const TEAM = [['#3de8ff', 'AZURE'], ['#ff5a6a', 'CRIMSON'], ['#ffd23a', 'GOLDEN'], ['#b27aff', 'VIOLET']]
 const RES = ['food', 'wood', 'stone', 'gold']
 
-export const EM = { mode: 'idle', paused: false, cfg: { ai: 3, diff: 2, speed: 1 }, seed: 1, terr: null, occ: null, B: [], U: [], P: [], me: 0, t: 0, nid: 1, cam: { x: 0, y: 0, z: 1 }, sel: null, build: null, atk: false, msg: null, over: null, emitT: 0, raidT: 75, raidN: 0, raidWarn: 0, raidDir: '', wonder: null, net: null, alerts: [], fx: [], speed: 1, hover: null, drag: null, snapT: 0, bsnapT: 0, minimap: 0, warn: null, warnN: 0, cam3: null }
+export const EM = { mode: 'idle', paused: false, cfg: { ai: 3, diff: 2, speed: 1 }, seed: 1, terr: null, occ: null, B: [], U: [], P: [], me: 0, t: 0, nid: 1, cam: { x: 0, y: 0, z: 1 }, sel: null, build: null, atk: false, msg: null, over: null, emitT: 0, raidT: 75, raidN: 0, raidWarn: 0, raidDir: '', wonder: null, net: null, alerts: [], fx: [], speed: 1, hover: null, drag: null, snapT: 0, bsnapT: 0, minimap: 0, scen: null, obj: [], tale: null, beat: null, objT: 0, raidGap: 0, raidScale: 1, warn: null, warnN: 0, cam3: null }
 let snap = null
 const subs = new Set()
 export const subscribeEmpire = (f) => { subs.add(f); return () => subs.delete(f) }
@@ -78,13 +79,16 @@ function genMap(seed) {
 function newPlayer(i, kind, name) { return { i, kind, name, alive: true, res: { food: 120, wood: 220, stone: 110, gold: 60 }, hallLv: 1, ai: kind === 'ai' ? { t: R(0, 2), atkT: 85 + R(0, 30), want: null } : null, kills: 0, lost: 0, pid: null } }
 function start(cfg = {}) {
   const online = cfg.type === 'online' && EM.net
-  EM.cfg = { ai: clamp(cfg.ai | 0 || 3, 0, 3), diff: clamp(cfg.diff | 0 || 2, 1, 3), speed: 1, type: online ? 'online' : 'solo', seed: cfg.seed }
+  const sc = cfg.scen !== undefined && cfg.scen !== null && !online ? EMCAMP[clamp(cfg.scen | 0, 0, EMCAMP.length - 1)] : null
+  EM.scen = sc; EM.scenIdx = sc ? EMCAMP.indexOf(sc) : -1
+  if (sc) { cfg = { ...cfg, ai: sc.ai, diff: sc.diff, seed: sc.seed } }
+  EM.cfg = { ai: sc ? sc.ai : clamp(cfg.ai | 0 || 3, 0, 3), diff: clamp(cfg.diff | 0 || 2, 1, 3), speed: 1, type: online ? 'online' : 'solo', seed: cfg.seed }
   if (!online) EM.net = null
   EM.seed = cfg.seed || ((Math.random() * 1e6) | 0) + 1
   EM.terr = genMap(EM.seed); EM.occ = new Int32Array(MW * MH)
   EM.B = []; EM.U = []; EM.fx = []; EM.alerts = []; EM.t = 0; EM.nid = 1; EM.sel = null; EM.build = null; EM.atk = false; EM.over = null; EM.paused = false; EM.msg = null; EM.raidT = 75; EM.raidN = 0; EM.raidWarn = 0; EM.wonder = null; EM.speed = 1; EM.peers = cfg.peers || []
   const humans = online ? 1 + EM.peers.length : 1
-  const total = Math.min(4, Math.max(2, humans + EM.cfg.ai))
+  const total = Math.min(4, Math.max(sc && sc.ai === 0 ? 1 : 2, humans + EM.cfg.ai))
   EM.P = []
   for (let i = 0; i < total; i++) {
     const human = i < humans
@@ -93,6 +97,9 @@ function start(cfg = {}) {
     EM.P.push(pl)
   }
   EM.me = EM.net && EM.net.role === 'guest' ? (cfg.me | 0) : 0
+  EM.obj = sc ? sc.objectives.map((o) => ({ ...o, done: false })) : []; EM.tale = null; EM.beat = null; EM.objT = 0
+  EM.raidGap = sc ? sc.raids.gap : 0; EM.raidScale = sc ? sc.raids.scale : 1; EM.raidT = sc ? sc.raids.first : 75
+  if (sc) { EM.P[0].res = { ...sc.res }; for (const pl of EM.P) if (pl.kind === 'ai') { pl.ai.atkT = sc.aiAtk + R(0, 25); for (const k of RES) pl.res[k] = sc.res[k] * (0.8 + EM.cfg.diff * 0.15) } }
   for (const pl of EM.P) {
     const [sx, sy] = SPAWNS[pl.i]
     place('hall', sx - 1, sy - 1, pl.i, true)
@@ -101,7 +108,8 @@ function start(cfg = {}) {
   }
   const h = hall(EM.me); EM.cam = { x: h ? (h.x + 1.5) * T : WORLD / 2, y: h ? (h.y + 1.5) * T : WORLD / 2, z: 1 }
   G.mode = 'empire'; engineEmit(); G.parts = []; G.pops = []; EM.mode = 'play'
-  EM.msg = { text: 'EMPIRE RISE', sub: 'GROW YOUR VILLAGE. DEFEND IT. CONQUER.', color: '#ffd23a', t: 3.5 }
+  EM.msg = { text: sc ? sc.name : 'EMPIRE RISE', sub: sc ? sc.brief : 'GROW YOUR VILLAGE. DEFEND IT. CONQUER.', color: '#ffd23a', t: 4 }
+  if (sc && sc.intro) EM.tale = { lines: sc.intro, i: 0, kind: 'intro' }
   music.set('bomber', 0); sfx('mission'); emitE()
 }
 function stop() { EM.mode = 'idle'; EM.paused = false; if (EM.net) { const n = EM.net; EM.net = null; if (n.onStop) try { n.onStop() } catch { /* ignore */ } } music.set('menu'); emitE() }
@@ -298,11 +306,11 @@ function stepRaiders(dt) {
     EM.msg = { text: 'RAIDERS FROM THE ' + side + '!', sub: 'WAVE ' + (EM.raidN + 1) + ' ARRIVES IN 12 SECONDS · BUILD TOWERS AND WALLS', color: '#ff9a3a', t: 4 }; sfx('rgBoss'); speak('Raiders approaching', 0.5, 1)
   }
   if (EM.raidT <= 0) {
-    EM.raidN++; EM.raidWarn = 0; EM.raidT = Math.max(42, 80 - EM.raidN * 4)
+    EM.raidN++; EM.raidAt = EM.t; EM.raidWarn = 0; EM.raidT = EM.raidGap ? Math.max(40, EM.raidGap - EM.raidN * 2) : Math.max(42, 80 - EM.raidN * 4)
     const alivePl = EM.P.filter((p) => p.alive && hall(p.i)); if (!alivePl.length) return
     const hums = alivePl.filter((p) => p.kind === 'human'), pool = hums.length && Math.random() < 0.75 ? hums : alivePl
     const target = pool[(Math.random() * pool.length) | 0], h = hall(target.i), hc = bCenter(h)
-    const n = 3 + Math.floor(EM.raidN * 1.8) + (EM.cfg.diff - 1) * 2
+    const n = Math.max(2, Math.round((3 + Math.floor(EM.raidN * 1.8) + (EM.cfg.diff - 1) * 2) * EM.raidScale))
     const sx = EM.raidDir === 'WEST' ? 4 : EM.raidDir === 'EAST' ? WORLD - 4 : R(20, WORLD - 20), sy = EM.raidDir === 'SOUTH' ? 4 : EM.raidDir === 'NORTH' ? WORLD - 4 : R(20, WORLD - 20)
     for (let i = 0; i < n; i++) { const type = EM.raidN >= 3 && i % 5 === 0 ? 'rbrute' : i % 4 === 3 ? 'rarcher' : 'raider'; const u = spawnUnit(type, -1, sx + R(-6, 6), sy + R(-6, 6)); u.order = { x: hc.x + R(-6, 6), y: hc.y + R(-6, 6) } }
   }
@@ -326,7 +334,7 @@ function stepAI(dt) {
     if (countB(pl.i, 'barracks') < 1 + (h.lv >= 3 ? 1 : 0)) want.push('barracks')
     if (countB(pl.i, 'tower') < h.lv + 1) want.push('tower')
     if (!EM.B.some((b) => b.owner === pl.i && b.type === 'house' && !b.built) && countB(pl.i, 'house') < 3 + h.lv * 3) want.push('house')
-    if (h.lv >= 4 && countB(pl.i, 'wonder') === 0 && EM.t > 600 && EM.cfg.diff >= 2) want.push('wonder')
+    if (h.lv >= 4 && countB(pl.i, 'wonder') === 0 && EM.t > (EM.cfg.diff >= 3 ? 420 : 600) && EM.cfg.diff >= 2) want.push('wonder')
     // upgrade the hall when affordable and a little time has passed
     if (h.lv < 4 && EM.t > 100 * h.lv * (1.4 - EM.cfg.diff * 0.2) && costOk(pl.res, HALL_UP[h.lv])) doUpgrade(pl.i, h.id)
     else for (const t of want) { const spot = findSpot(pl.i, t); if (spot && doBuild(pl.i, t, spot[0], spot[1])) break }
@@ -381,7 +389,7 @@ function checkEnd() {
   if (EM.wonder) { EM.wonder.t -= 0.1 * 0; }
   if (EM.mode !== 'play') return
   if (EM.wonder && EM.wonder.t <= 0) return finish(EM.wonder.owner, 'WONDER')
-  if (aliveP.length === 1) return finish(aliveP[0].i, 'LAST KINGDOM')
+  if (aliveP.length === 1 && EM.P.length > 1) return finish(aliveP[0].i, 'LAST KINGDOM')
   if (!humans.some((p) => p.alive)) return finish(aliveP.length ? aliveP[0].i : -1, 'ALL HUMANS FELL')
   void meP
 }
@@ -389,16 +397,36 @@ function finish(winner, how) {
   EM.mode = 'over'; music.stop()
   const me = EM.P[EM.me], won = winner === EM.me
   const mins = EM.t / 60
+  if (EM.scen && won) { const u = profile.empireCamp || (profile.empireCamp = { cleared: 0 }); u.cleared = Math.max(u.cleared, EM.scenIdx + 1); profile.chips = (profile.chips || 0) + 120 * (EM.scenIdx + 1); if (EM.scen.outro) EM.tale = { lines: EM.scen.outro, i: 0, kind: 'outro' } }
   const score = Math.max(0, Math.round((won ? 3000 : 600) + me.hallLv * 400 + me.kills * 15 + EM.B.filter((b) => b.owner === EM.me).length * 12 + (won ? Math.max(0, 1800 - EM.t) : mins * 20)))
-  EM.over = { win: won, winner, how, score, time: Math.round(EM.t), hallLv: me.hallLv, kills: me.kills, bld: EM.B.filter((b) => b.owner === EM.me).length, winnerName: winner >= 0 ? EM.P[winner].name : '' }
+  EM.over = { scen: EM.scenIdx, next: EM.scen && won && EM.scenIdx + 1 < EMCAMP.length ? EMCAMP[EM.scenIdx + 1].name : '', win: won, winner, how, score, time: Math.round(EM.t), hallLv: me.hallLv, kills: me.kills, bld: EM.B.filter((b) => b.owner === EM.me).length, winnerName: winner >= 0 ? EM.P[winner].name : '' }
   profile.empireGames = (profile.empireGames || 0) + 1; if (won) profile.empireWins = (profile.empireWins || 0) + 1
   profile.empireHall = Math.max(profile.empireHall || 0, me.hallLv)
   recordScore('empire', score); saveProfile()
   sfx(won ? 'win' : 'over'); speak(won ? 'Victory. Your empire stands.' : 'Your kingdom has fallen.', 0.5, 1)
   emitE()
 }
+function objDone(o) {
+  const me = EM.me
+  if (o.t === 'build') return EM.B.filter((b) => b.owner === me && b.type === o.what && b.built).length >= o.n
+  if (o.t === 'army') return EM.U.filter((u) => u.owner === me).length >= o.n
+  if (o.t === 'hall') { const h = hall(me); return !!h && h.lv >= o.n }
+  if (o.t === 'raid') return EM.raidN >= o.n && EM.raidWarn <= 0 && (EM.U.filter((u) => u.owner < 0).length <= 1 || EM.t - (EM.raidAt || 0) > 70)
+  if (o.t === 'destroy') return !EM.P[o.who].alive
+  if (o.t === 'last') return EM.P.filter((p) => p.alive).length === 1 && EM.P[me].alive
+  if (o.t === 'wonder') return !!(EM.wonder && EM.wonder.owner === me && EM.wonder.t <= 0)
+  return false
+}
+function stepObjectives(dt) {
+  if (!EM.scen) return
+  EM.objT -= dt; if (EM.objT > 0) return; EM.objT = 0.5
+  let alt = false
+  if (EM.scen.alt) alt = objDone(EM.scen.alt)
+  for (const o of EM.obj) if (!o.done && (objDone(o) || (o.t === 'wonder' && alt))) { o.done = true; sfx('mission'); EM.beat = { text: 'OBJECTIVE COMPLETE', sub: o.text, color: '#6aff9a', t: 4 }; { const hh = hall(EM.me); if (hh) ring((hh.x + 1.5) * T, (hh.y + 1.5) * T, 40, 50, [col('#6aff9a')]) } }
+  if (EM.obj.length && EM.obj.every((o) => o.done) && EM.mode === 'play') finish(EM.me, 'SCENARIO COMPLETE')
+}
 function simStep(dt) {
-  EM.t += dt
+  EM.t += dt; stepObjectives(dt)
   if (EM.wonder) EM.wonder.t -= dt
   stepBuildings(dt); stepUnits(dt); stepRaiders(dt); stepAI(dt)
   for (const f of EM.fx) f.l -= dt
@@ -408,6 +436,8 @@ function simStep(dt) {
 function update(dtRaw) {
   const dt = Math.min(dtRaw, 0.1)
   if (EM.mode === 'idle' || EM.paused) return
+  if (EM.tale) { stepParticles(dt); EM.emitT -= dt; if (EM.emitT <= 0) { EM.emitT = 0.1; emitE() } return }
+  if (EM.beat) { EM.beat.t -= dt; if (EM.beat.t <= 0) EM.beat = null }
   if (EM.mode === 'over') { stepParticles(dt); if (EM.net && EM.net.role === 'host') netTick(dt); return }
   if (EM.msg) { EM.msg.t -= dt; if (EM.msg.t <= 0) EM.msg = null }
   // camera: keys
@@ -433,7 +463,7 @@ function emitE() {
     army: EM.U.filter((u) => u.owner === EM.me).length, bcount: EM.B.filter((b) => b.owner === EM.me).length, bcap: bldCap(EM.me),
     sel: sb ? { id: sb.id, type: sb.type, name: BDEF[sb.type].name, hp: Math.round(sb.hp), max: sb.max, lv: sb.lv, q: sb.q.map((q) => q.u), qt: sb.qt, built: !!sb.built, mine: sb.owner === EM.me, rate: BDEF[sb.type].rate ? Object.entries(BDEF[sb.type].rate).map(([k, v]) => k + ' +' + (v * (BDEF[sb.type].res ? clamp(resNear(sb, BDEF[sb.type].res) / 10, 0.3, 1.6) : 1) * prodMul(sb.owner)).toFixed(1) + '/s').join(' ') : '' } : null,
     players: EM.P.map((p) => ({ i: p.i, name: p.name, alive: p.alive, lv: p.hallLv, color: TEAM[p.i][0], kind: p.kind, army: EM.U.filter((u) => u.owner === p.i).length, me: p.i === EM.me })),
-    raid: EM.raidWarn > 0 ? Math.ceil(Math.max(0, EM.raidT)) : 0, raidDir: EM.raidDir, nextRaid: Math.max(0, Math.ceil(EM.raidT)), wave: EM.raidN, wonder: EM.wonder ? { t: Math.max(0, Math.ceil(EM.wonder.t)), owner: EM.P[EM.wonder.owner].name, mine: EM.wonder.owner === EM.me } : null, ver: ++EM.minimap,
+    scen: EM.scen ? { name: EM.scen.name, sub: EM.scen.sub, idx: EM.scenIdx } : null, obj: EM.obj.map((o) => ({ text: o.text, done: o.done, hint: o.hint })), hint: (EM.obj.find((o) => !o.done) || {}).hint || '', beat: EM.beat ? { ...EM.beat } : null, tale: EM.tale ? { who: EMWHO[EM.tale.lines[EM.tale.i][0]], text: EM.tale.lines[EM.tale.i][1], i: EM.tale.i, n: EM.tale.lines.length, kind: EM.tale.kind } : null, raid: EM.raidWarn > 0 ? Math.ceil(Math.max(0, EM.raidT)) : 0, raidDir: EM.raidDir, nextRaid: Math.max(0, Math.ceil(EM.raidT)), wave: EM.raidN, wonder: EM.wonder ? { t: Math.max(0, Math.ceil(EM.wonder.t)), owner: EM.P[EM.wonder.owner].name, mine: EM.wonder.owner === EM.me } : null, ver: ++EM.minimap,
   }
   subs.forEach((f) => f())
 }
@@ -448,6 +478,7 @@ export function pickAt(x, y) {
 }
 function onKey(code) {
   if (EM.mode === 'idle') return
+  if (EM.tale) { if (code === 'Enter' || code === 'Space') empireActions.nextTale(); else if (code === 'Escape') empireActions.skipTale(); return }
   if (code === 'Escape') { if (EM.build || EM.atk || EM.sel) { EM.build = null; EM.atk = false; EM.sel = null; emitE(); return } if (EM.mode === 'play' && !EM.net) { EM.paused = !EM.paused; emitE() } else if (EM.paused) { EM.paused = false; emitE() } return }
   if (EM.paused) return
   if (EM.mode === 'over') { if (code === 'Enter') empireActions.rematch(); return }
@@ -466,7 +497,9 @@ function onKey(code) {
 export const empireActions = {
   start, stop, quit() { toMenu() },
   resume() { EM.paused = false; emitE() }, pause() { if (EM.mode === 'play' && !EM.paused && !EM.net) { EM.paused = true; emitE(); return true } return false },
-  rematch() { if (EM.net) { EM.net.rematch(); return } start(EM.cfg) },
+  rematch() { if (EM.net) { EM.net.rematch(); return } if (EM.scen) { start({ scen: EM.over && EM.over.next ? EM.scenIdx + 1 : EM.scenIdx }); return } start(EM.cfg) },
+  nextTale() { const t = EM.tale; if (!t) return; sfx('wdKey'); if (t.i < t.lines.length - 1) t.i++; else EM.tale = null; emitE() },
+  skipTale() { EM.tale = null; emitE() },
   setBuild(t) { if (!BDEF[t]) return; EM.build = EM.build === t ? null : t; EM.atk = false; EM.sel = null; sfx('ui'); emitE() },
   upgrade() { const h = hall(EM.me); if (h && localCmd({ k: 'up', b: h.id })) { sfx('ui'); emitE() } else sfx('cBad') },
   train(u) { const b = EM.sel ? bById(EM.sel) : EM.B.find((x) => x.owner === EM.me && x.type === 'barracks' && x.built); if (b && localCmd({ k: 'train', b: b.id, u })) { sfx('ui'); emitE() } else sfx('cBad') },

@@ -89,3 +89,10 @@ See the **Skills & Controls** tab in the dashboard. Press **M** to mute, **P/Esc
 - **🔴 CONNECT FOUR** (online 1v1), **🐍 NEON SNAKE**, **🧱 NEON BREAKER**, **💣 MINE SWEEP**.
 - **🗡 NEON DEPTHS** is now a 3D haunted forest with a story, 5 races (Half-blood, Elf, Dwarf, Undead, Fairy), 4 companions (Wolf, Owl, Fairy sprite, Dragon whelp), XP levels up to 10 with new skills at levels 3 and 6, and online co-op for up to 3 heroes.
 - **3D look** for Neon Defense, Air Hockey, Billiards, Neon Snake, Neon Breaker and Neon Beat (lit voxel pass plus real spheres, shadows, animated parts).
+
+## Update: stories, chapters and scenarios
+- **Neon Depths** is now a 5-chapter campaign (Woods, Marsh, Crystal Caverns, Ember Ruins, Void Grove): bigger rooms, a story with cut-scenes and guardian dialogue, rune trials (puzzles), treasure rooms, elite guards, a hidden vault behind a cracked wall in every chapter, 10 lore tablets (codex), weapons (3 unlockable per class) and 6 passive powers to unlock, plus new bosses (Crystal Warden, Cinder Drake). Monsters are 20% slower.
+- **Neon Defense** has a 5-map campaign "The Wardens of the Valley" with story scenes, much bigger maps (up to 30x16) and slower monsters.
+- **Empire Rise** has a 5-scenario campaign "From Ember to Empire" with objectives, guided hints, story scenes and its own raid pacing; free skirmish and online remain.
+- **Story mode** now includes the Village of Embers and the new Depths and Defense chapters.
+- **Phones:** the layout follows rotation, asks for fullscreen + landscape on the first game, and shows a hint in portrait.

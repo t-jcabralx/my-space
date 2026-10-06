@@ -5,14 +5,15 @@ import { sfx, music, speak } from './audio.js'
 import { col, disk, circle, rect, line, clamp, R } from './pxl.js'
 import { drawTd3, tdCamera, tdLights } from './td3d.js'
 import { unprojectGround } from './rogue3d.js'
+import { TDCAMP, TDWHO } from './tdstory.js'
 
-export const COLS = 20, ROWS = 11, CS = 4
-const cx = (i) => -38 + i * CS, cy = (j) => 20 - j * CS
-export const MAPS = [
-  { name: 'SERPENT', color: '#27e0a0', path: [[0, 5], [4, 5], [4, 1], [9, 1], [9, 9], [14, 9], [14, 3], [19, 3]] },
-  { name: 'CROSSROADS', color: '#4aa8ff', path: [[0, 2], [6, 2], [6, 8], [12, 8], [12, 2], [16, 2], [16, 8], [19, 8]] },
-  { name: 'SPIRAL', color: '#ff6ad0', path: [[0, 9], [16, 9], [16, 1], [3, 1], [3, 7], [12, 7], [12, 4], [19, 4]] },
-]
+export let COLS = 20, ROWS = 11
+export const CS = 4
+const cx = (i) => -COLS * 2 + 2 + i * CS, cy = (j) => ROWS * 2 - 2 - j * CS
+export const tdCell = (i, j) => [cx(i), cy(j)]
+export const MAPS = TDCAMP.map((m) => ({ name: m.name, color: m.color, path: m.path, cols: m.cols, rows: m.rows, goal: m.goal, gold: m.gold, lives: m.lives, sub: m.sub }))
+const unlockedMaps = () => (profile.tdU && profile.tdU.cleared) || 0
+export const mapOk = (i) => i <= unlockedMaps()
 export const TOWERS = [
   { id: 'pulse', name: 'PULSE', ico: '🔫', cost: 50, dmg: 8, range: 14, rate: 0.42, color: '#3de8ff', air: true, desc: 'Fast and cheap. Hits ground and air.' },
   { id: 'cannon', name: 'CANNON', ico: '💣', cost: 100, dmg: 30, range: 15, rate: 1.4, color: '#ff9a3a', air: false, splash: 5.2, desc: 'Splash damage. Ground only.' },
@@ -22,17 +23,17 @@ export const TOWERS = [
   { id: 'bank', name: 'BANK', ico: '💰', cost: 120, dmg: 0, range: 0, rate: 0, color: '#6aff9a', air: false, desc: 'Earns gold at the end of every wave.' },
 ]
 const ENEMY = {
-  grunt: { hp: 32, spd: 9, gold: 4, c: '#ff5a6a', r: 1.5 },
-  runner: { hp: 20, spd: 17, gold: 4, c: '#ffd23a', r: 1.2 },
-  tank: { hp: 150, spd: 6, gold: 12, c: '#9a6bff', r: 2.1 },
-  swarm: { hp: 11, spd: 12, gold: 2, c: '#7aff6a', r: 1.0 },
-  flyer: { hp: 42, spd: 11, gold: 8, c: '#ff8ad8', r: 1.5, air: true },
-  boss: { hp: 650, spd: 5, gold: 90, c: '#ff3a3a', r: 3.2, boss: true },
+  grunt: { hp: 32, spd: 6, gold: 4, c: '#ff5a6a', r: 1.5 },
+  runner: { hp: 20, spd: 11, gold: 4, c: '#ffd23a', r: 1.2 },
+  tank: { hp: 150, spd: 4, gold: 12, c: '#9a6bff', r: 2.1 },
+  swarm: { hp: 11, spd: 8, gold: 2, c: '#7aff6a', r: 1.0 },
+  flyer: { hp: 42, spd: 7, gold: 8, c: '#ff8ad8', r: 1.5, air: true },
+  boss: { hp: 650, spd: 3.4, gold: 90, c: '#ff3a3a', r: 3.2, boss: true },
 }
 export const WAVES = 25
 function waveList(w) {
   const L = []
-  const add = (type, n, gap) => { for (let i = 0; i < n; i++) L.push({ type, t: i * gap }) }
+  const add = (type, n, gap) => { for (let i = 0; i < n; i++) L.push({ type, t: i * gap * 1.5 }) }
   const off = () => (L.length ? L[L.length - 1].t + 1.5 : 0)
   if (w % 5 === 0) { add('boss', Math.max(1, Math.floor(w / 10)), 4); const o = off(); for (let i = 0; i < 4 + w / 2; i++) L.push({ type: w % 10 === 0 ? 'tank' : 'grunt', t: o + i * 0.9 }) }
   else if (w % 4 === 3) add('flyer', 4 + Math.floor(w * 0.7), 1.1)
@@ -52,7 +53,7 @@ const upCost = (t) => Math.round(TOWERS.find((x) => x.id === t.id).cost * 0.75 *
 const sellVal = (t) => Math.round(t.invested * 0.7)
 function emitT() {
   const st = TD.sel
-  snap = { mode: TD.mode, paused: TD.paused, map: MAPS[TD.map].name, wave: TD.wave, waves: TD.goal || WAVES, gold: Math.floor(TD.gold), lives: TD.lives, kills: TD.kills, build: TD.build, speed: TD.speed, auto: TD.auto, over: TD.over, msg: TD.msg ? { ...TD.msg } : null, running: !!TD.spawn || TD.enemies.length > 0, left: (TD.spawn ? TD.spawn.list.length : 0) + TD.enemies.length, strike: Math.max(0, TD.strike), strikeArm: TD.strikeArm, sel: st ? { id: st.id, name: TOWERS.find((x) => x.id === st.id).name, lvl: st.lvl, up: st.lvl < 4 ? upCost(st) : 0, sell: sellVal(st), dmg: Math.round(dmgOf(st)), range: Math.round(rangeOf(st)), kills: st.kills } : null, nextBonus: Math.max(0, Math.ceil(TD.nextT)) }
+  snap = { mode: TD.mode, paused: TD.paused, map: MAPS[TD.map].name, wave: TD.wave, waves: TD.goal || WAVES, gold: Math.floor(TD.gold), lives: TD.lives, kills: TD.kills, build: TD.build, speed: TD.speed, auto: TD.auto, over: TD.over, msg: TD.msg ? { ...TD.msg } : null, running: !!TD.spawn || TD.enemies.length > 0, left: (TD.spawn ? TD.spawn.list.length : 0) + TD.enemies.length, strike: Math.max(0, TD.strike), strikeArm: TD.strikeArm, sel: st ? { id: st.id, name: TOWERS.find((x) => x.id === st.id).name, lvl: st.lvl, up: st.lvl < 4 ? upCost(st) : 0, sell: sellVal(st), dmg: Math.round(dmgOf(st)), range: Math.round(rangeOf(st)), kills: st.kills } : null, nextBonus: Math.max(0, Math.ceil(TD.nextT)), tale: TD.tale ? { who: TDWHO[TD.tale.lines[TD.tale.i][0]], text: TD.tale.lines[TD.tale.i][1], i: TD.tale.i, n: TD.tale.lines.length, kind: TD.tale.kind } : null, sub: MAPS[TD.map].sub, beat: TD.beat ? { ...TD.beat } : null, nextMap: TD.over && TD.over.win && TD.over.next ? TD.over.next : '' }
   subs.forEach((f) => f())
 }
 function pathRaster(path) {
@@ -66,17 +67,19 @@ function pathRaster(path) {
 }
 function start(cfg = {}) {
   const m = clamp(cfg.map | 0, 0, MAPS.length - 1)
-  TD.map = m; TD.goal = clamp(cfg.goal | 0 || WAVES, 3, WAVES)
+  TD.map = m; TD.goal = clamp(cfg.goal | 0 || MAPS[m].goal || WAVES, 3, WAVES)
+  COLS = MAPS[m].cols; ROWS = MAPS[m].rows; TD.cols = COLS; TD.rows = ROWS
   TD.wp = MAPS[m].path.map(([i, j]) => [cx(i), cy(j)])
   TD.wp[0][0] -= 4; TD.wp[TD.wp.length - 1][0] += 4
   TD.seg = []; let tot = 0
   for (let k = 0; k < TD.wp.length - 1; k++) { const L = Math.hypot(TD.wp[k + 1][0] - TD.wp[k][0], TD.wp[k + 1][1] - TD.wp[k][1]); TD.seg.push(L); tot += L }
   TD.plen = tot
   TD.cells = pathRaster(MAPS[m].path)
-  TD.occ = {}; TD.towers = []; TD.enemies = []; TD.shots = []; TD.strikes = []; TD.wave = 0; TD.spawn = null; TD.gold = 170; TD.lives = 20; TD.kills = 0; TD.sel = null; TD.build = 'pulse'; TD.speed = 1; TD.auto = !!cfg.auto
+  TD.occ = {}; TD.towers = []; TD.enemies = []; TD.shots = []; TD.strikes = []; TD.wave = 0; TD.spawn = null; TD.gold = cfg.gold || MAPS[m].gold || 170; TD.lives = MAPS[m].lives || 20; TD.story = cfg.story !== false; TD.tale = null; TD.kills = 0; TD.sel = null; TD.build = 'pulse'; TD.speed = 1; TD.auto = !!cfg.auto
   TD.gen = (TD.gen || 0) + 1; TD.leakT = 0; TD.over = null; TD.strike = 10; TD.strikeArm = false; TD.paused = false; TD.msg = { text: 'BUILD YOUR DEFENCES', sub: 'THEN PRESS NEXT WAVE', color: '#3de8ff', t: 3 }; TD.nextT = 0; TD.leaked = 0
   G.mode = 'td'; engineEmit(); G.parts = []; G.pops = []; G.shake = 0; G.flash = 0
   TD.mode = 'play'
+  if (TD.story && TDCAMP[m].intro) TD.tale = { lines: TDCAMP[m].intro, i: 0, kind: 'intro' }
   music.set('bomber', 0); sfx('mission'); emitT()
 }
 function stop() { TD.mode = 'idle'; TD.paused = false; music.set('menu'); emitT() }
@@ -102,13 +105,14 @@ function nextWave() {
     TD.spawn = { list: waveList(TD.wave), t: 0 }
     if (TD.nextT > 0 && TD.wave > 1) { const b = Math.ceil(TD.nextT) * 2; TD.gold += b; popup(0, -24, '+' + b + ' EARLY BONUS', [1, 0.9, 0.3]) }
     TD.nextT = 0
+    { const bt = TDCAMP[TD.map].beats && TDCAMP[TD.map].beats[TD.wave]; if (bt && TD.story) { const w = TDWHO[bt[0][0]]; TD.beat = { text: w[0], sub: bt[0][1], color: w[1], t: 5 }; if (bt.length > 1) TD.beat2 = bt.slice(1) } }
     const boss = TD.wave % 5 === 0
     TD.msg = { text: boss ? 'BOSS WAVE ' + TD.wave : 'WAVE ' + TD.wave, sub: TD.spawn.list.length + ' ENEMIES', color: boss ? '#ff4a5a' : '#ffe84a', t: 2 }
     sfx(boss ? 'rgBoss' : 'tdWave'); if (boss) { speak('Boss incoming', 0.4, 0.95); shake(1) }
     emitT()
   }
 }
-function cellAt(x, y) { const i = Math.floor((x + 40) / CS), j = Math.floor((22 - y) / CS); return i >= 0 && i < COLS && j >= 0 && j < ROWS ? [i, j] : null }
+function cellAt(x, y) { const i = Math.floor((x + COLS * 2) / CS), j = Math.floor((ROWS * 2 - y) / CS); return i >= 0 && i < COLS && j >= 0 && j < ROWS ? [i, j] : null }
 function kill(e, byStrike) {
   if (e.dead) return
   e.dead = true; TD.kills++; TD.gold += e.def.gold; if (!byStrike) sfx('tdKill')
@@ -159,11 +163,13 @@ function fireTower(t) {
 }
 function update(dtRaw) {
   if (TD.mode === 'idle' || TD.paused) return
-  if (TD.over) { stepParticles(dtRaw); return }
+  if (TD.over && !TD.tale) { stepParticles(dtRaw); return }
+  if (TD.tale) { stepParticles(dtRaw); TD.emitT -= dtRaw; if (TD.emitT <= 0) { TD.emitT = 0.1; emitT() } return }
   const dt = Math.min(dtRaw, 0.04) * TD.speed
   TD.t += dt
   TD.strike = Math.max(0, TD.strike - dt); TD.leakT = Math.max(0, (TD.leakT || 0) - dt)
   if (TD.msg) { TD.msg.t -= dtRaw; if (TD.msg.t <= 0) TD.msg = null }
+  if (TD.beat) { TD.beat.t -= dtRaw; if (TD.beat.t <= 0) { if (TD.beat2 && TD.beat2.length) { const n = TD.beat2.shift(), w = TDWHO[n[0]]; TD.beat = { text: w[0], sub: n[1], color: w[1], t: 5 } } else TD.beat = null } }
   // spawning
   if (TD.spawn) {
     TD.spawn.t += dt
@@ -252,6 +258,8 @@ function finish(won) {
   TD.mode = 'over'; music.stop()
   const score = TD.wave * 120 + TD.lives * 40 + TD.kills * 2 + (won ? 2000 + (TD.leaked === 0 ? 1500 : 0) : 0)
   TD.over = { win: won, wave: TD.wave, kills: TD.kills, lives: TD.lives, score, map: MAPS[TD.map].name }
+  if (won) { const u = profile.tdU || (profile.tdU = { cleared: 0 }); u.cleared = Math.max(u.cleared, TD.map + 1); TD.over.next = TD.map + 1 < MAPS.length ? MAPS[TD.map + 1].name : '' ; profile.chips = (profile.chips || 0) + 80 * (TD.map + 1) }
+  if (TD.story && TDCAMP[TD.map].outro && won) TD.tale = { lines: TDCAMP[TD.map].outro, i: 0, kind: 'outro' }
   profile.tdGames = (profile.tdGames || 0) + 1
   if (won) profile.tdWins = (profile.tdWins || 0) + 1
   profile.tdBest = Math.max(profile.tdBest || 0, TD.wave)
@@ -275,8 +283,10 @@ export const tdActions = {
   start, stop, quit() { toMenu() },
   resume() { TD.paused = false; emitT() },
   pause() { if (TD.mode === 'play' && !TD.paused) { TD.paused = true; emitT(); return true } return false },
-  rematch() { start({ map: TD.map, auto: TD.auto, goal: TD.goal }) },
+  rematch() { start({ map: TD.over && TD.over.win && TD.over.next ? TD.map + 1 : TD.map, auto: TD.auto, story: TD.story }) },
   next: nextWave,
+  nextTale() { const t = TD.tale; if (!t) return; sfx('wdKey'); if (t.i < t.lines.length - 1) t.i++; else { TD.tale = null } emitT() },
+  skipTale() { TD.tale = null; emitT() },
   setBuild(id) { TD.build = id; TD.sel = null; sfx('ui'); emitT() },
   speed() { TD.speed = TD.speed === 1 ? 2 : TD.speed === 2 ? 3 : 1; sfx('ui'); emitT() },
   auto() { TD.auto = !TD.auto; sfx('ui'); emitT() },
@@ -301,6 +311,7 @@ export const tdActions = {
 }
 function onKey(code) {
   if (TD.mode === 'idle') return
+  if (TD.tale) { if (code === 'Enter' || code === 'Space') tdActions.nextTale(); else if (code === 'Escape') tdActions.skipTale(); return }
   if (code === 'Escape' || code === 'KeyP') { if (TD.mode === 'play') { TD.paused = !TD.paused; emitT() } return }
   if (TD.paused) return
   if (TD.mode === 'over') { if (code === 'Enter') tdActions.rematch(); return }

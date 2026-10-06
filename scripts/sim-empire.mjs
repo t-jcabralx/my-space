@@ -37,4 +37,22 @@ ok(EM.B.every((b) => Number.isFinite(b.hp)), 'buildings finite')
 console.log('PASS empire', EM.over ? JSON.stringify(EM.over).slice(0, 120) : 'running ' + Math.round(EM.t) + 's')
 // ---- online packets round trip ----
 empireActions.stop()
+// ---- the campaign: every scenario starts with a story, has goals, and the first ones can be won by an auto-pilot ----
+import { profile } from '../src/game/engine.js'
+import { EMCAMP } from '../src/game/empirestory.js'
+ok(EMCAMP.length === 5 && EMCAMP.every((c) => c.intro.length >= 4 && c.outro.length >= 2 && c.objectives.length >= 2), 'five complete scenarios')
+for (let i = 0; i < EMCAMP.length; i++) {
+  empireActions.start({ scen: i })
+  ok(EM.scen && EM.tale && EM.obj.length === EMCAMP[i].objectives.length && EM.P.length === EMCAMP[i].ai + 1, 'scenario ' + (i + 1) + ' starts with a scene and goals')
+  empireActions.skipTale()
+  EM.P[0].auto = true; EM.P[0].ai = { t: 0, atkT: 80 }
+  if (i === 2) EM.P[0].res = { food: 3000, wood: 3000, stone: 3000, gold: 3000 }
+  let f = 0
+  const limit = i <= 2 ? 3600 : 700 // seconds of game time
+  while (EM.mode === 'play' && EM.t < limit && f++ < 40000) update(0.2)
+  console.log('scenario', i + 1, EM.mode, 'time', Math.round(EM.t), 'done', EM.obj.filter((o) => o.done).length + '/' + EM.obj.length, 'raids', EM.raidN)
+  ok(EM.obj.some((o) => o.done) || EM.mode === 'over', 'scenario ' + (i + 1) + ' makes progress')
+  if (EM.mode === 'over' && EM.over.win) ok((profile.empireCamp && profile.empireCamp.cleared) >= i + 1, 'winning saves the campaign')
+  empireActions.stop()
+}
 process.exit(fail ? 1 : 0)

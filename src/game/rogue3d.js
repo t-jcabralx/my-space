@@ -7,19 +7,25 @@ export const THEMES = [
   { name: 'THE WHISPERING WOODS', sky: '#030a06', fog: '#04120a', fogNear: 38, fogFar: 175, g1: [0.09, 0.2, 0.08], g2: [0.07, 0.16, 0.07], trunk: [0.22, 0.12, 0.06], leaf: [[0.05, 0.3, 0.1], [0.08, 0.38, 0.12], [0.12, 0.46, 0.14]], glow: [0.4, 2.2, 1.0], lantern: '#ffb050', lanternI: 3.2, moon: '#8fb0ff', amb: 0.55, sun: 0.75, mush: [0.5, 2.4, 1.2], rock: [0.17, 0.2, 0.17], moss: [0.1, 0.36, 0.1], kind: 'pine' },
   { name: 'THE CURSED MARSH', sky: '#05030c', fog: '#0a0716', fogNear: 30, fogFar: 150, g1: [0.1, 0.1, 0.19], g2: [0.08, 0.08, 0.15], trunk: [0.16, 0.12, 0.2], leaf: [[0.2, 0.1, 0.3], [0.26, 0.12, 0.36], [0.3, 0.16, 0.42]], glow: [1.8, 0.9, 2.8], lantern: '#9ab4ff', lanternI: 3.4, moon: '#9a8aff', amb: 0.5, sun: 0.6, mush: [1.9, 0.8, 2.8], rock: [0.17, 0.16, 0.24], moss: [0.16, 0.22, 0.28], kind: 'dead' },
   { name: 'THE VOID GROVE', sky: '#0a0206', fog: '#14040c', fogNear: 28, fogFar: 140, g1: [0.2, 0.07, 0.11], g2: [0.15, 0.05, 0.09], trunk: [0.12, 0.05, 0.08], leaf: [[0.7, 0.1, 0.3], [0.9, 0.16, 0.4], [1, 0.3, 0.5]], glow: [3, 0.7, 1.2], lantern: '#ff6a48', lanternI: 3.6, moon: '#ff8a9a', amb: 0.55, sun: 0.5, mush: [3, 0.8, 1.6], rock: [0.22, 0.12, 0.15], moss: [0.3, 0.1, 0.18], kind: 'crystal' },
+  { name: 'THE CRYSTAL CAVERNS', sky: '#02060e', fog: '#04101e', fogNear: 30, fogFar: 150, g1: [0.07, 0.11, 0.2], g2: [0.05, 0.09, 0.17], trunk: [0.14, 0.2, 0.32], leaf: [[0.2, 0.5, 0.9], [0.3, 0.7, 1.1], [0.5, 0.9, 1.3]], glow: [0.6, 2.0, 3.2], lantern: '#8ad8ff', lanternI: 3.6, moon: '#7ac8ff', amb: 0.52, sun: 0.55, mush: [0.6, 2.0, 3.2], rock: [0.12, 0.17, 0.28], moss: [0.1, 0.2, 0.34], kind: 'cave' },
+  { name: 'THE EMBER RUINS', sky: '#0a0402', fog: '#180804', fogNear: 30, fogFar: 150, g1: [0.16, 0.08, 0.06], g2: [0.12, 0.06, 0.05], trunk: [0.07, 0.05, 0.05], leaf: [[0.4, 0.15, 0.05], [0.5, 0.2, 0.06], [0.6, 0.25, 0.08]], glow: [3.2, 1.2, 0.3], lantern: '#ff8a40', lanternI: 3.8, moon: '#ff9a5a', amb: 0.55, sun: 0.5, mush: [3.2, 1.2, 0.3], rock: [0.2, 0.1, 0.08], moss: [0.3, 0.1, 0.05], kind: 'ash' },
 ]
+const CHTHEME = [0, 1, 3, 4, 2]
+const themeOf = (RG) => THEMES[CHTHEME[Math.min(RG.floor || 0, 4)]]
 const TAU = Math.PI * 2
 const RACE_IDS = ['human', 'elf', 'dwarf', 'undead', 'fairy']
-const AX = 44, AY = 23
+let AX = 44, AY = 23
+const setArena = (RG) => { AX = RG.ax || 44; AY = RG.ay || 23 }
 
 // ---------- camera ----------
 const C = { x: 0, z: 0, h: 52, ready: false, bx: 0, bz: 0 }
 export function rogueCamera(RG, aspect, dt, peek) {
+  setArena(RG)
   const ps = (RG.players || []).filter((p) => p.alive)
   let fx = 0, fz = 0
   if (ps.length) { for (const p of ps) { fx += p.x; fz += -p.y } fx /= ps.length; fz /= ps.length }
   // gentle follow: the whole arena stays in view, the camera leans toward the action
-  let tx = clamp(fx * 0.5, -17, 17), tz = clamp(fz * 0.55, -10, 10), th = 43, back = 33
+  let tx = clamp(fx * 0.95, -Math.max(8, AX - 30), Math.max(8, AX - 30)), tz = clamp(fz * 0.9, -Math.max(5, AY - 15), Math.max(5, AY - 15)), th = 43, back = 33
   const boss = RG.en && RG.en.find((e) => e.def && e.def.boss && !e.dead)
   if (RG.bossT > 1.4 && boss) { tx = boss.x * 0.6; tz = -boss.y * 0.6 - 4; th = 34; back = 24 }
   else if (RG.mode === 'over') { th = 36; back = 28 }
@@ -47,7 +53,8 @@ export function unprojectGround(cam, nx, ny) {
   return { x: px + dx * t, y: -(pz + dz * t) }
 }
 export function rogueLights(RG) {
-  const th = THEMES[RG.floor % 3]
+  setArena(RG)
+  const th = themeOf(RG)
   const me = RG.players && RG.players[RG.me]
   const t = G.time
   const fl = 1 + Math.sin(t * 13) * 0.06 + Math.sin(t * 7.3) * 0.05 + (Math.random() - 0.5) * 0.06
@@ -62,7 +69,7 @@ export function rogueLights(RG) {
 // ---------- environment (rebuilt per room, replayed every frame) ----------
 let ENV = null
 function buildEnv(RG) {
-  const th = THEMES[RG.floor % 3], r = rng(RG.floor * 977 + RG.rk * 131 + 7)
+  const th = themeOf(RG), r = rng(RG.floor * 977 + RG.rk * 131 + 7)
   const E = { key: RG.floor + ':' + RG.rk, ground: [], trees: [], tufts: [], shrooms: [], rocks: [], flies: [] }
   const gc = (a, k) => [a[0] * k, a[1] * k, a[2] * k]
   for (let x = -AX - 4; x <= AX + 4; x += 4) for (let z = -AY - 4; z <= AY + 4; z += 4) {
@@ -87,6 +94,7 @@ function buildEnv(RG) {
   return E
 }
 
+function putS3(put3, x, y, z, glow, gl, dark) { put3(x, y, z, 0.6, 0.6, 0.6, 0.7, glow[0] * gl * dark, glow[1] * gl * dark, glow[2] * gl * dark, 0.4) }
 function putTree(put3, th, tr, t) {
   const s = tr.s, sway = Math.sin(t * 0.9 + tr.ph) * 0.18, h = tr.h
   const dark = tr.row ? 0.6 : 1
@@ -97,6 +105,11 @@ function putTree(put3, th, tr, t) {
       const lc = th.leaf[k % 3], w = (8.2 - k * 1.9) * s, y = h * 0.42 + k * 2.4 * s + 1.4
       put3(tr.x + sway * (k + 1) * 0.6, y, tr.z, w, 2.5 * s, w, 0, lc[0] * dark, lc[1] * dark, lc[2] * dark, k * 0.4 + tr.ph)
     }
+  } else if (th.kind === 'cave') {
+    for (let k = 0; k < 4; k++) { const a = tr.ph + k * 1.7, len = (h * (0.5 + (k % 3) * 0.25)), gl = 0.8 + Math.sin(t * 1.5 + k + tr.ph) * 0.2; put3(tr.x + Math.cos(a) * 1.1 * s, len / 2, tr.z + Math.sin(a) * 1.1 * s, (1.3 - k * 0.2) * s, len, (1.3 - k * 0.2) * s, Math.cos(a) * 0.18, th.leaf[k % 3][0] * gl * dark, th.leaf[k % 3][1] * gl * dark, th.leaf[k % 3][2] * gl * dark, a); putS3(put3, tr.x + Math.cos(a) * 1.1 * s, len, tr.z + Math.sin(a) * 1.1 * s, th.glow, gl, dark) }
+  } else if (th.kind === 'ash') {
+    for (let k = 0; k < 3; k++) { const a = tr.ph + k * 2.1, y = h * (0.55 + k * 0.15), len = (3 - k * 0.6) * s; put3(tr.x + Math.cos(a) * len * 0.4, y, tr.z + Math.sin(a) * len * 0.4, len, 0.5 * s, 0.5 * s, 0.3, th.trunk[0] * dark, th.trunk[1] * dark, th.trunk[2] * dark, -a) }
+    const gl = 0.7 + Math.sin(t * 5 + tr.ph) * 0.3; put3(tr.x, h * 0.3, tr.z + 0.8 * s, 0.4 * s, h * 0.5, 0.2, 0, th.glow[0] * gl * dark, th.glow[1] * gl * dark, th.glow[2] * gl * dark, 0)
   } else if (th.kind === 'dead') {
     for (let k = 0; k < 4; k++) {
       const a = tr.ph + k * 1.6, y = h * (0.5 + k * 0.13), len = (3.4 - k * 0.5) * s
@@ -188,10 +201,11 @@ function drawHero(put3, p, t, cl, isMe, RG) {
   void RG
 }
 
-function drawEnemy(put3, e, t, hero) {
+function drawEnemy(api, e, t, hero) {
+  const put3 = api.put3, putS = api.putS
   const d = e.def, c = hex(d.c, 1), dk = hex(d.c, 0.5), fl = e.flash > 0 ? 2.2 : 1
   const rise = e.spawnT > 0 ? -d.r * 2 * (e.spawnT / 0.5) : 0
-  const fa = e.fa || 0, P = mk(put3, e.x, -e.y, fa, rise)
+  const fa = e.fa || 0, P = mk(put3, e.x, -e.y, fa, rise, e.elite ? 1.3 : 1)
   const fz = e.frozen > 0 ? [0.6, 1.2, 1.8] : null
   const cr = (k) => (fz ? fz[0] * k : c[0] * k * fl), cg = (k) => (fz ? fz[1] * k : c[1] * k * fl), cb = (k) => (fz ? fz[2] * k : c[2] * k * fl)
   const T = e.t * 1
@@ -217,6 +231,30 @@ function drawEnemy(put3, e, t, hero) {
     P(0, 4.5, 0, 1.4, 1.3, 1.3, bone[0], bone[1], bone[2]); P(-0.3, 4.6, 0.7, 0.35, 0.35, 0.12, 0.05, 0.05, 0.08); P(0.3, 4.6, 0.7, 0.35, 0.35, 0.12, 0.05, 0.05, 0.08); P(-0.3, 4.6, 0.76, 0.18, 0.18, 0.08, 0.4, 2.4, 1.2); P(0.3, 4.6, 0.76, 0.18, 0.18, 0.08, 0.4, 2.4, 1.2)
     const raise = e.cast > 0 ? 0.9 : 0
     P(-1.1, 3.3, 0.5, 0.4, 0.4, 1.8, bone[0], bone[1], bone[2]); P(1.1, 3.3 + raise, 0.9, 0.4, 0.4, 1.8, bone[0], bone[1], bone[2]); P(1.1, 3.3 + raise, 1.9, 0.3, 0.3, 0.9, 0.9, 0.9, 0.7)
+  } else if (e.type === 'imp') {
+    const hv = 2.2 + Math.sin(T * 6 + e.seed) * 0.4, fl2 = Math.sin(T * 24) * 0.8, cast = e.cast > 0
+    P(0, hv, 0, 1.1, 1.4, 0.9, cr(0.9), cg(0.7), cb(0.6)); P(0, hv + 1.1, 0.1, 1.0, 0.9, 0.9, cr(1), cg(0.75), cb(0.6)); P(-0.4, hv + 1.7, 0.1, 0.25, 0.7, 0.25, 1.6, 1.4, 1.2, 0.3); P(0.4, hv + 1.7, 0.1, 0.25, 0.7, 0.25, 1.6, 1.4, 1.2, -0.3)
+    P(-0.25, hv + 1.2, 0.55, 0.22, 0.22, 0.1, 3, 2.6, 0.5); P(0.25, hv + 1.2, 0.55, 0.22, 0.22, 0.1, 3, 2.6, 0.5)
+    P(-1.4, hv + 0.5, -0.2, 2, 0.12, 1.2, cr(0.6), cg(0.3), cb(0.25), fl2); P(1.4, hv + 0.5, -0.2, 2, 0.12, 1.2, cr(0.6), cg(0.3), cb(0.25), -fl2)
+    P(0, hv - 0.9, -0.9, 0.2, 0.2, 1.4, cr(0.7), cg(0.4), cb(0.3)); P(0, hv - 0.9, -1.7, 0.4, 0.4, 0.4, 3, 1.2, 0.3)
+    putS(e.x + Math.cos(ry) * 0 + Math.sin(ry) * 1.1, hv + 0.5, -e.y + Math.cos(ry) * 1.1, cast ? 1.5 : 0.8, cast ? 1.5 : 0.8, cast ? 1.5 : 0.8, 3, 1.2 + Math.sin(T * 20) * 0.4, 0.3)
+  } else if (e.type === 'golem') {
+    const slam = e.wind > 0, sw = Math.sin(T * 2) * 0.3, arms = slam ? 4.2 + Math.sin(T * 30) * 0.2 : 2.2
+    for (const sd of [-1, 1]) P(sd * 1.7, 2.1, sw * sd, 2, 4.2, 2.2, cr(0.55), cg(0.55), cb(0.6))
+    P(0, 6, 0, 5.4, 4.4, 3.4, cr(0.8), cg(0.8), cb(0.9)); P(0, 6, 1.75, 3, 3, 0.4, 1.2 * (slam ? 2.5 : 1), 2.2 * (slam ? 1.8 : 1), 3.2)
+    P(0, 9.2, 0.3, 2.7, 2.2, 2.6, cr(0.7), cg(0.7), cb(0.8)); P(-0.7, 9.4, 1.65, 0.5, 0.4, 0.15, 0.4, 2.8, 3.2); P(0.7, 9.4, 1.65, 0.5, 0.4, 0.15, 0.4, 2.8, 3.2)
+    for (const sd of [-1, 1]) { P(sd * 3.7, arms + 2.2, 0.4 + (slam ? 0 : sw), 1.9, 4.2, 1.9, cr(0.6), cg(0.6), cb(0.7)); P(sd * 3.7, arms - 0.2, 0.6, 2.5, 2.4, 2.5, cr(0.9), cg(0.9), cb(1)) }
+    for (let k = 0; k < 6; k++) { const a = T * 1.1 + (k / 6) * TAU; put3(e.x + Math.cos(a) * 6.4, 5 + Math.sin(a * 2 + T) * 1.2, -e.y + Math.sin(a) * 6.4, 0.9, 2.4, 0.9, a, 1.0, 2.4, 3.4, a) }
+  } else if (e.type === 'drake') {
+    const wl = Math.sin(T * 9) * 0.55, br = e.cast > 0, wnd = e.wind > 0 || e.charge > 0, low = e.charge > 0 ? -0.6 : 0
+    P(0, 3.2 + low, 0, 3.6, 3.2, 7, cr(0.85 + (wnd ? 0.6 : 0)), cg(0.45), cb(0.3)); P(0, 3.0 + low, -1.5, 3.2, 2.8, 4, cr(0.7), cg(0.35), cb(0.25))
+    P(0, 4.6 + low, 3.8, 1.6, 1.8, 2.8, cr(0.85), cg(0.45), cb(0.3)); P(0, 5.0 + low, 5.6, 2.2, 1.6, 2.6, cr(0.95), cg(0.5), cb(0.32)); P(0, 4.3 + low, 6.6, 1.8, 0.5, 1.8, cr(0.7), cg(0.3), cb(0.2))
+    P(-0.7, 5.8 + low, 5.9, 0.35, 0.35, 0.14, 3.2, 2.6, 0.4); P(0.7, 5.8 + low, 5.9, 0.35, 0.35, 0.14, 3.2, 2.6, 0.4); P(-0.7, 6.4 + low, 5.2, 0.4, 1.4, 0.4, 1.4, 1.2, 0.9, 0.3); P(0.7, 6.4 + low, 5.2, 0.4, 1.4, 0.4, 1.4, 1.2, 0.9, -0.3)
+    P(-5.5, 5.2 + low, -0.4, 9, 0.2, 5, cr(0.5), cg(0.2), cb(0.15), wl); P(5.5, 5.2 + low, -0.4, 9, 0.2, 5, cr(0.5), cg(0.2), cb(0.15), -wl)
+    for (let k = 0; k < 6; k++) P(Math.sin(T * 3 + k) * (0.3 + k * 0.15), 2.8 - k * 0.12 + low, -3.8 - k * 1.3, 1.7 - k * 0.2, 1.5 - k * 0.2, 1.5, cr(0.7), cg(0.32), cb(0.22))
+    for (let k = 0; k < 5; k++) P(0, 5 + low, 2 - k * 1.4, 0.4, 0.9, 0.5, 1.6, 1.3, 0.7)
+    for (const [lx, lz] of [[-1.7, 2], [1.7, 2], [-1.7, -2], [1.7, -2]]) P(lx, 1.2, lz + Math.sin(T * 6 + lx) * 0.4 * (e.charge > 0 ? 2 : 0.4), 0.9, 2.4, 1.1, cr(0.6), cg(0.28), cb(0.2))
+    if (br) for (let k = 0; k < 10; k++) { const u = (k / 10 + (T * 5) % 0.2); P((Math.sin(k * 3 + T * 40)) * 0.8 * u * 3, 4.4 + low, 7 + u * 12, 1.2 + u * 3, 1.2 + u * 3, 1.6, 3, 1.5 + (1 - u) * 1.6, 0.3) }
   } else if (e.type === 'bat') {
     const fl2 = Math.sin(T * 22 + e.seed) * 0.9
     P(0, 3 + Math.sin(T * 5) * 0.4, 0, 0.9, 0.9, 1.4, cr(0.8), cg(0.8), cb(0.8))
@@ -265,6 +303,8 @@ function drawEnemy(put3, e, t, hero) {
     for (let k = 0; k < 10; k++) { const a = T * 1.2 + (k / 10) * TAU; P(Math.cos(a) * 6.6, hv + Math.sin(a * 3 + T * 2) * 1.5, Math.sin(a) * 6.6, 0.9, 0.9, 0.9, 2.6, 0.4, 2.2) }
     for (let k = 0; k < 6; k++) P(-2.5 + k, hv - 3.6 - Math.sin(T * 3 + k) * 0.6, 0, 0.35, 1.8 + Math.sin(T * 3 + k) * 0.6, 0.35, 0.8, 0.2, 0.7)
   }
+  if (e.elite && e.spawnT <= 0) for (let k = 0; k < 8; k++) { const a = (k / 8) * TAU + T * 2; putS(e.x + Math.cos(a) * d.r * 1.5, 0.6 + Math.sin(T * 5 + k) * 0.2, -e.y + Math.sin(a) * d.r * 1.5, 0.55, 0.55, 0.55, 3, 2.2, 0.4) }
+  if (e.burn) for (let k = 0; k < 3; k++) putS(e.x + Math.sin(T * 12 + k * 2) * d.r * 0.6, d.r * 1.4 + ((T * 4 + k) % 1.2) * 2, -e.y + Math.cos(T * 9 + k) * d.r * 0.6, 0.8, 1.1, 0.8, 3, 1.3 + Math.sin(T * 30 + k) * 0.5, 0.2)
   // telegraph glow while spawning
   if (e.spawnT > 0) for (let k = 0; k < 10; k++) { const a = (k / 10) * TAU + e.spawnT * 6; put3(e.x + Math.cos(a) * d.r * 1.6, 0.2, -e.y + Math.sin(a) * d.r * 1.6, 0.5, 0.3, 0.5, 0, c[0] * 2, c[1] * 2, c[2] * 2) }
   // little health bar for hurt non-bosses
@@ -307,8 +347,9 @@ function drawPet(put3, pt, t) {
 }
 // ---------- main ----------
 export function drawRogue3(api, RG, CLASSES) {
-  const { put3 } = api
-  const th = THEMES[RG.floor % 3], t = G.time
+  setArena(RG)
+  const { put3, putS } = api
+  const th = themeOf(RG), t = G.time
   const key = RG.floor + ':' + RG.rk
   if (!ENV || ENV.key !== key) ENV = buildEnv(RG)
   const E = ENV
@@ -346,10 +387,34 @@ export function drawRogue3(api, RG, CLASSES) {
     if (l.k === 'gold') put3(l.x, 1.6 + Math.sin(t * 4 + l.x) * 0.3, -l.y, 1, 1.3, 0.3, 0, 3, 2.3, 0.4, t * 5 + l.x)
     else { const bb = 1.8 + Math.sin(t * 3) * 0.3; put3(l.x - 0.55, bb + 0.3, -l.y, 0.9, 0.9, 0.9, 0, 3, 0.4, 0.6, t * 2); put3(l.x + 0.55, bb + 0.3, -l.y, 0.9, 0.9, 0.9, 0, 3, 0.4, 0.6, t * 2); put3(l.x, bb - 0.4, -l.y, 1, 1, 0.9, 0, 3, 0.4, 0.6, t * 2) }
   }
+  // rune trial, chests and the hidden passage
+  if (RG.puz) {
+    const z = RG.puz
+    put3(2, 0.3, 0, 3.2, 0.6, 3.2, 0, 0.3, 0.28, 0.34, 0); putS(2, 1.1 + Math.sin(t * 3) * 0.2, 0, 1.1, 1.1, 1.1, 2.4, 2.2, 2.8)
+    z.runes.forEach((r, i) => {
+      const c = hex(r.c, 1), lit = clamp(r.lit, 0, 1), solved = z.solved
+      put3(r.x, 0.25, -r.y, 3.6, 0.5, 3.6, 0, 0.28, 0.27, 0.32, 0)
+      put3(r.x, 0.6, -r.y, 2.6, 0.2, 2.6, i * 0.3 + t * (lit > 0 ? 3 : 0), c[0] * (0.25 + lit * 3), c[1] * (0.25 + lit * 3), c[2] * (0.25 + lit * 3), 0)
+      if (lit > 0.05 || solved) { putS(r.x, 2.2 + lit * 2, -r.y, 1.6 + lit, 1.6 + lit, 1.6 + lit, c[0] * 2.6, c[1] * 2.6, c[2] * 2.6); for (let k = 0; k < 8; k++) put3(r.x, 1 + k * 1.2, -r.y, 0.4, 1, 0.4, 0, c[0] * 2 * lit, c[1] * 2 * lit, c[2] * 2 * lit, 0) }
+    })
+  }
+  for (const c of RG.chests) {
+    const gold = c.kind !== 'vault', cc = gold ? [0.5, 0.32, 0.1] : [0.34, 0.16, 0.5], gl = gold ? [3, 2.3, 0.5] : [2.2, 0.9, 3]
+    put3(c.x, 1, -c.y, 3.4, 2, 2.4, 0, cc[0], cc[1], cc[2], 0); put3(c.x, 2.3 + (c.open ? 1.2 : 0), -c.y - (c.open ? 1.1 : 0), 3.6, 0.8, 2.6, c.open ? -0.9 : 0, cc[0] * 1.2, cc[1] * 1.2, cc[2] * 1.2, 0)
+    put3(c.x, 1.4, -c.y + 1.25, 0.5, 0.8, 0.15, 0, gl[0], gl[1], gl[2], 0)
+    if (c.open) for (let k = 0; k < 7; k++) putS(c.x + Math.sin(t * 3 + k * 2) * 1.4, 3 + ((t * 2 + k * 0.4) % 3), -c.y + Math.cos(t * 3 + k) * 0.8, 0.5, 0.5, 0.5, gl[0], gl[1], gl[2])
+    else { const g = 0.6 + Math.sin(t * 4) * 0.4; putS(c.x, 4 + Math.sin(t * 2) * 0.4, -c.y, 0.7, 0.7, 0.7, gl[0] * g, gl[1] * g, gl[2] * g) }
+  }
+  if (RG.secret) {
+    const sc = RG.secret, X = sc.x, Z = -sc.y - 0.5
+    if (!sc.found) { const hint = RG.open ? 0.5 + Math.sin(t * 3) * 0.5 : 0.15; put3(X, 3, Z, 5.2, 6, 1.2, 0, 0.2, 0.19, 0.22, 0); for (let k = 0; k < 4; k++) put3(X - 1.2 + k * 0.8, 3 + (k % 2) * 1.2, Z + 0.7, 0.18, 2.4 + k * 0.4, 0.1, 0.4 * (k % 2 ? 1 : -1), 1.6 * hint + 0.3, 1.2 * hint + 0.2, 0.5 * hint + 0.1, 0); if (RG.open) putS(X, 3, Z + 1, 0.5, 0.5, 0.5, 2.6 * hint, 2 * hint, 0.8 * hint) }
+    else { for (let k = 0; k < 16; k++) { const a = (k / 16) * TAU + t * 2; putS(X + Math.cos(a) * 2.4, 3 + Math.sin(a) * 2.4, Z + 0.6, 0.6, 0.6, 0.6, 2.4, 1, 3) } putS(X, 3, Z + 0.5, 3.2 + Math.sin(t * 4) * 0.4, 3.2, 0.7, 1.6, 0.4, 2.6); for (let k = 0; k < 6; k++) putS(X + Math.sin(t * 2 + k) * 1.4, 1 + ((t * 2 + k) % 4), Z + 1.4, 0.35, 0.35, 0.35, 2.6, 1.4, 3) }
+  }
+  for (const f of RG.fx) if (f.k === 'zap') { const n = Math.ceil(Math.hypot(f.x1 - f.x0, f.y1 - f.y0) / 1.3); for (let q = 0; q <= n; q++) { const u = q / n; putS(f.x0 + (f.x1 - f.x0) * u + (Math.random() - 0.5), 2.6 + (Math.random() - 0.5), -(f.y0 + (f.y1 - f.y0) * u) + (Math.random() - 0.5), 0.5, 0.5, 0.5, 3, 2.8, 0.9) } }
   // characters
   for (const pt of RG.pets) drawPet(put3, pt, t)
   RG.players.forEach((p, i) => drawHero(put3, p, t, CLASSES[p.cls] || CLASSES[0], i === RG.me, RG))
-  for (const e of RG.en) drawEnemy(put3, e, t, null)
+  for (const e of RG.en) drawEnemy(api, e, t, null)
   // projectiles
   for (const b of RG.pb) { const c = hex(b.c || '#ffffff', 2.4); put3(b.x, 2.4, -b.y, b.big ? 1.5 : 0.8, b.big ? 1.5 : 0.7, b.big ? 1.5 : 2, 0, c[0] * 1.4, c[1] * 1.4, c[2] * 1.4, Math.atan2(b.vx, -b.vy)); if (b.big) put3(b.x - b.vx * 0.02, 2.4, -b.y + b.vy * 0.02, 0.9, 0.9, 0.9, 0, c[0], c[1], c[2]) }
   for (const b of RG.eb) { const c = hex(b.c || '#ff8a5a', 2); put3(b.x, 2.2, -b.y, b.r * 1.3, b.r * 1.3, b.r * 1.3, 0, c[0], c[1], c[2], t * 4) }
@@ -366,7 +431,7 @@ export function drawRogue3(api, RG, CLASSES) {
   for (const f of E.flies) {
     const a = t * f.sp + f.ph, gl = 0.6 + Math.sin(t * 3 + f.ph * 3) * 0.4
     const x = f.x + Math.cos(a) * f.rad, z = f.z + Math.sin(a * 1.3) * f.rad
-    const y = th.kind === 'crystal' ? (f.y + t * 1.2 * f.sp) % 11 : f.y + Math.sin(a * 2) * 0.8
+    const y = th.kind === 'crystal' || th.kind === 'ash' ? (f.y + t * 1.2 * f.sp) % 11 : f.y + Math.sin(a * 2) * 0.8
     put3(x, y, z, 0.28, 0.28, 0.28, 0, th.mush[0] * gl * 1.2 + 0.4, th.mush[1] * gl * 1.2 + 0.4, th.mush[2] * gl * 1.2 + 0.4)
   }
   // particles

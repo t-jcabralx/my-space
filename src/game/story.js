@@ -12,6 +12,7 @@ import { rogueActions, RG } from './rogue.js'
 import { rhythmActions, RT } from './rhythm.js'
 import { wordActions, WD } from './word.js'
 import { mergeActions, MG } from './merge.js'
+import { empireActions, EM } from './empire.js'
 
 export const CAST = {
   echo: { name: 'ECHO', color: '#3de8ff', ico: '🧑‍🚀' },
@@ -71,15 +72,22 @@ export const CHAPTERS = [
     launch: () => poolActions.start({ type: 'bot', diff: 1 }), check: () => (PL.over ? (PL.over.win ? 'win' : 'lose') : null), reward: 250,
   },
   {
-    act: 1, title: 'FIREWALL', game: 'td', icon: '🛡', goal: 'Hold the firewall for 10 waves',
+    act: 1, title: 'FIREWALL', game: 'td', icon: '🛡', goal: 'Hold the Greenway against 8 waves of the Static Horde',
     intro: [
       L('sys', 'WARNING. INTRUDER DETECTED. FIREWALL WAVES LAUNCHING.'),
-      L('nova', 'The network is sending virus packets after us. Build turrets and hold them for ten waves!'),
+      L('nova', 'The network is sending virus packets after us. Build towers and hold the road for eight waves!'),
       L('pix', 'Frost slows them, cannons splash them, and do not forget the airstrike!'),
     ],
     win: [L('nova', 'Ten waves down. The firewall is ours. We are inside!')],
     lose: [L('nova', 'They broke through. Build more towers early and upgrade them!')],
-    launch: () => tdActions.start({ map: 0, goal: 10 }), check: () => (TD.over ? (TD.over.win ? 'win' : 'lose') : null), reward: 300,
+    launch: () => tdActions.start({ map: 0, story: false }), check: () => (TD.over ? (TD.over.win ? 'win' : 'lose') : null), reward: 300,
+  },
+  {
+    act: 1, title: 'THE VILLAGE OF EMBERS', game: 'empire', icon: '🏰', goal: 'Build a village and survive the first raid',
+    intro: [L('pix', 'Echo! The people you freed need somewhere to live. There is an empty valley, but the OVERLORD\'s raiders already know about it.'), L('nova', 'Build houses, a lumber camp, a barracks and a tower. Raise a few soldiers. Then hold when the raiders come.'), L('echo', 'A village. Never built one before.'), L('pix', 'Nobody has! That is the fun of it.')],
+    win: [L('pix', 'Smoke from a hundred chimneys! You built a home, Echo!'), L('nova', 'The first Wardens would be proud.')],
+    lose: [L('nova', 'The raiders broke through. Towers and a few more soldiers, then try again.')],
+    launch: () => empireActions.start({ scen: 0 }), check: () => (EM.over ? (EM.over.win ? 'win' : 'lose') : null), reward: 300,
   },
   {
     act: 1, title: 'THE BEAT DROP', game: 'rhythm', icon: '🎵', goal: 'Clear a song on Neon Beat',
@@ -103,7 +111,7 @@ export const CHAPTERS = [
     launch: () => wordActions.start({ lang: 'tl', daily: false, hard: false }), check: () => (WD.done ? (WD.win ? 'win' : 'lose') : null), reward: 300,
   },
   {
-    act: 2, title: 'ARCHIVE CRAWL', game: 'rogue', icon: '🗡', goal: 'Clear the first dungeon floor',
+    act: 2, title: 'ARCHIVE CRAWL', game: 'rogue', icon: '🗡', goal: 'Clear Chapter 1 of Neon Depths',
     intro: [
       L('nova', 'Act three. The core archive holds my memory backups. It is crawling with the OVERLORD\'s guards.'),
       L('echo', 'Your memory? Why would you need that?'),
@@ -111,7 +119,7 @@ export const CHAPTERS = [
     ],
     win: [L('echo', 'Got the key. Nova, there were files in there with your name on them.'), L('nova', 'Later, Echo. We must keep moving.')],
     lose: [L('nova', 'Fallen in the archive. Choose perks that fit your hero and try again.')],
-    launch: () => rogueActions.start({ cls: 0, floors: 1 }), check: () => (RG.over ? (RG.over.win ? 'win' : 'lose') : null), reward: 350,
+    launch: () => rogueActions.start({ cls: 0, chapter: 1 }), check: () => (RG.over ? (RG.over.win ? 'win' : 'lose') : null), reward: 350,
   },
   {
     act: 2, title: 'IRON GATEKEEPER', game: 'fight', icon: '🥊', goal: 'Win a fight in the Iron Fists arena',

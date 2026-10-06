@@ -7,18 +7,19 @@ const sg = (a, b) => (a >= b ? 1 : -1)
 void sg
 
 export function tdCamera(TD, aspect, dt) {
-  const s = G.shake || 0
-  return { x: (Math.random() - 0.5) * s * 0.6, y: 56 + (Math.random() - 0.5) * s * 0.4, z: 40, tx: 0, ty: 0, tz: 2, fov: 40, far: 500, aspect }
+  const s = G.shake || 0, cols = TD.cols || 20, rows = TD.rows || 11, dist = Math.max(66, cols * 3.35, rows * 5.6)
+  return { x: (Math.random() - 0.5) * s * 0.6, y: dist * 0.82 + (Math.random() - 0.5) * s * 0.4, z: dist * 0.58, tx: 0, ty: 0, tz: 2, fov: 40, far: 600, aspect }
 }
 export const tdLights = () => ({ sun: { x: -30, y: 70, z: 32, color: '#fff0d4', intensity: 1.15 }, ambient: 0.75, dir: 0.1, lantern: null })
 
 let ENV = null
 function build(TD, MAPS) {
   const r = rng(TD.map * 131 + 17), E = { key: TD.map + ':' + TD.seedKey, deco: [], trees: [], flowers: [] }
-  for (let i = -3; i < 25; i++) for (let j = -2; j < 14; j++) {
-    const x = -38 + i * 4, z = -(20 - j * 4)
-    const inside = i >= 0 && i < 20 && j >= 0 && j < 11
-    if (!inside && (z < 22 || r() < 0.2) && r() < 0.55) E.trees.push({ x: x + (r() - 0.5) * 3, z: z + (r() - 0.5) * 3, s: (z > 21 ? 0.55 : 0.9) + r() * 0.7, ph: r() * 6, kind: r() < 0.7 ? 0 : 1 })
+  const COLS = TD.cols || 20, ROWS = TD.rows || 11, X0 = -COLS * 2 + 2, Z0 = ROWS * 2 - 2
+  for (let i = -3; i < COLS + 5; i++) for (let j = -2; j < ROWS + 3; j++) {
+    const x = X0 + i * 4, z = -(Z0 - j * 4)
+    const inside = i >= 0 && i < COLS && j >= 0 && j < ROWS
+    if (!inside && (z < ROWS * 2 || r() < 0.2) && r() < 0.55) E.trees.push({ x: x + (r() - 0.5) * 3, z: z + (r() - 0.5) * 3, s: (z > ROWS * 2 - 1 ? 0.55 : 0.9) + r() * 0.7, ph: r() * 6, kind: r() < 0.7 ? 0 : 1 })
     else if (inside && !TD.cells.has(i + ',' + j) && r() < 0.18) E.flowers.push({ x: x + (r() - 0.5) * 2.4, z: z + (r() - 0.5) * 2.4, c: [[3, 0.6, 0.9], [3, 2.4, 0.4], [0.8, 1.4, 3], [3, 3, 3]][(r() * 4) | 0], ph: r() * 6 })
     else if (inside && !TD.cells.has(i + ',' + j) && r() < 0.06) E.deco.push({ x: x + (r() - 0.5) * 2.4, z: z + (r() - 0.5) * 2.4, s: 0.5 + r() * 0.8, ry: r() * 3 })
   }
@@ -116,17 +117,18 @@ function drawEnemy(api, e, time, ENEMY) {
 }
 export function drawTd3(api, TD, defs) {
   const { put3, putS } = api, time = G.time, { TOWERS, MAPS, rangeOf, ENEMY } = defs
-  const key = TD.map + ':' + (TD.wp ? TD.wp.length : 0) + ':' + TD.gen
+  const key = TD.map + ':' + (TD.wp ? TD.wp.length : 0) + ':' + TD.gen + ':' + (TD.cols || 0)
   if (!ENV || ENV.key !== key) { ENV = build(TD, MAPS); ENV.key = key }
   const E = ENV, mc = hex(MAPS[TD.map].color, 1)
   // ground, road
-  for (let i = 0; i < 20; i++) for (let j = 0; j < 11; j++) {
-    const x = -38 + i * 4, z = -(20 - j * 4), k = i + ',' + j
+  const COLS = TD.cols || 20, ROWS = TD.rows || 11, X0 = -COLS * 2 + 2, Z0 = ROWS * 2 - 2
+  for (let i = 0; i < COLS; i++) for (let j = 0; j < ROWS; j++) {
+    const x = X0 + i * 4, z = -(Z0 - j * 4), k = i + ',' + j
     if (TD.cells.has(k)) { const n = ((i * 7 + j * 3) % 5) * 0.03; put3(x, -0.15, z, 4.05, 0.5, 4.05, 0, 0.3 + n, 0.26 + n, 0.2 + n, 0); for (let q = 0; q < 3; q++) put3(x + (((i * 5 + q * 7) % 9) - 4) * 0.35, 0.15, z + (((j * 11 + q * 5) % 9) - 4) * 0.35, 1.1, 0.2, 0.9, ((i + q) % 4) * 0.4, 0.42, 0.38, 0.34, 0) }
     else { const n = ((i * 13 + j * 7) % 6) * 0.018, g = (i + j) % 2 ? [0.07, 0.26, 0.09] : [0.09, 0.3, 0.11]; put3(x, 0, z, 4.05, 0.7 + ((i * j) % 3) * 0.08, 4.05, 0, g[0] + n, g[1] + n, g[2] + n, 0) }
   }
   // lawn outside the board
-  for (let i = -3; i < 24; i += 1) { put3(-38 + i * 4, -0.5, -24, 4.05, 0.5, 4.05, 0, 0.06, 0.22, 0.08, 0); put3(-38 + i * 4, -0.5, 24, 4.05, 0.5, 4.05, 0, 0.06, 0.22, 0.08, 0) }
+  for (let i = -3; i < COLS + 3; i += 1) { put3(X0 + i * 4, -0.5, -(ROWS * 2 + 2), 4.05, 0.5, 4.05, 0, 0.06, 0.22, 0.08, 0); put3(X0 + i * 4, -0.5, ROWS * 2 + 2, 4.05, 0.5, 4.05, 0, 0.06, 0.22, 0.08, 0) }
   for (const f of E.flowers) { const sw = Math.sin(time * 2 + f.ph) * 0.15; put3(f.x + sw, 0.9, f.z, 0.12, 1.1, 0.12, 0, 0.1, 0.5, 0.12); putS(f.x + sw * 2, 1.6, f.z, 0.5, 0.5, 0.5, f.c[0], f.c[1], f.c[2]) }
   for (const d of E.deco) { put3(d.x, d.s * 0.4, d.z, d.s * 1.6, d.s * 0.8, d.s * 1.3, 0, 0.22, 0.22, 0.26, d.ry); put3(d.x + d.s * 0.3, d.s * 0.9, d.z, d.s * 0.9, d.s * 0.4, d.s * 0.8, 0, 0.1, 0.34, 0.12, d.ry) }
   for (const t of E.trees) { const sw = Math.sin(time * 1.2 + t.ph) * 0.2; put3(t.x, t.s * 2, t.z, 0.9 * t.s, 4 * t.s, 0.9 * t.s, 0, 0.25, 0.14, 0.07, 0); if (t.kind === 0) { for (let k = 0; k < 3; k++) put3(t.x + sw * (k + 1) * 0.4, (4 + k * 2) * t.s, t.z, (5 - k * 1.4) * t.s, 2.4 * t.s, (5 - k * 1.4) * t.s, 0, 0.05 + k * 0.03, 0.3 + k * 0.05, 0.1, k + t.ph) } else { putS(t.x + sw, 6 * t.s, t.z, 5.5 * t.s, 4.6 * t.s, 5.5 * t.s, 0.1, 0.4, 0.14); putS(t.x + 1.4 * t.s + sw, 5.4 * t.s, t.z + 0.8, 3.6 * t.s, 3 * t.s, 3.6 * t.s, 0.14, 0.5, 0.18) } }
@@ -143,7 +145,7 @@ export function drawTd3(api, TD, defs) {
   // hover / build preview
   if (TD.hover && TD.mode === 'play') {
     const [i, j] = TD.hover, k = i + ',' + j, def = TOWERS.find((x) => x.id === TD.build), free = !TD.cells.has(k) && !TD.occ[k]
-    const x = -38 + i * 4, z = -(20 - j * 4)
+    const x = X0 + i * 4, z = -(Z0 - j * 4)
     if (def && free && !TD.strikeArm) { const ok = TD.gold >= def.cost, cc = ok ? [0.4, 3, 0.9] : [3, 0.4, 0.4]; for (let q = 0; q < 8; q++) put3(x + Math.cos(q * 0.785 + time * 2) * 2.4, 0.5, z + Math.sin(q * 0.785 + time * 2) * 2.4, 0.7, 0.4, 0.7, 0, cc[0], cc[1], cc[2]); putS(x, 2.4 + Math.sin(time * 4) * 0.3, z, 2.2, 2.2, 2.2, cc[0] * 0.5, cc[1] * 0.5, cc[2] * 0.5); for (let q = 0; q < 48; q++) { const a = (q / 48) * TAU; put3(x + Math.cos(a) * def.range, 0.15, z + Math.sin(a) * def.range, 0.45, 0.2, 0.45, 0, 1.6, 1.8, 2.2) } }
     if (TD.strikeArm) for (let q = 0; q < 28; q++) { const a = (q / 28) * TAU + time; put3(x + Math.cos(a) * 7, 0.3, z + Math.sin(a) * 7, 0.7, 0.3, 0.7, 0, 3, 1.2, 0.3) }
   }

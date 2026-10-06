@@ -1944,10 +1944,22 @@ function SlugHUD() {
   )
 }
 
+function RotateHint({ mode }) {
+  const [portrait, setPortrait] = useState(false)
+  useEffect(() => {
+    const f = () => { try { setPortrait(window.innerHeight > window.innerWidth && isTouchPrimary()) } catch { /* ignore */ } }
+    f(); window.addEventListener('resize', f); window.addEventListener('orientationchange', f)
+    return () => { window.removeEventListener('resize', f); window.removeEventListener('orientationchange', f) }
+  }, [])
+  const dom = ['menu', 'word', 'merge', 'c4', 'mines', 'cards', 'flames'].includes(mode)
+  if (!portrait || dom) return null
+  return <div className="rotatehint">🔄 TURN YOUR PHONE SIDEWAYS FOR A BIGGER GAME</div>
+}
 export default function HUD() {
   const s = useSyncExternalStore(subscribe, getSnap)
   return (
     <>
+      <RotateHint mode={s.mode} />
       <HUDInner s={s} />
       <Notices list={s.notices} />
       <div className="hud helplayer"><HelpLayer s={s} /></div>

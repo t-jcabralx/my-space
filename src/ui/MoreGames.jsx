@@ -3,8 +3,9 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { subscribeHockey, getHockeySnap, hockeyActions } from '../game/hockey.js'
 import { subscribePool, getPoolSnap, poolActions } from '../game/pool.js'
-import { subscribeTd, getTdSnap, tdActions, TOWERS, MAPS as TDMAPS } from '../game/td.js'
-import { subscribeRogue, getRogueSnap, rogueActions, CLASSES as RCLS, RACES, PETS, SKILLS, MAXLV } from '../game/rogue.js'
+import { subscribeTd, getTdSnap, tdActions, TOWERS, MAPS as TDMAPS, mapOk } from '../game/td.js'
+import { TDCAMP } from '../game/tdstory.js'
+import { subscribeRogue, getRogueSnap, rogueActions, CLASSES as RCLS, RACES, PETS, SKILLS, MAXLV, CHAPTERS, WEAPONS, POWERS, LORE, weaponOk, powerOk, chapterOk, progress } from '../game/rogue.js'
 import { subscribeRhythm, getRhythmSnap, rhythmActions, SONGS, laneGeom } from '../game/rhythm.js'
 import { subscribeWord, getWordSnap, wordActions } from '../game/word.js'
 import { subscribeMerge, getMergeSnap, mergeActions } from '../game/merge.js'
@@ -154,17 +155,23 @@ export function PoolHUD({ openHelp }) {
 
 // ---------- NEON DEFENSE (tower defense) ----------
 export function TdLobby({ s, TopPlayers }) {
-  const [map, setMap] = useState(0)
+  const p = s.profile, cleared = (p.tdU && p.tdU.cleared) || 0
+  const [map, setMap] = useState(Math.min(cleared, TDMAPS.length - 1))
   const [auto, setAuto] = useState(false)
-  const p = s.profile
+  const [story, setStory] = useState(true)
+  const m = TDCAMP[map]
   return (
     <div className="lobby">
       <div className="lobbyL">
-        <h4>1 · CHOOSE A MAP</h4>
-        <div className="modegrid">{TDMAPS.map((m, i) => <button key={m.name} className={'modecard ' + (map === i ? 'sel' : '')} onClick={() => setMap(i)}><div className="vs"><span style={{ color: m.color }}>〰</span></div><strong>{m.name}</strong><small>{['A long winding road. Good for beginners.', 'Two crossings. Towers reach both lanes.', 'A tight spiral. Everything is in range.'][i]}</small></button>)}</div>
-        <div className="lobbyopts"><div><h4>NEXT WAVE</h4><div className="chips">{[[false, 'MANUAL'], [true, 'AUTO']].map(([v, n]) => <button key={n} className={'chip ' + (auto === v ? 'sel' : '')} onClick={() => setAuto(v)}>{n}</button>)}</div></div></div>
-        <div className="lobbyinfo"><b>NEON DEFENSE</b> · Stop 25 waves before they reach your base. Build 6 kinds of towers, upgrade them 3 times, and call an airstrike when a boss shows up. <small>Keys: 1-6 pick a tower · SPACE next wave · U upgrade · S sell · Q airstrike · F speed</small></div>
-        <button className="big" onClick={() => tdActions.start({ map, auto })}>▶ START</button>
+        <h4>1 · THE CAMPAIGN: THE WARDENS OF THE VALLEY <small className="dim">({cleared}/{TDMAPS.length} CLEARED)</small></h4>
+        <div className="chapgrid">{TDMAPS.map((mm, i) => { const open = mapOk(i); return <button key={mm.name} className={'chapcard ' + (map === i ? 'sel ' : '') + (open ? '' : 'locked')} disabled={!open} onClick={() => setMap(i)}><b>{open ? i + 1 : '🔒'}</b><strong>{mm.name}</strong><small>{open ? mm.cols + '×' + mm.rows + ' · ' + mm.goal + ' WAVES' : 'CLEAR CHAPTER ' + i}</small><em>{cleared > i ? '✔ CLEARED' : ''}</em></button> })}</div>
+        <div className="lobbyinfo"><b>{m.name}</b> · {m.sub}<br /><small>{m.intro[0][1].toLowerCase().replace(/^./, (c) => c.toUpperCase())}</small></div>
+        <div className="lobbyopts">
+          <div><h4>NEXT WAVE</h4><div className="chips">{[[false, 'MANUAL'], [true, 'AUTO']].map(([v, n]) => <button key={n} className={'chip ' + (auto === v ? 'sel' : '')} onClick={() => setAuto(v)}>{n}</button>)}</div></div>
+          <div><h4>STORY SCENES</h4><div className="chips">{[[true, 'ON'], [false, 'OFF']].map(([v, n]) => <button key={n} className={'chip ' + (story === v ? 'sel' : '')} onClick={() => setStory(v)}>{n}</button>)}</div></div>
+        </div>
+        <div className="lobbyinfo"><b>NEON DEFENSE</b> · Stop the Static Horde before it reaches the gate. Build 6 kinds of towers, upgrade them 3 times, and call an airstrike when a boss shows up. The monsters walk slowly: plan, build, then watch. <small>Keys: 1-6 pick a tower · SPACE next wave · U upgrade · S sell · Q airstrike · F speed</small></div>
+        <button className="big" onClick={() => tdActions.start({ map, auto, story })}>▶ DEFEND {m.name}</button>
       </div>
       <div className="lobbyR">
         <div className="panel"><h4>MY DEFENCE STATS</h4><div className="kv"><Stat k="GAMES" v={p.tdGames || 0} /><Stat k="VICTORIES" v={p.tdWins || 0} /><Stat k="BEST WAVE" v={(p.tdBest || 0) + '/25'} /><Stat k="ENEMIES KILLED" v={fmt(p.tdKills || 0)} /></div></div>
@@ -188,7 +195,14 @@ export function TdHUD({ openHelp }) {
         <button className={'mg-btn ' + (g.auto ? 'on' : '')} onClick={tdActions.auto}>AUTO</button>
         <button className="mg-btn" onClick={() => tdActions.pause()}>⏸</button>
       </div>
-      {g.msg && <div className="mg-banner" style={{ '--c': g.msg.color }} key={g.msg.text}><h2>{g.msg.text}</h2>{g.msg.sub && <p>{g.msg.sub}</p>}</div>}
+      {g.msg && !g.tale && <div className="mg-banner" style={{ '--c': g.msg.color }} key={g.msg.text}><h2>{g.msg.text}</h2>{g.msg.sub && <p>{g.msg.sub}</p>}</div>}
+      {g.beat && !g.tale && <div className="mg-beat" style={{ '--c': g.beat.color }} key={g.beat.sub}><b>{g.beat.text}</b><span>{g.beat.sub}</span></div>}
+      {g.tale && (
+        <div className="storyfull talebox" onClick={tdActions.nextTale}>
+          <div className="sbox" style={{ '--c': g.tale.who[1] }}><div className="sport">{g.tale.who[2]}</div><div className="stext"><b>{g.tale.who[0]}</b><p>{g.tale.text}</p></div><div className="snext">{g.tale.i < g.tale.n - 1 ? 'NEXT ▶' : g.tale.kind === 'intro' ? 'BEGIN ▶' : 'CONTINUE ▶'}</div></div>
+          <div className="sbtns"><button className="big sec" onClick={(e) => { e.stopPropagation(); tdActions.skipTale() }}>SKIP ▶▶</button></div>
+        </div>
+      )}
       <div className="mg-palette">
         {TOWERS.map((t, i) => <button key={t.id} className={'mg-tw ' + (g.build === t.id && !sel ? 'sel ' : '') + (g.gold < t.cost ? 'poor' : '')} style={{ '--c': t.color }} onClick={() => tdActions.setBuild(t.id)} title={t.desc}><b>{i + 1}</b><span>{t.ico}</span><em>{t.name}</em><small>💰{t.cost}</small></button>)}
         <button className={'mg-tw air ' + (g.strikeArm ? 'sel ' : '') + (g.strike > 0 ? 'poor' : '')} onClick={tdActions.strike}><b>Q</b><span>✈️</span><em>AIRSTRIKE</em><small>{g.strike > 0 ? Math.ceil(g.strike) + 's' : 'READY'}</small></button>
@@ -201,11 +215,11 @@ export function TdHUD({ openHelp }) {
         </div>
       )}
       {g.paused && <PauseScreen resume={tdActions.resume} quit={tdActions.quit} help={() => openHelp('td')} />}
-      {g.mode === 'over' && g.over && (
+      {g.mode === 'over' && g.over && !g.tale && (
         <div className="screen victory">
-          <h1 className={g.over.win ? 'gold' : 'red'}>{g.over.win ? 'DEFENCE HELD!' : 'BASE DESTROYED'}</h1>
+          <h1 className={g.over.win ? 'gold' : 'red'}>{g.over.win ? 'DEFENCE HELD!' : 'BASE DESTROYED'}</h1>{g.nextMap && <h3>NEXT: {g.nextMap}</h3>}
           <ul><li><span>WAVE REACHED</span><b>{g.over.wave}/{g.waves}</b></li><li><span>ENEMIES DESTROYED</span><b>{g.over.kills}</b></li><li><span>LIVES LEFT</span><b>{g.over.lives}</b></li><li className="bonus"><span>SCORE</span><b>{fmt(g.over.score)}</b></li></ul>
-          <button className="big" onClick={tdActions.rematch}>↻ TRY AGAIN</button><button className="big sec" onClick={tdActions.quit}>DASHBOARD</button>
+          <button className="big" onClick={tdActions.rematch}>{g.nextMap ? '▶ NEXT CHAPTER' : '↻ TRY AGAIN'}</button><button className="big sec" onClick={tdActions.quit}>DASHBOARD</button>
         </div>
       )}
     </div>
@@ -215,26 +229,43 @@ export function TdHUD({ openHelp }) {
 // ---------- NEON DEPTHS (roguelike) ----------
 export function RogueLobby({ s, TopPlayers, onInvite }) {
   const p = s.profile
+  const U = p.rogueU || { cleared: 0, secret: {}, lore: {} }
+  const pg = progress()
+  const [chap, setChap] = useState(Math.min(p.rogueChapter || 1, Math.max(1, U.cleared + 1)))
   const [cls, setCls] = useState(p.roguePick || 0)
   const [race, setRace] = useState(RACES[p.rogueRace || 0] && RACES[p.rogueRace || 0].ok() ? (p.rogueRace || 0) : 0)
   const [pet, setPet] = useState(PETS[p.roguePet || 0] && PETS[p.roguePet || 0].ok() ? (p.roguePet || 0) : 0)
+  const cid = RCLS[cls].id
+  const [weapon, setWeapon] = useState(p.rogueWeapon && weaponOk(cid, p.rogueWeapon) ? p.rogueWeapon : WEAPONS[cid][0].id)
+  const [power, setPower] = useState(p.roguePower && powerOk(p.roguePower) ? p.roguePower : 'none')
+  const [codex, setCodex] = useState(false)
   const save = (k, v) => { p[k] = v; try { localStorage.setItem('si_profile', JSON.stringify(p)) } catch { /* ignore */ } }
-  const sk = SKILLS[RCLS[cls].id]
+  const pickClass = (i) => { setCls(i); save('roguePick', i); const id = RCLS[i].id; const w = weaponOk(id, weapon) && WEAPONS[id].some((x) => x.id === weapon) ? weapon : WEAPONS[id][0].id; setWeapon(w); save('rogueWeapon', w) }
+  const sk = SKILLS[cid]
+  const ch = CHAPTERS[chap - 1]
   return (
     <div className="lobby">
       <div className="lobbyL">
-        <h4>1 · CHOOSE YOUR CLASS</h4>
-        <div className="modegrid">{RCLS.map((c, i) => <button key={c.id} className={'modecard ' + (cls === i ? 'sel' : '')} onClick={() => { setCls(i); save('roguePick', i) }}><div className="vs"><span>{c.ico}</span></div><strong>{c.name}</strong><small>{c.desc}</small></button>)}</div>
-        <h4>2 · CHOOSE YOUR RACE</h4>
+        <h4>1 · CHOOSE A CHAPTER <small className="dim">({pg.cleared}/5 CLEARED · 🗝 {pg.secrets}/5 SECRETS · 📜 {pg.lore}/10 LORE)</small></h4>
+        <div className="chapgrid">{CHAPTERS.map((c) => { const open = chapterOk(c.id); return <button key={c.id} className={'chapcard ' + (chap === c.id ? 'sel ' : '') + (open ? '' : 'locked')} disabled={!open} onClick={() => { setChap(c.id); save('rogueChapter', c.id) }}><b>{open ? c.id : '🔒'}</b><strong>{c.name}</strong><small>{open ? c.sub.split('·')[1] : 'CLEAR CHAPTER ' + (c.id - 1)}</small><em>{U.cleared >= c.id ? '✔ CLEARED' : ''}{U.secret && U.secret[c.id] ? ' 🗝' : ''}{(U.lore && (U.lore['L' + c.id + 'a'] ? 1 : 0) + (U.lore['L' + c.id + 'b'] ? 1 : 0)) ? ' 📜' + ((U.lore['L' + c.id + 'a'] ? 1 : 0) + (U.lore['L' + c.id + 'b'] ? 1 : 0)) : ''}</em></button> })}</div>
+        <div className="lobbyinfo"><b>{ch.name}</b> · {ch.blurb} <small>5 rooms: {ch.plan.map((t) => ({ combat: '⚔', elite: '💀', puzzle: '🔮', treasure: '💰', boss: '👑' }[t])).join(' → ')} · a hidden vault waits behind a cracked wall in room {ch.secretRoom}</small></div>
+        <h4>2 · CLASS</h4>
+        <div className="modegrid">{RCLS.map((c, i) => <button key={c.id} className={'modecard ' + (cls === i ? 'sel' : '')} onClick={() => pickClass(i)}><div className="vs"><span>{c.ico}</span></div><strong>{c.name}</strong><small>{c.desc}</small></button>)}</div>
+        <h4>3 · WEAPON <small className="dim">(unlock more by clearing chapters and finding secrets)</small></h4>
+        <div className="modegrid four">{WEAPONS[cid].map((w) => { const open = weaponOk(cid, w.id); return <button key={w.id} className={'modecard ' + (weapon === w.id ? 'sel ' : '') + (open ? '' : 'locked')} disabled={!open} onClick={() => { setWeapon(w.id); save('rogueWeapon', w.id) }}><div className="vs"><span>{open ? w.ico : '🔒'}</span></div><strong>{w.name}</strong><small>{open ? w.desc : 'UNLOCK: ' + w.hint}</small></button> })}</div>
+        <h4>4 · POWER <small className="dim">(a passive you carry into the dungeon)</small></h4>
+        <div className="modegrid four">{POWERS.map((w) => { const open = powerOk(w.id); return <button key={w.id} className={'modecard ' + (power === w.id ? 'sel ' : '') + (open ? '' : 'locked')} disabled={!open} onClick={() => { setPower(w.id); save('roguePower', w.id) }}><div className="vs"><span>{open ? w.ico : '🔒'}</span></div><strong>{w.name}</strong><small>{open ? w.desc : 'UNLOCK: ' + w.hint}</small></button> })}</div>
+        <h4>5 · RACE</h4>
         <div className="modegrid five">{RACES.map((r, i) => { const open = r.ok(); return <button key={r.id} className={'modecard ' + (race === i ? 'sel ' : '') + (open ? '' : 'locked')} disabled={!open} onClick={() => { setRace(i); save('rogueRace', i) }}><div className="vs"><span>{open ? r.ico : '🔒'}</span></div><strong>{r.name}</strong><small>{open ? r.desc : 'UNLOCK: ' + r.hint}</small></button> })}</div>
-        <h4>3 · CHOOSE YOUR COMPANION</h4>
+        <h4>6 · COMPANION</h4>
         <div className="modegrid four">{PETS.map((r, i) => { const open = r.ok(); return <button key={r.id} className={'modecard ' + (pet === i ? 'sel ' : '') + (open ? '' : 'locked')} disabled={!open} onClick={() => { setPet(i); save('roguePet', i) }}><div className="vs"><span>{open ? r.ico : '🔒'}</span></div><strong>{r.name}</strong><small>{open ? r.desc : 'UNLOCK: ' + r.hint}</small></button> })}</div>
-        <div className="lobbyinfo"><b>NEON DEPTHS</b> · A 3D roguelike in a haunted forest. Beneath the Grid a forest grew from deleted games; at its heart burns the <b>Last Lantern</b>. Fight through 3 forests of 4 rooms (every 4th room is a boss). <b>Level up</b> by slaying monsters: new skills unlock at <b>level 3 (E)</b> and <b>level 6 (R)</b>, up to level {MAXLV}. Skills of the {RCLS[cls].name}: {sk.map((k) => k.ico + ' ' + k.name + ' (LV ' + k.lv + ')').join(' · ')}. Play alone or invite up to 2 friends.</div>
-        <div className="lobbyinfo"><b>CONTROLS</b> · <b>WASD / arrows</b> move · <b>mouse</b> aims, <b>hold left click</b> attacks where you aim (you also auto-attack nearby foes) · <b>SPACE</b> dash · <b>Q / E / R</b> skills · <b>1-2-3</b> pick a perk · <b>P</b> pause. Gamepad: stick moves, A dash, bumpers/triggers = skills. Phone: left stick + on-screen skill buttons.</div>
-        <div className="chips"><button className="big" onClick={() => rogueActions.start({ cls, race, pet })}>▶ ENTER THE DEPTHS</button><button className="big sec" onClick={onInvite}>🌐 INVITE FRIENDS (CO-OP)</button></div>
+        <div className="lobbyinfo"><b>HOW IT WORKS</b> · Each chapter is 5 rooms: fights, an elite guard, a <b>rune trial</b> (watch the glowing runes, then step on them in the same order), sometimes a treasure room, and a guardian. Hit the <b>cracked wall</b> in one room to find a <b>hidden vault</b> with a secret weapon and a lore tablet. Skills: {sk.map((k) => k.ico + ' ' + k.name + ' (LV ' + k.lv + ')').join(' · ')}.</div>
+        <div className="lobbyinfo"><b>CONTROLS</b> · <b>WASD / arrows</b> move · <b>mouse</b> aims, <b>hold left click</b> attacks where you aim · <b>SPACE</b> dash · <b>Q / E / R</b> skills · <b>1-2-3</b> pick a perk · <b>P</b> pause. Gamepad: stick, A = dash, bumpers/triggers = skills. Phone: stick + buttons.</div>
+        <div className="chips"><button className="big" onClick={() => { save('rogueChapter', chap); rogueActions.start({ chapter: chap, cls, race, pet, weapon, power }) }}>▶ ENTER CHAPTER {chap}</button><button className="big sec" onClick={onInvite}>🌐 INVITE FRIENDS (CO-OP)</button><button className="big sec" onClick={() => setCodex(!codex)}>📜 CODEX {pg.lore}/10</button></div>
+        {codex && <div className="codex">{LORE.map((t) => { const got = U.lore && U.lore[t.id]; return <div key={t.id} className={'tablet ' + (got ? 'got' : '')}><b>{got ? t.title : '??? (CH ' + t.ch + ')'}</b><small>{got ? t.text : 'A lore tablet you have not found yet. Solve rune trials and search the hidden vaults.'}</small></div> })}</div>}
       </div>
       <div className="lobbyR">
-        <div className="panel"><h4>MY DUNGEON STATS</h4><div className="kv"><Stat k="RUNS" v={p.rogueRuns || 0} /><Stat k="VICTORIES" v={p.rogueWins || 0} /><Stat k="DEEPEST ROOM" v={(p.rogueDeep || 0) + '/12'} /><Stat k="MONSTERS SLAIN" v={fmt(p.rogueKills || 0)} /></div></div>
+        <div className="panel"><h4>MY DUNGEON STATS</h4><div className="kv"><Stat k="RUNS" v={p.rogueRuns || 0} /><Stat k="CHAPTERS CLEARED" v={pg.cleared + '/5'} /><Stat k="SECRETS FOUND" v={pg.secrets + '/5'} /><Stat k="LORE TABLETS" v={pg.lore + '/10'} /><Stat k="MONSTERS SLAIN" v={fmt(p.rogueKills || 0)} /></div></div>
         <TopPlayers s={s} initial="rogue" compact fixed />
       </div>
     </div>
@@ -262,7 +293,7 @@ export function RogueHUD({ openHelp }) {
       <div className={'mg-vig' + (low ? ' low' : '') + (g.boss ? ' boss' : '')} />
       <div className="mg-topbar rg">
         <span className="hearts">{Array.from({ length: g.max }).map((_, i) => <i key={i} className={i < g.hp ? 'on' : ''}>♥</i>)}{g.shield > 0 && <i className="on sh">🛡</i>}</span>
-        <span title={RACES[g.race].name}>{RACES[g.race].ico}{PETS[g.pet].ico} <b>LV {g.lv}</b></span><span>🌲 <b>F{g.floor} · R{g.room}</b></span><span>🪙 <b>{g.gold}</b></span><span>☠ <b>{g.kills}</b></span>
+        <span title={RACES[g.race].name}>{RACES[g.race].ico}{PETS[g.pet].ico} <b>LV {g.lv}</b></span><span title={g.chName}>📖 <b>CH {g.chapter} · {g.roomN}/{g.rooms}</b> <small className="dim">{{ combat: '⚔', elite: '💀', puzzle: '🔮', treasure: '💰', boss: '👑', secret: '🗝' }[g.rtype]}</small></span><span title={(g.wpn && g.wpn.name) + ' · ' + (g.pwr && g.pwr.name)}>{g.wpn && g.wpn.ico}{g.pwr && g.pwr.ico !== '·' ? g.pwr.ico : ''}</span><span>🪙 <b>{g.gold}</b></span><span>☠ <b>{g.kills}</b></span>
         <span className="perks">{g.perks.map((p, i) => <i key={i}>{p}</i>)}</span>
         <span className="grow" />
         {g.mode === 'play' && !g.net && <button className="mg-btn" onClick={() => rogueActions.pause()}>⏸</button>}
@@ -281,6 +312,9 @@ export function RogueHUD({ openHelp }) {
           </div>
         </div>
       )}
+      {g.puz && !g.puz.solved && <div className="mg-hint">{g.puz.showing ? '🔮 WATCH THE RUNES…' : '🔮 STEP ON THE RUNES IN ORDER · ' + g.puz.step + '/' + g.puz.n + ' · THE MIDDLE PEDESTAL REPLAYS IT'}</div>}
+      {g.secretHint && <div className="mg-hint">THE WALL AT THE TOP LOOKS CRACKED… ATTACK IT?</div>}
+      {g.secretOpen && <div className="mg-hint">A HIDDEN PASSAGE IS OPEN · WALK INTO THE PURPLE LIGHT</div>}
       {g.dead && g.mode === 'play' && <div className="mg-hint">YOU ARE DOWN · YOUR FRIENDS CAN FINISH THE ROOM AND REVIVE YOU</div>}
       {g.choices && !g.tale && (
         <div className="screen perk"><h1>CHOOSE A PERK</h1>
@@ -301,10 +335,11 @@ export function RogueHUD({ openHelp }) {
       {g.paused && <PauseScreen resume={rogueActions.resume} quit={rogueActions.quit} help={() => openHelp('rogue')} />}
       {g.mode === 'over' && g.over && (
         <div className="screen victory">
-          <h1 className={g.over.win ? 'gold' : 'red'}>{g.over.left ? 'THE HOST LEFT' : g.over.win ? 'THE LANTERN BURNS!' : 'THE FOREST CLAIMS YOU'}</h1>
-          {g.over.win ? <p className="epilogue">{g.over.epilogue}</p> : <h3>{g.over.cls} · FLOOR {g.over.floor} · ROOM {g.over.room}</h3>}
-          <ul><li><span>MONSTERS SLAIN</span><b>{g.over.kills}</b></li><li><span>GOLD</span><b>{g.over.gold}</b></li><li><span>PERKS</span><b>{g.over.perks}</b></li><li className="bonus"><span>SCORE{g.over.coop ? ' (CO-OP)' : ''}</span><b>{fmt(g.over.score)}</b></li></ul>
-          {g.over.unlocks && g.over.unlocks.length > 0 && <div className="lobbyinfo"><b>🎉 UNLOCKED:</b> {g.over.unlocks.join(' · ')}</div>}<ul><li><span>HERO</span><b>{g.over.race} · LV {g.over.lv}</b></li><li><span>COMPANION</span><b>{g.over.pet}</b></li></ul><button className="big" onClick={rogueActions.rematch}>↻ NEW RUN</button><button className="big sec" onClick={rogueActions.quit}>DASHBOARD</button>
+          <h1 className={g.over.win ? 'gold' : 'red'}>{g.over.left ? 'THE HOST LEFT' : g.over.win ? (g.over.complete ? 'THE LAST LANTERN BURNS!' : 'CHAPTER ' + g.over.chapter + ' CLEARED!') : 'THE DEPTHS CLAIM YOU'}</h1>
+          {g.over.win ? <p className="epilogue">{g.over.epilogue}</p> : <h3>{g.over.chName} · ROOM {g.over.room}/5</h3>}
+          {g.over.win && g.over.next && <div className="lobbyinfo"><b>NEXT:</b> {g.over.next}</div>}
+          <ul><li><span>MONSTERS SLAIN</span><b>{g.over.kills}</b></li><li><span>GOLD</span><b>{g.over.gold}</b></li><li><span>LORE · SECRET</span><b>{g.over.lore} 📜 · {g.over.secret ? '🗝 FOUND' : 'NONE'}</b></li><li><span>PERKS</span><b>{g.over.perks}</b></li><li className="bonus"><span>SCORE{g.over.coop ? ' (CO-OP)' : ''}</span><b>{fmt(g.over.score)}</b></li></ul>
+          {g.over.unlocks && g.over.unlocks.length > 0 && <div className="lobbyinfo"><b>🎉 UNLOCKED:</b> {g.over.unlocks.join(' · ')}</div>}<ul><li><span>HERO</span><b>{g.over.race} · LV {g.over.lv}</b></li><li><span>COMPANION</span><b>{g.over.pet}</b></li></ul><button className="big" onClick={rogueActions.rematch}>{g.over.win && g.over.next ? '▶ NEXT CHAPTER' : '↻ AGAIN'}</button><button className="big sec" onClick={rogueActions.quit}>DASHBOARD</button>
         </div>
       )}
     </div>

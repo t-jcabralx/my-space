@@ -32,6 +32,7 @@ import './game/cards/pusoy.js'
 import './game/cards/lucky9.js'
 import './game/cards/tongits.js'
 import { subscribeSettings, getSettings } from './game/settings.js'
+import { isTouchPrimary } from './ui/platform.js'
 
 export default function GameApp() {
   const stage = useRef()
@@ -41,6 +42,30 @@ export default function GameApp() {
   const set = useSyncExternalStore(subscribeSettings, getSettings)
   const low = set.quality === 'low' || (set.quality === 'auto' && autoLow)
   useEffect(() => { G.onQuality = () => setLow(true); return () => { G.onQuality = null } }, [])
+  // phones: keep the layout in step with the real visible size when the device is turned (Safari reports stale sizes right after a rotation)
+  useEffect(() => {
+    const fit = () => {
+      try {
+        const vv = window.visualViewport, h = vv ? vv.height : window.innerHeight, w = vv ? vv.width : window.innerWidth
+        document.documentElement.style.setProperty('--vh', h / 100 + 'px'); document.documentElement.style.setProperty('--vw', w / 100 + 'px')
+        document.documentElement.dataset.orient = w > h ? 'landscape' : 'portrait'
+      } catch { /* ignore */ }
+    }
+    const later = () => { fit(); setTimeout(fit, 120); setTimeout(() => { fit(); window.dispatchEvent(new Event('resize')) }, 400) }
+    fit()
+    window.addEventListener('resize', fit); window.addEventListener('orientationchange', later)
+    if (window.visualViewport) window.visualViewport.addEventListener('resize', fit)
+    if (screen.orientation && screen.orientation.addEventListener) screen.orientation.addEventListener('change', later)
+    return () => { window.removeEventListener('resize', fit); window.removeEventListener('orientationchange', later); if (window.visualViewport) window.visualViewport.removeEventListener('resize', fit); if (screen.orientation && screen.orientation.removeEventListener) screen.orientation.removeEventListener('change', later) }
+  }, [])
+  // the first time a touch player starts a game, ask for fullscreen and landscape (browsers only allow it from a tap)
+  const asked = useRef(false)
+  useEffect(() => {
+    if (asked.current || !snap || snap.mode === 'menu' || snap.mode === 'word' || snap.mode === 'merge' || snap.mode === 'c4' || snap.mode === 'mines' || snap.mode === 'cards') return
+    if (!isTouchPrimary()) return
+    asked.current = true
+    try { const el = document.documentElement; const p = el.requestFullscreen ? el.requestFullscreen() : null; Promise.resolve(p).then(() => screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape')).catch(() => {}) } catch { /* ignore */ }
+  }, [snap && snap.mode])
 
   useEffect(() => {
     const down = (e) => {

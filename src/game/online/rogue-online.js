@@ -7,6 +7,9 @@ let installed = false
 const pick = () => Math.max(0, Math.min(2, (profile.roguePick | 0) || 0))
 const pickRace = () => Math.max(0, (profile.rogueRace | 0) || 0)
 const pickPet = () => Math.max(0, (profile.roguePet | 0) || 0)
+const pickW = () => profile.rogueWeapon || ''
+const pickP = () => profile.roguePower || ''
+const pickC = () => Math.max(1, (profile.rogueChapter | 0) || 1)
 
 function begin(role) {
   rogueNet.reset()
@@ -18,8 +21,8 @@ function begin(role) {
     rematch: () => { if (isHost()) hostStart(); else send('drematch', {}, RT.room && RT.room.host).catch(() => {}) },
     onStop: () => { if (isHost()) roomAction('finish').catch(() => {}) },
   })
-  if (role === 'host') rogueActions.start({ type: 'online', cls: pick(), race: pickRace(), pet: pickPet() })
-  else joinAsGuest(pick(), pickRace(), pickPet())
+  if (role === 'host') rogueActions.start({ type: 'online', cls: pick(), race: pickRace(), pet: pickPet(), weapon: pickW(), power: pickP(), chapter: pickC() })
+  else joinAsGuest(pick(), pickRace(), pickPet(), pickW(), pickP())
 }
 async function hostStart() {
   if (!RT.room || RT.room.players.length < 2) throw new Error('Waiting for a friend to join')
