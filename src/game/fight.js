@@ -83,7 +83,7 @@ function start(cfg = {}) {
 function stop() { if (FT.net) { const n = FT.net; FT.net = null; if (n.onStop) try { n.onStop() } catch { /* ignore */ } } FT.mode = 'idle'; FT.paused = false; music.set('menu'); emitFt() }
 function newRound() {
   FT.f.forEach((f, i) => {
-    Object.assign(f, { x: i === 0 ? -16 : 16, y: 0, vx: 0, vy: 0, face: i === 0 ? 1 : -1, hp: f.maxHp, st: 'idle', t: 0, atk: null, stun: 0, inv: 0, armor: false, crouch: false, block: false, combo: 0, hitsDealt: 0, comboT: 0, spCd: 0, buf: null, flash: 0, vis: 1, held: null, airAtk: false, lean: 0, dizzy: 0, aiPlan: null })
+    Object.assign(f, { x: i === 0 ? -16 : 16, y: 0, vx: 0, vy: 0, face: i === 0 ? 1 : -1, hp: f.maxHp, st: 'idle', t: 0, atk: null, stun: 0, inv: 0, armor: false, crouch: false, block: false, combo: 0, hitsDealt: 0, comboT: 0, spCd: 0, buf: null, flash: 0, vis: 1, held: null, airAtk: false, lean: 0, dizzy: 0, aiPlan: null, counterT: 0, slowT: 0, burn: null, shockX: 0 })
   })
   FT.proj = []; FT.timer = ROUND_TIME; FT.stop = 0; FT.slow = 1; FT.cine = null; FT.phase = 'intro'; FT.phaseT = 0; FT.msg = { text: `ROUND ${FT.round}`, sub: `${FT.f[0].ch.name}  VS  ${FT.f[1].ch.name}`, color: '#ffe84a', t: 1.6 }
   G.parts = []; sfx('fRound')
@@ -95,23 +95,46 @@ const hurtBox = (f) => {
   return { x0: f.x - w, x1: f.x + w, y0: f.y, y1: f.y + (f.st === 'down' || f.st === 'ko' ? 3 : top) }
 }
 function fx(att, k = 1) { return att.x + att.face * k }
-function startNormal(f, btn) {
-  const air = f.y > 0.6
-  let id = btn
-  if (air) id = btn === 'lp' || btn === 'hp' ? 'ap' : 'ak'
-  else if (f.crouch) id = 'c' + btn
-  const base = MOVES[id]
-  if (!base) return false
-  if (air && f.airAtk) return false
+function dirOf(f) {
+  const i = f.inp || {}
+  const fwd = i.dx !== 0 && i.dx === f.face, back = i.dx !== 0 && i.dx === -f.face
+  return (i.down ? 'd' : '') + (fwd ? 'f' : back ? 'b' : '')
+}
+// Every strike (plain normal, command move or string) goes through here. spec uses the MOVES field names.
+function startStrike(f, base, id, chained = false) {
   const ch = f.ch
   const m = { ...base, su: base.su / ch.spd, rc: base.rc / ch.spd, dmg: base.dmg * ch.pow, reach: base.reach * ch.reach }
-  const limb = m.limb
-  f.atk = { m, name: m.name, t: 0, dur: m.su + m.ac + m.rc, limb, frames: [{ t0: m.su, t1: m.su + m.ac, dmg: m.dmg, hs: m.hs, bs: m.bs, kb: m.kb, reach: m.reach, y: m.y, hh: m.hh, lvl: m.lvl, launch: !!m.launch, knock: !!m.knock, sfx: m.sfx, done: false }], on: [], normal: true }
-  if (air) f.airAtk = true
-  else f.vx = 0
-  f.st = 'attack'; f.t = 0
-  sfx(btn === 'lk' || btn === 'hk' ? 'fWhiff' : 'fWhiff')
+  const el = ELEMENTS[ch.element]
+  const hits = Math.max(1, m.hits || 1)
+  const frames = []
+  for (let k = 0; k < hits; k++) {
+    const t0 = m.su + k * (m.ac + 0.04)
+    frames.push({ t0, t1: t0 + m.ac, dmg: m.dmg / hits * (hits > 1 ? 1.15 : 1), hs: m.hs, bs: m.bs, kb: m.kb, reach: m.reach, y: m.y, hh: m.hh + (m.track ? 2 : 0), lvl: m.lvl, launch: !!m.launch && k === hits - 1, knock: !!m.knock && k === hits - 1, gb: !!m.gb, grab: !!m.grab, sfx: m.sfx, fx: !!m.fx, done: false, lock: hits > 1 })
+  }
+  const end = m.su + hits * (m.ac + 0.04)
+  const A = { m, id, name: m.name, t: 0, dur: end + m.rc, limb: m.limb, frames, on: [], normal: true, chained, color: el.color, glow: el.glow }
+  if (m.grab) { A.frames[0].big = false; A.frames[0].y = 7; A.frames[0].hh = 6 }
+  if (m.step) A.vel = (t) => (t > m.su * 0.5 && t < end ? f.face * m.step : t < m.su * 0.5 ? 0 : null)
+  if (m.vy || m.vx) A.on.push({ t: 0.02, fn: () => { f.vy = m.vy || 0; f.vx = f.face * (m.vx || 0) } })
+  if (m.proj) A.on.push({ t: m.su, fn: () => { spawnProj(f, { dmg: m.pdmg || m.dmg, kind: 'ball', vx: 40, y: m.y, r: 1.7, life: 2, hs: 0.35, bs: 0.16, color: el.color, glow: el.glow, fx: true }); sfx('fFire') } })
+  f.inv = Math.max(f.inv, m.inv || 0)
+  f.armor = !!m.armor
+  f.st = 'attack'; f.t = 0; f.atk = A
+  if (!m.vy && !m.vx && !m.step && f.y <= 0.001) f.vx = 0
+  sfx('fWhiff')
+  if (m.dmg >= 9 || Math.random() < 0.3) sfx('fVoice', { id: ch.id, f: ch.gender === 'f', kind: 'atk' })
   return true
+}
+function startNormal(f, btn) {
+  const air = f.y > 0.6
+  if (air) { if (f.airAtk) return false; const base = MOVES[btn === 'lp' || btn === 'hp' ? 'ap' : 'ak']; f.airAtk = true; return startStrike(f, base, null) }
+  // command moves: direction + button (Tekken-style), then the crouch normals, then the plain normals
+  const d = dirOf(f)
+  if (d) { const c = f.ch.cmd[`${d}+${btn}`]; if (c) return startStrike(f, c, c.slot) }
+  const id = f.crouch ? 'c' + btn : btn
+  const base = MOVES[id]
+  if (!base) return false
+  return startStrike(f, base, f.crouch ? null : btn)
 }
 function build(f, spec, isSuper) {
   const ch = f.ch, el = ELEMENTS[ch.element], d = spec.dmg
@@ -126,7 +149,7 @@ function build(f, spec, isSuper) {
       break
     case 'ball':
       A.dur = 0.62; A.pose = 'cast'
-      spawn(0.24, { kind: 'ball', vx: 34, y: 9, r: 2.4, life: 3, hs: 0.45, bs: 0.2, sfx: 'fFire' })
+      spawn(0.24, { kind: 'ball', vx: spec.speed || 34, y: 9, r: spec.size || 2.4, life: 3, hs: 0.45, bs: 0.2, sfx: 'fFire' })
       A.on.push({ t: 0.24, fn: () => sfx('fFire') })
       break
     case 'beam':
@@ -144,7 +167,7 @@ function build(f, spec, isSuper) {
       break
     case 'fist':
       A.dur = 0.7; A.pose = 'cast'
-      A.on.push({ t: 0.22, fn: () => { spawnProj(f, { dmg: d, kind: 'fist', vx: 50, y: 9.4, r: 2, life: 1.6, hs: 0.5, bs: 0.22, color: el.color, glow: el.glow }); sfx('fFire') } })
+      A.on.push({ t: 0.22, fn: () => { spawnProj(f, { dmg: d, kind: 'fist', vx: spec.speed || 50, y: 9.4, r: 2, life: 1.6, hs: 0.5, bs: 0.22, color: el.color, glow: el.glow }); sfx('fFire') } })
       break
     case 'volley':
       A.dur = 1.5; A.pose = 'cast'
@@ -152,7 +175,7 @@ function build(f, spec, isSuper) {
       break
     case 'lunge': {
       const sumo = ch.style === 'sumo', big = isSuper
-      A.dur = big ? 1.2 : 0.8; A.pose = ch.style === 'muay' ? 'knee' : 'lunge'; A.armor = sumo || big
+      A.dur = big ? 1.2 : 0.8; A.pose = ch.style === 'muay' ? 'knee' : 'lunge'; A.armor = sumo || big || ['wrestler', 'robot', 'brawler'].includes(ch.style)
       const t0 = big ? 0.35 : 0.2
       A.vel = (t) => (t > t0 && t < t0 + (big ? 0.36 : 0.3) ? f.face * (big ? 68 : sumo ? 34 : 44) : t < t0 ? 0 : null)
       A.frames.push({ t0, t1: t0 + (big ? 0.36 : 0.3), dmg: d, hs: big ? 0.8 : 0.5, bs: 0.26, kb: big ? 14 : 8, reach: big ? 9 : 8, y: 8, hh: 4.5, lvl: 'mid', launch: big, sfx: 'fSlam', done: false })
@@ -184,8 +207,35 @@ function build(f, spec, isSuper) {
       A.dur = 0.8; A.pose = 'tele'; A.inv = 0.4
       A.on.push({ t: 0.04, fn: () => { f.vis = 0; burst(f.x, f.y + 6, el); sfx('fDash') } })
       A.on.push({ t: 0.3, fn: () => { f.x = clamp(o.x - o.face * 7.5, -XMAX, XMAX); f.face = o.x >= f.x ? 1 : -1; f.vis = 1; burst(f.x, f.y + 6, el) } })
-      A.frames.push({ t0: 0.32, t1: 0.46, dmg: d, hs: 0.5, bs: 0.2, kb: 6, reach: 8.5, y: 8, hh: 4, lvl: 'mid', launch: false, knock: true, sfx: 'fHeavy', done: false })
+      A.frames.push({ t0: 0.32, t1: 0.46, dmg: d, hs: 0.5, bs: 0.2, kb: 6, reach: 8.5, y: 8, hh: 4, lvl: 'mid', launch: isSuper, gb: isSuper, knock: !isSuper, sfx: 'fHeavy', done: false })
       break
+    case 'pillar': {
+      const n = isSuper ? Math.max(2, spec.hits || 3) : 1
+      A.dur = 0.7 + n * 0.4; A.pose = 'stomp'
+      for (let k = 0; k < n; k++) A.on.push({ t: 0.25 + k * 0.4, fn: () => { spawnProj(f, { kind: 'warn', at: clamp(o.x + (k ? R(-8, 8) : 0), -XMAX, XMAX), y: 1, r: 3, life: 1, eruptAt: 0.42, dmg: d / n, color: el.color, glow: el.glow, vx: 0 }); sfx('fRise'); shake(0.4) } })
+      break
+    }
+    case 'fan': {
+      const n = isSuper ? Math.max(3, spec.hits || 5) : 3
+      A.dur = isSuper ? 1.2 : 0.7; A.pose = 'cast'
+      A.on.push({ t: 0.25, fn: () => { for (let k = 0; k < n; k++) { const u = n === 1 ? 0 : k / (n - 1) - 0.5; spawnProj(f, { dmg: d / n, kind: 'beam', vx: 44, vy: u * 34, y: 8.5, r: isSuper ? 1.9 : 1.4, life: 1.4, hs: 0.32, bs: 0.15, color: el.color, glow: el.glow, launch: isSuper && k === n - 1 }) } sfx('fBeam') } })
+      break
+    }
+    case 'counter':
+      A.dur = 0.95; A.pose = 'counter'
+      A.on.push({ t: 0.02, fn: () => { f.counterT = 0.55; sfx('fBlock'); ring(f.x, FLOOR + f.y + 8, 12, 24, [rgb(el.color), rgb(el.glow)]) } })
+      break
+    case 'boomerang':
+      A.dur = 0.8; A.pose = 'cast'
+      A.on.push({ t: 0.2, fn: () => { spawnProj(f, { dmg: d, kind: 'boomerang', vx: 46, y: 8.5, r: 2.2, life: 1.9, turn: 0.55, hs: 0.38, bs: 0.18, color: el.color, glow: el.glow }); sfx('fDash') } })
+      break
+    case 'rain': {
+      const n = Math.max(4, spec.hits || 6)
+      A.dur = 0.5 + n * 0.14 + 0.7; A.pose = 'sky'
+      A.on.push({ t: 0.05, fn: () => sfx('fRise') })
+      for (let k = 0; k < n; k++) A.on.push({ t: 0.3 + k * 0.14, fn: () => { spawnProj(f, { dmg: d / n, kind: 'rock', at: clamp(o.x + R(-16, 16) * (k % 2 ? 1 : 0.4), -XMAX, XMAX), absY: 34, vx: 0, vy: -64, r: 2, life: 1.3, hs: 0.3, bs: 0.14, color: el.color, glow: el.glow, launch: k === n - 1 }); sfx('fWhiff') } })
+      break
+    }
     case 'flurry': {
       const n = spec.hits
       A.dur = 0.5 + n * 0.14 + 0.5; A.pose = 'flurry'; A.limb = ch.style === 'taekwon' ? 'rf' : 'rh'
@@ -212,7 +262,7 @@ function startSpecial(f) {
   FT.stats.specials++
   if (f.human) say(f.ch.special.name.toUpperCase() + '!', ELEMENTS[f.ch.element].color)
   else say(f.ch.special.name.toUpperCase() + '!', ELEMENTS[f.ch.element].color)
-  sfx('fSpecial'); burst(f.x, f.y + 7, ELEMENTS[f.ch.element])
+  sfx('fSpecial'); sfx('fVoice', { id: f.ch.id, f: f.ch.gender === 'f', kind: 'special' }); burst(f.x, f.y + 7, ELEMENTS[f.ch.element])
   return true
 }
 function startSuper(f) {
@@ -222,7 +272,7 @@ function startSuper(f) {
   const el = ELEMENTS[f.ch.element]
   FT.cine = { t: 0, dur: 0.95, owner: f.id, name: f.ch.super.name.toUpperCase(), color: el.color }
   f.st = 'cine'; f.t = 0; f.inv = 2
-  sfx('fSuper'); speak(f.ch.super.name.toLowerCase(), 0.8, 0.9)
+  sfx('fSuper'); sfx('fVoice', { id: f.ch.id, f: f.ch.gender === 'f', kind: 'special' }); sfx('fCrowd'); speak(f.ch.super.name.toLowerCase(), 0.8, 0.9)
   shake(1.2); flash(0.5, [1, 1, 1])
   return true
 }
@@ -236,13 +286,16 @@ function launchSuper(f) {
 // ---------- projectiles ----------
 function spawnProj(f, p) {
   const dir = f.face
-  FT.proj.push({ owner: f.id, x: f.x + dir * (p.kind === 'megabeam' ? 4 : 5), y: FLOOR + f.y + (p.y || 8), vx: (p.vx || 0) * dir, dir, kind: p.kind, dmg: p.dmg, hs: p.hs || 0.4, bs: p.bs || 0.2, color: p.color, glow: p.glow, r: p.r || 2, life: p.life || 2, t: 0, pierce: !!p.pierce, tickT: 0, tick: p.tick || 0, hitCount: 0, launch: !!p.launch, fixed: !!p.fixed, both: !!p.both, low: !!p.low, final: !!p.final, dead: false, hitOnce: new Set() })
+  FT.proj.push({ owner: f.id, x: p.at !== undefined ? p.at : f.x + dir * (p.kind === 'megabeam' ? 4 : 5), y: p.absY !== undefined ? p.absY : FLOOR + f.y + (p.y || 8), vx: (p.vx || 0) * dir, vy: p.vy || 0, fx: p.fx !== false, turn: p.turn || 0, eruptAt: p.eruptAt || 0, dir, kind: p.kind, dmg: p.dmg, hs: p.hs || 0.4, bs: p.bs || 0.2, color: p.color, glow: p.glow, r: p.r || 2, life: p.life || 2, t: 0, pierce: !!p.pierce, tickT: 0, tick: p.tick || 0, hitCount: 0, launch: !!p.launch, fixed: !!p.fixed, both: !!p.both, low: !!p.low, final: !!p.final, dead: false, hitOnce: new Set() })
 }
 function stepProj(p, dt) {
   p.t += dt; p.life -= dt
   const ow = FT.f[p.owner], o = FT.f[1 - p.owner]
   if (p.fixed) { p.x = ow.x + ow.face * 4; p.dir = ow.face; p.y = FLOOR + ow.y + 9 }
-  else p.x += p.vx * dt
+  else { p.x += p.vx * dt; p.y += (p.vy || 0) * dt }
+  if (p.kind === 'boomerang' && p.turn && p.t > p.turn && !p.turned) { p.turned = true; p.vx = -p.vx; p.hitOnce.clear() }
+  if (p.kind === 'warn') { if (p.t > p.eruptAt) { p.dead = true; spawnProj(ow, { kind: 'pillar', at: p.x, y: 1, r: 3.4, life: 0.32, dmg: p.dmg, hs: 0.7, bs: 0.3, launch: true, color: p.color, glow: p.glow, vx: 0 }); shake(1); sfx('fSlam'); ring(p.x, FLOOR + 1, 18, 50, [rgb(p.color), rgb(p.glow)]) } return }
+  if (p.kind === 'rock' && p.y < FLOOR + 1) { p.dead = true; ring(p.x, FLOOR + 1, 7, 30, [rgb(p.color), rgb(p.glow)]); return }
   if (p.kind === 'tornado') p.y = FLOOR + 7 + Math.sin(p.t * 9) * 1.2
   if (p.life <= 0 || Math.abs(p.x) > 62) { p.dead = true; return }
   if (Math.random() < dt * 40) part(p.x, p.y + R(-p.r, p.r), R(-8, 8), R(-6, 10), 0.3, rgb(Math.random() < 0.5 ? p.color : p.glow), R(0.6, 1.2))
@@ -250,8 +303,8 @@ function stepProj(p, dt) {
   const hb = hurtBox(o)
   const len = p.kind === 'megabeam' ? 90 : p.kind === 'groundwave' ? 4 : p.r
   const x0 = p.kind === 'megabeam' ? Math.min(p.x, p.x + p.dir * len) : p.x - len, x1 = p.kind === 'megabeam' ? Math.max(p.x, p.x + p.dir * len) : p.x + len
-  const worldY = p.kind === 'groundwave' ? FLOOR + 1.5 : p.y
-  const r = p.kind === 'megabeam' ? 3.4 : p.r
+  const worldY = p.kind === 'groundwave' ? FLOOR + 1.5 : p.kind === 'pillar' ? FLOOR + 9 : p.y
+  const r = p.kind === 'megabeam' ? 3.4 : p.kind === 'pillar' ? 10 : p.r
   const overlap = x1 > hb.x0 && x0 < hb.x1 && worldY + r > FLOOR + hb.y0 && worldY - r < FLOOR + hb.y1
   if (!overlap) return
   if (p.low && o.y > 3) return // the shockwave runs along the floor: jump over it
@@ -259,7 +312,7 @@ function stepProj(p, dt) {
   p.hitOnce.add(o.id)
   p.hitCount++
   const lastHit = p.final && p.life < p.tick + 0.05
-  const res = applyHit(ow, o, { dmg: p.dmg, hs: p.hs, bs: p.bs, kb: p.kind === 'tornado' ? 1 : 5, lvl: p.low ? 'low' : 'mid', launch: p.launch && (lastHit || !p.tick), sfx: 'fHit', proj: true, color: p.color, noBlockStun: false })
+  const res = applyHit(ow, o, { dmg: p.dmg, hs: p.hs, bs: p.bs, kb: p.kind === 'tornado' ? 1 : 5, lvl: p.low ? 'low' : 'mid', launch: p.launch && (lastHit || !p.tick), sfx: 'fHit', proj: true, fx: p.fx, color: p.color, noBlockStun: false })
   if (res !== 'miss' && !p.pierce && !p.tick) p.dead = true
   if (res === 'block' && p.kind !== 'megabeam') p.dead = !p.pierce
 }
@@ -269,7 +322,8 @@ function comboScale(n) { return Math.max(0.35, 1 - 0.07 * Math.max(0, n - 1)) }
 function applyHit(att, def, h) {
   if (def.inv > 0 || def.st === 'ko' || FT.phase === 'ko') return 'miss'
   const dir = Math.sign(def.x - att.x) || att.face
-  const canBlock = def.block && !h.grab && (def.st === 'idle' || def.st === 'walk' || def.st === 'crouch' || def.st === 'block' || (def.st === 'hit' && def.blocking)) && def.y < 0.6
+  if (def.counterT > 0 && !h.grab && def.st === 'attack') return counterStrike(att, def, h)
+  const canBlock = def.block && !h.grab && !h.gb && (def.st === 'idle' || def.st === 'walk' || def.st === 'crouch' || def.st === 'block' || (def.st === 'hit' && def.blocking)) && def.y < 0.6
   if (canBlock) {
     const crouching = def.crouch || def.st === 'crouch'
     const ok = h.lvl === 'low' ? crouching : h.lvl === 'high' ? !crouching || true : true
@@ -301,25 +355,52 @@ function applyHit(att, def, h) {
   for (let i = 0; i < (big ? 14 : 7); i++) part(hx, hy, dir * R(4, 26) + R(-6, 6), R(-10, 18), R(0.18, 0.45), rgb(i % 3 === 0 ? el.color : i % 3 === 1 ? '#ffffff' : '#ffe84a'), R(0.8, big ? 1.8 : 1.3))
   ring(hx, hy, big ? 12 : 7, big ? 46 : 30, [rgb(el.glow), rgb('#ffffff')])
   sfx(h.sfx || (big ? 'fHeavy' : 'fHit')); if (big) sfx('fHit')
+  if (big || Math.random() < 0.35) sfx('fVoice', { id: def.ch.id, f: def.ch.gender === 'f', kind: 'hurt' })
   FT.stop = Math.max(FT.stop, big ? 0.1 : 0.05)
   if (big) shake(big && dmg > 12 ? 1.6 : 0.8)
   if (def.hp <= 0) { def.hp = 0; return koCheck(att, def, dir) || 'hit' }
   if (def.armor && !h.launch && !h.grab) { def.vx = 0; return 'hit' } // super-armour: takes the hit, keeps going
+  elementFx(att, def, dmg, h)
   def.blocking = false
-  def.atk = null; def.armor = false; def.vis = 1; def.held = null
+  def.atk = null; def.armor = false; def.vis = 1; def.held = null; def.counterT = 0
   if (h.launch || def.y > 0.6) {
     def.st = 'air'; def.t = 0; def.vy = h.launch ? 34 : 18; def.vx = dir * (h.launch ? 14 : 8); def.stun = 0; def.airHit = true
   } else if (h.knock) {
     def.st = 'air'; def.t = 0; def.vy = 14; def.vx = dir * 20; def.stun = 0
   } else {
-    def.st = 'hit'; def.t = 0; def.stun = h.hs; def.vx = dir * (h.kb || 3)
+    def.st = 'hit'; def.t = 0; def.stun = h.hs + (h.gb ? 0.2 : 0) + (def.shockX || 0); def.vx = dir * (h.kb || 3)
+    def.shockX = 0
   }
   return 'hit'
+}
+// element effects: fire burns, ice slows, thunder shocks (extra stun + meter), shadow drains life
+function elementFx(att, def, dmg, h) {
+  if (!(h.fx || h.special || h.proj)) return
+  const E = ELEMENTS[att.ch.element]
+  const fx = E.fx
+  if (fx === 'burn') { def.burn = { t: 3, dps: 1 + dmg * 0.07 }; for (let i = 0; i < 6; i++) part(def.x, FLOOR + def.y + 8, R(-8, 8), R(4, 18), R(0.3, 0.6), rgb(i % 2 ? '#ff6a2a' : '#ffd23a'), R(0.8, 1.4)) }
+  else if (fx === 'freeze') { def.slowT = 2.4; for (let i = 0; i < 6; i++) part(def.x, FLOOR + def.y + 8, R(-8, 8), R(2, 12), R(0.3, 0.6), rgb(i % 2 ? '#e6fbff' : '#5ad8ff'), R(0.8, 1.3)) }
+  else if (fx === 'shock') { def.shockX = 0.12; att.meter = Math.min(100, att.meter + 3); for (let i = 0; i < 6; i++) part(def.x + R(-3, 3), FLOOR + def.y + R(2, 14), R(-14, 14), R(-8, 14), R(0.15, 0.35), rgb('#ffffff'), R(0.7, 1.2)) }
+  else if (fx === 'drain') { const g = Math.min(att.maxHp - att.hp, dmg * 0.22); if (g > 0) { att.hp += g; for (let i = 0; i < 5; i++) part(def.x, FLOOR + def.y + 8, (att.x - def.x) * 2 + R(-4, 4), R(-2, 10), R(0.3, 0.6), rgb('#ff4de1'), R(0.8, 1.2)) } }
+}
+// counter stance: absorbs a strike and hits back
+function counterStrike(att, def, h) {
+  def.counterT = 0; def.atk = null; def.st = 'idle'; def.t = 0; def.vis = 1
+  const el = ELEMENTS[def.ch.element]
+  const dmg = def.ch.special.dmg * 1.15
+  sfx('fSpecial'); sfx('fHeavy'); say('COUNTER!', el.color, 1)
+  ring(att.x, FLOOR + att.y + 8, 16, 50, [rgb(el.color), rgb('#ffffff')]); shake(1.6); FT.stop = Math.max(FT.stop, 0.14)
+  const dir = Math.sign(att.x - def.x) || def.face
+  att.hp -= dmg; att.flash = 0.15; def.meter = Math.min(100, def.meter + dmg * 0.6); att.combo++; def.hitsDealt = att.combo
+  FT.stats.hits++
+  if (att.hp <= 0) { att.hp = 0; koCheck(def, att, dir); return 'block' }
+  att.atk = null; att.armor = false; att.st = 'air'; att.t = 0; att.vy = 26; att.vx = dir * 16; att.airHit = true
+  return 'block'
 }
 function koCheck(att, def, dir) {
   FT.phase = 'ko'; FT.phaseT = 0; FT.slow = 0.35
   def.st = 'ko'; def.t = 0; def.vy = 24; def.vx = dir * 16; def.atk = null; def.vis = 1
-  sfx('fKO'); shake(3); flash(0.7, [1, 1, 1]); say('K.O.!', '#ff3b4e', 2)
+  sfx('fKO'); sfx('fVoice', { id: def.ch.id, f: def.ch.gender === 'f', kind: 'ko' }); sfx('fCrowd'); shake(3); flash(0.7, [1, 1, 1]); say('K.O.!', '#ff3b4e', 2)
   FT.msg = { text: 'K.O.!', sub: '', color: '#ff3b4e', t: 2 }
   return 'hit'
 }
@@ -335,6 +416,10 @@ function controls(f, o, dt) {
 }
 function press(f, btn) {
   if (f.st === 'ko' || FT.phase !== 'fight' || FT.cine) return
+  if (f.st === 'attack' && f.atk && f.atk.normal && f.atk.id && !f.atk.chained && ['lp', 'hp', 'lk', 'hk'].includes(btn)) {
+    const c = f.ch.chain[`${f.atk.id}>${btn}`]
+    if (c && f.atk.t >= f.atk.m.su * 0.9) { startStrike(f, c, c.slot, true); return }
+  }
   const act = f.st === 'idle' || f.st === 'walk' || f.st === 'crouch' || (f.st === 'jump' && (btn === 'lp' || btn === 'hp' || btn === 'lk' || btn === 'hk'))
   if (btn === 'sp') { if (act) startSpecial(f); else f.buf = { btn, t: 0.18 }; return }
   if (btn === 'su') { if (act) startSuper(f); return }
@@ -392,6 +477,9 @@ function stepAttack(f, o, dt) {
 function stepFighter(f, o, dt) {
   f.t += dt
   f.inv = Math.max(0, f.inv - dt); f.flash = Math.max(0, f.flash - dt); f.spCd = Math.max(0, f.spCd - dt)
+  if (f.counterT > 0) f.counterT -= dt
+  if (f.slowT > 0) f.slowT -= dt
+  if (f.burn) { f.burn.t -= dt; f.hp = Math.max(1, f.hp - f.burn.dps * dt); if (Math.random() < dt * 14) part(f.x + R(-2, 2), FLOOR + f.y + R(2, 12), R(-3, 3), R(6, 16), 0.4, rgb(Math.random() < 0.5 ? '#ff6a2a' : '#ffd23a'), R(0.7, 1.2)); if (f.burn.t <= 0) f.burn = null }
   if (f.comboT > 0) f.comboT -= dt
   if (f.buf) { f.buf.t -= dt; if (f.buf.t <= 0) f.buf = null }
   if (f.hitsDealt > 0 && o.st !== 'hit' && o.st !== 'air' && o.st !== 'held' && o.st !== 'ko') f.hitsDealt = 0
@@ -425,7 +513,7 @@ function stepFighter(f, o, dt) {
       if (inp.down && grounded) { f.st = 'crouch'; f.crouch = true; f.vx = 0 }
       else {
         f.crouch = false
-        if (inp.dx && FT.phase === 'fight') { f.st = 'walk'; f.vx = inp.dx * (inp.dx === f.face ? 15 : 11) * f.ch.spd } else { f.st = 'idle'; f.vx *= 0.6; if (Math.abs(f.vx) < 0.5) f.vx = 0 }
+        if (inp.dx && FT.phase === 'fight') { f.st = 'walk'; f.vx = inp.dx * (inp.dx === f.face ? 15 : 11) * f.ch.spd * (f.slowT > 0 ? 0.62 : 1) } else { f.st = 'idle'; f.vx *= 0.6; if (Math.abs(f.vx) < 0.5) f.vx = 0 }
       }
       f.block = inp.dx !== 0 && inp.dx !== f.face && FT.phase === 'fight' // holding back = guard
       break
@@ -564,7 +652,7 @@ function roundOver(winner, why) {
   const perfect = winner >= 0 && FT.f[winner].hp >= FT.f[winner].maxHp
   const nm = winner >= 0 ? FT.f[winner].ch.name : ''
   FT.msg = { text: winner < 0 ? 'DRAW' : perfect ? 'PERFECT!' : `${nm} WINS`, sub: why === 'TIME UP' ? 'TIME UP' : `ROUND ${FT.round}`, color: winner < 0 ? '#fff' : ELEMENTS[FT.f[winner].ch.element].color, t: 2.4 }
-  if (winner >= 0) { sfx('fWin'); if (FT.f[winner].human) { speak(perfect ? 'Perfect!' : 'You win', 0.9, 1.1) } }
+  if (winner >= 0) { sfx('fWin'); sfx('fCrowd'); sfx('fVoice', { id: FT.f[winner].ch.id, f: FT.f[winner].ch.gender === 'f', kind: 'win' }); if (FT.f[winner].human) { speak(perfect ? 'Perfect!' : 'You win', 0.9, 1.1) } }
   void a; void b
 }
 function endMatch() {
@@ -729,7 +817,9 @@ function poseOf(f, t) {
         const m = A.m, u = A.t, su = m.su, ac = m.ac
         const ext = u < su ? -ease(u / su) * 0.35 : u < su + ac ? 1 : Math.max(0, 1 - (u - su - ac) / m.rc)
         const lowHand = m.y < 5
-        if (m.limb === 'rh' || m.limb === 'lh') {
+        if (m.pose === 'knee') { const tx = 1.5 + (m.reach - 1.5) * 0.7 * ext; P.feet = [[-1.8, 0], [tx, Math.max(3, m.y - 1) + 2 * ext]]; P.hands = [[3.4, 11.4], [2, 10.4]]; P.lean = 0.7 * ext; P.drop = 0 }
+        else if (m.pose === 'axe') { const lift = u < su ? ease(u / su) : 1 - Math.min(1, (u - su) / (ac + 0.1)); P.feet = [[-1.8, 0], [2 + (m.reach - 4) * ext * 0.5, 4 + 9 * lift - 4 * ext]]; P.hands = [[3, 10.5], [1.5, 10]]; P.lean = -0.6 }
+        else if (m.limb === 'rh' || m.limb === 'lh') {
           const tx = 3 + (m.reach - 3) * 0.78 * ext, ty = m.y + 1.2
           if (m.limb === 'rh') P.hands = [[tx, ty], [2.2, 10]]; else P.hands = [[2.6, 10.6], [tx, ty]]
           if (f.crouch || lowHand) P.drop = f.crouch ? 3.6 : 0
@@ -752,6 +842,9 @@ function poseOf(f, t) {
           case 'spin': { const s = Math.sin(A.t * 24); P.feet = [[7.5 * s, 4.5 + 2 * Math.cos(A.t * 24)], [-6 * s, 3]]; P.hands = [[3, 9], [-1, 8]]; P.spin = A.t * 14; P.drop = -1; break }
           case 'quake': P.hands = [[2, 17], [0, 17]]; P.feet = [[-2, 3], [2, 3]]; P.drop = 0; break
           case 'tele': P.hands = [[3, 11], [2, 10]]; break
+          case 'counter': P.hands = [[3.4, 13], [2.6, 11.4]]; P.lean = -0.9; P.drop = 0.8 + Math.sin(A.t * 30) * 0.2; P.feet = [[-2.2, 0], [2.2, 0]]; break
+          case 'stomp': { const k = A.t < 0.25 ? ease(A.t / 0.25) : 1 - Math.min(1, (A.t - 0.25) * 4); P.feet = [[-1.6, 0], [1.8, 4.6 * Math.max(0, k)]]; P.hands = [[3, 12], [1, 11]]; P.lean = -0.4; break }
+          case 'sky': { P.hands = [[1.4, 15 + Math.sin(A.t * 14)], [-1.4, 15 + Math.cos(A.t * 14)]]; P.feet = [[-1.6, 0], [1.6, 0]]; P.drop = -0.6; break }
           case 'flurry': { const k = Math.floor(A.t / 0.07) % 2; P.hands = k ? [[8, 9.4], [1.6, 9]] : [[3, 9.4], [8.4, 10]]; P.feet = f.ch.style === 'taekwon' ? [[-1.8, 0], [8 * (k ? 1 : 0.4), 5 + k]] : [[-1.8, 0], [1.8, 0]]; P.lean = 0.8; break }
           case 'grab': { const k = A.grabbed ? 1 : ease(Math.min(1, A.t / 0.3)); const lift = A.grabbed ? ease((A.t - (A.slamT - 0.5)) / 0.3) * 8 : 0; P.hands = [[4.4 * k, 9.5 + lift], [3.4 * k, 9 + lift]]; P.lean = 0.6 + (A.grabbed ? -lift * 0.1 : 0); break }
           default: P.hands = [[6, 10], [3, 9.4]]
@@ -763,89 +856,141 @@ function poseOf(f, t) {
   }
   return P
 }
-function drawFighter(put, f, t) {
+// ---------- 3D fighter rig (lit boxes: real depth, rotated limbs, shadows) ----------
+function ik2(ax, ay, tx, ty, l1, l2, bend) {
+  let dx = tx - ax, dy = ty - ay
+  let d = Math.hypot(dx, dy) || 0.001
+  const max = l1 + l2 - 0.02, min = Math.abs(l1 - l2) + 0.05
+  const dd = clamp(d, min, max)
+  const a0 = Math.atan2(dy, dx)
+  const A = Math.acos(clamp((l1 * l1 + dd * dd - l2 * l2) / (2 * l1 * dd), -1, 1))
+  const ea = a0 + bend * A
+  return { ex: ax + Math.cos(ea) * l1, ey: ay + Math.sin(ea) * l1, hx: ax + Math.cos(a0) * dd, hy: ay + Math.sin(a0) * dd }
+}
+const mul = (c, k) => [c[0] * k, c[1] * k, c[2] * k]
+function drawFighter3(put3, f, t) {
   if (f.vis <= 0.01 && f.st !== 'cine') return
-  const ch = f.ch, k = (f.st === 'cine' ? 1.1 : 1) * 0.95
-  const sw = ch.w, sh = ch.h
+  const ch = f.ch, el = ELEMENTS[ch.element], dir = f.face
   const P = poseOf(f, t)
-  const flash = f.flash > 0 ? 1.8 : 1
-  const skin = lc(ch.skin), top = lc(ch.top), pants = lc(ch.pants), hair = lc(ch.hair), trim = lc(ch.trim)
-  const dir = f.face
-  const base = FLOOR + f.y
-  // local -> world
-  const X = (lx) => f.x + dir * lx * k
-  const Y = (ly) => base + ly * k * sh
-  const kk = flash
-  const bw = (v) => v * k * sw, bh = (v) => v * k * sh
-  const z = 1 + (f.id === 0 ? 0.01 : 0)
-  // aura
-  const el = ELEMENTS[ch.element]
-  if (f.st === 'cine' || (f.atk && !f.atk.normal)) { const ac = lc(el.color); for (let i = 0; i < 16; i++) { const a = (i / 16) * Math.PI * 2 + t * 8; put(f.x + Math.cos(a) * 6 * k, base + 7 + Math.sin(a) * 9 * k, 0, 1.3, 1.3, ac[0] * 2, ac[1] * 2, ac[2] * 2) } }
+  const sw = ch.w, sh = ch.h, k = 0.95
+  const flash = f.flash > 0 ? 1.7 : 1
+  const skin = lc(ch.skin), top = lc(ch.top), pants = lc(ch.pants), hair = lc(ch.hair), trim = lc(ch.trim), gl = lc(ch.gloves), glow = lc(el.glow), ec = lc(el.color)
+  const outfit = ch.outfit, base = FLOOR + f.y
+  // local -> world (x forward along the facing direction; z toward the camera)
+  const W = (lx) => f.x + dir * lx * k * (0.5 + 0.5 * sw)
+  const Yw = (ly) => base + ly * k * sh
+  const bx = (lx, ly, lz, sx, sy, szz, col, sh2 = 1, rz = 0) => put3(W(lx), Yw(ly), lz * k * sw, sx * k * (0.55 + 0.45 * sw), sy * k * sh, szz * k * sw, dir > 0 ? rz : -rz, col[0] * sh2 * flash, col[1] * sh2 * flash, col[2] * sh2 * flash)
+  // limb between two local points
+  const limb3 = (x0, y0, x1, y1, th, lz, col, sh2) => {
+    const wx0 = W(x0), wy0 = Yw(y0), wx1 = W(x1), wy1 = Yw(y1)
+    const len = Math.hypot(wx1 - wx0, wy1 - wy0) + th * 0.5
+    put3((wx0 + wx1) / 2, (wy0 + wy1) / 2, lz * k * sw, len, th * k, th * k * (0.7 + 0.3 * sw), Math.atan2(wy1 - wy0, wx1 - wx0), col[0] * sh2 * flash, col[1] * sh2 * flash, col[2] * sh2 * flash)
+  }
+  const bareArms = ['tank', 'jacket', 'shorts', 'mawashi', 'tights'].includes(outfit)
+  const bareLegs = ['shorts', 'mawashi', 'tights'].includes(outfit) && outfit !== 'tights'
+  const armCol = bareArms ? skin : outfit === 'robot' ? lc('#b8c0d0') : top
+  const legCol = outfit === 'robot' ? lc('#9aa4b8') : pants
+  const fat = outfit === 'mawashi' ? 1.35 : 1
+  // aura sparks (basic glow, drawn in the main pass)
   if (P.lying) {
-    // lying on the floor: torso horizontal, head toward the back
-    const hy = base + 2.2
-    const sh2 = f.st === 'ko' ? 0.7 : 1
-    box(put, f.x - dir * 1, hy, bw(7), bh(4.4), top, kk * sh2, z)
-    box(put, f.x - dir * 6, hy + 0.4, bw(4.2), bh(4), skin, kk * sh2, z); box(put, f.x - dir * 6, hy + 2, bw(4.4), bh(1.4), hair, kk * sh2, z)
-    box(put, f.x + dir * 4.5, hy - 0.6, bw(6), bh(2.2), pants, kk * sh2, z); box(put, f.x + dir * 8.5, hy - 0.4, bw(2.4), bh(1.4), lc('#1a1a22'), 1, z)
-    if (f.st === 'ko') for (let i = 0; i < 3; i++) { const a = t * 6 + i * 2.1; put(f.x - dir * 6 + Math.cos(a) * 3, hy + 4 + Math.sin(a) * 1, 3, 0.8, 0.8, 2.4, 2.2, 0.4) }
+    const ko = f.st === 'ko'
+    const hy = 1.6
+    bx(0, hy + 0.2, 0, 5.6, 3.2 * fat, 5.4, top, 1)
+    bx(-3.8, hy + 0.2, 0, 3.6, 3.4, 3.6, skin, 1); bx(-3.6, hy + 1.9, 0, 3.8, 1.2, 3.8, hair, 1)
+    bx(4.6, hy - 0.4, 1.3, 6, 2, 2, legCol, 1); bx(4.6, hy - 0.4, -1.3, 6, 2, 2, legCol, 0.8)
+    bx(8, hy - 0.6, 1.3, 1.8, 1.2, 2, lc('#1a1a22'), 1); bx(8, hy - 0.6, -1.3, 1.8, 1.2, 2, lc('#1a1a22'), 0.8)
+    limb3(1, hy + 0.4, 2.8, hy - 0.4, 1.6, 3.2, armCol, 1); limb3(1, hy + 0.4, -1.5, hy - 0.2, 1.6, -3.2, armCol, 0.8)
     return
   }
-  const drop = P.drop || 0
-  const hipY = 6 - drop * 0.5 + (f.crouch || f.st === 'crouch' ? 0 : 0)
-  const lean = P.lean || 0
-  // legs & feet
+  const drop = P.drop || 0, lean = P.lean || 0
+  const hipY = 6.4 - drop * 0.5
+  const tilt = -lean * 0.09
+  const tY = hipY + 3.5 - drop * 0.4
+  // ---- legs (IK: thigh + shin) ----
   P.feet.forEach(([fx0, fy0], i) => {
-    const hx = (i ? 1 : -1) * 1.1 + lean * 0.2
-    limb(put, X(hx), Y(hipY - drop * 0.4), X(fx0), Y(fy0 + 0.7), bw(2.3), pants, kk, z, 5)
-    box(put, X(fx0 + 0.9), Y(fy0 + 0.5), bw(3), bh(1.4), lc('#16161e'), kk, z)
+    const near = i === 1, lz = near ? 1.4 : -1.4, shd = near ? 1 : 0.78
+    const hx = lean * 0.2, hy0 = hipY - drop * 0.3
+    const r = ik2(hx, hy0, fx0, fy0 + 0.9, 3.3, 3.3, 1)
+    const thick = (outfit === 'gi' || outfit === 'robe' ? 2.7 : 2.4) * (outfit === 'mawashi' ? 1.3 : 1)
+    const upperCol = bareLegs ? (outfit === 'shorts' ? legCol : skin) : legCol
+    limb3(hx, hy0, r.ex, r.ey, thick, lz, upperCol, shd)
+    limb3(r.ex, r.ey, r.hx, r.hy, thick * 0.88, lz, bareLegs && outfit !== 'shorts' ? skin : bareLegs ? skin : legCol, shd)
+    if (outfit === 'robot') bx(r.ex, r.ey, lz, 1.7, 1.7, 1.8, trim, 1.2 * shd)
+    bx(r.hx + 0.8, Math.max(0.55, r.hy - 0.5), lz, 3.6, 1.3, 2, lc(outfit === 'robot' ? '#59647a' : '#17171f'), shd)
   })
-  // torso
-  const tY = hipY + 3.4 - drop * 0.5
-  box(put, X(lean), Y(tY), bw(5.6), bh(6.4), top, kk, z)
-  box(put, X(lean), Y(tY - 3.1), bw(5.6), bh(1), trim, kk, z) // belt / trim
-  box(put, X(lean + 0.3), Y(tY + 1.4), bw(2.2), bh(1.2), trim, kk * 0.8, z)
-  // head
-  const hY = tY + 4.6 + (P.head || 0)
-  box(put, X(lean * 1.4 + (P.head || 0)), Y(hY), bw(4.4), bh(4.2), skin, kk, z)
-  const hx0 = lean * 1.4 + (P.head || 0)
-  // hair styles
-  switch (ch.hairStyle) {
-    case 'spiky': for (let i = -2; i <= 2; i++) box(put, X(hx0 + i * 0.9), Y(hY + 2.7 + (i % 2 ? 0.8 : 1.5)), bw(1), bh(2.4), hair, kk, z); box(put, X(hx0), Y(hY + 2.1), bw(4.6), bh(1.2), hair, kk, z); break
-    case 'long': box(put, X(hx0), Y(hY + 2.3), bw(4.8), bh(1.4), hair, kk, z); box(put, X(hx0 - 2.4), Y(hY - 0.6), bw(1.6), bh(5.4), hair, kk, z); break
-    case 'mohawk': for (let i = -2; i <= 2; i++) box(put, X(hx0 + i * 0.5), Y(hY + 3 + Math.abs(2 - Math.abs(i)) * 0.4), bw(0.9), bh(2.6), hair, kk, z); break
-    case 'bald': break
-    case 'band': box(put, X(hx0), Y(hY + 2.2), bw(4.6), bh(1.2), hair, kk, z); box(put, X(hx0), Y(hY + 1.1), bw(4.8), bh(0.8), lc('#ff3b4e'), kk, z); break
-    case 'bun': box(put, X(hx0), Y(hY + 2.2), bw(4.6), bh(1.2), hair, kk, z); box(put, X(hx0 - 0.4), Y(hY + 3.6), bw(2), bh(2), hair, kk, z); break
-    case 'afro': box(put, X(hx0), Y(hY + 2.4), bw(6.2), bh(3.6), hair, kk, z); break
-    default: box(put, X(hx0), Y(hY + 2.1), bw(4.8), bh(1.5), hair, kk, z)
+  // ---- pelvis & torso ----
+  bx(lean * 0.2, hipY + 0.2 - drop * 0.1, 0, 3.2, 2.4, 4.6 * fat, outfit === 'mawashi' ? lc(ch.pants) : legCol, 1)
+  const chestW = 5.7 * (outfit === 'robot' ? 1.1 : 1) * fat
+  const bareChest = ['jacket', 'shorts', 'mawashi', 'tights'].includes(outfit)
+  bx(lean * 0.45, tY, 0, 3.6 * fat, 5.4, chestW, bareChest ? skin : top, 1, tilt)
+  // outfit details
+  switch (outfit) {
+    case 'gi': bx(lean * 0.5 + 1.8, tY + 1.2, 0, 0.5, 2.6, 1.6, skin, 1); bx(lean * 0.3, hipY + 1.1, 0, 3.9, 0.9, 5.9, trim, 1); bx(lean * 0.3 - 1.4, hipY + 0.2, 1.8, 1, 2.4, 0.8, trim, 0.9, -0.2); break
+    case 'jacket': bx(lean * 0.45, tY, 2.9, 3.9, 5.5, 1.3, top, 1, tilt); bx(lean * 0.45, tY, -2.9, 3.9, 5.5, 1.3, top, 0.8, tilt); bx(lean * 0.45 + 0.5, tY + 3.1, 0, 2.4, 0.9, 6.4, top, 1.1, tilt); for (let r = 0; r < 3; r++) bx(lean * 0.45 + 1.9, tY + 1.6 - r * 1.5, 0, 0.3, 0.5, 4.4, mul(skin, 0.82), 1, tilt); break
+    case 'tank': bx(lean * 0.5 + 1.9, tY - 0.6, 0, 0.3, 0.7, 4.8, trim, 1); break
+    case 'shorts': for (let r = 0; r < 3; r++) bx(lean * 0.45 + 1.9, tY + 1.8 - r * 1.5, 0, 0.3, 0.5, 4.6, mul(skin, 0.8), 1, tilt); bx(lean * 0.2, hipY + 0.9, 0, 3.7, 1, 5, trim, 1); break
+    case 'coat': bx(lean * 0.2, hipY - 1.6, 0, 3.8, 5.4, 5.9, top, 0.92); bx(lean * 0.45, tY + 2.7, 0, 3.8, 1.1, 6.2, mul(top, 1.15), 1); break
+    case 'armor': bx(lean * 0.45, tY + 2.6, 3.4, 3.2, 1.8, 2.6, trim, 1, tilt); bx(lean * 0.45, tY + 2.6, -3.4, 3.2, 1.8, 2.6, trim, 0.8, tilt); bx(lean * 0.45 + 1.9, tY, 0, 0.5, 3.4, 3.6, trim, 1, tilt); break
+    case 'ninja': bx(lean * 0.3, hipY + 1.1, 0, 3.9, 0.8, 5.9, trim, 1); break
+    case 'robe': bx(lean * 0.2, hipY - 2.2, 0, 4.2, 7, 5.6, top, 0.95); bx(lean * 0.3, hipY + 1.1, 0, 4.2, 0.9, 5.8, trim, 1); bx(lean * 0.45 + 1.8, tY + 1.4, 0, 0.4, 2.6, 1.6, trim, 1); break
+    case 'mawashi': bx(lean * 0.3 + 1.1, hipY + 0.4, 0, 2.2, 4.2, 4.8, lc(ch.pants), 1); bx(lean * 0.3, hipY + 1.2, 0, 4.4 * fat, 1.1, 6.6 * fat, trim, 1); break
+    case 'tights': bx(lean * 0.3, hipY + 1.3, 0, 3.8, 1.3, 5.5, trim, 1); for (let r = 0; r < 2; r++) bx(lean * 0.45 + 1.9, tY + 1.5 - r * 1.8, 0, 0.3, 0.5, 4.4, mul(skin, 0.8), 1, tilt); break
+    case 'robot': bx(lean * 0.45 + 1.9, tY + 0.6, 0, 0.5, 2, 3.4, trim, 1.7, tilt); bx(lean * 0.45 + 1.9, tY - 1.8, 0, 0.5, 0.7, 4, mul(trim, 0.6), 1); break
+    default: break
   }
-  // accessories
-  if (ch.acc === 'mask') box(put, X(hx0 + 0.3), Y(hY - 0.9), bw(4.5), bh(2), lc('#1a1a22'), kk, z + 0.1)
-  if (ch.acc === 'headband') box(put, X(hx0), Y(hY + 1.1), bw(4.8), bh(0.9), lc('#ffffff'), kk, z + 0.1)
-  if (ch.acc === 'visor') box(put, X(hx0 + 0.9), Y(hY + 0.3), bw(3.2), bh(1.1), lc(el.color), 2, z + 0.1)
-  if (ch.acc === 'topknot') box(put, X(hx0), Y(hY + 3.1), bw(1.8), bh(1.6), hair, kk, z)
-  if (ch.acc === 'orb') { const ac = lc(el.glow); put(X(lean + 5), Y(hY + 1 + Math.sin(t * 3) * 0.6), 2, 1.4, 1.4, ac[0] * 2, ac[1] * 2, ac[2] * 2) }
-  if (ch.acc === 'mask2') box(put, X(hx0 + 0.6), Y(hY - 0.4), bw(4), bh(3.2), lc(el.color), kk * 0.9, z + 0.1)
-  if (ch.acc === 'sash') box(put, X(lean), Y(tY - 2), bw(5.8), bh(0.8), lc('#ffffff'), kk, z + 0.1)
-  if (ch.acc === 'belt') box(put, X(lean), Y(tY - 2.4), bw(5.8), bh(1), lc('#111111'), kk, z + 0.1)
-  // eyes & mouth
+  if (ch.accs.includes('pads')) { bx(lean * 0.45, tY + 2.6, 3.4, 2.8, 1.6, 2.4, trim, 1); bx(lean * 0.45, tY + 2.6, -3.4, 2.8, 1.6, 2.4, trim, 0.8) }
+  if (ch.accs.includes('tattoo')) for (let r = 0; r < 3; r++) bx(lean * 0.45 + 1.9, tY + 1.4 - r * 1.2, 1.2, 0.3, 0.45, 2.6, lc(el.color), 1.1)
+  if (ch.accs.includes('sash') || ch.accs.includes('belt')) bx(lean * 0.3, hipY + 1.15, 0, 3.9, 0.7, 5.9, ch.accs.includes('belt') ? lc('#111111') : lc('#f4f4f4'), 1)
+  if (ch.accs.includes('scarf')) { const w = Math.sin(t * 9) * 0.8; bx(lean * 0.45 - 0.5, tY + 3, 0, 3.6, 1.1, 6.3, trim, 1); bx(lean * 0.45 - 3.6, tY + 2.3 + w, -1.2, 5.4, 1, 1.2, trim, 0.9, 0.12); bx(lean * 0.45 - 6.6, tY + 1.9 + w * 1.6, -1.2, 4, 1, 1.2, trim, 0.85, 0.2) }
+  if (ch.accs.includes('cape')) bx(lean * 0.2 - 2.4, tY - 0.6, 0, 0.8, 7, 5.6, trim, 0.9)
+  // ---- head ----
+  const hx0 = lean * 0.9 + (P.head || 0), hY = tY + 4.5
+  bx(hx0 * 0.5, tY + 3, 0, 1.6, 1.4, 1.8, skin, 0.9)
+  bx(hx0, hY, 0, 3.7, 3.9, 3.8, outfit === 'robot' ? lc('#b8c0d0') : skin, 1)
+  const hr = hair
+  switch (ch.hairStyle) {
+    case 'spiky': bx(hx0 - 0.2, hY + 2.1, 0, 3.9, 1.3, 4.1, hr, 1); for (let i = -1; i <= 1; i++) bx(hx0 - 0.4 + i * 0.1, hY + 3.3 + (i === 0 ? 0.7 : 0), i * 1.3, 1.1, 2.1, 1.1, hr, 1, i * 0.18); bx(hx0 - 1.6, hY + 0.4, 0, 1.2, 3.2, 3.9, hr, 1); break
+    case 'long': bx(hx0 - 0.2, hY + 2.1, 0, 3.9, 1.4, 4.2, hr, 1); bx(hx0 - 1.9, hY - 1.6, 0, 1.5, 6.4, 4.2, hr, 0.95); break
+    case 'mohawk': bx(hx0, hY + 2.5, 0, 3.8, 2.8, 0.9, hr, 1); bx(hx0 - 1.4, hY + 1.5, 0, 1.2, 1.4, 1, hr, 1); break
+    case 'bald': break
+    case 'band': bx(hx0 - 0.2, hY + 2.1, 0, 3.9, 1.2, 4.1, hr, 1); bx(hx0 - 1.4, hY, 0, 1.4, 3.2, 3.9, hr, 1); break
+    case 'bun': bx(hx0 - 0.2, hY + 2.1, 0, 3.9, 1.2, 4.1, hr, 1); bx(hx0 - 1.2, hY + 3.5, 0, 2.2, 2.2, 2.2, hr, 1); break
+    case 'afro': bx(hx0 - 0.6, hY + 1.9, 0, 5.8, 4.8, 5.8, hr, 1); break
+    default: bx(hx0 - 0.2, hY + 2.1, 0, 3.9, 1.4, 4.1, hr, 1); bx(hx0 - 1.5, hY + 0.5, 0, 1.2, 2.8, 3.9, hr, 1)
+  }
   const hurt = f.st === 'hit' || f.st === 'air'
-  const ex = hx0 + 0.9
-  if (ch.acc !== 'visor') { box(put, X(ex - 0.5), Y(hY + 0.3), bw(0.8), bh(hurt ? 0.4 : 1), [0.05, 0.05, 0.1], 1, z + 0.2); box(put, X(ex + 1.1), Y(hY + 0.3), bw(0.8), bh(hurt ? 0.4 : 1), [0.05, 0.05, 0.1], 1, z + 0.2) }
-  box(put, X(ex + 0.3), Y(hY - 1.2), bw(hurt || f.atk ? 1.2 : 1.6), bh(hurt || f.atk ? 0.9 : 0.35), [0.4, 0.05, 0.1], 1, z + 0.2)
-  // arms
-  const shY = tY + 2.4
+  const dark = [0.05, 0.05, 0.1]
+  if (!ch.accs.includes('visor') && !ch.accs.includes('shades') && !ch.accs.includes('mask2')) { bx(hx0 + 1.9, hY + 0.4, 0.95, 0.35, hurt ? 0.45 : 1, 0.9, dark, 1); bx(hx0 + 1.9, hY + 0.4, -0.95, 0.35, hurt ? 0.45 : 1, 0.9, dark, 1) }
+  if (ch.accs.includes('visor')) bx(hx0 + 1.7, hY + 0.5, 0, 0.8, 1.1, 3.2, ec, 1.9)
+  if (ch.accs.includes('shades')) bx(hx0 + 1.9, hY + 0.5, 0, 0.6, 1.1, 3.4, lc('#0a0a12'), 1)
+  if (!ch.accs.includes('mask') && !ch.accs.includes('mask2')) bx(hx0 + 1.9, hY - 1.1, 0, 0.3, hurt || f.atk ? 0.9 : 0.4, 1.6, [0.45, 0.06, 0.1], 1)
+  if (ch.accs.includes('mask')) bx(hx0 + 1.9, hY - 0.6, 0, 0.5, 2.6, 3.9, lc('#14141e'), 1)
+  if (ch.accs.includes('mask2')) { bx(hx0 + 0.2, hY + 0.2, 0, 3.9, 4.1, 4, ec, 1); bx(hx0 + 2, hY + 0.5, 0.9, 0.3, 0.8, 0.9, lc('#ffffff'), 1.3); bx(hx0 + 2, hY + 0.5, -0.9, 0.3, 0.8, 0.9, lc('#ffffff'), 1.3) }
+  if (ch.beard === 'full') bx(hx0 + 1.5, hY - 1.4, 0, 1.2, 2, 3.7, hr, 0.9)
+  if (ch.beard === 'goatee') bx(hx0 + 1.7, hY - 1.7, 0, 0.9, 1.4, 1.4, hr, 0.9)
+  if (ch.beard === 'stache') bx(hx0 + 1.95, hY - 0.5, 0, 0.5, 0.6, 2.6, hr, 0.9)
+  if (ch.accs.includes('headband')) bx(hx0, hY + 1.3, 0, 3.95, 0.8, 4, lc('#ffffff'), 1)
+  if (ch.accs.includes('band')) bx(hx0, hY + 1.3, 0, 3.95, 0.8, 4, trim, 1)
+  if (ch.accs.includes('scar')) bx(hx0 + 1.95, hY + 0.2, 0.9, 0.3, 1.8, 0.35, lc('#7a2a2a'), 1, 0.3)
+  if (ch.accs.includes('horns')) { bx(hx0 - 0.2, hY + 3.2, 1.6, 0.9, 2.2, 0.9, lc('#f2e8c8'), 1, 0.3); bx(hx0 - 0.2, hY + 3.2, -1.6, 0.9, 2.2, 0.9, lc('#f2e8c8'), 0.85, -0.3) }
+  if (ch.accs.includes('crown')) { bx(hx0, hY + 2.5, 0, 3.9, 0.8, 4, lc('#ffd23a'), 1.3); for (let i = -1; i <= 1; i++) bx(hx0, hY + 3.3, i * 1.4, 0.9, 1, 0.9, lc('#ffd23a'), 1.4) }
+  if (ch.accs.includes('hat')) { bx(hx0, hY + 2.3, 0, 5.2, 0.6, 5.6, trim, 0.9); bx(hx0 - 0.2, hY + 4, 0, 2.6, 3.4, 2.8, trim, 0.9) }
+  if (ch.accs.includes('skull')) bx(hx0 + 1.95, hY - 0.8, 0, 0.4, 1.6, 2.6, lc('#e8e8e0'), 1)
+  if (ch.accs.includes('antenna')) { bx(hx0 - 0.6, hY + 3.4, 0, 0.5, 2.4, 0.5, lc('#9aa4b8'), 1); bx(hx0 - 0.6, hY + 4.7, 0, 1, 1, 1, ec, 2) }
+  if (ch.accs.includes('orb')) { const ob = Math.sin(t * 3) * 0.7; bx(5.5, tY + 3 + ob, 0, 2, 2, 2, glow, 2.2); bx(5.5, tY + 3 + ob, 0, 3, 3, 3, ec, 0.9) }
+  // ---- arms (IK: upper arm + forearm), gloves and hands ----
   P.hands.forEach(([hx, hy], i) => {
-    const sx = (i ? -1 : 1) * 0.6 + lean
+    const near = i === 0, lz = near ? 3.2 : -3.2, shd = near ? 1 : 0.78
+    const sx = lean * 0.45 + (i ? -0.2 : 0.2), sy = tY + 2.3
     const wy = hy - drop * (f.st === 'crouch' ? 0.2 : 0.7)
-    limb(put, X(sx), Y(shY), X(hx), Y(wy), bw(2), top, kk * 0.9, z + 0.3, 5)
-    box(put, X(hx), Y(wy), bw(2.4), bh(2.4), skin, kk, z + 0.4)
-    if (f.atk && !f.atk.normal && f.atk.pose === 'cast') { const gc = lc(el.glow); box(put, X(hx + 1), Y(wy), bw(1.4), bh(1.4), gc, 2, z + 0.5) }
+    const r = ik2(sx, sy, hx, wy, 3, 3, -1)
+    const thick = (outfit === 'gi' || outfit === 'robe' ? 2.1 : bareArms ? 1.9 : 2.0) * (fat > 1 ? 1.25 : 1)
+    limb3(sx, sy, r.ex, r.ey, thick, lz, outfit === 'robe' ? top : armCol, shd)
+    limb3(r.ex, r.ey, r.hx, r.hy, thick * 0.9, lz, outfit === 'gi' || outfit === 'robe' ? top : bareArms ? skin : armCol, shd)
+    if (outfit === 'robot') bx(r.ex, r.ey, lz, 1.7, 1.7, 1.8, trim, 1.2 * shd)
+    bx(r.hx + 0.2, r.hy, lz, 2.8, 2.6, 2.8, gl, shd)
+    if (f.atk && !f.atk.normal && f.atk.pose === 'cast') bx(r.hx + 1.3, r.hy, lz, 1.6, 1.6, 1.6, glow, 2.4)
   })
-  // afterimage trail on fast attacks
-  if (f.atk && !f.atk.normal && f.atk.vel && Math.abs(f.vx) > 30) for (let i = 1; i <= 3; i++) { const ac = lc(el.color); box(put, f.x - dir * i * 3.5, base + 7, 3, 9, ac, 0.5 / i, 0) }
-  if (f.st === 'win') for (let i = 0; i < 4; i++) { const a = t * 3 + i * 1.57; put(f.x + Math.cos(a) * 6, base + 17 + Math.sin(a * 2) * 1.4, 3, 0.9, 0.9, 2.4, 2.2, 0.4) }
 }
 function drawProj(put, p, t) {
   const c = lc(p.color), g = lc(p.glow)
@@ -856,6 +1001,10 @@ function drawProj(put, p, t) {
     case 'wave': for (let j = -3; j <= 3; j++) for (let i = 0; i < 4; i++) { const w = Math.abs(j) / 3; put(p.x - p.dir * (i * 1.6 + w * 3), p.y + j * 1.5, 2, 1.8, 1.7, (i === 0 ? g : c)[0] * 2.2, (i === 0 ? g : c)[1] * 2.2, (i === 0 ? g : c)[2] * 2.2) } break
     case 'megabeam': { const len = 90; const fade = Math.min(1, p.life * 2); for (let x = 0; x < len; x += 2.2) { const th = 3.4 + Math.sin(t * 40 + x) * 0.5; put(p.x + p.dir * x, p.y, 2, 2.4, th * 1.7, g[0] * 2.4 * fade, g[1] * 2.4 * fade, g[2] * 2.4 * fade); put(p.x + p.dir * x, p.y, 1, 2.4, th * 2.8, c[0] * 1.2 * fade, c[1] * 1.2 * fade, c[2] * 1.2 * fade) } break }
     case 'tornado': for (let j = 0; j < 9; j++) { const a = t * 14 + j * 0.9, w = 1.2 + j * 0.42; put(p.x + Math.cos(a) * w, p.y - 4 + j * 1.15, 2, 1.4, 1.2, (j % 2 ? g : c)[0] * 2, (j % 2 ? g : c)[1] * 2, (j % 2 ? g : c)[2] * 2) } break
+    case 'warn': { const k = 0.6 + 0.4 * Math.sin(p.t * 40); for (let i = -3; i <= 3; i++) put(p.x + i * 1.2, FLOOR + 0.4, 2, 1.1, 0.7, c[0] * 2.2 * k, c[1] * 2.2 * k, c[2] * 2.2 * k); for (let i = 0; i < 4; i++) put(p.x + Math.sin(p.t * 30 + i) * 2.4, FLOOR + 1 + i * 1.6, 2, 0.9, 0.9, g[0] * 2, g[1] * 2, g[2] * 2); break }
+    case 'pillar': for (let y = 0; y < 22; y += 1.4) { const w = 3.4 - y * 0.05 + Math.sin(t * 40 + y) * 0.4; put(p.x, FLOOR + y, 2, w * 1.5, 1.5, (y > 12 ? g : c)[0] * 2.3, (y > 12 ? g : c)[1] * 2.3, (y > 12 ? g : c)[2] * 2.3) } break
+    case 'boomerang': for (let i = 0; i < 4; i++) { const a = t * 22 + i * 1.57; put(p.x + Math.cos(a) * 2.2, p.y + Math.sin(a) * 2.2, 3, 1.4, 1.4, (i % 2 ? g : c)[0] * 2.2, (i % 2 ? g : c)[1] * 2.2, (i % 2 ? g : c)[2] * 2.2) } put(p.x, p.y, 3, 1.4, 1.4, g[0] * 2.4, g[1] * 2.4, g[2] * 2.4); break
+    case 'rock': for (let i = 0; i < 5; i++) put(p.x, p.y + i * 1.6, 2, 1.8 - i * 0.25, 1.8, (i === 0 ? g : c)[0] * 2.2, (i === 0 ? g : c)[1] * 2.2, (i === 0 ? g : c)[2] * 2.2); break
     case 'groundwave': for (let i = 0; i < 5; i++) put(p.x - p.dir * i * 1.6, FLOOR + 1.5 + Math.abs(Math.sin(t * 20 + i)) * (5 - i) * 0.9, 2, 1.8, 2.4, (i < 2 ? g : c)[0] * 2.2, (i < 2 ? g : c)[1] * 2.2, (i < 2 ? g : c)[2] * 2.2); break
     default: put(p.x, p.y, 2, 2, 2, c[0] * 2, c[1] * 2, c[2] * 2)
   }
@@ -883,26 +1032,64 @@ function drawStage(put, t) {
   for (let x = -50; x <= 50; x += 2.4) { put(x, FLOOR - 0.6, -2, 2.6, 1.4, c[0] * (0.5 + pulse * 0.3), c[1] * (0.5 + pulse * 0.3), c[2] * (0.5 + pulse * 0.3)); put(x, FLOOR - 2.4, -2, 2.6, 2.2, c[0] * 0.12, c[1] * 0.12, c[2] * 0.14) }
   for (let x = -50; x <= 50; x += 7) put(x, FLOOR - 4.4, -3, 0.5, 3, c[0] * 0.3, c[1] * 0.3, c[2] * 0.3)
 }
+function drawFx(put, f, t) {
+  const el = ELEMENTS[f.ch.element], ec = lc(el.color), gl = lc(el.glow), base = FLOOR + f.y
+  if (f.st === 'cine' || (f.atk && !f.atk.normal)) for (let i = 0; i < 16; i++) { const a = (i / 16) * Math.PI * 2 + t * 8; put(f.x + Math.cos(a) * 6.5, base + 7 + Math.sin(a) * 9, 2, 1.3, 1.3, ec[0] * 2, ec[1] * 2, ec[2] * 2) }
+  if (f.st === 'ko') for (let i = 0; i < 3; i++) { const a = t * 6 + i * 2.1; put(f.x - f.face * 4 + Math.cos(a) * 3, base + 5 + Math.sin(a), 3, 0.8, 0.8, 2.4, 2.2, 0.4) }
+  if (f.st === 'win') for (let i = 0; i < 4; i++) { const a = t * 3 + i * 1.57; put(f.x + Math.cos(a) * 6, base + 17 + Math.sin(a * 2) * 1.4, 3, 0.9, 0.9, gl[0] * 2.2, gl[1] * 2.2, gl[2] * 2.2) }
+  if (f.atk && !f.atk.normal && f.atk.vel && Math.abs(f.vx) > 30) for (let i = 1; i <= 4; i++) put(f.x - f.face * i * 3.2, base + 7, 0, 3, 9, ec[0] * 0.7 / i, ec[1] * 0.7 / i, ec[2] * 0.7 / i)
+  if (f.burn) for (let i = 0; i < 3; i++) put(f.x + Math.sin(t * 9 + i * 2) * 2.4, base + 4 + ((t * 9 + i * 4) % 10), 2, 1.1, 1.1, 2.2, 0.9, 0.15)
+  if (f.slowT > 0) for (let i = 0; i < 3; i++) put(f.x + Math.sin(t * 6 + i * 2) * 3, base + 3 + i * 3.5, 2, 0.9, 0.9, 1.5, 2.2, 2.6)
+  if (f.counterT > 0) for (let i = 0; i < 14; i++) { const a = (i / 14) * Math.PI * 2 + t * 10; put(f.x + Math.cos(a) * 6, base + 8 + Math.sin(a) * 8, 3, 1, 1, gl[0] * 2.4, gl[1] * 2.4, gl[2] * 2.4) }
+}
 function draw(api) {
   const { put } = api
   const t = G.time
   drawStage(put, t)
   if (!FT.f.length) return
-  // shadows
-  for (const f of FT.f) if (f.vis > 0.01) put(f.x, FLOOR - 0.2, -1, 6 * f.ch.w * (1 - Math.min(0.6, f.y / 30)), 1.2, 0.02, 0.02, 0.05)
-  const order = FT.f.slice().sort((a, b) => (a.st === 'attack' ? 1 : 0) - (b.st === 'attack' ? 1 : 0))
-  for (const f of order) drawFighter(put, f, t)
+  for (const f of FT.f) drawFx(put, f, t)
   for (const p of FT.proj) drawProj(put, p, t)
   for (const q of G.parts) { const fq = q.life / q.max; put(q.x, q.y, 6, q.s * (0.35 + 0.65 * fq) * 0.9, q.s * (0.35 + 0.65 * fq) * 0.9, q.c[0] * 1.8, q.c[1] * 1.8, q.c[2] * 1.8) }
   api.pops(G.pops, 0)
-  // super cinematic: darken the arena and streak speed lines
+  // super cinematic: darken the arena (behind the fighters) and streak speed lines
   if (FT.cine) {
     const ec = lc(FT.cine.color), k = Math.min(1, FT.cine.t * 6)
-    for (let gx = -50; gx <= 50; gx += 4) for (let gy = -28; gy <= 28; gy += 4) put(gx, gy, 0.5, 4.2, 4.2, 0.01, 0.01, 0.03)
+    for (let gx = -70; gx <= 70; gx += 4) for (let gy = -40; gy <= 40; gy += 4) put(gx, gy, -6, 4.2, 4.2, 0.01, 0.01, 0.03)
     const ow = FT.f[FT.cine.owner]
-    for (let i = 0; i < 26; i++) { const a = (i / 26) * Math.PI * 2 + FT.cine.t * 3, r0 = 8 + ((i * 7 + t * 60) % 40); put(ow.x + Math.cos(a) * r0, FLOOR + 8 + Math.sin(a) * r0 * 0.7, 5, 6 * k, 0.8, ec[0] * 2.4, ec[1] * 2.4, ec[2] * 2.4) }
+    for (let i = 0; i < 26; i++) { const a = (i / 26) * Math.PI * 2 + FT.cine.t * 3, r0 = 8 + ((i * 7 + t * 60) % 40); put(ow.x + Math.cos(a) * r0, FLOOR + 8 + Math.sin(a) * r0 * 0.7, -4, 6 * k, 0.8, ec[0] * 2.4, ec[1] * 2.4, ec[2] * 2.4) }
     for (let i = 0; i < 18; i++) { const a = (i / 18) * Math.PI * 2 + t * 6; put(ow.x + Math.cos(a) * 7, FLOOR + 8 + Math.sin(a) * 9, 6, 1.4, 1.4, ec[0] * 2.4, ec[1] * 2.4, ec[2] * 2.4) }
   }
 }
-if (typeof window !== 'undefined') { window.__FT = FT; window.__fight = fightActions }
-games.fight = { update, onKey, draw, stop, sky: () => '#06040e' }
+// lit 3D pass: floor slab + fighters (Scene.jsx supplies put3 = rotated, depth-scaled boxes)
+function draw3(api) {
+  const { put3 } = api
+  const t = G.time
+  const el = ELEMENTS[ROSTER[FT.cfg.p2] ? ROSTER[FT.cfg.p2].element : 'fire'], c = lc(el.color)
+  put3(0, FLOOR - 1.4, 0, 150, 2.8, 36, 0, c[0] * 0.22 + 0.06, c[1] * 0.22 + 0.06, c[2] * 0.26 + 0.08)
+  for (let x = -66; x <= 66; x += 11) put3(x, FLOOR + 0.02, 6, 0.45, 0.1, 22, 0, c[0] * 0.8, c[1] * 0.8, c[2] * 0.8)
+  put3(0, FLOOR + 0.02, 6, 150, 0.1, 0.5, 0, c[0] * 0.8, c[1] * 0.8, c[2] * 0.8)
+  if (!FT.f.length) return
+  for (const f of FT.f) drawFighter3(put3, f, t)
+}
+export function fightRim() {
+  let best = null
+  for (const f of FT.f) if (f.st === 'cine' || (f.atk && !f.atk.normal)) best = f
+  if (!best) return { color: '#ffffff', intensity: FT.stop > 0 ? 700 : 0, x: FT.f.length ? (FT.f[0].x + FT.f[1].x) / 2 : 0, y: FLOOR + 10 }
+  return { color: ELEMENTS[best.ch.element].color, intensity: 1400, x: best.x, y: FLOOR + 8 + best.y }
+}
+// camera: follows the action, zooms for super moves and K.O.s
+const CAM = { x: 0, y: 3, z: 70, tx: 0, ty: -2 }
+export function fightCamera(aspect, dt) {
+  const [a, b] = FT.f.length ? FT.f : [{ x: -10 }, { x: 10 }]
+  const mid = (a.x + b.x) / 2, gap = Math.abs(a.x - b.x)
+  const tan = 0.364 // tan(fov / 2) for fov 40
+  let halfW = Math.max(34, gap / 2 + 30)
+  let tx = mid * 0.55, ty = -2, y = 4, z = clamp(halfW / (tan * aspect), 40, 150), x = tx * 0.85
+  if (FT.cine) { const o = FT.f[FT.cine.owner], u = Math.min(1, FT.cine.t / 0.35); z = z + (34 - z) * u; tx = o.x + (mid - o.x) * (1 - u); ty = FLOOR + 8; y = ty + 3; x = o.x + o.face * -14 * u + Math.sin(FT.cine.t * 2) * 3 }
+  else if (FT.phase === 'ko' && FT.f.length) { const l = a.hp <= 0 ? a : b; const u = Math.min(1, FT.phaseT / 0.6); z = z + (46 - z) * u * 0.6; tx = tx + (l.x - tx) * u * 0.7; x = tx; ty = ty + 4 * u }
+  const k = Math.min(1, (dt || 0.016) * 5)
+  CAM.x += (x - CAM.x) * k; CAM.y += (y - CAM.y) * k; CAM.z += (z - CAM.z) * k; CAM.tx += (tx - CAM.tx) * k; CAM.ty += (ty - CAM.ty) * k
+  return CAM
+}
+if (typeof window !== 'undefined') { window.__FT = FT; window.__fight = fightActions; window.__fcam = (a, d) => fightCamera(a, d) }
+games.fight = { update, onKey, draw, draw3, rim: fightRim, camera: fightCamera, stop, sky: () => '#06040e' }

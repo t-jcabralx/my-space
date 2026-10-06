@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test:sim": "node scripts/sim.mjs && node scripts/sim-slug.mjs && node scripts/sim-pickle-modes.mjs && node scripts/sim-bomber.mjs && node scripts/sim-tetris.mjs && node scripts/sim-chomp.mjs && node scripts/sim-cards.mjs && node scripts/sim-meta.mjs && node scripts/sim-events.mjs && node scripts/sim-flames.mjs && node scripts/sim-squad.mjs && node scripts/sim-ui.mjs && node scripts/sim-pickle-scoring.mjs && node scripts/sim-fight.mjs"
+    "test:sim": "node scripts/sim.mjs && node scripts/sim-slug.mjs && node scripts/sim-pickle-modes.mjs && node scripts/sim-bomber.mjs && node scripts/sim-tetris.mjs && node scripts/sim-chomp.mjs && node scripts/sim-cards.mjs && node scripts/sim-meta.mjs && node scripts/sim-events.mjs && node scripts/sim-flames.mjs && node scripts/sim-squad.mjs && node scripts/sim-ui.mjs && node scripts/sim-pickle-scoring.mjs && node scripts/sim-fight.mjs && node scripts/sim-boss.mjs && node scripts/sim-race.mjs"
   },
   "dependencies": {
     "@react-three/fiber": "^9.8.1",

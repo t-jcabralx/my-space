@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef } from 'react'
-import { useFrame } from '@react-three/fiber'
+import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { G, update, HW, HH, profile, games } from './engine.js'
 import { MISSIONS } from './levels.js'
@@ -42,7 +42,7 @@ const slugApi = {
 function drawAll() {
   n = 0
   const t = G.time
-  if ((G.mode === 'slug' || G.mode === 'pickle' || G.mode === 'bomber' || G.mode === 'tetris' || G.mode === 'chomp' || G.mode === 'cards' || G.mode === 'flames' || G.mode === 'fight')) { if (games[G.mode]) games[G.mode].draw(slugApi); return }
+  if ((G.mode === 'slug' || G.mode === 'pickle' || G.mode === 'bomber' || G.mode === 'tetris' || G.mode === 'chomp' || G.mode === 'cards' || G.mode === 'flames' || G.mode === 'fight' || G.mode === 'race')) { if (games[G.mode]) games[G.mode].draw(slugApi); return }
   for (const p of G.pups) sprite(p.spr, p.x, p.y, { k: 1.15, sx: p.type === 'coin' ? Math.max(0.15, Math.abs(Math.cos(p.t * 5))) : 1, scale: p.type === 'gem' ? 1 + Math.sin(p.t * 8) * 0.15 : 1 })
   for (const e of G.enemies) {
     const mine = e.type === 'mine' ? 1 + Math.sin(e.t * 8) * 0.35 : 1
@@ -156,6 +156,70 @@ export function World() {
   )
 }
 
+// ---- lit 3D pass (IRON FISTS): rotated, depth-scaled boxes with real lighting and shadows ----
+const MAX3 = 8200
+let n3 = 0, A3 = null, C3 = null
+function put3(x, y, z, sx, sy, sz, rz, r, g, b, ry = 0) {
+  if (n3 >= MAX3) return
+  const o = n3 * 16
+  const cz = Math.cos(rz), sz_ = Math.sin(rz)
+  if (ry === 0) {
+    A3[o] = cz * sx; A3[o + 1] = sz_ * sx; A3[o + 2] = 0; A3[o + 3] = 0
+    A3[o + 4] = -sz_ * sy; A3[o + 5] = cz * sy; A3[o + 6] = 0; A3[o + 7] = 0
+    A3[o + 8] = 0; A3[o + 9] = 0; A3[o + 10] = sz; A3[o + 11] = 0
+  } else {
+    const cy = Math.cos(ry), sy_ = Math.sin(ry)
+    A3[o] = cz * cy * sx; A3[o + 1] = sz_ * cy * sx; A3[o + 2] = -sy_ * sx; A3[o + 3] = 0
+    A3[o + 4] = -sz_ * sy; A3[o + 5] = cz * sy; A3[o + 6] = 0; A3[o + 7] = 0
+    A3[o + 8] = cz * sy_ * sz; A3[o + 9] = sz_ * sy_ * sz; A3[o + 10] = cy * sz; A3[o + 11] = 0
+  }
+  A3[o + 12] = x; A3[o + 13] = y; A3[o + 14] = z; A3[o + 15] = 1
+  const c = n3 * 3
+  C3[c] = r; C3[c + 1] = g; C3[c + 2] = b
+  n3++
+}
+const api3 = { put3, bulk(A, C, count) { if (!A3) return; A3.set(A.subarray(0, count * 16)); C3.set(C.subarray(0, count * 3)); n3 = count } }
+export function Fighters3D() {
+  const ref = useRef()
+  const light = useRef()
+  const glow = useRef()
+  const gl = useThree((s) => s.gl)
+  useEffect(() => {
+    const m = ref.current
+    m.setColorAt(0, new THREE.Color())
+    A3 = m.instanceMatrix.array; C3 = m.instanceColor.array
+    m.instanceMatrix.setUsage(THREE.DynamicDrawUsage); m.instanceColor.setUsage(THREE.DynamicDrawUsage)
+    gl.shadowMap.enabled = true; gl.shadowMap.type = THREE.PCFSoftShadowMap
+  }, [gl])
+  useFrame(() => {
+    const m = ref.current
+    if (!m || !A3) return
+    const on = G.mode === 'fight' || G.mode === 'race'
+    m.visible = on
+    if (light.current) light.current.visible = on
+    if (glow.current) glow.current.visible = G.mode === 'fight'
+    if (!on) { m.count = 0; return }
+    n3 = 0
+    try { const g3 = games[G.mode]; if (g3 && g3.draw3) g3.draw3(api3) } catch (e) { if (!api3.warned) { api3.warned = true; console.error('[lit3d]', e) } }
+    m.count = n3
+    m.instanceMatrix.needsUpdate = true; m.instanceColor.needsUpdate = true
+    // colour the rim light after the element of whoever is attacking
+    if (G.mode === 'race' && light.current && games.race && games.race.sun) { const p = games.race.sun(); light.current.position.set(p.x - 30, 90, p.z + 40); light.current.target.position.set(p.x, 0, p.z); light.current.target.updateMatrixWorld(); light.current.castShadow = false }
+    if (G.mode === 'fight' && light.current) { light.current.castShadow = true }
+    if (glow.current && G.mode === 'fight' && games.fight && games.fight.rim) { const r = games.fight.rim(); glow.current.color.set(r.color); glow.current.intensity = r.intensity; glow.current.position.set(r.x, r.y, 14) }
+  })
+  return (
+    <group>
+      <instancedMesh ref={ref} args={[null, null, MAX3]} frustumCulled={false} castShadow receiveShadow>
+        <boxGeometry args={[1, 1, 1]} />
+        <meshStandardMaterial roughness={0.62} metalness={0.1} />
+      </instancedMesh>
+      <directionalLight ref={light} position={[-16, 46, 38]} intensity={1.6} castShadow shadow-mapSize={[1024, 1024]} shadow-camera-left={-70} shadow-camera-right={70} shadow-camera-top={50} shadow-camera-bottom={-40} shadow-camera-near={5} shadow-camera-far={160} shadow-bias={-0.0006} />
+      <pointLight ref={glow} intensity={0} distance={70} decay={1.4} />
+    </group>
+  )
+}
+
 export function Stars() {
   const ref = useRef()
   const COUNT = 220
@@ -171,8 +235,8 @@ export function Stars() {
   useFrame((_, dt) => {
     const m = ref.current
     if (!m) return
-    m.visible = G.mode !== 'slug' && G.mode !== 'pickle' && G.mode !== 'bomber' && G.mode !== 'tetris' && G.mode !== 'chomp' && G.mode !== 'cards' && G.mode !== 'flames' && G.mode !== 'fight'
-    if ((G.mode === 'slug' || G.mode === 'pickle' || G.mode === 'bomber' || G.mode === 'tetris' || G.mode === 'chomp' || G.mode === 'cards' || G.mode === 'flames' || G.mode === 'fight')) return
+    m.visible = G.mode !== 'slug' && G.mode !== 'pickle' && G.mode !== 'bomber' && G.mode !== 'tetris' && G.mode !== 'chomp' && G.mode !== 'cards' && G.mode !== 'flames' && G.mode !== 'fight' && G.mode !== 'race'
+    if ((G.mode === 'slug' || G.mode === 'pickle' || G.mode === 'bomber' || G.mode === 'tetris' || G.mode === 'chomp' || G.mode === 'cards' || G.mode === 'flames' || G.mode === 'fight' || G.mode === 'race')) return
     const mi = G.mode === 'menu' ? 0 : G.mission
     const tint = rgb(MISSIONS[mi].color)
     const d = Math.min(dt, 0.05)
@@ -203,8 +267,8 @@ export function Planet() {
   const x = useRef(60)
   useFrame((_, dt) => {
     if (!g.current) return
-    g.current.visible = G.mode !== 'slug' && G.mode !== 'pickle' && G.mode !== 'bomber' && G.mode !== 'tetris' && G.mode !== 'chomp' && G.mode !== 'cards' && G.mode !== 'flames' && G.mode !== 'fight'
-    if ((G.mode === 'slug' || G.mode === 'pickle' || G.mode === 'bomber' || G.mode === 'tetris' || G.mode === 'chomp' || G.mode === 'cards' || G.mode === 'flames' || G.mode === 'fight')) return
+    g.current.visible = G.mode !== 'slug' && G.mode !== 'pickle' && G.mode !== 'bomber' && G.mode !== 'tetris' && G.mode !== 'chomp' && G.mode !== 'cards' && G.mode !== 'flames' && G.mode !== 'fight' && G.mode !== 'race'
+    if ((G.mode === 'slug' || G.mode === 'pickle' || G.mode === 'bomber' || G.mode === 'tetris' || G.mode === 'chomp' || G.mode === 'cards' || G.mode === 'flames' || G.mode === 'fight' || G.mode === 'race')) return
     const mi = G.mode === 'menu' ? 0 : G.mission
     x.current -= dt * 1.1 * G.scroll
     if (x.current < -110) x.current = 110
@@ -227,10 +291,31 @@ export function Planet() {
   )
 }
 
+let rigWasFight = false
 export function Rig() {
-  useFrame((state) => {
-    if (state.scene.background && state.scene.background.set) state.scene.background.set(G.mode === 'slug' && games.slug ? games.slug.sky(games.slug.stageIndex()) : G.mode === 'pickle' ? '#0a1a14' : G.mode === 'bomber' ? '#08101c' : G.mode === 'tetris' ? '#04060f' : G.mode === 'chomp' ? '#03030e' : G.mode === 'cards' ? '#06281c' : G.mode === 'flames' ? '#07040f' : G.mode === 'fight' ? '#06040e' : '#04050d')
+  useFrame((state, dt) => {
+    if (state.scene.background && state.scene.background.set) state.scene.background.set(G.mode === 'slug' && games.slug ? games.slug.sky(games.slug.stageIndex()) : G.mode === 'pickle' ? '#0a1a14' : G.mode === 'bomber' ? '#08101c' : G.mode === 'tetris' ? '#04060f' : G.mode === 'chomp' ? '#03030e' : G.mode === 'cards' ? '#06281c' : G.mode === 'flames' ? '#07040f' : G.mode === 'fight' ? '#06040e' : G.mode === 'race' && games.race ? games.race.sky() : '#04050d')
     const s = G.shake
+    if (G.mode === 'fight' && games.fight && games.fight.camera ) {
+      const cam = games.fight.camera(state.size.width / Math.max(1, state.size.height), dt)
+      state.camera.position.set(cam.x + (Math.random() - 0.5) * s * 1.4, cam.y + (Math.random() - 0.5) * s * 1.4, cam.z)
+      state.camera.lookAt(cam.tx, cam.ty, 0)
+      rigWasFight = true
+      return
+    }
+    if (G.mode === 'race' && games.race && games.race.camera) {
+      const cam = games.race.camera(state.size.width / Math.max(1, state.size.height), dt)
+      state.camera.position.set(cam.x, cam.y, cam.z)
+      state.camera.lookAt(cam.tx, cam.ty, cam.tz)
+      if (Math.abs(state.camera.fov - cam.fov) > 0.05 || state.camera.far !== cam.far) { state.camera.fov = cam.fov; state.camera.far = cam.far; state.camera.updateProjectionMatrix() }
+      if (!state.scene.fog) state.scene.fog = new THREE.Fog(games.race.fog(), 160, 900)
+      state.scene.fog.color.set(games.race.fog())
+      rigWasFight = true
+      return
+    }
+    if (state.scene.fog) state.scene.fog = null
+    if (state.camera.fov !== 40 || state.camera.far !== 400) { state.camera.fov = 40; state.camera.far = 400; state.camera.updateProjectionMatrix() }
+    if (rigWasFight) { state.camera.rotation.set(0, 0, 0); rigWasFight = false }
     state.camera.position.x = (Math.random() - 0.5) * s * 1.6
     state.camera.position.y = (Math.random() - 0.5) * s * 1.6
     state.camera.position.z = 77 + (G.warped ? 5 : 0)

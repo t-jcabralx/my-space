@@ -226,13 +226,37 @@ const SFX = {
   fSlam: () => { noise(0.35, 0.7, 800, 60, 0, 'lowpass'); tone('sine', 110, 28, 0.4, 0.5); tone('sawtooth', 90, 40, 0.3, 0.22) },
   fSpecial: () => { arp([392, 523, 659, 988], 'square', 0.16, 0.1, 0.05); noise(0.2, 0.2, 1500, 5000, 0, 'bandpass') },
   fSuper: () => { arp([262, 330, 392, 523, 659, 784, 1046], 'sawtooth', 0.4, 0.12, 0.06); tone('sine', 60, 240, 0.9, 0.3); noise(0.8, 0.35, 300, 6000, 0.1, 'bandpass') },
+  // each fighter has their own voice (pitch from the fighter id): a = { id, kind: 'atk' | 'hurt' | 'special' | 'ko' | 'win', f: female }
+  fVoice: (a) => {
+    if (!a) return
+    const base = (a.f ? 330 : 150) + (a.id % 9) * (a.f ? 16 : 12)
+    const k = a.kind
+    if (k === 'atk') { tone('sawtooth', base * 1.5, base * 1.1, 0.12, 0.12); noise(0.06, 0.1, 1800, 900, 0, 'bandpass') }
+    else if (k === 'hurt') { tone('sawtooth', base * 1.7, base * 0.8, 0.2, 0.14); noise(0.08, 0.12, 1500, 600, 0, 'bandpass') }
+    else if (k === 'special') { tone('sawtooth', base, base * 2.1, 0.32, 0.15); tone('square', base * 0.5, base * 1.05, 0.3, 0.07) }
+    else if (k === 'ko') { tone('sawtooth', base * 1.6, base * 0.4, 0.8, 0.18); noise(0.4, 0.15, 1200, 200, 0.05, 'lowpass') }
+    else if (k === 'win') { arp([base * 2, base * 2.5, base * 3], 'square', 0.14, 0.1, 0.1) }
+  },
+  fCrowd: () => { noise(1.1, 0.34, 700, 3200, 0, 'bandpass'); noise(0.9, 0.22, 2400, 900, 0.2, 'bandpass') },
+  fStep: () => { noise(0.04, 0.08, 500, 200, 0, 'lowpass') },
+  // ---- racing ----
+  rBeep: () => tone('square', 660, 660, 0.18, 0.14),
+  rGo: () => { tone('square', 1320, 1320, 0.5, 0.16); arp([660, 880, 1320], 'square', 0.25, 0.1, 0.08) },
+  rDrift: () => noise(0.22, 0.22, 3200, 1500, 0, 'bandpass'),
+  rBoost: () => { noise(0.7, 0.45, 600, 5000, 0, 'bandpass'); tone('sawtooth', 180, 720, 0.5, 0.14) },
+  rPad: () => { tone('square', 500, 1500, 0.22, 0.12); noise(0.35, 0.3, 1500, 6000, 0, 'bandpass') },
+  rBump: () => { noise(0.14, 0.5, 900, 150, 0, 'lowpass'); tone('square', 140, 60, 0.12, 0.2) },
+  rCrash: () => { noise(0.4, 0.7, 1400, 80, 0, 'lowpass'); tone('sawtooth', 120, 35, 0.4, 0.3) },
+  rLap: () => arp([523, 659, 784, 1046], 'square', 0.18, 0.12, 0.08),
+  rNitro: () => arp([784, 988, 1175], 'triangle', 0.14, 0.12, 0.05),
+  rFinish: () => arp([523, 659, 784, 1046, 1318, 1046, 1318, 1568], 'square', 0.2, 0.12, 0.1),
   fRound: () => arp([392, 392, 523], 'square', 0.18, 0.1, 0.16),
   fFight: () => { arp([523, 659, 784, 1046], 'square', 0.18, 0.13, 0.07); noise(0.4, 0.4, 1000, 3000, 0.05, 'bandpass') },
   fKO: () => { noise(0.9, 0.7, 2000, 60, 0, 'lowpass'); tone('sawtooth', 300, 40, 0.9, 0.3); tone('square', 120, 30, 1, 0.3, 0.1) },
   fWin: () => arp([523, 659, 784, 1046, 784, 1046, 1318], 'square', 0.2, 0.12, 0.11),
   test: () => { arp([523, 659, 784, 1046], 'square', 0.16, 0.12, 0.11); noise(0.3, 0.3, 2000, 100, 0.5) },
 }
-const MIN_GAP = { vulcan: 45, tankEngine: 150, grunt: 60, jeep: 200, plane: 300, crate: 60, shoot: 50, pistol: 60, hmg: 42, eshot: 90, rotor: 110, hit: 25, boom: 35, coin: 30, ding: 40, step: 80, whistle: 70, bossHit: 40, deflect: 50 }
+const MIN_GAP = { rBump: 150, rBoost: 400, rDrift: 200, fVoice: 120, fStep: 160, fCrowd: 800, vulcan: 45, tankEngine: 150, grunt: 60, jeep: 200, plane: 300, crate: 60, shoot: 50, pistol: 60, hmg: 42, eshot: 90, rotor: 110, hit: 25, boom: 35, coin: 30, ding: 40, step: 80, whistle: 70, bossHit: 40, deflect: 50 }
 const lastAt = {}
 export function sfx(name, arg) {
   if (!ctx || muted || !SFX[name]) return
@@ -255,7 +279,7 @@ export function testSound() { unlockAudio(); sfx('test'); speak('Sound check. Re
 // ---------------- music ----------------
 const M = { mode: null, step: 0, next: 0, timer: null, mission: 0, bpm: 120, trans: 0 }
 const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12)
-const PROG = { cards: [0, 5, 3, 7], tetris: [0, -2, -4, -5], bomber: [0, 3, 5, 2], pickle: [0, 5, 7, 9], play: [0, -4, -2, -5], boss: [0, 0, 1, -1], menu: [0, -4, -7, -5], slug: [0, 0, -5, -2], slugboss: [0, 1, 0, -2], fight: [0, -3, -5, -2] }
+const PROG = { cards: [0, 5, 3, 7], tetris: [0, -2, -4, -5], bomber: [0, 3, 5, 2], pickle: [0, 5, 7, 9], play: [0, -4, -2, -5], boss: [0, 0, 1, -1], menu: [0, -4, -7, -5], slug: [0, 0, -5, -2], slugboss: [0, 1, 0, -2], fight: [0, -3, -5, -2], race: [0, 3, 5, 2] }
 const CH = [[0, 3, 7, 12], [0, 4, 7, 12], [0, 4, 7, 12], [0, 4, 7, 11]]
 const ARP = [0, 1, 2, 3, 2, 1, 2, 1, 0, 1, 2, 3, 2, 3, 2, 1]
 const CHP = [[0, 4, 7, 12], [0, 4, 7, 12], [0, 4, 7, 12], [0, 3, 7, 12]]
@@ -359,6 +383,41 @@ function sched() {
 }
 function startTimer() { if (!M.timer) M.timer = setInterval(sched, 40) }
 
+// continuous engine / tyre sound for the racing game: rev.on() once, rev.set(...) every frame, rev.off() at the end
+const R = { on: false, o1: null, o2: null, f: null, g: null, ng: null, nf: null }
+export const rev = {
+  on() {
+    if (!ctx || R.on) return
+    R.on = true
+    R.o1 = ctx.createOscillator(); R.o1.type = 'sawtooth'
+    R.o2 = ctx.createOscillator(); R.o2.type = 'square'
+    R.f = ctx.createBiquadFilter(); R.f.type = 'lowpass'; R.f.frequency.value = 600
+    R.g = ctx.createGain(); R.g.gain.value = 0
+    R.o1.connect(R.f); R.o2.connect(R.f); R.f.connect(R.g); R.g.connect(sfxG)
+    R.o1.start(); R.o2.start()
+    const nb = ctx.createBufferSource(); nb.buffer = noiseBuf; nb.loop = true
+    R.nf = ctx.createBiquadFilter(); R.nf.type = 'bandpass'; R.nf.frequency.value = 2400; R.nf.Q.value = 1.5
+    R.ng = ctx.createGain(); R.ng.gain.value = 0
+    nb.connect(R.nf); R.nf.connect(R.ng); R.ng.connect(sfxG); nb.start(); R.nb = nb
+  },
+  // speed01 0..1, boost 0..1, skid 0..1
+  set(speed01, boost, skid) {
+    if (!ctx || !R.on) return
+    const t = ctx.currentTime
+    const f = 48 + speed01 * 150 + boost * 40
+    R.o1.frequency.setTargetAtTime(f, t, 0.05); R.o2.frequency.setTargetAtTime(f * 0.502, t, 0.05)
+    R.f.frequency.setTargetAtTime(380 + speed01 * 1500 + boost * 900, t, 0.08)
+    R.g.gain.setTargetAtTime(muted ? 0 : 0.045 + speed01 * 0.05 + boost * 0.03, t, 0.08)
+    R.ng.gain.setTargetAtTime(muted ? 0 : skid * 0.16 + boost * 0.05, t, 0.06)
+    R.nf.frequency.setTargetAtTime(1800 + skid * 1400 + boost * 2400, t, 0.1)
+  },
+  off() {
+    if (!R.on) return
+    R.on = false
+    try { R.g.gain.setTargetAtTime(0, ctx.currentTime, 0.1); R.ng.gain.setTargetAtTime(0, ctx.currentTime, 0.1); const o1 = R.o1, o2 = R.o2, nb = R.nb; setTimeout(() => { try { o1.stop(); o2.stop(); nb.stop() } catch { /* ignore */ } }, 400) } catch { /* ignore */ }
+  },
+}
+
 export const music = {
   set(mode, mission = 0) {
     if (M.mode === mode && M.mission === mission) return
@@ -366,7 +425,7 @@ export const music = {
     M.mode = mode; M.mission = mission
     const m = mission
     const bpms = [120, 124, 128, 132, 136, 140, 144, 148, 152, 156]
-    M.bpm = mode === 'menu' ? 92 : mode === 'cards' ? 100 : mode === 'tetris' ? 128 + m * 5 : mode === 'bomber' ? 134 : mode === 'pickle' ? 116 : mode === 'fight' ? 142 : mode === 'boss' ? 150 + m * 2 : mode === 'slug' ? 112 + m * 6 : mode === 'slugboss' ? 146 + m * 4 : bpms[m] || 120
+    M.bpm = mode === 'menu' ? 92 : mode === 'cards' ? 100 : mode === 'tetris' ? 128 + m * 5 : mode === 'bomber' ? 134 : mode === 'pickle' ? 116 : mode === 'fight' ? 142 : mode === 'race' ? 150 : mode === 'boss' ? 150 + m * 2 : mode === 'slug' ? 112 + m * 6 : mode === 'slugboss' ? 146 + m * 4 : bpms[m] || 120
     M.trans = mode === 'slug' || mode === 'slugboss' ? [0, 2, -3][m] || 0 : [0, 2, -2, 3, 5, -3, 1, -5, 4, 0][m] || 0
     if (!keepStep) M.step = 0
     if (ctx) { M.next = Math.max(M.next, ctx.currentTime + 0.05); startTimer() }

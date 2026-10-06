@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import OnlineLobby from './OnlineLobby.jsx'
 import { joinRoom, subscribeRt, getRt } from '../game/online/rt.js'
 import { onKey as engineKey, setSquad, subscribe, getSnap, startGame, toShop, launchNext, buy, retryMission, toMenu, togglePause, useSkill, startGameAt, setShip, setName, markSeen, claimDaily } from '../game/engine.js'
@@ -10,6 +10,7 @@ import { subscribeBomber, getBomberSnap, bomberActions, MODES as BMODES } from '
 import { subscribeTetris, getTetrisSnap, tetrisActions, MODES as TMODES, COLORS as TCOL, SHAPES as TSH } from '../game/tetris.js'
 import { pickleScoring } from '../game/pickle.js'
 import { subscribeFight, getFightSnap, fightActions, setFightPick } from '../game/fight.js'
+import { subscribeRace, getRaceSnap, raceActions, setRacePick, TRACKS, CARS, buildTrack } from '../game/race.js'
 import { ROSTER, ELEMENTS as ELS } from '../game/roster.js'
 import { subscribeChomp, getChompSnap, chompActions, MODES as CMODES } from '../game/chomp.js'
 import { subscribeFlames, getFlamesSnap, flamesActions, OUTCOMES as FOUT } from '../game/flames.js'
@@ -182,6 +183,21 @@ const HELP = {
       </>
     ),
   },
+  race: {
+    name: '🏁 TURBO RUSH',
+    body: () => (
+      <>
+        <p><b>Finish first!</b> Race through 3D tracks against bots (or friends online).</p>
+        <ul>
+          <li><b>Drive:</b> ↑/W gas · ↓/S brake · ←/→ or A/D steer. On a phone use the on-screen buttons.</li>
+          <li><b>Drift:</b> hold <b>SPACE</b> while steering to slide. Keep it going until the bar is full, then release for a <b>mini-turbo</b>.</li>
+          <li><b>Nitro:</b> hold <b>SHIFT/E</b>. Green canisters on the road refill the tank, blue pads give a free boost.</li>
+          <li>Stay on the asphalt: grass and walls slow you down. Press <b>R</b> to put the car back on the road.</li>
+          <li>Each car has its own strengths (speed, grip, drift power, nitro, weight). Beat the lap record on each track.</li>
+        </ul>
+      </>
+    ),
+  },
   fight: {
     name: '🥊 IRON FISTS',
     body: () => (
@@ -287,7 +303,7 @@ function HelpModal() {
     </div>
   )
 }
-const FIRST = { fight: 'fight', flames: 'flames', playing: 'space', slug: 'slug', pickle: 'pickle', bomber: 'bomber', tetris: 'tetris', chomp: 'chomp', cards: 'cards' }
+const FIRST = { race: 'race', fight: 'fight', flames: 'flames', playing: 'space', slug: 'slug', pickle: 'pickle', bomber: 'bomber', tetris: 'tetris', chomp: 'chomp', cards: 'cards' }
 function HelpLayer({ s }) {
   const g = FIRST[s.mode]
   useEffect(() => {
@@ -1043,6 +1059,132 @@ function FlamesHUD() {
   )
 }
 
+// ---------- TURBO RUSH (racing game) ----------
+const fmtT = (t) => { if (!t) return '--:--.--'; const m = Math.floor(t / 60), sec = t - m * 60; return `${m}:${sec.toFixed(2).padStart(5, '0')}` }
+function TrackMap({ ti, cars }) {
+  const { P } = buildTrack(ti)
+  const { pts, minX, minZ, k } = useMemo(() => {
+    let a = 1e9, b = -1e9, c = 1e9, d = -1e9
+    for (const p of P) { a = Math.min(a, p.x); b = Math.max(b, p.x); c = Math.min(c, p.z); d = Math.max(d, p.z) }
+    const k2 = 88 / Math.max(b - a, d - c)
+    return { pts: P.filter((_, i) => i % 3 === 0).map((p) => `${((p.x - a) * k2 + 6).toFixed(1)},${((p.z - c) * k2 + 6).toFixed(1)}`).join(' '), minX: a, minZ: c, k: k2 }
+  }, [P])
+  return (
+    <svg viewBox="0 0 100 100" className="rmap">
+      <polyline points={pts} fill="none" stroke="#1c2450" strokeWidth="6" strokeLinejoin="round" />
+      <polyline points={pts} fill="none" stroke="#6f86d8" strokeWidth="2.4" strokeLinejoin="round" />
+      {(cars || []).map((c) => <circle key={c.i} cx={(c.x - minX) * k + 6} cy={(c.z - minZ) * k + 6} r={c.me ? 3.6 : 2.4} fill={c.color} stroke={c.me ? '#fff' : 'none'} strokeWidth="1" />)}
+    </svg>
+  )
+}
+function RaceTouch() {
+  const [touch, setTouch] = useState(false)
+  useEffect(() => { try { setTouch('ontouchstart' in window || navigator.maxTouchPoints > 0 || window.matchMedia('(pointer: coarse)').matches) } catch { /* ignore */ } }, [])
+  if (!touch) return null
+  const hold = (code) => ({
+    onPointerDown: (e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.setPointerCapture && e.currentTarget.setPointerCapture(e.pointerId); engineKey(code, true) },
+    onPointerUp: (e) => { e.preventDefault(); engineKey(code, false) },
+    onPointerCancel: () => engineKey(code, false),
+    onContextMenu: (e) => e.preventDefault(),
+  })
+  return (
+    <div className="touchpad rtouch">
+      <div className="rsteer"><button {...hold('ArrowLeft')}>◀</button><button {...hold('ArrowRight')}>▶</button></div>
+      <div className="rpedals"><button className="nit" {...hold('ShiftLeft')}>NITRO</button><button className="dft" {...hold('Space')}>DRIFT</button><button className="brk" {...hold('ArrowDown')}>BRAKE</button><button className="gas" {...hold('ArrowUp')}>GAS</button></div>
+    </div>
+  )
+}
+function RaceLobby({ s }) {
+  const p = s.profile
+  const [track, setTrack] = useState(typeof p.raceTrack === 'number' ? p.raceTrack : 0)
+  const [car, setCar] = useState(typeof p.racePick === 'number' ? p.racePick : 0)
+  const [laps, setLaps] = useState(3)
+  const [diff, setDiff] = useState(2)
+  const [ai, setAi] = useState(5)
+  const best = p.raceBest || {}
+  const T = TRACKS[track], C = CARS[car]
+  const go = () => raceActions.start({ track, car, laps, diff, ai, type: 'race' })
+  const stat = (v, max = 1.5) => <div className="fstat"><div><b style={{ width: Math.min(100, (v / max) * 100) + '%' }} /></div></div>
+  return (
+    <div className="lobby racelobby">
+      <div className="lobbyL">
+        <h4>🏁 TURBO RUSH · PICK A TRACK</h4>
+        <div className="rtracks">{TRACKS.map((t, i) => (
+          <button key={t.id} className={'rtrack ' + (track === i ? 'sel' : '')} style={{ '--c': t.accent }} onClick={() => { setTrack(i); setRacePick(undefined, i) }}>
+            <TrackMap ti={i} /><strong>{t.name}</strong><small>{best[i] ? 'BEST ' + fmtT(best[i]) : 'NO LAP YET'}</small>
+          </button>))}
+        </div>
+        <h4>PICK A CAR</h4>
+        <div className="rcars">{CARS.map((c) => (
+          <button key={c.id} className={'rcar ' + (car === c.id ? 'sel' : '')} style={{ '--c': c.color }} onClick={() => { setCar(c.id); setRacePick(c.id) }}><i /><strong>{c.name}</strong></button>))}
+        </div>
+        <div className="lobbyopts">
+          <div><h4>LAPS</h4><div className="chips">{[1, 2, 3, 5].map((n) => <button key={n} className={'chip ' + (laps === n ? 'sel' : '')} onClick={() => setLaps(n)}>{n}</button>)}</div></div>
+          <div><h4>RIVALS</h4><div className="chips">{[1, 3, 5, 7].map((n) => <button key={n} className={'chip ' + (ai === n ? 'sel' : '')} onClick={() => setAi(n)}>{n} BOTS</button>)}</div></div>
+          <div><h4>DIFFICULTY</h4><div className="chips">{['EASY', 'MEDIUM', 'HARD'].map((d, i) => <button key={d} className={'chip ' + (diff === i + 1 ? 'sel' : '')} onClick={() => setDiff(i + 1)}>{d}</button>)}</div></div>
+        </div>
+        <div className="chips"><button className="big" onClick={go}>🏁 START RACE</button><button className="big sec" onClick={() => { setRacePick(car, track); window.dispatchEvent(new CustomEvent('si-open-tab', { detail: 'online:race' })) }}>🌐 INVITE FRIEND</button></div>
+        <small className="hint">↑/W gas · ↓/S brake · ←→/AD steer · SPACE drift (release for a mini-turbo) · SHIFT/E nitro · R reset car · blue pads boost · green canisters refill nitro</small>
+      </div>
+      <div className="lobbyR">
+        <div className="panel fdetail" style={{ '--el': C.color }}>
+          <div className="fdhead"><div className="rcarbig" style={{ '--c': C.color }}><i /></div><div><h4>{C.name}</h4><small>{C.desc}</small></div></div>
+          <div className="fstat"><span>TOP SPEED</span><div><b style={{ width: Math.min(100, C.top / 1.15 * 100) + '%', background: '#ff4d4d' }} /></div></div>
+          <div className="fstat"><span>ACCEL</span><div><b style={{ width: Math.min(100, C.acc / 1.2 * 100) + '%', background: '#ffe84a' }} /></div></div>
+          <div className="fstat"><span>HANDLING</span><div><b style={{ width: Math.min(100, C.han / 1.15 * 100) + '%', background: '#3de8ff' }} /></div></div>
+          <div className="fstat"><span>GRIP</span><div><b style={{ width: Math.min(100, C.grip / 1.2 * 100) + '%', background: '#3dff7a' }} /></div></div>
+          <div className="fstat"><span>NITRO</span><div><b style={{ width: Math.min(100, C.nitro / 1.5 * 100) + '%', background: '#ff4de1' }} /></div></div>
+          <small className="hint">{T.desc}</small>
+        </div>
+        <div className="panel"><h4>MY RACING</h4><div className="kv"><span>RACES</span><b>{p.raceRaces || 0}</b><span>WINS</span><b>{p.raceWins || 0}</b><span>PODIUMS</span><b>{p.racePodiums || 0}</b></div></div>
+        <TopPlayers s={s} initial="race" compact fixed />
+      </div>
+    </div>
+  )
+}
+function RaceHUD() {
+  const g = useSyncExternalStore(subscribeRace, getRaceSnap)
+  if (!g) return null
+  const m = g.me
+  return (
+    <div className="hud rhud">
+      {g.phase !== 'results' && m && (
+        <>
+          <div className="rpos"><b>{m.pos}</b><span>/{m.total}</span><small>POSITION</small></div>
+          <div className="rlap"><div>LAP <b>{m.lap}</b>/{g.laps}</div><small>{fmtT(m.lapTime)}</small><small>BEST {fmtT(m.best)}</small></div>
+          <div className="rmapbox"><TrackMap ti={g.track} cars={g.map} /></div>
+          <div className="rboard">{g.board.slice(0, 6).map((c, i) => <div key={c.i} className={c.human ? 'me' : ''}><i style={{ background: c.color }} />{i + 1}. {c.name}</div>)}</div>
+          <div className="rspeed"><strong>{m.kmh}</strong><span>KM/H</span>
+            <div className="rbars"><div className="rn"><i style={{ width: m.nitro + '%' }} /><em>NITRO</em></div><div className="rd"><i style={{ width: m.charge * 100 + '%' }} className={m.charge >= 1 ? 'full' : ''} /><em>DRIFT</em></div></div>
+          </div>
+          {g.count > 0 && <div className="rcount" key={g.count}>{g.count > 3 ? 'READY' : g.count}</div>}
+          {g.msg && <div className="rmsg" key={g.msg.text} style={{ color: g.msg.color || '#ffe84a' }}><h1>{g.msg.text}</h1>{g.msg.sub && <p>{g.msg.sub}</p>}</div>}
+          {m.wrong && <div className="rwrong">⚠ WRONG WAY</div>}
+          {m.off && <div className="roff">OFF ROAD</div>}
+          {m.boost && <div className="rboostfx" />}
+          <div className="pctl">↑ GAS · ↓ BRAKE · ←→ STEER · SPACE DRIFT · SHIFT NITRO · R RESET · P PAUSE</div>
+          <RaceTouch />
+          <div className="scan" />
+        </>
+      )}
+      {g.paused && <div className="screen pause"><h1>PAUSED</h1><button className="big" onClick={raceActions.resume}>RESUME</button><button className="big sec" onClick={() => openHelp('race')}>❓ HOW TO PLAY</button><button className="big sec" onClick={raceActions.quit}>QUIT TO MENU</button></div>}
+      {g.phase === 'results' && g.results && (
+        <div className="screen victory">
+          <h1 className="gold">{g.results.pos === 1 ? '🏆 YOU WIN!' : g.results.pos <= 3 ? '🥇 PODIUM FINISH!' : `FINISHED ${g.results.pos}/${g.results.total}`}</h1>
+          <ul>
+            {g.results.rows.slice(0, 8).map((r, i) => <li key={r.i} style={{ borderColor: r.color }} className={r.human ? 'bonus' : ''}><span>{i + 1}. {r.name}</span><b>{r.t ? fmtT(r.t) : 'DNF'}</b></li>)}
+            <li><span>YOUR BEST LAP</span><b>{fmtT(g.results.best)}{g.results.record ? ' 🆕 RECORD!' : ''}</b></li>
+            {g.results.score !== undefined && <li className="bonus"><span>SCORE</span><b>{g.results.score.toLocaleString()}</b></li>}
+          </ul>
+          <div className="overboard"><TopPlayersMini game="race" /></div>
+          <button className="big" onClick={raceActions.rematch}>↻ RACE AGAIN</button>
+          <button className="big sec" onClick={raceActions.quit}>DASHBOARD</button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ---------- IRON FISTS (fighting game) ----------
 function FighterFace({ c, size = 44, sel = '' }) {
   return (
@@ -1134,6 +1276,13 @@ function FightTouch() {
 }
 function FightHUD() {
   const g = useSyncExternalStore(subscribeFight, getFightSnap)
+  const [portrait, setPortrait] = useState(false)
+  const [dismissed, setDismissed] = useState(false)
+  useEffect(() => {
+    const f = () => { try { setPortrait(window.innerHeight > window.innerWidth && ('ontouchstart' in window || navigator.maxTouchPoints > 0 || window.matchMedia('(pointer: coarse)').matches)) } catch { /* ignore */ } }
+    f(); window.addEventListener('resize', f); window.addEventListener('orientationchange', f)
+    return () => { window.removeEventListener('resize', f); window.removeEventListener('orientationchange', f) }
+  }, [])
   if (!g) return null
   const [a, b] = g.f
   const bar = (f, right) => (
@@ -1158,6 +1307,7 @@ function FightHUD() {
           {g.cine && <div className="fcine" style={{ '--c': g.cine.color }}><div className="band" /><h1>{g.cine.name}</h1><small>{g.f[g.cine.owner].name}</small></div>}
           <div className="pctl">{g.type === 'online' ? 'WASD/ARROWS MOVE · J K U I ATTACK · L SPECIAL · O SUPER · HOLD BACK TO BLOCK' : g.type === '2p' ? 'P1: WASD · J K U I · L · O   |   P2: ARROWS · N M , . · / · R-SHIFT' : 'WASD MOVE · J K PUNCH · U I KICK · L SPECIAL · O SUPER · P PAUSE'}</div>
           <FightTouch />
+          {portrait && !dismissed && <div className="rotatefull"><div className="rot">📱</div><h2>TURN YOUR PHONE SIDEWAYS</h2><p>Fighting games need the wide screen.</p><button className="big sec" onClick={() => setDismissed(true)}>PLAY ANYWAY</button></div>}
           <div className="scan" />
         </>
       )}
@@ -1240,7 +1390,7 @@ function Hub({ s }) {
   const next = RANKS[ri + 1]
   const pct = next ? ((xp - RANKS[ri][0]) / (next[0] - RANKS[ri][0])) * 100 : 100
   const doneAch = ACH.filter(([, , g, goal]) => g(p, s.unlocked) >= goal).length
-  const TABS = [['home', 'DASHBOARD'], ['pickle', '🏓 PICKLEBALL'], ['bomber', '💣 BOMBER'], ['tetris', '🧱 TETRIS'], ['chomp', '🟡 CHOMP'], ['cards', '🃏 CARDS'], ['fight', '🥊 FIGHT'], ['flames', '🔥 FLAMES'], ['online', '🌐 ONLINE'], ['top', '🏆 TOP PLAYERS'], ['ship', 'CUSTOMIZE SHIP'], ['levels', 'SPACE LEVELS'], ['skills', 'CONTROLS'], ['settings', '⚙ SETTINGS'], ['awards', `AWARDS ${doneAch}/${ACH.length}`]]
+  const TABS = [['home', 'DASHBOARD'], ['pickle', '🏓 PICKLEBALL'], ['bomber', '💣 BOMBER'], ['tetris', '🧱 TETRIS'], ['chomp', '🟡 CHOMP'], ['cards', '🃏 CARDS'], ['race', '🏁 RACE'], ['fight', '🥊 FIGHT'], ['flames', '🔥 FLAMES'], ['online', '🌐 ONLINE'], ['top', '🏆 TOP PLAYERS'], ['ship', 'CUSTOMIZE SHIP'], ['levels', 'SPACE LEVELS'], ['skills', 'CONTROLS'], ['settings', '⚙ SETTINGS'], ['awards', `AWARDS ${doneAch}/${ACH.length}`]]
   return (
     <div className="screen hub">
       <div className="hubtop">
@@ -1272,6 +1422,9 @@ function Hub({ s }) {
             <GameCard cls="chomp" title="🟡 MAZE CHOMP" tag="Ghosts · pellets · fruit · co-op" hiLabel="BEST" hi={(p.chompHi || 0).toLocaleString()}
               art={<MiniChomp />} label="SELECT MODE ▶" onPlay={() => setTab('chomp')}
               sub={<><span>GHOSTS</span><b>{p.chompGhosts || 0}</b></>} />
+            <GameCard cls="race" title="🏁 TURBO RUSH" tag="5 tracks · 6 cars · drift · nitro" hiLabel="WINS" hi={p.raceWins || 0}
+              art={<div className="miniRace"><span>🏎️</span><b>💨</b></div>} label="START ENGINES ▶" onPlay={() => setTab('race')} onInvite={() => { setOgame('race'); setTab('online') }}
+              sub={<><span>RACES</span><b>{p.raceRaces || 0}</b></>} />
             <GameCard cls="fight" title="🥊 IRON FISTS" tag="40 fighters · specials · supers · 1v1" hiLabel="WINS" hi={p.fightWins || 0}
               art={<div className="miniFight"><span>🥋</span><b>VS</b><span>🥷</span></div>} label="CHOOSE FIGHTER ▶" onPlay={() => setTab('fight')} onInvite={() => { setOgame('fight'); setTab('online') }}
               sub={<><span>BEATEN</span><b>{Object.keys(p.fightBeaten || {}).length}/40</b></>} />
@@ -1308,6 +1461,7 @@ function Hub({ s }) {
         </>
       )}
       {tab === 'pickle' && <PickleLobby s={s} mode={pmode} setMode={setPmode} diff={pdiff} setDiff={setPdiff} target={ptarget} setTarget={setPtarget} />}
+      {tab === 'race' && <RaceLobby s={s} />}
       {tab === 'fight' && <FightLobby s={s} />}
       {tab === 'flames' && <FlamesLobby s={s} />}
       {tab === 'cards' && <CardRoomLobby s={s} onOnline={(g) => { setOgame(g || 'uno'); setTab('online') }} />}
@@ -1331,7 +1485,7 @@ function TopPlayers({ s, initial = 'space', compact = false, fixed = false }) {
   const lim = compact ? 5 : 10
   useEffect(() => { let on = true; setRows(null); fetchTop(game, lim).then((r) => on && setRows(r)); return () => { on = false } }, [game, lim])
   const me = (s.profile.name || '').toUpperCase()
-  const GAMES = [['space', 'SPACE IMPACT'], ['slug', 'GROUND ZERO'], ['pickle', 'PICKLEBALL'], ['bomber', 'BOMBER BLAST'], ['tetris', 'TETRA BLAST'], ['chomp', 'MAZE CHOMP'], ['uno', 'UNO'], ['pusoy', 'PUSOY DOS'], ['lucky9', 'LUCKY 9'], ['tongits', 'TONG-ITS']]
+  const GAMES = [['space', 'SPACE IMPACT'], ['slug', 'GROUND ZERO'], ['pickle', 'PICKLEBALL'], ['bomber', 'BOMBER BLAST'], ['tetris', 'TETRA BLAST'], ['chomp', 'MAZE CHOMP'], ['uno', 'UNO'], ['pusoy', 'PUSOY DOS'], ['lucky9', 'LUCKY 9'], ['tongits', 'TONG-ITS'], ['race', 'TURBO RUSH']]
   return (
     <div className="topboard">
       <h4>🏆 TOP PLAYERS{fixed ? ' · ' + (GAMES.find(([k]) => k === game) || [0, game])[1] : ''}</h4>
@@ -1651,6 +1805,7 @@ function HUDInner({ s }) {
   if (s.mode === 'chomp') return <ChompHUD />
   if (s.mode === 'flames') return <FlamesHUD />
   if (s.mode === 'fight') return <FightHUD />
+  if (s.mode === 'race') return <RaceHUD />
   if (s.mode === 'cards') return <CardsHUD SoundBtn={SoundBtn} openHelp={openHelp} TopPlayersMini={TopPlayersMini} />
   const playing = s.mode === 'playing' || s.mode === 'paused'
   return (

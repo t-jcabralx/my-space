@@ -7,7 +7,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 if (!role) {
   const self = fileURLToPath(import.meta.url)
   let fail = 0
-  for (const g of (process.env.GAMES || 'tetris,pickle,bomber,space,fight,uno,pusoy,tongits,lucky9').split(',')) {
+  for (const g of (process.env.GAMES || 'tetris,pickle,bomber,space,fight,race,uno,pusoy,tongits,lucky9').split(',')) {
     const host = spawn('node', [self, 'host', g], { stdio: ['ignore', 'pipe', 'inherit'] })
     let hostOut = '', guestOut = '', guest
     host.stdout.on('data', (d) => {
@@ -36,7 +36,9 @@ const { hostBomber, installBomberOnline } = await import('../src/game/online/bom
 const { hostSpace, installSpaceOnline } = await import('../src/game/online/space-online.js')
 const { FT, fightActions } = await import('../src/game/fight.js')
 const { hostFightMatch, installFightOnline } = await import('../src/game/online/fight-online.js')
-installPickleOnline(); installBomberOnline(); installSpaceOnline(); installFightOnline()
+const { RC, raceActions } = await import('../src/game/race.js')
+const { hostRaceMatch, installRaceOnline } = await import('../src/game/online/race-online.js')
+installPickleOnline(); installBomberOnline(); installSpaceOnline(); installFightOnline(); installRaceOnline()
 installTetrisOnline(); installCardsOnline()
 let bad = 0
 const check = (n, c, i) => { if (!c) bad++; console.log(c ? 'PASS' : 'FAIL', role, n, i || '') }
@@ -83,6 +85,29 @@ if (game === 'tetris') {
   check('match ends on both sides', await until(() => PK.mode === 'over', 280000), JSON.stringify(PK.score))
   clearInterval(drive); clearInterval(watch)
   console.log('RESULT', role, JSON.stringify(PK.score), PK.over && PK.over.winner)
+  await sleep(2500)
+} else if (game === 'race') {
+  const eng = await import('../src/game/engine.js')
+  if (role === 'host') {
+    const room = await rtm.createRoom('race', 'HOSTY'); console.log('CODE', room.code)
+    check('guest joins', await until(() => rtm.RT.room.players.length === 2))
+    await sleep(1500)
+    await hostRaceMatch({ track: 0, laps: 1, diff: 1, ai: 2 })
+  } else { await sleep(500); await rtm.joinRoom(code, 'GUESTY') }
+  check('race starts on both sides', await until(() => RC.mode === 'play' && RC.cfg.type === 'online' && RC.cars.length >= 3), RC.mode)
+  check('each side drives its own car', RC.me === (role === 'host' ? 0 : 1) && RC.cars[RC.me].human, 'me ' + RC.me)
+  const drive = setInterval(() => {
+    const me = RC.cars[RC.me], P = RC.tk.P, N = RC.tk.N
+    const tp = P[(me.idx + Math.round(8 + me.sp * 0.15)) % N]
+    let d = Math.atan2(tp.x - me.x, -(tp.z - me.z)) - me.th; while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2
+    eng.keys.ArrowUp = true; eng.keys.ArrowLeft = d < -0.05; eng.keys.ArrowRight = d > 0.05
+  }, 40)
+  check('the countdown ends and racing starts', await until(() => RC.phase === 'race', 30000), RC.phase)
+  const other = () => RC.cars[role === 'host' ? 1 : 0]
+  check('we see the other driver moving', await until(() => other().prog > 30 || other().sp > 10, 40000), JSON.stringify([other().x | 0, other().sp | 0]))
+  check('race ends with a results screen on both sides', await until(() => RC.phase === 'results', 280000), RC.phase)
+  clearInterval(drive); eng.keys.ArrowUp = eng.keys.ArrowLeft = eng.keys.ArrowRight = false
+  console.log('RESULT', role, RC.results && RC.results.pos, '/', RC.results && RC.results.total)
   await sleep(2500)
 } else if (game === 'fight') {
   const eng = await import('../src/game/engine.js')

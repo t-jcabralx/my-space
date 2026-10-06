@@ -3,13 +3,15 @@ import { FT, fightActions } from '../src/game/fight.js'
 import { ROSTER, STYLES, ELEMENTS } from '../src/game/roster.js'
 let failures = 0
 const check = (n, c, i) => { if (!c) failures++; console.log(c ? 'PASS' : 'FAIL', n, i || '') }
-const api = { put: () => {}, text: () => [], sprite: () => {}, pops: () => {} }
-const step = (n, dt = 1 / 60, draw = false) => { for (let i = 0; i < n; i++) { update(dt); G.time += dt; if (draw && i % 6 === 0) games.fight.draw(api) } }
+let n3 = 0
+const api = { put: () => {}, put3: (...a) => { n3++; if (a.some((v) => !Number.isFinite(v))) throw new Error('NaN in put3: ' + a.join(',')) }, text: () => [], sprite: () => {}, pops: () => {} }
+const step = (n, dt = 1 / 60, draw = false) => { for (let i = 0; i < n; i++) { update(dt); G.time += dt; if (draw && i % 6 === 0) { games.fight.draw(api); games.fight.draw3(api); games.fight.camera(1.7, 0.016) } } }
 const insane = () => FT.f.map((f) => `${f.ch.name} x=${f.x} y=${f.y} hp=${f.hp} m=${f.meter} st=${f.st}`).join(' | ')
 const calm = () => FT.f.forEach((f) => { f.inp = { dx: 0, up: false, down: false }; f.vx = 0; f.vy = 0; f.y = 0; f.aiT = 99; f.aiBlock = 0; f.aiReact = null; f.st = 'idle'; f.atk = null; f.stun = 0; f.buf = null; f.crouch = false; f.spCd = 0; f.armor = false; f.vis = 1; f.held = null })
 const sane = () => FT.f.every((f) => Number.isFinite(f.x) && Number.isFinite(f.y) && Number.isFinite(f.hp) && f.hp >= 0 && f.hp <= f.maxHp && f.meter >= 0 && f.meter <= 100 && Math.abs(f.x) <= 41.01)
 
 // ---- roster ----
+check('3D rig draws parts with finite numbers', (() => { fightActions.start({ type: 'demo', p1: 0, p2: 1 }); step(30, 1 / 60, true); return n3 > 50 })(), 'put3 calls ' + n3)
 check('40 fighters', ROSTER.length === 40)
 check('10 styles x 4 elements', Object.keys(STYLES).length === 10 && Object.keys(ELEMENTS).length === 4)
 check('unique fighter names', new Set(ROSTER.map((c) => c.name)).size === 40)
@@ -54,8 +56,10 @@ check('all 13 move mechanics exercised', ['rise', 'ball', 'beam', 'fist', 'lunge
     step(60 * 2.2)
     const [a, b] = FT.f
     calm()
-    b.x = a.x + (c.special.mech === 'grab' ? 6 : c.special.mech === 'rise' ? 5 : c.special.mech === 'tele' ? 20 : 12); b.hp = b.maxHp = 500; b.inv = 0
-    fightActions.press(0, 'sp'); step(60 * 3)
+    b.x = a.x + (c.special.mech === 'grab' ? 6 : c.special.mech === 'rise' ? 5 : c.special.mech === 'tele' ? 20 : 12); b.hp = b.maxHp = 500; b.inv = 0; b.counterT = 0; b.burn = null; b.slowT = 0
+    fightActions.press(0, 'sp')
+    if (c.special.mech === 'counter') { step(10); b.x = a.x + 5; fightActions.press(1, 'hp') } // a counter only works when the opponent attacks
+    step(60 * 3)
     const d1 = 500 - b.hp
     a.meter = 100; b.x = a.x + 9; b.hp = b.maxHp = 500; b.st = 'idle'; b.inv = 0; a.st = 'idle'; a.atk = null; calm()
     fightActions.press(0, 'su'); step(60 * 5)

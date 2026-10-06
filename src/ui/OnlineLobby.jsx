@@ -7,11 +7,14 @@ import { hostPickle, installPickleOnline } from '../game/online/pickle-online.js
 import { hostBomber, installBomberOnline } from '../game/online/bomber-online.js'
 import { hostSpace, installSpaceOnline } from '../game/online/space-online.js'
 import { hostFightMatch, installFightOnline } from '../game/online/fight-online.js'
-import { setName } from '../game/engine.js'
+import { hostRaceMatch, installRaceOnline } from '../game/online/race-online.js'
+import { setName, profile as profile0Obj } from '../game/engine.js'
+const profile0 = () => profile0Obj
 
-if (typeof window !== 'undefined') { installCardsOnline(); installTetrisOnline(); installPickleOnline(); installBomberOnline(); installSpaceOnline(); installFightOnline() }
+if (typeof window !== 'undefined') { installCardsOnline(); installTetrisOnline(); installPickleOnline(); installBomberOnline(); installSpaceOnline(); installFightOnline(); installRaceOnline() }
 
 const GAMES = [
+  ['race', '🏁', 'TURBO RUSH RACE', 'Race up to 4 friends plus bots. Everyone drives their own car with instant response. Pick your car in the 🏁 RACE tab first.', 4],
   ['fight', '🥊', 'IRON FISTS 1V1', '40 fighters, specials and supers. Pick your fighter in the 🥊 FIGHT tab first.', 2],
   ['space', '🚀', 'SPACE IMPACT CO-OP', 'Fly together: you + up to 2 friends as teammates (3 spacecraft). The host runs the missions.', 3],
   ['pickle', '🏓', 'PICKLEBALL 1V1', 'Real rules, first to 11 win by 2. Host runs the match; WASD/arrows + F G H to hit.', 2],
@@ -66,7 +69,8 @@ export default function OnlineLobby({ s, TopPlayers, initGame }) {
   const isHost = !!room && room.host === rt.cid
   const g = room ? GAMES.find((x) => x[0] === room.game) : null
   const start = () => run(async () => {
-    if (room.game === 'fight') await hostFightMatch()
+    if (room.game === 'race') await hostRaceMatch({ track: typeof profile0().raceTrack === 'number' ? profile0().raceTrack : 0, laps: 3, diff: 2, ai: 3 })
+    else if (room.game === 'fight') await hostFightMatch()
     else if (room.game === 'tetris') await hostTetris()
     else if (room.game === 'space') await hostSpace()
     else if (room.game === 'pickle') await hostPickle()
@@ -141,7 +145,7 @@ export default function OnlineLobby({ s, TopPlayers, initGame }) {
         </form>
       </div>
       <div className="lobbyR">
-        <div className="panel"><h4>HOW IT WORKS</h4><div className="lobbyinfo"><small>{room.game === 'fight' ? 'Best of 3 rounds. The host runs the fight; your controls and moves are sent instantly over the direct link (⚡). WASD or arrows to move, J K U I to punch and kick, L special, O super. Choose your fighter in the 🥊 FIGHT tab before the host presses START.' : room.game === 'space' ? 'The host flies ship #1 and runs the missions, upgrades and bosses. Friends fly the other ships (WASD/arrows + Space) and share the score and lives. Free ships are flown by AI teammates. Best with the direct link (⚡).' : room.game === 'pickle' ? 'The host runs the match and the ball; you move your own player instantly and your hits are checked by the host, so a fast connection helps. First to 11, win by 2.' : room.game === 'bomber' ? 'The host runs the arena. Move and drop bombs; last one standing wins the round, best of 3. Bots fill empty slots; if a friend leaves a bot takes over.' : room.game === 'tetris' ? 'Both of you get the same piece order. Your clears send garbage to the other board. Last one standing wins. Leaving or disconnecting forfeits.' : 'The host runs the table; you only see your own cards (chips are per-table). If someone disconnects a bot takes their seat. If the host leaves the game ends.'}</small></div></div>
+        <div className="panel"><h4>HOW IT WORKS</h4><div className="lobbyinfo"><small>{room.game === 'race' ? 'The host picks the track in the 🏁 RACE tab; bots fill the rest of the grid. Your own car reacts instantly; other drivers appear slightly behind real time. 3 laps.' : room.game === 'fight' ? 'Best of 3 rounds. The host runs the fight; your controls and moves are sent instantly over the direct link (⚡). WASD or arrows to move, J K U I to punch and kick, L special, O super. Choose your fighter in the 🥊 FIGHT tab before the host presses START.' : room.game === 'space' ? 'The host flies ship #1 and runs the missions, upgrades and bosses. Friends fly the other ships (WASD/arrows + Space) and share the score and lives. Free ships are flown by AI teammates. Best with the direct link (⚡).' : room.game === 'pickle' ? 'The host runs the match and the ball; you move your own player instantly and your hits are checked by the host, so a fast connection helps. First to 11, win by 2.' : room.game === 'bomber' ? 'The host runs the arena. Move and drop bombs; last one standing wins the round, best of 3. Bots fill empty slots; if a friend leaves a bot takes over.' : room.game === 'tetris' ? 'Both of you get the same piece order. Your clears send garbage to the other board. Last one standing wins. Leaving or disconnecting forfeits.' : 'The host runs the table; you only see your own cards (chips are per-table). If someone disconnects a bot takes their seat. If the host leaves the game ends.'}</small></div></div>
         <TopPlayers s={s} initial={room.game} compact fixed key={room.game} />
       </div>
     </div>
