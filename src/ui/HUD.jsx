@@ -1248,6 +1248,7 @@ function FightLobby({ s }) {
             <div><b>L · SPECIAL</b> <em style={{ color: ELS[show.element].color }}>{show.special.name}</em><small>{show.special.tip} · {show.special.dmg} dmg · {show.special.cd}s cooldown</small></div>
             <div><b>O · SUPER</b> <em style={{ color: ELS[show.element].color }}>{show.super.name}</em><small>{show.super.tip} · {show.super.dmg} dmg · needs a full meter</small></div>
           </div>
+          <div className="fmovelist"><h5>COMMAND LIST (P1 = J · P2 = K · K1 = U · K2 = I; F = forward, B = back, D = down)</h5>{show.movelist.map((mv) => <div key={mv.input}><b>{mv.input}</b><span>{mv.name}</span><small>{mv.tags.join(' · ')} · {mv.dmg}</small></div>)}</div>
         </div>
         <div className="panel"><h4>MY RECORD</h4><div className="kv"><span>FIGHTS</span><b>{p.fightGames || 0}</b><span>WINS</span><b>{p.fightWins || 0}</b><span>FIGHTERS BEATEN</span><b>{Object.keys(beaten).length}/40</b></div></div>
       </div>
