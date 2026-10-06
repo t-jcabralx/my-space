@@ -437,3 +437,7 @@ li.bonus { border-color: var(--gr); color: var(--gr); } li.fail { border-color: 
 .miniPodium i { font-style: normal; font-size: 3.4cqw; display: grid; place-items: end center; width: 4.6cqw; background: linear-gradient(#ffe84a55, #ffe84a11); border: 2px solid #ffe84a; padding-bottom: .4cqw; height: 6cqw; }
 .miniPodium i:nth-child(2) { height: 9cqw; } .miniPodium i:nth-child(3) { height: 4.6cqw; }
 .gcard.topcard { border-color: #ffe84a; } .gcard.shipcard { border-color: #b04dff; } .gcard.flames { border-color: #ff9a2e; }
+
+.joinbar { display: flex; align-items: center; gap: 1cqw; flex-wrap: wrap; background: #0b1230cc; border: 2px solid #3de8ff; padding: .8cqw 1.4cqw; margin-bottom: 1.2cqw; font-size: .72em; color: #cdd8ff; }
+.joinbar .nameIn { width: 8cqw; text-align: center; text-transform: uppercase; } .joinbar b { color: #ffe84a; letter-spacing: .2cqw; }
+.joinbar .joinerr { color: #ff8a96; flex-basis: 100%; font-size: .85em; }

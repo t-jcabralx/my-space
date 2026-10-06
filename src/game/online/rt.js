@@ -86,7 +86,10 @@ export async function createRoom(game, name, opts = {}) {
 export async function joinRoom(code, name) {
   RT.name = name || RT.name; RT.busy = true; emit()
   try { const j = await post('/api/rt/room', { action: 'join', code: String(code).toUpperCase(), name: RT.name }); RT.tok = j.tok; attach(j.room); return j.room }
-  catch (e) { RT.error = e.message; throw e } finally { RT.busy = false; emit() }
+  catch (e) {
+    if (/not found/i.test(e.message) && typeof location !== 'undefined') e.message = `Room ${String(code).toUpperCase()} was not found on ${location.host}. Both players must open the SAME website address: ask your friend for the invite link (🔗 COPY INVITE LINK) or check the code.`
+    RT.error = e.message; throw e
+  } finally { RT.busy = false; emit() }
 }
 export async function leaveRoom() {
   const code = RT.room && RT.room.code

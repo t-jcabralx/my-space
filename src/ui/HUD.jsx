@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import OnlineLobby from './OnlineLobby.jsx'
+import { joinRoom, subscribeRt, getRt } from '../game/online/rt.js'
 import { setSquad, subscribe, getSnap, startGame, toShop, launchNext, buy, retryMission, toMenu, togglePause, useSkill, startGameAt, setShip, setName, markSeen, claimDaily } from '../game/engine.js'
 import { subscribeSlug, getSlugSnap, slugActions } from '../game/slug.js'
 import { subscribePickle, getPickleSnap, pickleActions, MODES } from '../game/pickle.js'
@@ -942,6 +943,21 @@ function CardRoomLobby({ s, onOnline }) {
   )
 }
 
+function JoinBar({ name, onJoined }) {
+  const rt = useSyncExternalStore(subscribeRt, getRt, getRt)
+  const [code, setCode] = useState('')
+  const [err, setErr] = useState('')
+  if (rt.room) return <div className="joinbar"><span>🌐 You are in room <b>{rt.room.code}</b></span><button className="chip sel" onClick={() => onJoined()}>OPEN ROOM ▶</button></div>
+  const go = async () => { setErr(''); try { await joinRoom(code, name || 'PLAYER'); onJoined() } catch (e) { setErr(e.message) } }
+  return (
+    <div className="joinbar">
+      <span>🌐 FRIEND SENT YOU A ROOM CODE?</span>
+      <input className="nameIn" value={code} maxLength={5} placeholder="CODE" onChange={(e) => setCode(e.target.value.toUpperCase())} onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Enter' && code.length >= 4) go() }} />
+      <button className="chip sel" disabled={code.length < 4 || rt.busy} onClick={go}>JOIN</button>
+      {err && <small className="joinerr">{err}</small>}
+    </div>
+  )
+}
 function FlamesLobby({ s }) {
   const p = s.profile
   const hist = p.flamesHistory || []
@@ -1077,6 +1093,7 @@ function Hub({ s }) {
       <AudioNotice />
       {tab === 'home' && (
         <>
+          <JoinBar name={p.name} onJoined={() => setTab('online')} />
           <div className="cards4">
             <GameCard cls="space" title="🚀 SPACE IMPACT: NEON" tag="10 levels · 10 bosses · squad of 3 ships" hiLabel="HI-SCORE" hi={p.spaceHi.toLocaleString()}
               art={<ShipPreview ship={p.ship} />} label="▶ PLAY" onPlay={startGame} onInvite={() => { setOgame('space'); setTab('online') }}
