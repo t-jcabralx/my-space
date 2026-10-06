@@ -11,7 +11,7 @@ const before = G.stats.kills
 run(40, () => { keys.Space = true })
 check('the squad fights: enemies destroyed', G.stats.kills > before, 'kills ' + G.stats.kills)
 const m = G.squad[0]
-m.hp = 1; m.inv = 0; G.ebul.push({ x: m.x + 0.5, y: m.y, vx: -10, vy: 0, hw: 1, hh: 1, spr: null, dmg: 1 })
+G.p.shieldT = 0; G.p.skT = 0; m.hp = 1; m.inv = 0; G.ebul.push({ x: m.x + 0.5, y: m.y, vx: -10, vy: 0, hw: 1, hh: 1, spr: null, dmg: 1 })
 update(1 / 60)
 check('a teammate can be shot down', !m.alive && m.respawn > 0, 'alive ' + m.alive)
 run(11)
