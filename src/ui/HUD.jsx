@@ -1070,7 +1070,7 @@ function Hub({ s }) {
   return (
     <div className="screen hub">
       <div className="hubtop">
-        <div className="logo2"><span>MY</span><span className="b"> SPACE</span><small> ARCADE</small></div>
+        <div className="logo2"><img className="logoimg" src="/logo.svg" alt="My Space Arcade" /></div>
         <div className="tabs">{TABS.map(([k, n]) => <button key={k} className={'tab ' + (tab === k ? 'sel' : '')} onClick={() => setTab(k)}>{n}</button>)}</div>
         <SoundBtn />
       </div>

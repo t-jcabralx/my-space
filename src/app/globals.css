@@ -417,3 +417,5 @@ li.bonus { border-color: var(--gr); color: var(--gr); } li.fail { border-color: 
 .fword { color: var(--c); font-size: 2.4cqw; text-shadow: 0 0 18px var(--c); letter-spacing: .2cqw; } .ftag { color: #fff; font-size: .7em; text-align: center; max-width: 22cqw; white-space: normal; }
 .fbtns { display: flex; gap: 1cqw; }
 @keyframes pop { from { transform: translateX(-50%) scale(.3); opacity: 0; } to { transform: translateX(-50%) scale(1); opacity: 1; } }
+
+.logoimg { display: block; height: 7cqw; width: auto; max-height: 92px; border-radius: 6px; image-rendering: pixelated; }
