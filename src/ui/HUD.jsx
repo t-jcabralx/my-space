@@ -5,6 +5,10 @@ import { subscribe, getSnap, startGame, toShop, launchNext, buy, retryMission, t
 import { subscribeSlug, getSlugSnap, slugActions } from '../game/slug.js'
 import { subscribePickle, getPickleSnap, pickleActions, MODES } from '../game/pickle.js'
 import { subscribeBomber, getBomberSnap, bomberActions, MODES as BMODES } from '../game/bomber.js'
+import { subscribeTetris, getTetrisSnap, tetrisActions, MODES as TMODES, COLORS as TCOL, SHAPES as TSH } from '../game/tetris.js'
+import { subscribeChomp, getChompSnap, chompActions, MODES as CMODES } from '../game/chomp.js'
+import CardsHUD from './CardsUI.jsx'
+import { cardsActions } from '../game/cards/core.js'
 import { subscribeSettings, getSettings, setSetting, resetSettings } from '../game/settings.js'
 import { fetchTop } from '../game/online.js'
 import { UPGRADES, MISSIONS, BOSSES, BONUS_AFTER } from '../game/levels.js'
@@ -23,6 +27,9 @@ export function openHelp(tab) {
   else if (snap && snap.mode === 'slug') resume = slugActions.pause() ? 'slug' : null
   else if (snap && snap.mode === 'pickle') resume = pickleActions.pause() ? 'pickle' : null
   else if (snap && snap.mode === 'bomber') resume = bomberActions.pause() ? 'bomber' : null
+  else if (snap && snap.mode === 'tetris') resume = tetrisActions.pause() ? 'tetris' : null
+  else if (snap && snap.mode === 'chomp') resume = chompActions.pause() ? 'chomp' : null
+  else if (snap && snap.mode === 'cards') resume = cardsActions.pause() ? 'cards' : null
   help = { open: true, tab: tab || help.tab, resume }
   helpEmit()
 }
@@ -30,7 +37,7 @@ export function closeHelp() {
   const r = help.resume
   help = { ...help, open: false, resume: null }
   helpEmit()
-  if (r === 'space') togglePause(); else if (r === 'slug') slugActions.resume(); else if (r === 'pickle') pickleActions.resume(); else if (r === 'bomber') bomberActions.resume()
+  if (r === 'space') togglePause(); else if (r === 'slug') slugActions.resume(); else if (r === 'pickle') pickleActions.resume(); else if (r === 'bomber') bomberActions.resume(); else if (r === 'tetris') tetrisActions.resume(); else if (r === 'chomp') chompActions.resume(); else if (r === 'cards') cardsActions.resume()
 }
 const K = ({ children }) => <kbd>{children}</kbd>
 const HELP = {
@@ -132,6 +139,83 @@ const HELP = {
       </>
     ),
   },
+  cards: {
+    name: '🃏 CARD ROOM',
+    body: () => (
+      <>
+        <p>Click a game in the <b>CARD ROOM</b> tab. Click your cards to play or select them. Glowing cards are playable. The table animates every deal, flip and play. Lucky 9 and Tong-its use your <b>chip bank</b> (🪙, saved between sessions).</p>
+        <h5>UNO (2-4 players)</h5>
+        <ul>
+          <li>Match the top card by <b>colour</b> or <b>number/symbol</b>. No match? Click the <b>deck</b> to draw (play it if it fits, or pass).</li>
+          <li><b>Skip</b> ⊘ skips the next player. <b>Reverse</b> ⇄ flips direction. <b>+2</b> and <b>Wild +4</b> make the next player draw (with <b>stacking</b> on, they can answer with another +2 / +4). <b>Wild</b> lets you pick the colour.</li>
+          <li>Down to <b>one card</b>? Press <b>UNO!</b> fast, or you draw 2 when caught. If a bot forgets, press <b>CATCH!</b> to make them draw 2.</li>
+          <li>Win a round to score the points left in the others' hands. First to the target wins the match.</li>
+        </ul>
+        <h5>PUSOY DOS (4 players)</h5>
+        <ul>
+          <li>Get rid of all 13 cards first. Order low to high: <b>3 4 5 … K A 2</b>. Suits low to high: <b>♣ ♠ ♥ ♦</b>.</li>
+          <li>Whoever holds the <b>3♣</b> leads and must play it. Play a <b>single, pair, triple</b>, or a <b>5-card hand</b>: Straight &lt; Flush &lt; Full House &lt; Four of a Kind &lt; Straight Flush. Later players must play the <b>same kind and beat it</b>, or pass.</li>
+          <li>Click cards to select them (the table shows what you have selected), then <b>PLAY</b>. <b>HINT</b> suggests a play. If everyone passes, the last player leads anything.</li>
+          <li>Losers pay points for cards left (the more left, the worse: 8+ cards double, 10+ triple, 13 quadruple).</li>
+        </ul>
+        <h5>LUCKY 9 (vs the house)</h5>
+        <ul>
+          <li>Pick a bet, press <b>DEAL</b>. You get 2 cards; <b>A=1, 2-9 face value, 10/J/Q/K=0</b>. Hand value = <b>total mod 10</b>. Closest to 9 wins. <b>HIT</b> for a 3rd card or <b>STAND</b>.</li>
+          <li>A 2-card <b>8 or 9</b> is a <b>natural</b>. Bonuses: all <b>same suit</b> pays ×2 (2 cards) or ×3 (3 cards); <b>three of a kind</b> pays ×5. Ties push (bet returned).</li>
+          <li>Out of chips? Take the free <b>loan</b>. <b>CASH OUT</b> to bank your score on the leaderboard.</li>
+        </ul>
+        <h5>TONG-ITS (3 players)</h5>
+        <ul>
+          <li>Form <b>melds</b>: a <b>set</b> (3-4 of a rank) or a <b>run</b> (3+ of one suit in order, Ace is low). Each turn: <b>draw</b> from the stock, or <b>take the top discard</b> if it makes a meld with cards in your hand (select them, then click the discard pile). Then <b>MELD</b>, <b>sapaw</b> (select card(s), click any meld on the table to add to it), and finally <b>DISCARD</b> one card.</li>
+          <li><b>TONG-ITS!</b> Empty your hand to win big (opponents pay double). Face cards are 10 points, Ace 1.</li>
+          <li><b>CALL DRAW</b> (needs an exposed meld, before drawing): opponents <b>FIGHT</b> or <b>FOLD</b>. Lowest leftover points wins; the caller loses ties. Folders pay the caller.</li>
+          <li>Anyone with <b>no melds</b> at the end is <b>burned</b> and pays extra. If the stock runs out, the lowest hand wins.</li>
+        </ul>
+      </>
+    ),
+  },
+  chomp: {
+    name: '🟡 MAZE CHOMP',
+    body: () => (
+      <>
+        <p><b>Goal:</b> eat every dot in the maze without being caught by the four ghosts. Clear the maze to reach the next level: each level has a <b>brand-new maze</b> and faster ghosts.</p>
+        <h5>CONTROLS</h5>
+        <p><K>WASD</K> / <K>ARROWS</K> steer. Press a direction early: the chomper turns at the next corner. Player 2 (co-op or ghost): <K>ARROWS</K> (Player 1 uses <K>WASD</K>).</p>
+        <h5>HOW IT WORKS</h5>
+        <ul>
+          <li><b>Big flashing pellets</b> in the corners make the ghosts <b>scared and blue</b> for a few seconds. Eat them for 200, 400, 800, 1600 points in a row. Eaten ghosts turn into eyes and race home.</li>
+          <li>Each ghost hunts differently: <b>Blinky</b> (red) chases you, <b>Pinky</b> (pink) aims ahead of you, <b>Inky</b> (cyan) ambushes using Blinky's position, <b>Clyde</b> (orange) chases until close and then runs away. They also take turns <b>scattering</b> to their corners.</li>
+          <li>The <b>tunnel</b> on the side edge wraps you to the other side, and ghosts slow down inside it.</li>
+          <li><b>Fruit</b> appears below the ghost house twice per maze for bonus points. Every 10,000 points is an <b>extra life</b>.</li>
+          <li><b>2P Co-op:</b> two chompers share 3 lives. <b>Pac vs Ghost:</b> P1 chomps, P2 drives the red ghost and scores 1000 per catch.</li>
+        </ul>
+        <h5>TIPS</h5>
+        <p>Do not clear the corners' pellets too early: keep them as an escape button. Look at where the ghosts are heading, not where they are.</p>
+      </>
+    ),
+  },
+  tetris: {
+    name: '🧱 TETRA BLAST',
+    body: () => (
+      <>
+        <p><b>Goal:</b> stack falling blocks into full rows to clear them. Pick <b>SOLO</b> (Marathon, Sprint 40, Ultra 2:00, Zen) or battle in <b>1v1</b>: <b>VS BOT</b> or <b>2P VERSUS</b> on one keyboard.</p>
+        <h5>CONTROLS</h5>
+        <p><K>←</K><K>→</K> / <K>A</K><K>D</K> move (hold to slide fast) · <K>↓</K> / <K>S</K> soft drop · <K>SPACE</K> hard drop</p>
+        <p><K>↑</K> / <K>W</K> / <K>X</K> rotate right · <K>Z</K> / <K>Q</K> rotate left · <K>C</K> / <K>E</K> / <K>SHIFT</K> hold</p>
+        <p>2P Versus, Player 1: <K>A</K><K>D</K><K>S</K> · <K>W</K> rotate · <K>Q</K> rotate left · <K>SPACE</K> drop · <K>E</K> hold. Player 2: <K>←→↓</K> · <K>↑</K> rotate · <K>,</K> rotate left · <K>ENTER</K> drop · <K>.</K> hold</p>
+        <h5>HOW IT WORKS</h5>
+        <ul>
+          <li>The faint <b>ghost</b> shows where the piece will land. <b>Hold</b> swaps the current piece (once per piece). The next 5 pieces are shown on the side.</li>
+          <li>A piece locks half a second after it touches down. Sliding or rotating restarts that timer, up to 15 times.</li>
+          <li><b>Scoring:</b> more lines at once is worth far more. A <b>TETRIS</b> (4 lines) is the best normal clear. <b>T-spins</b>, <b>combos</b> and <b>back-to-back</b> hard clears add big bonuses. A <b>perfect clear</b> (empty board) is a huge bonus.</li>
+          <li><b>T-spin:</b> rotate a T piece into a tight slot so that at least 3 corners around it are blocked, then clear lines.</li>
+          <li><b>Battle:</b> your clears send <b>garbage rows</b> to your opponent (Tetris = 4, T-spin double = 4, +1 back-to-back, plus combo bonus). The red bar beside your board shows garbage coming at you. <b>Clearing lines cancels it.</b> Top out and you lose.</li>
+        </ul>
+        <h5>TIPS</h5>
+        <p>Keep the board flat, leave one column open for I pieces, and build combos. In battle, big clears beat many small ones.</p>
+      </>
+    ),
+  },
   sound: {
     name: '🔊 SOUND',
     body: () => (
@@ -165,7 +249,7 @@ function HelpModal() {
     </div>
   )
 }
-const FIRST = { playing: 'space', slug: 'slug', pickle: 'pickle', bomber: 'bomber' }
+const FIRST = { playing: 'space', slug: 'slug', pickle: 'pickle', bomber: 'bomber', tetris: 'tetris', chomp: 'chomp', cards: 'cards' }
 function HelpLayer({ s }) {
   const g = FIRST[s.mode]
   useEffect(() => {
@@ -427,13 +511,26 @@ const ACH = [
   ['FIRST WIN', 'Win a pickleball game', (p) => p.pickleWins || 0, 1],
   ['PICKLE PRO', 'Win 10 pickleball games', (p) => p.pickleWins || 0, 10],
   ['ACE SERVER', 'Serve 5 aces', (p) => p.aces || 0, 5],
+  ['CARD SHARK', 'Win 5 card games', (p) => p.cardWins || 0, 5],
+  ['UNO CHAMP', 'Win a UNO match', (p) => p.unoWins || 0, 1],
+  ['BIG TWO', 'Win a Pusoy Dos match', (p) => p.pusoyWins || 0, 1],
+  ['LUCKY NINE', 'Get a natural 9 in Lucky 9', (p) => p.luckyNines || 0, 1],
+  ['TONG-ITS!', 'Empty your hand to win Tong-its', (p) => p.tongitsWins || 0, 1],
+  ['CHOMPER', 'Eat 1000 dots in Maze Chomp', (p) => p.chompDots || 0, 1000],
+  ['GHOST BUSTER', 'Eat 50 ghosts', (p) => p.chompGhosts || 0, 50],
+  ['MAZE RUNNER', 'Clear 5 mazes', (p) => p.chompLevels || 0, 5],
+  ['LINE CLEARER', 'Clear 100 lines in Tetra Blast', (p) => p.tetrisLines || 0, 100],
+  ['TETRIS!', 'Clear 4 lines at once', (p) => p.tetrises || 0, 1],
+  ['T-SPINNER', 'Land 5 T-spins', (p) => p.tspins || 0, 5],
+  ['SPRINTER', 'Finish a 40-line Sprint', (p) => p.sprints || 0, 1],
+  ['BATTLE WINNER', 'Win a Tetra Blast battle', (p) => p.tetrisWins || 0, 1],
   ['BOMBERMAN', 'Win a Bomber Blast match', (p) => p.bomberWins || 0, 1],
   ['DEMOLITION', 'Blow up 100 blocks', (p) => p.bricks || 0, 100],
   ['BOMB SQUAD', 'Knock out 10 opponents', (p) => p.bomberKills || 0, 10],
   ['SOLDIER', 'Score 50,000 in Ground Zero', (p) => p.slugHi, 50000],
 ]
 const RANKS = [[0, 'CADET'], [100, 'PILOT'], [500, 'ACE'], [1500, 'CAPTAIN'], [4000, 'MAJOR'], [9000, 'COLONEL'], [20000, 'LEGEND']]
-const xpOf = (p) => p.kills + p.bosses * 50 + p.pows * 20 + (p.spaceWins + p.slugWins) * 500 + (p.pickleWins || 0) * 300 + (p.bomberWins || 0) * 300 + p.played * 5
+const xpOf = (p) => p.kills + p.bosses * 50 + p.pows * 20 + (p.spaceWins + p.slugWins) * 500 + (p.pickleWins || 0) * 300 + (p.bomberWins || 0) * 300 + (p.tetrisWins || 0) * 300 + (p.tetrisLines || 0) + (p.cardWins || 0) * 200 + Math.floor((p.chompDots || 0) / 10) + p.played * 5
 
 function SoundBtn() {
   const [, force] = useState(0)
@@ -544,6 +641,16 @@ function Skills() {
         <p><kbd>E</kbd> <b style={{ color: '#3dff7a' }}>SHIELD</b> bubble: destroys bullets, rams enemies, reflects (LV4+)</p>
         <p><kbd>R</kbd> <b style={{ color: '#ff4de1' }}>OVERDRIVE</b> ultimate. Fills as you kill: max weapons, rapid fire, 3 drones, invulnerable</p>
         <p>Upgrade each skill to LV5 in the Hangar shop. Pickups: weapon level, shield, rapid, spread, laser, missiles, repair, overcharge, 1UP, x2, magnet, DRONE.</p>
+      </div>
+      <div>
+        <h4>MAZE CHOMP</h4>
+        <p><K>WASD</K> / <K>ARROWS</K> STEER · P2 / GHOST: <K>ARROWS</K></p>
+        <p>Pellets scare ghosts · eat them in a chain · fruit twice per maze · tunnel on the sides.</p>
+      </div>
+      <div>
+        <h4>TETRA BLAST</h4>
+        <p><K>←→</K> MOVE · <K>↓</K> SOFT DROP · <K>SPACE</K> HARD DROP · <K>↑</K>/<K>X</K> ROTATE · <K>Z</K> ROTATE LEFT · <K>C</K> HOLD</p>
+        <p>2P: P1 <K>WASD</K> + <K>Q</K> <K>E</K> <K>SPACE</K> · P2 <K>ARROWS</K> + <K>,</K> <K>.</K> <K>ENTER</K></p>
       </div>
       <div>
         <h4>BOMBER BLAST</h4>
@@ -713,6 +820,138 @@ function MiniBomber() {
   )
 }
 
+function MiniTetris() {
+  const rows = ['..........', '..........', '....T.....', '...TTT.O..', '.J.....OO.', '.JJJ.S.OO.', '.L.SSS.OZ.', 'LLLZZSSIIZ', 'IIIIZZSIIZ'.replace(/I/g, 'I')]
+  const cells = []
+  const pat = ['..........', '.....T....', '....TTT.O.', '.J.....OO.', '.JJJ.SSOZZ', '.L..SSZZLL', 'LLLZZS.IIL', 'IIIIZZ.IIL']
+  pat.forEach((r, ri) => [...r].forEach((k, ci) => cells.push(<i key={ri + '-' + ci} className={k === '.' ? 'e' : ''} style={k === '.' ? undefined : { background: TCOL[k], boxShadow: `inset 0 -3px 0 #0006, 0 0 6px ${TCOL[k]}66` }} />)))
+  return <div className="miniTet">{cells}</div>
+}
+
+function TetrisLobby({ s, mode, setMode, diff, setDiff, level, setLevel }) {
+  const p = s.profile
+  const m = TMODES[mode]
+  const GROUPS = [
+    ['SOLO', ['marathon', 'sprint', 'ultra', 'zen']],
+    ['1 vs 1', ['bot', 'versus']],
+    ['WATCH', ['demo']],
+  ]
+  const ICON = { marathon: '🏃', sprint: '⏱', ultra: '🚀', zen: '🧘', bot: '🧍 vs 🤖', versus: '🧍 vs 🧍', demo: '🤖 vs 🤖' }
+  return (
+    <div className="lobby">
+      <div className="lobbyL">
+        {GROUPS.map(([g, list]) => (
+          <div key={g}>
+            <h4>{g}</h4>
+            <div className="modegrid">
+              {list.map((k) => (
+                <button key={k} className={'modecard ' + (mode === k ? 'sel' : '')} onClick={() => setMode(k)}>
+                  <div className="vs"><span>{ICON[k]}</span></div>
+                  <strong>{TMODES[k].name}</strong><small>{TMODES[k].desc}</small>
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
+        <div className="lobbyopts">
+          <div><h4>START LEVEL</h4><div className="chips">{[1, 3, 5, 8, 10].map((v) => <button key={v} className={'chip ' + (level === v ? 'sel' : '')} onClick={() => setLevel(v)}>LV {v}</button>)}</div></div>
+          {m.versus && <div><h4>BOT LEVEL</h4><div className="chips">{['EASY', 'MEDIUM', 'HARD'].map((d, i) => <button key={d} className={'chip ' + (diff === i + 1 ? 'sel' : '')} onClick={() => setDiff(i + 1)}>{d}</button>)}</div></div>}
+        </div>
+        <div className="lobbyinfo"><b>{m.name}</b> · {m.desc}<br /><small>{mode === 'versus' ? 'P1: WASD + Q E SPACE   ·   P2: arrows + , . ENTER' : m.humans && m.humans.length === 0 ? 'Just watch. Press Esc to leave.' : 'Arrows / WASD move · SPACE hard drop · X rotate · Z rotate left · C hold'}</small></div>
+        <button className="big" onClick={() => tetrisActions.start(mode, level, diff)}>▶ START</button>
+      </div>
+      <div className="lobbyR">
+        <div className="panel"><h4>MY TETRA STATS</h4><div className="kv"><span>LINES CLEARED</span><b>{p.tetrisLines || 0}</b><span>TETRISES</span><b>{p.tetrises || 0}</b><span>T-SPINS</span><b>{p.tspins || 0}</b><span>BATTLES WON</span><b>{p.tetrisWins || 0}</b><span>SPRINTS DONE</span><b>{p.sprints || 0}</b></div></div>
+        <TopPlayers s={s} initial="tetris" compact fixed />
+      </div>
+    </div>
+  )
+}
+
+function MiniChomp() {
+  const rows = ['#########', '#o.....o#', '#.##.##.#', '#.......#', '#.#.G.#.#', '#...P...#', '#.##.##.#', '#o.....o#', '#########']
+  return (
+    <div className="miniChomp">
+      {rows.map((r, ri) => [...r].map((ch, ci) => (
+        <i key={ri + '-' + ci} className={ch === '#' ? 'w' : ''}>
+          {ch === '.' && <u className="d" />}{ch === 'o' && <u className="o" />}{ch === 'P' && <u className="p" />}{ch === 'G' && <u className="g" />}
+        </i>
+      )))}
+    </div>
+  )
+}
+function ChompLobby({ s, mode, setMode, level, setLevel }) {
+  const p = s.profile
+  const m = CMODES[mode]
+  const ICON = { classic: '🟡', coop: '🟡🟡', ghost: '🟡 vs 👻', auto: '🤖' }
+  return (
+    <div className="lobby">
+      <div className="lobbyL">
+        <h4>1 · CHOOSE A MODE</h4>
+        <div className="modegrid">
+          {Object.entries(CMODES).map(([k, md]) => (
+            <button key={k} className={'modecard ' + (mode === k ? 'sel' : '')} onClick={() => setMode(k)}>
+              <div className="vs"><span>{ICON[k]}</span></div><strong>{md.name}</strong><small>{md.desc}</small>
+            </button>
+          ))}
+        </div>
+        <div className="lobbyopts"><div><h4>2 · START LEVEL</h4><div className="chips">{[1, 3, 5, 8].map((v) => <button key={v} className={'chip ' + (level === v ? 'sel' : '')} onClick={() => setLevel(v)}>LEVEL {v}</button>)}</div></div></div>
+        <div className="lobbyinfo"><b>{m.name}</b> · {m.desc}<br /><small>{mode === 'coop' || mode === 'ghost' ? 'P1: WASD   ·   P2: arrow keys' : mode === 'auto' ? 'Press Esc to leave.' : 'WASD or arrow keys steer'}</small></div>
+        <button className="big" onClick={() => chompActions.start(mode, level)}>▶ START</button>
+      </div>
+      <div className="lobbyR">
+        <div className="panel"><h4>MY CHOMP STATS</h4><div className="kv"><span>DOTS EATEN</span><b>{(p.chompDots || 0).toLocaleString()}</b><span>GHOSTS EATEN</span><b>{p.chompGhosts || 0}</b><span>MAZES CLEARED</span><b>{p.chompLevels || 0}</b><span>BEST SCORE</span><b>{(p.chompHi || 0).toLocaleString()}</b></div></div>
+        <TopPlayers s={s} initial="chomp" compact fixed />
+      </div>
+    </div>
+  )
+}
+
+function CardRoomLobby({ s }) {
+  const [game, setGame] = useState('uno')
+  const [count, setCount] = useState(3)
+  const [stack, setStack] = useState(true)
+  const [target, setTarget] = useState(200)
+  const [stake, setStake] = useState(50)
+  const [bots, setBots] = useState(3)
+  const p = s.profile
+  const GAMES = [
+    ['uno', '🟥', 'UNO', 'Match colours and numbers. Skip, reverse, +2, +4 and wilds. 2-4 players.'],
+    ['pusoy', '👑', 'PUSOY DOS', 'Filipino Big Two. 13 cards each, shed them first. Pairs, straights, full houses.'],
+    ['lucky9', '🎰', 'LUCKY 9', 'Bet chips, get closest to 9 against the house. Naturals and bonuses.'],
+    ['tongits', '🀄', 'TONG-ITS', 'Filipino rummy. Meld, sapaw, call Draw or go Tong-its!'],
+  ]
+  const start = (auto) => {
+    const opts = game === 'uno' ? { count, stack, target, auto } : game === 'pusoy' ? { target: 40, auto } : game === 'lucky9' ? { bots, auto } : { stake, auto }
+    cardsActions.start(game, opts)
+  }
+  return (
+    <div className="lobby">
+      <div className="lobbyL">
+        <h4>1 · PICK A GAME</h4>
+        <div className="gamepick">{GAMES.map(([k, ico, n, d]) => <button key={k} className={game === k ? 'sel' : ''} onClick={() => setGame(k)}><span className="ico">{ico}</span><strong>{n}</strong><small>{d}</small></button>)}</div>
+        <h4>2 · OPTIONS</h4>
+        <div className="lobbyopts">
+          {game === 'uno' && <>
+            <div><h4>PLAYERS</h4><div className="chips">{[2, 3, 4].map((v) => <button key={v} className={'chip ' + (count === v ? 'sel' : '')} onClick={() => setCount(v)}>{v} PLAYERS</button>)}</div></div>
+            <div><h4>STACKING +2/+4</h4><div className="chips">{[[true, 'ON'], [false, 'OFF']].map(([v, n]) => <button key={n} className={'chip ' + (stack === v ? 'sel' : '')} onClick={() => setStack(v)}>{n}</button>)}</div></div>
+            <div><h4>PLAY TO</h4><div className="chips">{[100, 200, 500].map((v) => <button key={v} className={'chip ' + (target === v ? 'sel' : '')} onClick={() => setTarget(v)}>{v} PTS</button>)}</div></div>
+          </>}
+          {game === 'pusoy' && <div><h4>MATCH</h4><div className="chips"><button className="chip sel">FIRST TO 40 POINTS · 4 PLAYERS</button></div></div>}
+          {game === 'lucky9' && <div><h4>OTHER PLAYERS</h4><div className="chips">{[0, 1, 2, 3].map((v) => <button key={v} className={'chip ' + (bots === v ? 'sel' : '')} onClick={() => setBots(v)}>{v} BOTS</button>)}</div></div>}
+          {game === 'tongits' && <div><h4>STAKE PER ROUND</h4><div className="chips">{[50, 100, 200].map((v) => <button key={v} className={'chip ' + (stake === v ? 'sel' : '')} onClick={() => setStake(v)}>🪙 {v}</button>)}</div></div>}
+        </div>
+        <div className="lobbyinfo"><b>{GAMES.find((g) => g[0] === game)[2]}</b> · {GAMES.find((g) => g[0] === game)[3]}<br /><small>{game === 'lucky9' || game === 'tongits' ? `Uses your chip bank: 🪙 ${Number(p.chips || 0).toLocaleString()}. Cash out to put your chips on the leaderboard.` : 'Click your cards to play. Glowing cards are playable.'}</small></div>
+        <div className="chips"><button className="big" onClick={() => start(false)}>▶ SIT DOWN & PLAY</button><button className="big sec" onClick={() => start(true)}>👁 WATCH BOTS</button></div>
+      </div>
+      <div className="lobbyR">
+        <div className="panel"><h4>MY CARD ROOM</h4><div className="kv"><span>CHIP BANK</span><b>🪙 {Number(p.chips || 0).toLocaleString()}</b><span>GAMES WON</span><b>{p.cardWins || 0}</b><span>UNO WINS</span><b>{p.unoWins || 0}</b><span>PUSOY WINS</span><b>{p.pusoyWins || 0}</b><span>LUCKY 9s</span><b>{p.luckyNines || 0}</b><span>TONG-ITS</span><b>{p.tongitsWins || 0}</b></div></div>
+        <TopPlayers s={s} initial={game} compact fixed key={game} />
+      </div>
+    </div>
+  )
+}
+
 function GameCard({ cls, title, tag, hi, hiLabel, art, onPlay, label, sub }) {
   return (
     <div className={'gcard ' + cls}>
@@ -733,6 +972,11 @@ function Hub({ s }) {
   const [bmode, setBmode] = useState('ffa')
   const [bdiff, setBdiff] = useState(2)
   const [brounds, setBrounds] = useState(3)
+  const [tmode, setTmode] = useState('marathon')
+  const [tdiff, setTdiff] = useState(2)
+  const [tlevel, setTlevel] = useState(1)
+  const [cmode, setCmode] = useState('classic')
+  const [clevel, setClevel] = useState(1)
   const p = s.profile
   const xp = xpOf(p)
   let ri = 0
@@ -740,7 +984,7 @@ function Hub({ s }) {
   const next = RANKS[ri + 1]
   const pct = next ? ((xp - RANKS[ri][0]) / (next[0] - RANKS[ri][0])) * 100 : 100
   const doneAch = ACH.filter(([, , g, goal]) => g(p, s.unlocked) >= goal).length
-  const TABS = [['home', 'DASHBOARD'], ['pickle', '🏓 PICKLEBALL'], ['bomber', '💣 BOMBER'], ['top', '🏆 TOP PLAYERS'], ['ship', 'CUSTOMIZE SHIP'], ['levels', 'SPACE LEVELS'], ['skills', 'CONTROLS'], ['settings', '⚙ SETTINGS'], ['awards', `AWARDS ${doneAch}/${ACH.length}`]]
+  const TABS = [['home', 'DASHBOARD'], ['pickle', '🏓 PICKLEBALL'], ['bomber', '💣 BOMBER'], ['tetris', '🧱 TETRIS'], ['chomp', '🟡 CHOMP'], ['cards', '🃏 CARDS'], ['top', '🏆 TOP PLAYERS'], ['ship', 'CUSTOMIZE SHIP'], ['levels', 'SPACE LEVELS'], ['skills', 'CONTROLS'], ['settings', '⚙ SETTINGS'], ['awards', `AWARDS ${doneAch}/${ACH.length}`]]
   return (
     <div className="screen hub">
       <div className="hubtop">
@@ -764,6 +1008,15 @@ function Hub({ s }) {
             <GameCard cls="bomber" title="💣 BOMBER BLAST" tag="Battle arena · bots · 1v1 · 2v2" hiLabel="WINS" hi={p.bomberWins || 0}
               art={<MiniBomber />} label="SELECT MODE ▶" onPlay={() => setTab('bomber')}
               sub={<><span>BLOCKS</span><b>{p.bricks || 0}</b></>} />
+            <GameCard cls="tetris" title="🧱 TETRA BLAST" tag="Solo · 1v1 vs bot · 2P · T-spins" hiLabel="LINES" hi={p.tetrisLines || 0}
+              art={<MiniTetris />} label="SELECT MODE ▶" onPlay={() => setTab('tetris')}
+              sub={<><span>TETRISES</span><b>{p.tetrises || 0}</b></>} />
+            <GameCard cls="chomp" title="🟡 MAZE CHOMP" tag="Ghosts · pellets · fruit · co-op" hiLabel="BEST" hi={(p.chompHi || 0).toLocaleString()}
+              art={<MiniChomp />} label="SELECT MODE ▶" onPlay={() => setTab('chomp')}
+              sub={<><span>GHOSTS</span><b>{p.chompGhosts || 0}</b></>} />
+            <GameCard cls="cards" title="🃏 CARD ROOM" tag="UNO · Pusoy Dos · Lucky 9 · Tong-its" hiLabel="CHIPS" hi={'🪙 ' + Number(p.chips || 0).toLocaleString()}
+              art={<div className="miniCards"><i>♥</i><i>♠</i><i>9</i><i>+2</i></div>} label="SELECT GAME ▶" onPlay={() => setTab('cards')}
+              sub={<><span>WON</span><b>{p.cardWins || 0}</b></>} />
           </div>
           <div className="hubrow">
             <div className="panel prof">
@@ -784,6 +1037,9 @@ function Hub({ s }) {
         </>
       )}
       {tab === 'pickle' && <PickleLobby s={s} mode={pmode} setMode={setPmode} diff={pdiff} setDiff={setPdiff} target={ptarget} setTarget={setPtarget} />}
+      {tab === 'cards' && <CardRoomLobby s={s} />}
+      {tab === 'chomp' && <ChompLobby s={s} mode={cmode} setMode={setCmode} level={clevel} setLevel={setClevel} />}
+      {tab === 'tetris' && <TetrisLobby s={s} mode={tmode} setMode={setTmode} diff={tdiff} setDiff={setTdiff} level={tlevel} setLevel={setTlevel} />}
       {tab === 'bomber' && <BomberLobby s={s} mode={bmode} setMode={setBmode} diff={bdiff} setDiff={setBdiff} rounds={brounds} setRounds={setBrounds} />}
       {tab === 'settings' && <Settings />}
       {tab === 'ship' && <ShipLab s={s} />}
@@ -801,7 +1057,7 @@ function TopPlayers({ s, initial = 'space', compact = false, fixed = false }) {
   const lim = compact ? 5 : 10
   useEffect(() => { let on = true; setRows(null); fetchTop(game, lim).then((r) => on && setRows(r)); return () => { on = false } }, [game, lim])
   const me = (s.profile.name || '').toUpperCase()
-  const GAMES = [['space', 'SPACE IMPACT'], ['slug', 'GROUND ZERO'], ['pickle', 'PICKLEBALL'], ['bomber', 'BOMBER BLAST']]
+  const GAMES = [['space', 'SPACE IMPACT'], ['slug', 'GROUND ZERO'], ['pickle', 'PICKLEBALL'], ['bomber', 'BOMBER BLAST'], ['tetris', 'TETRA BLAST'], ['chomp', 'MAZE CHOMP'], ['uno', 'UNO'], ['pusoy', 'PUSOY DOS'], ['lucky9', 'LUCKY 9'], ['tongits', 'TONG-ITS']]
   return (
     <div className="topboard">
       <h4>🏆 TOP PLAYERS{fixed ? ' · ' + (GAMES.find(([k]) => k === game) || [0, game])[1] : ''}</h4>
@@ -869,6 +1125,112 @@ function BomberHUD() {
           <div className="overboard"><TopPlayersMini game="bomber" /></div>
           <button className="big" onClick={bomberActions.rematch}>↻ REMATCH</button>
           <button className="big sec" onClick={bomberActions.quit}>DASHBOARD</button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+const fmtTime = (t) => { const m = Math.floor(t / 60), sec = (t % 60).toFixed(1).padStart(4, '0'); return `${m}:${sec}` }
+function TetrisHUD() {
+  const g = useSyncExternalStore(subscribeTetris, getTetrisSnap)
+  if (!g) return null
+  const solo = !g.versus
+  const b0 = g.boards[0]
+  const goal = g.goal
+  return (
+    <div className="hud">
+      {g.mode !== 'over' && (
+        <>
+          {solo ? (
+            <>
+              <div className="tside left">
+                <div className="tstat"><span>SCORE</span><b>{b0.score.toLocaleString()}</b></div>
+                <div className="tstat"><span>LEVEL</span><b>{b0.level}</b></div>
+                <div className="tstat"><span>LINES</span><b>{b0.lines}{goal && goal.lines ? ` / ${goal.lines}` : ''}</b></div>
+              </div>
+              <div className="tside right">
+                <div className="tstat"><span>{goal && goal.time ? 'TIME LEFT' : 'TIME'}</span><b>{goal && goal.time ? fmtTime(Math.max(0, goal.time - g.time)) : fmtTime(g.time)}</b></div>
+                <div className="tstat"><span>PIECES/SEC</span><b>{b0.pps}</b></div>
+                {b0.combo > 0 && <div className="tstat hot" key={b0.combo}><span>COMBO</span><b>×{b0.combo}</b></div>}
+                {b0.b2b && <div className="tstat hot"><span>BACK-TO-BACK</span><b>ON</b></div>}
+                <div className="tstat"><span>MODE</span><b>{g.modeName}</b></div>
+              </div>
+            </>
+          ) : (
+            <div className="tvs">
+              {g.boards.map((b) => (
+                <div key={b.id} className={'tvcard ' + (b.id ? 'b' : 'a') + (b.dead ? ' dead' : '') + (b.danger ? ' danger' : '')}>
+                  <strong>{b.name}</strong><b>{b.score.toLocaleString()}</b><small>LV {b.level} · {b.lines} LINES · SENT {b.attack}{b.combo > 0 ? ` · ×${b.combo}` : ''}{b.b2b ? ' · B2B' : ''}</small>
+                </div>
+              ))}
+              <div className="tvmid"><span>{g.modeName}</span><small>{g.diff}</small></div>
+            </div>
+          )}
+          {g.msgs.map((m) => {
+            const cx = g.boards[m.board] ? (solo ? 50 : m.board === 0 ? 23 : 77) : 50
+            return <div key={m.id} className="tmsg" style={{ left: cx + '%', color: m.color, textShadow: `0 0 18px ${m.color}` }}><b>{m.text}</b>{m.sub && <small>{m.sub}</small>}</div>
+          })}
+          {g.phase === 'ready' && g.countdown > 0 && <div className="bcount" key={g.countdown}>{g.countdown > 3 ? 'READY' : g.countdown}</div>}
+          <div className="pctl">{solo ? '←→ MOVE · ↓ SOFT · SPACE DROP · ↑/X ROTATE · Z ROTATE LEFT · C HOLD · P PAUSE' : g.type === 'versus' ? 'P1: A D S · W Q SPACE E   |   P2: ← → ↓ · ↑ , ENTER .' : '←→ MOVE · ↓ SOFT · SPACE DROP · ↑ ROTATE · C HOLD · P PAUSE'}</div>
+          <div className="scan" />
+        </>
+      )}
+      {g.paused && <div className="screen pause"><h1>PAUSED</h1><button className="big" onClick={tetrisActions.resume}>RESUME</button><button className="big sec" onClick={() => openHelp('tetris')}>❓ HOW TO PLAY</button><button className="big sec" onClick={tetrisActions.quit}>QUIT TO DASHBOARD</button></div>}
+      {g.mode === 'over' && g.over && (
+        <div className="screen victory">
+          <h1 className={g.over.win ? 'gold' : 'red'}>{g.over.title}</h1>
+          {g.over.type === 'sprint' && g.over.win && <div className="bigscore">{fmtTime(g.over.time)}</div>}
+          <ul>
+            <li><span>SCORE</span><b>{g.over.boardScore.toLocaleString()}</b></li>
+            <li><span>LINES</span><b>{g.over.lines}</b></li>
+            <li><span>TETRISES · T-SPINS · MAX COMBO</span><b>{g.over.tetrises} · {g.over.tspins} · {g.over.maxCombo}</b></li>
+            <li><span>PIECES · PER SECOND · TIME</span><b>{g.over.pieces} · {g.over.pps} · {fmtTime(g.over.time)}</b></li>
+            {g.over.score > 0 && <li className="bonus"><span>LEADERBOARD SCORE</span><b>{g.over.score.toLocaleString()}</b></li>}
+          </ul>
+          {g.over.score > 0 && <div className="overboard"><TopPlayersMini game="tetris" /></div>}
+          <button className="big" onClick={tetrisActions.rematch}>↻ PLAY AGAIN</button>
+          <button className="big sec" onClick={tetrisActions.quit}>DASHBOARD</button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ChompHUD() {
+  const g = useSyncExternalStore(subscribeChomp, getChompSnap)
+  if (!g) return null
+  return (
+    <div className="hud">
+      {g.mode !== 'over' && (
+        <>
+          <div className="top">
+            <div className="col"><div className="lbl">SCORE</div><div className="val">{fmt(g.score)}</div><div className="lbl dim">HI {fmt(g.hi)}</div></div>
+            <div className="col mid"><div className="lbl">LEVEL {g.level} · {g.modeName}</div><div className="prog"><b style={{ width: (g.dots / Math.max(1, g.dotsTotal)) * 100 + '%' }} /></div></div>
+            <div className="col right"><div className="lbl">LIVES</div><div className="val cred">{Array.from({ length: Math.max(0, g.lives) }, (_, i) => <span key={i} className="pacico" />)}</div><SoundBtn /></div>
+          </div>
+          <div className="tside left"><div className="tstat"><span>DOTS</span><b>{g.dots} / {g.dotsTotal}</b></div><div className="tstat"><span>FRUIT</span><b style={{ fontSize: '.9em' }}>{g.fruit[0]}</b></div></div>
+          {g.ghostMode && <div className="tside right"><div className="tstat"><span>GHOST BOUNTY</span><b>{g.ghostScore}</b></div></div>}
+          {g.fright && <div className="tstat hot" style={{ position: 'absolute', right: '2.4cqw', bottom: '3cqw' }}><span>POWER!</span><b>EAT GHOSTS</b></div>}
+          {g.phase === 'ready' && <div className="readytxt">READY!</div>}
+          {g.msg && <div className="readytxt small">{g.msg.text}</div>}
+          <div className="pctl">{g.type === 'classic' ? 'WASD / ARROWS STEER · P PAUSE' : g.type === 'auto' ? 'AUTO DEMO · ESC TO LEAVE' : 'P1: WASD · P2: ARROWS · P PAUSE'}</div>
+          <div className="scan" />
+        </>
+      )}
+      {g.paused && <div className="screen pause"><h1>PAUSED</h1><button className="big" onClick={chompActions.resume}>RESUME</button><button className="big sec" onClick={() => openHelp('chomp')}>❓ HOW TO PLAY</button><button className="big sec" onClick={chompActions.quit}>QUIT TO DASHBOARD</button></div>}
+      {g.mode === 'over' && g.over && (
+        <div className="screen victory">
+          <h1 className={g.over.win || g.over.title === 'GAME OVER' ? 'gold' : 'red'}>{g.over.title}</h1>
+          <ul>
+            <li><span>SCORE</span><b>{g.over.score.toLocaleString()}</b></li>
+            <li><span>LEVEL REACHED</span><b>{g.over.level}</b></li>
+            <li><span>DOTS · GHOSTS · FRUIT</span><b>{g.over.dots} · {g.over.ghosts} · {g.over.fruits}</b></li>
+            {g.over.type === 'ghost' && <li className="bonus"><span>GHOST BOUNTY (P2)</span><b>{g.over.ghostScore}</b></li>}
+          </ul>
+          {g.over.type !== 'coop' && g.over.type !== 'auto' && <div className="overboard"><TopPlayersMini game="chomp" /></div>}
+          <button className="big" onClick={chompActions.rematch}>↻ PLAY AGAIN</button>
+          <button className="big sec" onClick={chompActions.quit}>DASHBOARD</button>
         </div>
       )}
     </div>
@@ -988,6 +1350,9 @@ function HUDInner({ s }) {
   if (s.mode === 'slug') return <SlugHUD />
   if (s.mode === 'pickle') return <PickleHUD />
   if (s.mode === 'bomber') return <BomberHUD />
+  if (s.mode === 'tetris') return <TetrisHUD />
+  if (s.mode === 'chomp') return <ChompHUD />
+  if (s.mode === 'cards') return <CardsHUD SoundBtn={SoundBtn} openHelp={openHelp} TopPlayersMini={TopPlayersMini} />
   const playing = s.mode === 'playing' || s.mode === 'paused'
   return (
     <div className="hud">

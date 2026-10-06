@@ -117,6 +117,46 @@ const SFX = {
   phase: () => { noise(0.8, 0.4, 2000, 50); tone('sawtooth', 80, 400, 0.8, 0.2) },
   warp: () => { tone('sawtooth', 100, 1600, 1.4, 0.12); noise(1.4, 0.2, 300, 5000, 0, 'bandpass') },
   // run & gun
+  cDeal: () => { noise(0.07, 0.22, 4500, 1500, 0, 'bandpass'); tone('sine', 1300, 700, 0.04, 0.05) },
+  cFlip: () => { noise(0.07, 0.2, 6000, 2000, 0, 'highpass'); tone('triangle', 700, 1150, 0.05, 0.08) },
+  cPlay: () => { tone('sine', 230, 110, 0.08, 0.22); noise(0.05, 0.16, 2500, 600, 0, 'bandpass') },
+  cShuffle: () => { for (let i = 0; i < 14; i++) noise(0.05, 0.14, 3500 + (i % 3) * 800, 1500, i * 0.04, 'bandpass') },
+  cDraw: () => { noise(0.1, 0.18, 2200, 5000, 0, 'bandpass'); tone('triangle', 500, 800, 0.06, 0.07) },
+  cUno: () => arp([659, 880, 1175, 1568], 'square', 0.1, 0.12, 0.06),
+  cSkip: () => { tone('square', 1000, 200, 0.18, 0.12); tone('sawtooth', 600, 150, 0.2, 0.06) },
+  cReverse: () => { tone('triangle', 400, 1200, 0.15, 0.12); tone('triangle', 1200, 400, 0.15, 0.1, 0.14) },
+  cWild: () => arp([523, 659, 784, 1046, 1318, 1568, 2093], 'triangle', 0.1, 0.1, 0.045),
+  cWin: () => { arp([523, 659, 784, 1046, 1318], 'square', 0.16, 0.12, 0.09); arp([659, 784, 1046, 1318, 1568], 'triangle', 0.3, 0.1, 0.5); noise(0.7, 0.14, 800, 6000, 0.1, 'bandpass') },
+  cLose: () => [392, 349, 311, 262].forEach((f, i) => tone('triangle', f, f * 0.96, 0.22, 0.14, i * 0.16)),
+  cBad: () => { tone('square', 170, 150, 0.12, 0.12); tone('square', 130, 110, 0.14, 0.1, 0.1) },
+  cSelect: () => tone('triangle', 900, 1250, 0.05, 0.07),
+  cPass: () => tone('triangle', 520, 330, 0.12, 0.09),
+  cChip: () => { tone('square', 2600, 2000, 0.05, 0.07); tone('square', 3300, 2500, 0.07, 0.05, 0.03); tone('sine', 1400, 1000, 0.1, 0.05, 0.05) },
+  waka: (a = 0) => { const f = a ? 380 : 520; tone('triangle', f, f * 0.55, 0.09, 0.2); tone('square', f * 2, f, 0.05, 0.04) },
+  pPower: () => { tone('sawtooth', 200, 900, 0.3, 0.14); arp([392, 523, 659, 784], 'square', 0.08, 0.08, 0.05) },
+  pEat: (n = 1) => { const f = 400 + n * 160; tone('square', f, f * 3, 0.22, 0.14); tone('triangle', f * 1.5, f * 4, 0.2, 0.1, 0.05) },
+  pDie: () => { [880, 780, 700, 620, 540, 460, 380, 300, 220, 160, 110].forEach((f, i) => tone('square', f, f * 0.93, 0.12, 0.14, i * 0.1)); noise(0.35, 0.18, 800, 100, 1.15) },
+  pFruit: () => arp([784, 988, 1175, 1568], 'square', 0.1, 0.12, 0.06),
+  pFruitSpawn: () => { tone('triangle', 880, 1320, 0.12, 0.1); tone('triangle', 1320, 880, 0.12, 0.08, 0.1) },
+  pClear: () => arp([523, 659, 784, 1046, 784, 1046, 1318, 1568], 'square', 0.12, 0.12, 0.08),
+  pSiren: (p = 0) => { const f = 150 + p * 150; tone('triangle', f, f * 1.6, 0.2, 0.09); tone('triangle', f * 1.6, f, 0.2, 0.07, 0.2) },
+  pFright: () => { tone('square', 280, 340, 0.08, 0.06); tone('square', 340, 280, 0.08, 0.05, 0.09) },
+  pEyes: () => tone('sine', 1400, 600, 0.16, 0.08),
+  pIntro: () => { [494, 988, 740, 622, 988, 740, 622, 523, 1046, 784, 659, 1046, 784, 659].forEach((f, i) => tone('square', f, f, 0.1, 0.09, i * 0.095)); },
+  tMove: () => tone('square', 700, 650, 0.02, 0.04),
+  tRotate: () => tone('square', 980, 1180, 0.04, 0.06),
+  tHold: () => { tone('triangle', 520, 780, 0.08, 0.1); tone('triangle', 780, 520, 0.08, 0.08, 0.07) },
+  tLock: () => { tone('sine', 190, 110, 0.07, 0.2); noise(0.03, 0.12, 900, 300) },
+  tDrop: () => { tone('sine', 260, 70, 0.14, 0.32); noise(0.1, 0.25, 1600, 200); tone('square', 1500, 400, 0.05, 0.05) },
+  tClear: (n = 1) => arp([523, 659, 784, 1046].slice(0, n + 1).map((f) => f), 'square', 0.09, 0.1, 0.05),
+  tTetris: () => { arp([392, 523, 659, 784, 1046, 1318], 'square', 0.12, 0.12, 0.05); noise(0.5, 0.25, 600, 6000, 0, 'bandpass'); tone('sine', 90, 40, 0.4, 0.4) },
+  tSpin: () => { tone('sawtooth', 300, 1200, 0.25, 0.12); tone('square', 1200, 1800, 0.2, 0.08, 0.1) },
+  tCombo: (n = 1) => { const f = 500 + Math.min(n, 12) * 70; tone('triangle', f, f * 1.5, 0.1, 0.12); tone('triangle', f * 1.5, f * 2, 0.1, 0.1, 0.07) },
+  tLevel: () => arp([523, 659, 784, 1046, 1318, 1568], 'triangle', 0.12, 0.14, 0.06),
+  tGarbage: () => { noise(0.25, 0.4, 500, 80); tone('sawtooth', 120, 60, 0.2, 0.2) },
+  tTop: () => { [440, 370, 311, 247, 185, 131].forEach((f, i) => tone('sawtooth', f, f * 0.9, 0.16, 0.14, i * 0.1)); noise(0.6, 0.3, 1500, 60, 0.3) },
+  tPC: () => { arp([523, 659, 784, 1046, 1318, 1568, 2093], 'square', 0.14, 0.12, 0.06); noise(0.8, 0.2, 800, 7000, 0.1, 'bandpass') },
+  tWarn: () => tone('square', 440, 440, 0.06, 0.06),
   bombPlace: () => { tone('sine', 220, 120, 0.1, 0.22); noise(0.05, 0.12, 900, 300) },
   bombBoom: () => { noise(0.6, 0.6, 2400, 70); tone('sawtooth', 150, 32, 0.5, 0.3); tone('sine', 80, 28, 0.45, 0.4); noise(0.12, 0.3, 6000, 1200, 0.02, 'highpass') },
   die: () => { [520, 420, 330, 230, 150].forEach((f, i) => tone('square', f, f * 0.8, 0.12, 0.14, i * 0.07)); noise(0.3, 0.2, 900, 120, 0.1) },
@@ -191,7 +231,7 @@ export function testSound() { unlockAudio(); sfx('test'); speak('Sound check. Re
 // ---------------- music ----------------
 const M = { mode: null, step: 0, next: 0, timer: null, mission: 0, bpm: 120, trans: 0 }
 const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12)
-const PROG = { bomber: [0, 3, 5, 2], pickle: [0, 5, 7, 9], play: [0, -4, -2, -5], boss: [0, 0, 1, -1], menu: [0, -4, -7, -5], slug: [0, 0, -5, -2], slugboss: [0, 1, 0, -2] }
+const PROG = { cards: [0, 5, 3, 7], tetris: [0, -2, -4, -5], bomber: [0, 3, 5, 2], pickle: [0, 5, 7, 9], play: [0, -4, -2, -5], boss: [0, 0, 1, -1], menu: [0, -4, -7, -5], slug: [0, 0, -5, -2], slugboss: [0, 1, 0, -2] }
 const CH = [[0, 3, 7, 12], [0, 4, 7, 12], [0, 4, 7, 12], [0, 4, 7, 11]]
 const ARP = [0, 1, 2, 3, 2, 1, 2, 1, 0, 1, 2, 3, 2, 3, 2, 1]
 const CHP = [[0, 4, 7, 12], [0, 4, 7, 12], [0, 4, 7, 12], [0, 3, 7, 12]]
@@ -212,6 +252,33 @@ function playStep(step, t) {
   if (mode === 'menu') {
     if (s % 2 === 0) tn('triangle', root + 12 + CH[bar][ARP[s]], 0.2, 0.14)
     if (s === 0) tn('sine', root - 12, 1.2, 0.3)
+    return
+  }
+  if (mode === 'cards') {
+    const rc = 48 + PROG.cards[bar], sw = s % 4 === 3 ? 0.02 : 0
+    if (s % 4 === 0) tone('triangle', mtof(rc - 12), mtof(rc - 12), 0.28, 0.3, w, musG)
+    if (s % 4 === 2) tone('triangle', mtof(rc - 5), mtof(rc - 5), 0.2, 0.22, w, musG)
+    if (s % 8 === 2 || s % 8 === 6) for (const iv of [0, 3, 7, 10]) tone('triangle', mtof(rc + 12 + iv), mtof(rc + 12 + iv), 0.3, 0.035, w + sw, musG)
+    if ([0, 3, 6, 9, 12, 14].includes(s) && (bar % 2 === 0 || s % 3 === 0)) { const n = rc + 24 + [0, 3, 5, 7, 10, 12][(s + bar * 2) % 6]; tone('sine', mtof(n), mtof(n), 0.22, 0.05, w, musG) }
+    if (s % 4 === 2) noise(0.05, 0.07, 6500, 4000, w, 'highpass', musG)
+    if (s % 8 === 0) tone('sine', 120, 50, 0.1, 0.25, w, musG)
+    return
+  }
+  if (mode === 'tetris') {
+    const TM = [
+      [9, null, null, 5, 7, null, 9, null, 12, null, 9, null, 7, null, 5, null],
+      [4, null, null, 7, 9, null, 11, null, 9, null, 7, null, 4, null, 2, null],
+      [0, null, 2, null, 4, null, 5, null, 7, null, null, 9, 11, null, 12, null],
+      [14, null, 12, null, 11, null, 9, null, 7, null, 4, null, 2, null, null, null],
+    ]
+    const rt = 45 + PROG.tetris[bar]
+    if (s % 2 === 0) tone('triangle', mtof(rt - 12 + (s % 8 === 6 ? 7 : 0)), mtof(rt - 12 + (s % 8 === 6 ? 7 : 0)), 0.13, 0.3, w, musG)
+    const m = TM[bar][s]
+    if (m !== null) { const n = 57 + m; tone('square', mtof(n), mtof(n), 0.14, 0.075, w, musG) }
+    if (s % 4 === 2) { const n = rt + 12 + [0, 3, 7, 12][(s >> 2) % 4]; tone('square', mtof(n), mtof(n), 0.05, 0.03, w, musG) }
+    if (s % 4 === 0) tone('sine', 150, 40, 0.12, 0.45, w, musG)
+    if (s % 8 === 4) noise(0.09, 0.2, 4500, 1500, w, 'highpass', musG)
+    if (s % 2 === 1) noise(0.02, 0.04, 9500, 8000, w, 'highpass', musG)
     return
   }
   if (mode === 'bomber') {
@@ -275,7 +342,7 @@ export const music = {
     M.mode = mode; M.mission = mission
     const m = mission
     const bpms = [120, 124, 128, 132, 136, 140, 144, 148, 152, 156]
-    M.bpm = mode === 'menu' ? 92 : mode === 'bomber' ? 134 : mode === 'pickle' ? 116 : mode === 'boss' ? 150 + m * 2 : mode === 'slug' ? 112 + m * 6 : mode === 'slugboss' ? 146 + m * 4 : bpms[m] || 120
+    M.bpm = mode === 'menu' ? 92 : mode === 'cards' ? 100 : mode === 'tetris' ? 128 + m * 5 : mode === 'bomber' ? 134 : mode === 'pickle' ? 116 : mode === 'boss' ? 150 + m * 2 : mode === 'slug' ? 112 + m * 6 : mode === 'slugboss' ? 146 + m * 4 : bpms[m] || 120
     M.trans = mode === 'slug' || mode === 'slugboss' ? [0, 2, -3][m] || 0 : [0, 2, -2, 3, 5, -3, 1, -5, 4, 0][m] || 0
     if (!keepStep) M.step = 0
     if (ctx) { M.next = Math.max(M.next, ctx.currentTime + 0.05); startTimer() }

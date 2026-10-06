@@ -14,10 +14,10 @@ const hit = (a, b) => Math.abs(a.x - b.x) < a.hw + b.hw && Math.abs(a.y - b.y) <
 const PUP_WEIGHTS = { P: 22, S: 14, R: 14, W: 12, L: 9, M: 9, H: 10, B: 8, U: 2, X: 6, G: 6, D: 8 }
 
 export const keys = {}
-const ARCADE = new Set(['slug', 'pickle', 'bomber'])
+const ARCADE = new Set(['slug', 'pickle', 'bomber', 'tetris', 'chomp', 'cards'])
 export const games = {} // other game modes register themselves here (see slug.js)
-export const profile = { bomberGames: 0, bomberWins: 0, bomberKills: 0, bricks: 0, seen: {}, name: '', pickleGames: 0, pickleWins: 0, aces: 0, ship: { model: 0, paint: 0, trail: 0, bullet: 0 }, kills: 0, bosses: 0, pows: 0, skills: 0, bonus: 0, spaceWins: 0, slugWins: 0, played: 0, spaceHi: 0, slugHi: 0, tops: { space: [], slug: [], pickle: [], bomber: [] } }
-try { const sv = JSON.parse(localStorage.getItem('si_profile') || '{}'); Object.assign(profile, sv); profile.tops = { space: [], slug: [], pickle: [], bomber: [], ...(sv.tops || {}) }; profile.ship = { model: 0, paint: 0, trail: 0, bullet: 0, ...(sv.ship || {}) }; profile.seen = { ...(sv.seen || {}) } } catch { /* ignore */ }
+export const profile = { chips: 1000, cardWins: 0, cardGames: 0, unoWins: 0, pusoyWins: 0, luckyNines: 0, tongitsWins: 0, chompDots: 0, chompGhosts: 0, chompGames: 0, chompLevels: 0, chompHi: 0, tetrisLines: 0, tetrises: 0, tspins: 0, tetrisGames: 0, tetrisWins: 0, sprints: 0, bomberGames: 0, bomberWins: 0, bomberKills: 0, bricks: 0, seen: {}, name: '', pickleGames: 0, pickleWins: 0, aces: 0, ship: { model: 0, paint: 0, trail: 0, bullet: 0 }, kills: 0, bosses: 0, pows: 0, skills: 0, bonus: 0, spaceWins: 0, slugWins: 0, played: 0, spaceHi: 0, slugHi: 0, tops: { space: [], slug: [], pickle: [], bomber: [], tetris: [], chomp: [], uno: [], pusoy: [], lucky9: [], tongits: [] } }
+try { const sv = JSON.parse(localStorage.getItem('si_profile') || '{}'); Object.assign(profile, sv); profile.tops = { space: [], slug: [], pickle: [], bomber: [], tetris: [], chomp: [], uno: [], pusoy: [], lucky9: [], tongits: [], ...(sv.tops || {}) }; profile.ship = { model: 0, paint: 0, trail: 0, bullet: 0, ...(sv.ship || {}) }; profile.seen = { ...(sv.seen || {}) } } catch { /* ignore */ }
 export const saveProfile = () => { try { localStorage.setItem('si_profile', JSON.stringify(profile)) } catch { /* ignore */ } }
 export function recordScore(game, score) {
   const t = profile.tops[game] || (profile.tops[game] = [])
@@ -964,7 +964,7 @@ export function startGameAt(i) {
   if (i > G.unlocked) { sfx('deny'); return }
   startGame(); if (i > 0) { G.credits = 300 * i; startMission(i) }
 }
-export function toMenu() { if (games.slug) games.slug.stop(); if (games.pickle) games.pickle.stop(); if (games.bomber) games.bomber.stop(); G.parts = []; G.pops = []; G.shake = 0; G.flash = 0; saveProfile(); G.mode = 'menu'; G.banner = null; G.boss = null; G.enemies = []; G.ebul = []; G.pbul = []; G.pups = []; G.beams = []; initAudio(); music.set('menu'); sfx('ui'); emit() }
+export function toMenu() { if (games.slug) games.slug.stop(); if (games.pickle) games.pickle.stop(); if (games.bomber) games.bomber.stop(); if (games.tetris) games.tetris.stop(); if (games.chomp) games.chomp.stop(); if (games.cards) games.cards.stop(); G.parts = []; G.pops = []; G.shake = 0; G.flash = 0; saveProfile(); G.mode = 'menu'; G.banner = null; G.boss = null; G.enemies = []; G.ebul = []; G.pbul = []; G.pups = []; G.beams = []; initAudio(); music.set('menu'); sfx('ui'); emit() }
 export function retryMission() {
   const s = G.save
   G.score = s.score; G.credits = s.credits; G.lives = Math.max(3, s.lives); G.up = { ...s.up }; G.wlKeep = s.wl; G.droneKeep = s.droneKeep || 0; G.nextLife = s.nextLife
@@ -1026,7 +1026,7 @@ function buildSnap() {
     mission: G.mission, missionName: m.name, missionSub: m.sub, missions: MISSIONS.length, color: m.color,
     hp: p ? Math.max(0, p.hp) : 0, maxHp: p ? p.maxHp : 3,
     skills: p ? Object.keys(SK).map((k) => ({ k, key: SK[k].key, name: SK[k].name, color: SK[k].color, lv: skillLv(k), cd: p.cd[k], max: p.cdMax[k], active: k === 'laser' ? !!G.lz : k === 'shield' ? p.skT > 0 : p.cd.bomb > p.cdMax.bomb - 0.6 })).concat([{ k: 'od', key: 'R', name: 'OVERDRIVE', color: '#ff4de1', lv: '', label: p.od > 0 ? `${Math.ceil(p.od)}s` : G.meter >= 100 ? 'READY' : Math.floor(G.meter) + '%', cd: p.od > 0 ? 0 : G.meter >= 100 ? 0 : 100 - G.meter, max: 100, active: p.od > 0 }]) : [],
-    profile: { ...profile, tops: { space: profile.tops.space.slice(), slug: profile.tops.slug.slice(), pickle: (profile.tops.pickle || []).slice(), bomber: (profile.tops.bomber || []).slice() } }, wl: p ? p.wl : 1,
+    profile: { ...profile, tops: { space: profile.tops.space.slice(), slug: profile.tops.slug.slice(), pickle: (profile.tops.pickle || []).slice(), bomber: (profile.tops.bomber || []).slice(), tetris: (profile.tops.tetris || []).slice(), chomp: (profile.tops.chomp || []).slice(), uno: (profile.tops.uno || []).slice(), pusoy: (profile.tops.pusoy || []).slice(), lucky9: (profile.tops.lucky9 || []).slice(), tongits: (profile.tops.tongits || []).slice() } }, wl: p ? p.wl : 1,
     special: p ? p.special : 'normal', specialT: p ? p.specialT : 0, rapidT: p ? p.rapidT : 0, shieldT: p ? p.shieldT : 0,
     magnetT: p ? p.magnetT : 0, multT: p ? p.multT : 0,
     combo: G.combo, comboMult: comboMult(), comboT: G.comboT,

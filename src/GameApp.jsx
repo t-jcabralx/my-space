@@ -10,12 +10,18 @@ import './game/pickle.js'
 import { onKey, G, dragShip, setTouchFire, togglePause, subscribe, getSnap } from './game/engine.js'
 import { unlockAudio, setMuted, isMuted } from './game/audio.js'
 import './game/bomber.js'
+import './game/tetris.js'
+import './game/chomp.js'
+import './game/cards/uno.js'
+import './game/cards/pusoy.js'
+import './game/cards/lucky9.js'
+import './game/cards/tongits.js'
 import { subscribeSettings, getSettings } from './game/settings.js'
 
 export default function GameApp() {
   const stage = useRef()
   const snap = useSyncExternalStore(subscribe, getSnap)
-  const menu = snap && snap.mode === 'menu'
+  const menu = snap && (snap.mode === 'menu' || snap.mode === 'cards')
   const [autoLow, setLow] = useState(false)
   const set = useSyncExternalStore(subscribeSettings, getSettings)
   const low = set.quality === 'low' || (set.quality === 'auto' && autoLow)
