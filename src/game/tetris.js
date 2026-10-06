@@ -31,6 +31,7 @@ export const MODES = {
   zen:      { name: 'ZEN', desc: 'Relax. Endless play, no game over.', boards: 1, zen: true },
   bot:      { name: 'VS BOT', desc: 'Battle a bot: clear lines to send garbage.', boards: 2, versus: true, humans: [0] },
   versus:   { name: '2P VERSUS', desc: 'Two players on one keyboard.', boards: 2, versus: true, humans: [0, 1] },
+  online:   { name: 'ONLINE 1V1', desc: 'Battle a real player over the internet.', boards: 2, versus: true, humans: [0], online: true },
   demo:     { name: 'BOT vs BOT', desc: 'Watch two bots battle (demo).', boards: 2, versus: true, humans: [] },
 }
 const DIFF = [{ name: 'EASY', delay: 0.2, lookahead: false, miss: 0.14 }, { name: 'MEDIUM', delay: 0.1, lookahead: false, miss: 0.04 }, { name: 'HARD', delay: 0.045, lookahead: true, miss: 0 }]
@@ -46,7 +47,7 @@ function emitT() {
   snap = {
     mode: T.mode, paused: T.paused, phase: T.phase, type: T.cfg.type, modeName: m.name, versus: !!m.versus, diff: DIFF[T.cfg.diff - 1].name, countdown: T.phase === 'ready' ? Math.ceil(T.readyT) : 0,
     time: T.elapsed, goal: m.goal || null, over: T.over, msgs: T.msgs.map((x) => ({ ...x })),
-    boards: T.bd.map((b) => ({ id: b.id, human: b.human, name: b.name, score: b.score, lines: b.lines, level: b.level, combo: Math.max(0, b.combo), b2b: b.b2b, pending: b.pending.reduce((a, x) => a + x, 0), dead: b.dead, pps: T.elapsed > 1 ? +(b.stats.pieces / T.elapsed).toFixed(2) : 0, danger: b.danger, attack: b.stats.sent, fever: b.fever > 0 ? Math.ceil(b.fever) : 0 })),
+    boards: T.bd.map((b) => ({ id: b.id, human: b.human, name: b.name, score: b.score, lines: b.lines, level: b.level, combo: Math.max(0, b.combo), b2b: b.b2b, pending: b.pending.reduce((a, x) => a + x, 0), dead: b.dead, pps: T.elapsed > 1 ? +(b.stats.pieces / T.elapsed).toFixed(2) : 0, danger: b.danger, attack: b.stats.sent, fever: b.fever > 0 ? Math.ceil(b.fever) : 0, remote: !!b.remote })),
   }
   subs.forEach((f) => f())
 }
@@ -61,10 +62,14 @@ function newBoard(id, human, name) {
     cx: 0, fever: 0, plan: null, actT: 0, deadT: 0, goalDone: false, soft: false,
   }
 }
-function refill(b) { const bag = KINDS.split(''); for (let i = bag.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [bag[i], bag[j]] = [bag[j], bag[i]] } b.bag.push(...bag) }
+let RNG = Math.random
+const seeded = (a) => () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296 }
+function refill(b) { const bag = KINDS.split(''); for (let i = bag.length - 1; i > 0; i--) { const j = Math.floor(RNG() * (i + 1)); [bag[i], bag[j]] = [bag[j], bag[i]] } b.bag.push(...bag) }
 function nextKind(b) { while (b.queue.length < 7) { if (!b.bag.length) refill(b); b.queue.push(b.bag.shift()) } return b.queue.shift() }
-function start(type = 'marathon', level = 1, diff = 2) {
+function start(type = 'marathon', level = 1, diff = 2, opts = {}) {
   const m = MODES[type]
+  RNG = opts.seed != null ? seeded(opts.seed) : Math.random
+  if (!m.online) T.net = null
   T.cfg = { type, level, diff }
   const humans = m.humans || [0]
   T.bd = []
@@ -73,6 +78,7 @@ function start(type = 'marathon', level = 1, diff = 2) {
     const h = humans.indexOf(i) >= 0 ? humans.indexOf(i) + 1 : 0
     const b = newBoard(i, h, m.versus ? (h ? (humans.length > 1 ? 'P' + h : 'YOU') : 'BOT') : 'YOU')
     b.level = level
+    if (m.online && i === 1) { b.remote = true; b.name = String(opts.oppName || 'RIVAL').slice(0, 10).toUpperCase() }
     T.bd.push(b)
   }
   T.bd[0].cx = m.versus ? -27 : 0
@@ -84,7 +90,7 @@ function start(type = 'marathon', level = 1, diff = 2) {
   for (const b of T.bd) { b.state = 'wait'; spawn(b) ; b.piece = null }
   music.set('tetris', 0); sfx('mission'); emitT()
 }
-function stop() { T.mode = 'idle'; T.paused = false; music.set('menu'); emitT() }
+function stop() { if (T.net) { const n = T.net; T.net = null; if (n.onStop) try { n.onStop() } catch { /* ignore */ } } T.mode = 'idle'; T.paused = false; music.set('menu'); emitT() }
 
 // ---------- piece logic ----------
 const cellsOf = (kind, rot, x, y) => SHAPES[kind][rot].map(([cx, cy]) => [x + cx, y + cy])
@@ -259,7 +265,7 @@ function finishClear(b) {
   if (b.attackPending) {
     let atk = b.attackPending
     while (atk > 0 && b.pending.length) { const take = Math.min(atk, b.pending[0]); b.pending[0] -= take; atk -= take; if (b.pending[0] <= 0) b.pending.shift() }
-    if (atk > 0) { const opp = T.bd.find((o) => o !== b && !o.dead); if (opp) { opp.pending.push(atk); b.stats.sent += atk; sfx('tGarbage'); popup(opp.cx, 18, '⚠ +' + atk, [1, 0.3, 0.3]) } }
+    if (atk > 0) { const opp = T.bd.find((o) => o !== b && !o.dead); if (opp) { if (opp.remote) { if (T.net) T.net.atk(atk) } else opp.pending.push(atk); b.stats.sent += atk; sfx('tGarbage'); popup(opp.cx, 18, '⚠ +' + atk, [1, 0.3, 0.3]) } }
     b.attackPending = 0
   } else if (b.combo < 0) applyGarbage(b)
   checkGoals(b)
@@ -283,6 +289,7 @@ function topOut(b) {
   const m = MODES[T.cfg.type]
   if (m.zen) { b.grid = Array.from({ length: H }, () => Array(W).fill(null)); sfx('tHold'); ring(b.cx, 0, 40, 60, COLS.cyan); spawn(b); return }
   b.dead = true; b.state = 'dead'; b.piece = null
+  if (T.net && !b.remote) T.net.dead()
   sfx('tTop'); shake(2.2); flash(0.5, [1, 0.2, 0.2])
   if (!m.versus) endGame(false)
   else {
@@ -299,13 +306,14 @@ function endGame(result) {
   const m = MODES[T.cfg.type]
   const b0 = T.bd.find((b) => b.human) || T.bd[0]
   let win = false, title = ''
-  if (m.versus) { const w = result; win = !!(w && w.human); title = w ? (w.human ? (T.bd.filter((x) => x.human).length > 1 ? w.name + ' WINS!' : 'YOU WIN!') : 'BOT WINS') : 'DRAW'; if (w && m.humans.length === 1 && !w.human) win = false }
+  if (m.online) { const w = result; win = !!(w && !w.remote); title = w ? (w.remote ? w.name + ' WINS' : 'YOU WIN!') : 'DRAW' }
+  else if (m.versus) { const w = result; win = !!(w && w.human); title = w ? (w.human ? (T.bd.filter((x) => x.human).length > 1 ? w.name + ' WINS!' : 'YOU WIN!') : 'BOT WINS') : 'DRAW'; if (w && m.humans.length === 1 && !w.human) win = false }
   else if (m.goal && m.goal.lines) { win = !!result; title = win ? (T.cfg.type === 'sprint' ? 'SPRINT COMPLETE!' : 'MARATHON COMPLETE!') : 'GAME OVER' }
   else if (m.goal && m.goal.time) { win = T.elapsed >= m.goal.time - 0.01; title = win ? "TIME'S UP!" : 'GAME OVER' }
   else title = 'GAME OVER'
   let score = 0
   if (T.cfg.type === 'sprint') score = win ? Math.max(1, 100000 - Math.round(T.elapsed * 100)) : 0
-  else if (T.cfg.type === 'bot') score = Math.round(b0.score / 10 + (win ? 3000 : 0) + b0.stats.sent * 60)
+  else if (T.cfg.type === 'bot' || T.cfg.type === 'online') score = Math.round(b0.score / 10 + (win ? 3000 : 0) + b0.stats.sent * 60)
   else if (T.cfg.type === 'marathon' || T.cfg.type === 'ultra') score = b0.score
   T.over = { win, title, score, time: T.elapsed, lines: b0.lines, tetrises: b0.stats.tetrises, tspins: b0.stats.tspins, maxCombo: b0.stats.maxCombo, pps: T.elapsed > 1 ? +(b0.stats.pieces / T.elapsed).toFixed(2) : 0, pieces: b0.stats.pieces, boardScore: b0.score, type: T.cfg.type, scores: T.bd.map((b) => b.score) }
   T.mode = 'over'; T.phase = 'over'; music.stop()
@@ -328,6 +336,7 @@ function stepBoard(b, dt, danger) {
   let hi = 0
   for (let r = 0; r < H; r++) if (b.grid[r].some((c) => c)) { hi = H - r; break }
   b.danger = hi > 16
+  if (b.remote) { if (b.piece) b.piece.yf = b.piece.y; return }
   if (b.dead) { b.deadT += dt; return }
   if (b.state === 'clear') { b.clearT -= dt; if (b.clearT <= 0) finishClear(b); return }
   if (b.state === 'are') { b.areT -= dt; if (b.areT <= 0) { spawn(b); if (b.human && b.piece) nudgeHeld(b) } return }
@@ -471,7 +480,7 @@ function play(dt) {
     T.readyT -= dt
     const n = Math.ceil(T.readyT)
     if (n !== T.lastCount && n >= 1 && n <= 3) { T.lastCount = n; sfx('beep') }
-    if (T.readyT <= 0) { T.phase = 'play'; sfx('go'); for (const b of T.bd) spawn(b) }
+    if (T.readyT <= 0) { T.phase = 'play'; sfx('go'); for (const b of T.bd) if (!b.remote) spawn(b) }
   } else if (T.phase === 'play') {
     T.elapsed += dt
     const g = MODES[T.cfg.type].goal
@@ -489,12 +498,43 @@ function update(dtRaw) {
   if (T.mode === 'idle') return
   if (T.mode === 'play' && !T.paused) play(dt)
   else if (T.mode === 'over') { T.t += dt; for (const b of T.bd) if (b.dead) b.deadT += dt; stepParticles(dt) }
+  if (T.net && T.mode === 'play' && T.phase === 'play') { T.netT = (T.netT || 0) - dt; if (T.netT <= 0) { T.netT = 0.1; T.net.state(netSnapshot()) } }
   T.emitT -= dt
   if (T.emitT <= 0) { T.emitT = 0.07; emitT() }
 }
 export const tetrisActions = {
-  start, stop, quit() { toMenu() }, resume() { T.paused = false; emitT() }, rematch() { start(T.cfg.type, T.cfg.level, T.cfg.diff) },
-  pause() { if (T.mode === 'play' && !T.paused) { T.paused = true; emitT(); return true } return false },
+  start, stop, quit() { toMenu() }, resume() { T.paused = false; emitT() }, rematch() { if (T.net) { T.net.rematch(); return } start(T.cfg.type, T.cfg.level, T.cfg.diff) },
+  pause() { if (T.mode === 'play' && !T.paused && !T.net) { T.paused = true; emitT(); return true } return false },
+}
+
+// ---------- online (messages travel through the Next.js realtime routes) ----------
+function netSnapshot() {
+  const b = T.bd[0], p = b.piece
+  return { g: b.grid.map((r) => r.map((c) => c || '.').join('')), p: p && b.state === 'play' ? [p.kind, p.rot, p.x, p.y] : null, h: b.hold, q: b.queue.slice(0, 5), s: b.score, l: b.lines, lv: b.level, pd: b.pending.reduce((a, x) => a + x, 0), d: b.dead, sn: b.stats.sent, c: b.combo, b2: b.b2b }
+}
+export const tetrisNet = {
+  attach(net) { T.net = net },
+  active: () => !!T.net && T.mode !== 'idle',
+  applyAtk(n) { const b = T.bd[0]; if (!b || b.dead || T.mode !== 'play') return; b.pending.push(Math.min(12, Math.max(1, n | 0))); sfx('tGarbage'); popup(b.cx, 18, '⚠ +' + n, [1, 0.3, 0.3]) },
+  applyState(s) {
+    const o = T.bd[1]
+    if (!o || !o.remote || T.mode === 'idle' || !s || !Array.isArray(s.g)) return
+    o.grid = s.g.slice(0, H).map((row) => Array.from({ length: W }, (_, i) => (row[i] && row[i] !== '.' && COLORS[row[i]] ? row[i] : null)))
+    while (o.grid.length < H) o.grid.unshift(Array(W).fill(null))
+    o.piece = s.p ? { kind: s.p[0], rot: s.p[1], x: s.p[2], y: s.p[3], yf: s.p[3], pop: 0, last: 'none', kick: 0 } : null
+    o.state = s.p ? 'play' : 'are'
+    o.hold = s.h || null; o.queue = Array.isArray(s.q) ? s.q.slice(0, 5) : []
+    o.score = s.s | 0; o.lines = s.l | 0; o.level = s.lv | 0 || 1; o.combo = s.c == null ? -1 : s.c; o.b2b = !!s.b2
+    o.pending = s.pd > 0 ? [s.pd | 0] : []; o.stats.sent = s.sn | 0
+    if (s.d && !o.dead) tetrisNet.oppOut()
+  },
+  // the opponent topped out or left: I win
+  oppOut() {
+    const o = T.bd[1], me = T.bd[0]
+    if (!o || !o.remote || T.over || T.mode !== 'play') return
+    o.dead = true; o.state = 'dead'; o.piece = null
+    if (!me.dead) endGame(me)
+  },
 }
 
 // ---------- rendering ----------

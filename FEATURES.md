@@ -32,7 +32,7 @@ Ten games, one dashboard. This is an honest audit of what each game had, what it
 | **Tong-its** | Melds, sapaw, Draw challenge, burned | n/a | Opponent hands flip face-up on a challenge showdown |
 
 ## Recommended next steps (not built yet)
-- **Online multiplayer** (needs a realtime service such as WebSockets; Next.js on a serverless host cannot hold the connections itself).
+- **Online extras**: matchmaking/quick-play queue, spectators, rejoin after refresh, online Pickleball/Bomber, ranked Elo.
 - **Cosmetics shop**: spend chips on ship skins, card backs, table felts, trail effects.
 - **Seasonal events / weekly tournaments** using the existing Redis leaderboard with a week key.
 - **Touch controls** for Ground Zero, Bomber and Tetris on phones.

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import OnlineLobby from './OnlineLobby.jsx'
 import { subscribe, getSnap, startGame, toShop, launchNext, buy, retryMission, toMenu, togglePause, useSkill, startGameAt, setShip, setName, markSeen, claimDaily } from '../game/engine.js'
 import { subscribeSlug, getSlugSnap, slugActions } from '../game/slug.js'
 import { subscribePickle, getPickleSnap, pickleActions, MODES } from '../game/pickle.js'
@@ -879,7 +880,7 @@ function ChompLobby({ s, mode, setMode, level, setLevel }) {
   )
 }
 
-function CardRoomLobby({ s }) {
+function CardRoomLobby({ s, onOnline }) {
   const [game, setGame] = useState('uno')
   const [count, setCount] = useState(3)
   const [stack, setStack] = useState(true)
@@ -916,7 +917,7 @@ function CardRoomLobby({ s }) {
           {game === 'tongits' && <div><h4>STAKE PER ROUND</h4><div className="chips">{[50, 100, 200].map((v) => <button key={v} className={'chip ' + (stake === v ? 'sel' : '')} onClick={() => setStake(v)}>🪙 {v}</button>)}</div></div>}
         </div>
         <div className="lobbyinfo"><b>{GAMES.find((g) => g[0] === game)[2]}</b> · {GAMES.find((g) => g[0] === game)[3]}<br /><small>{game === 'lucky9' || game === 'tongits' ? `Uses your chip bank: 🪙 ${Number(p.chips || 0).toLocaleString()}. Cash out to put your chips on the leaderboard.` : 'Click your cards to play. Glowing cards are playable.'}</small></div>
-        <div className="chips"><button className="big" onClick={() => start(false)}>▶ SIT DOWN & PLAY</button><button className="big sec" onClick={() => start(true)}>👁 WATCH BOTS</button></div>
+        <div className="chips"><button className="big" onClick={() => start(false)}>▶ SIT DOWN & PLAY</button><button className="big sec" onClick={() => start(true)}>👁 WATCH BOTS</button><button className="big sec" onClick={onOnline}>🌐 PLAY WITH FRIENDS</button></div>
       </div>
       <div className="lobbyR">
         <div className="panel"><h4>MY CARD ROOM</h4><div className="kv"><span>CHIP BANK</span><b>🪙 {Number(p.chips || 0).toLocaleString()}</b><span>GAMES WON</span><b>{p.cardWins || 0}</b><span>UNO WINS</span><b>{p.unoWins || 0}</b><span>PUSOY WINS</span><b>{p.pusoyWins || 0}</b><span>LUCKY 9s</span><b>{p.luckyNines || 0}</b><span>TONG-ITS</span><b>{p.tongitsWins || 0}</b></div></div>
@@ -982,7 +983,7 @@ function Hub({ s }) {
   const next = RANKS[ri + 1]
   const pct = next ? ((xp - RANKS[ri][0]) / (next[0] - RANKS[ri][0])) * 100 : 100
   const doneAch = ACH.filter(([, , g, goal]) => g(p, s.unlocked) >= goal).length
-  const TABS = [['home', 'DASHBOARD'], ['pickle', '🏓 PICKLEBALL'], ['bomber', '💣 BOMBER'], ['tetris', '🧱 TETRIS'], ['chomp', '🟡 CHOMP'], ['cards', '🃏 CARDS'], ['top', '🏆 TOP PLAYERS'], ['ship', 'CUSTOMIZE SHIP'], ['levels', 'SPACE LEVELS'], ['skills', 'CONTROLS'], ['settings', '⚙ SETTINGS'], ['awards', `AWARDS ${doneAch}/${ACH.length}`]]
+  const TABS = [['home', 'DASHBOARD'], ['pickle', '🏓 PICKLEBALL'], ['bomber', '💣 BOMBER'], ['tetris', '🧱 TETRIS'], ['chomp', '🟡 CHOMP'], ['cards', '🃏 CARDS'], ['online', '🌐 ONLINE'], ['top', '🏆 TOP PLAYERS'], ['ship', 'CUSTOMIZE SHIP'], ['levels', 'SPACE LEVELS'], ['skills', 'CONTROLS'], ['settings', '⚙ SETTINGS'], ['awards', `AWARDS ${doneAch}/${ACH.length}`]]
   return (
     <div className="screen hub">
       <div className="hubtop">
@@ -1036,7 +1037,8 @@ function Hub({ s }) {
         </>
       )}
       {tab === 'pickle' && <PickleLobby s={s} mode={pmode} setMode={setPmode} diff={pdiff} setDiff={setPdiff} target={ptarget} setTarget={setPtarget} />}
-      {tab === 'cards' && <CardRoomLobby s={s} />}
+      {tab === 'cards' && <CardRoomLobby s={s} onOnline={() => setTab('online')} />}
+      {tab === 'online' && <OnlineLobby s={s} TopPlayers={TopPlayers} />}
       {tab === 'chomp' && <ChompLobby s={s} mode={cmode} setMode={setCmode} level={clevel} setLevel={setClevel} />}
       {tab === 'tetris' && <TetrisLobby s={s} mode={tmode} setMode={setTmode} diff={tdiff} setDiff={setTdiff} level={tlevel} setLevel={setTlevel} />}
       {tab === 'bomber' && <BomberLobby s={s} mode={bmode} setMode={setBmode} diff={bdiff} setDiff={setBdiff} rounds={brounds} setRounds={setBrounds} />}

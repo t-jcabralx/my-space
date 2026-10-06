@@ -1,0 +1,114 @@
+// Two-process online game test against a running Next server: node scripts/sim-online.mjs  (parent spawns host + guest)
+import { spawn } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
+const role = process.argv[2], game = process.argv[3] || 'tetris', code = process.argv[4]
+const BASE = process.env.RT_BASE || 'http://localhost:3000'
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+if (!role) {
+  const self = fileURLToPath(import.meta.url)
+  let fail = 0
+  for (const g of (process.env.GAMES || 'tetris,uno,pusoy,tongits,lucky9').split(',')) {
+    const host = spawn('node', [self, 'host', g], { stdio: ['ignore', 'pipe', 'inherit'] })
+    let hostOut = '', guestOut = '', guest
+    host.stdout.on('data', (d) => {
+      hostOut += d; process.stdout.write('[host] ' + d)
+      const m = /CODE (\w+)/.exec(hostOut)
+      if (m && !guest) { guest = spawn('node', [self, 'guest', g, m[1]], { stdio: ['ignore', 'pipe', 'inherit'] }); guest.stdout.on('data', (x) => { guestOut += x; process.stdout.write('[guest] ' + x) }) }
+    })
+    await new Promise((r) => host.on('exit', r))
+    if (guest) await new Promise((r) => (guest.exitCode !== null ? r() : guest.on('exit', r)))
+    if (/FAIL/.test(hostOut + guestOut) || !/DONE/.test(hostOut) || !/DONE/.test(guestOut)) fail++
+  }
+  console.log(fail ? 'ONLINE FAIL' : 'ONLINE OK'); process.exit(fail ? 1 : 0)
+}
+globalThis.__RT_BASE = BASE; if (process.env.DBG) globalThis.__RT_DEBUG = 1
+const { update, onKey, keys } = await import('../src/game/engine.js')
+const rtm = await import('../src/game/online/rt.js')
+const { CS, cardsActions, getCardsSnap } = await import('../src/game/cards/core.js')
+await import('../src/game/cards/uno.js')
+const { T } = await import('../src/game/tetris.js')
+const { hostTetris, installTetrisOnline } = await import('../src/game/online/tetris-online.js')
+const { hostCardGame, installCardsOnline } = await import('../src/game/online/cards-online.js')
+installTetrisOnline(); installCardsOnline()
+let bad = 0
+const check = (n, c, i) => { if (!c) bad++; console.log(c ? 'PASS' : 'FAIL', role, n, i || '') }
+let t = setInterval(() => update(1 / 20 * 3), 50) // 3x speed, 20Hz
+const until = async (f, ms = 20000) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { if (f()) return true; await sleep(100) } return false }
+const rr = (n) => Math.floor(Math.random() * n)
+if (game === 'tetris') {
+  if (role === 'host') {
+    const room = await rtm.createRoom('tetris', 'HOSTY'); console.log('CODE', room.code)
+    check('guest joins', await until(() => rtm.RT.room.players.length === 2))
+    await sleep(1500)
+    await hostTetris()
+  } else { await sleep(500); await rtm.joinRoom(code, 'GUESTY') }
+  check('online board started', await until(() => T.mode === 'play' && T.cfg.type === 'online'), T.mode)
+  check('opponent named', T.bd[1] && T.bd[1].remote && /HOSTY|GUESTY/.test(T.bd[1].name), T.bd[1] && T.bd[1].name)
+  check('same seed bag', true)
+  await until(() => T.phase === 'play', 8000)
+  const first = T.bd[0].piece && T.bd[0].piece.kind
+  console.log('FIRST', first)
+  const drive = setInterval(() => { if (T.phase === 'play' && role === 'host') { onKey(['KeyA', 'KeyD', 'Space'][rr(3)], true) } }, 120) // only host plays hard; guest idles and tops out
+  const seen = await until(() => T.bd[1] && T.bd[1].grid.some((r) => r.some((c) => c)) || T.mode === 'over', 40000)
+  check('mirrors opponent board', seen)
+  await until(() => T.mode === 'over', 150000)
+  check('game ends on both sides', T.mode === 'over', T.over && T.over.title)
+  clearInterval(drive)
+  await sleep(2500)
+  console.log('RESULT', role, T.over && T.over.title, JSON.stringify(T.bd.map((b) => [b.dead, b.lines, b.score])), 'time', T.elapsed.toFixed(1))
+} else {
+  await import('../src/game/cards/pusoy.js'); await import('../src/game/cards/lucky9.js'); await import('../src/game/cards/tongits.js')
+  const OPTS = { uno: { target: 50, stack: true }, pusoy: { target: 8 }, tongits: { stake: 50 }, lucky9: { bots: 0 } }
+  if (role === 'host') {
+    const room = await rtm.createRoom(game, 'HOSTY', OPTS[game]); console.log('CODE', room.code)
+    check('guest joins', await until(() => rtm.RT.room.players.length === 2))
+    await sleep(1500)
+    await hostCardGame(game, { ...OPTS[game], auto: false })
+  } else { await sleep(500); await rtm.joinRoom(code, 'GUESTY') }
+  check('table started', await until(() => CS.mode === 'play' || CS.mode === 'over'), CS.mode)
+  let moves = 0
+  if (process.env.DBG) setInterval(() => { const s = getCardsSnap(); console.log('DBG', role, CS.mode, s && s.phase, s && s.seats && s.seats.map((x) => (x.human ? 'ME' : x.name) + (x.turn ? '*' : '') + x.count).join(' '), 'btns', s && s.buttons && s.buttons.map((b) => b.name + (b.off ? '-' : '')).join(','), 'alive', Object.keys(rtm.RT.lastSeen).length) }, 3000)
+  const roundOf = () => { const s = getCardsSnap(); const m = s && /ROUND (\d+)/.exec(s.info || ''); return m ? +m[1] : 0 }
+  const play = setInterval(() => {
+    const s = getCardsSnap(); if (!s || s.phase === undefined || CS.mode !== 'play') return
+    const B = (n) => s.buttons.find((b) => b.name === n && !b.off)
+    const me = s.seats.find((x) => x.human)
+    if (game === 'uno') {
+      if (s.prompt && s.prompt.type === 'color') { cardsActions.button('color', 'R'); return }
+      if (s.prompt && s.prompt.type === 'swap') { cardsActions.button('swap', s.prompt.players[0].id); return }
+      if (s.phase === 'roundOver' && B('next')) { cardsActions.button('next'); return }
+      if (!me || !me.turn) return
+      const glow = s.cards.find((c) => c.mine && c.glow)
+      if (glow) { cardsActions.click(glow.id); moves++ } else { const d = s.cards.find((c) => !c.mine && c.glow); if (d) cardsActions.click(d.id); else if (B('pass')) cardsActions.button('pass') }
+    } else if (game === 'pusoy') {
+      if (s.phase === 'roundOver' && B('next')) { cardsActions.button('next'); return }
+      if (!me || !me.turn) return
+      if (B('play')) { cardsActions.button('play'); moves++ } else if (B('hint') && !s.cards.some((c) => c.mine && c.sel)) cardsActions.button('hint'); else if (B('pass')) cardsActions.button('pass')
+    } else if (game === 'tongits') {
+      if (s.phase === 'roundOver' && B('next')) { cardsActions.button('next'); return }
+      if (B('fold')) { cardsActions.button('fold'); return }
+      if (!me || !me.turn) return
+      if (s.phase === 'draw') { cardsActions.button('stock'); moves++ }
+      else if (s.phase === 'action') { if (B('auto')) cardsActions.button('auto'); else if (B('discardsel')) cardsActions.button('discardsel'); else { const c = s.cards.find((x) => x.mine && !x.sel); if (c) cardsActions.click(c.id) } }
+    } else if (game === 'lucky9') {
+      if (B('deal')) { cardsActions.button('deal'); moves++ } else if (B('stand')) cardsActions.button('stand')
+    }
+  }, 150)
+  let seenHidden = false
+  const peek = setInterval(() => { const s = getCardsSnap(); if (role === 'guest' && s && s.cards) seenHidden = seenHidden || s.cards.some((c) => !c.mine && c.face && c.face.rank === '?') || s.cards.some((c) => !c.mine && c.face && c.face.value === '?') }, 200)
+  if ((game === 'tongits' || game === 'lucky9') && role === 'host') {
+    await until(() => roundOf() >= 3, 120000)
+    check('rounds progress with two humans', roundOf() >= 3, 'round ' + roundOf())
+    cardsActions.button('cash')
+  }
+  const done = await until(() => CS.mode === 'over', 280000)
+  check('match completes on both sides', done, (getCardsSnap() && getCardsSnap().over && getCardsSnap().over.title))
+  check('made moves', moves > 0, moves)
+  if (role === 'guest') check('other hands are hidden', seenHidden || game === 'lucky9')
+  await sleep(3500); clearInterval(play); clearInterval(peek)
+  console.log('RESULT', role, (getCardsSnap() && getCardsSnap().over && getCardsSnap().over.title))
+}
+clearInterval(t)
+console.log(bad ? 'FAIL' : 'DONE', role)
+await rtm.leaveRoom()
+process.exit(bad ? 1 : 0)

@@ -59,15 +59,24 @@ function meldWith(hand, card) {
   }
   return best
 }
-const T = { gen: 0, players: [], stock: [], discard: [], turn: 0, dealer: 0, phase: 'idle', stake: 50, sel: new Set(), msg: '', first: true, round: 1, roundInfo: null, challenge: null, sortMode: 'suit', rot: {}, net: 0, start: 0, auto: false, drew: false }
+const T = { gen: 0, players: [], stock: [], discard: [], turn: 0, dealer: 0, phase: 'idle', stake: 50, selMap: {}, sortBy: {}, msg: '', first: true, round: 1, roundInfo: null, challenge: null, sortMode: 'suit', rot: {}, net: 0, start: 0, auto: false, drew: false }
 const rotOf = (c) => T.rot[c.id] || (T.rot[c.id] = rnd(-12, 12))
-const me = () => T.players[0]
+let ACTOR = 0
+const HIDDEN = { id: 'h', kind: 'std', rank: '?', suit: 'S' }
+const me = () => T.players[ACTOR]
+const banked = (p) => p.human && !CS.online && !p.auto
+const chipsOf = (p) => (banked(p) ? bank() : p.chips)
+const adj = (p, n) => { if (banked(p)) addChips(n); else p.chips += n }
+const selOf = () => (T.selMap[ACTOR] || (T.selMap[ACTOR] = new Set()))
 const allMelds = () => T.players.flatMap((p) => p.melds)
 
 function start(opts) {
   CS.opts = { ...opts, game: 'tongits' }
   T.stake = opts.stake || 50; T.auto = !!opts.auto
-  T.players = NAMES.map((name, i) => ({ id: i, name, avatar: AVATAR[i], human: i === 0 && !opts.auto, hand: [], melds: [], chips: 1000 }))
+  ACTOR = 0
+  const hs = opts.humans || (opts.auto ? [] : [{ name: 'YOU' }])
+  const bn = NAMES.slice(1)
+  T.players = [0, 1, 2].map((i) => { const h = hs[i]; return { id: i, name: h ? h.name : bn.shift(), avatar: AVATAR[i], human: !!h, cid: h ? h.cid || null : null, hand: [], melds: [], chips: 1000 } })
   T.round = 1; T.net = 0; T.start = bank(); T.dealer = Math.floor(Math.random() * 3)
   newRound()
 }
@@ -75,9 +84,9 @@ function newRound() {
   T.gen++
   const d = shuffle(stdDeck())
   for (const p of T.players) { p.hand = []; p.melds = [] }
-  T.stock = []; T.discard = []; T.sel = new Set(); T.roundInfo = null; T.challenge = null; T.first = true; T.rot = {}; T.drew = false
+  T.stock = []; T.discard = []; T.selMap = {}; T.roundInfo = null; T.challenge = null; T.first = true; T.rot = {}; T.drew = false
   T.phase = 'deal'; T.msg = 'Shuffling…'; sfx('cShuffle'); T.stock = d; notify()
-  for (const p of T.players) if (!p.human && p.chips < 100) p.chips = 800
+  for (const p of T.players) if ((!p.human || CS.online) && p.chips < 100) p.chips = 800
   const order = []
   for (let r = 0; r < 12; r++) for (let k = 0; k < 3; k++) order.push((T.dealer + 1 + k) % 3)
   order.push(T.dealer)
@@ -95,9 +104,8 @@ function beginTurn() {
   const p = T.players[T.turn]
   T.drew = false
   T.phase = T.first && T.turn === T.dealer ? 'action' : 'draw'
-  T.sel = new Set()
-  if (p.human) T.msg = T.phase === 'draw' ? 'Draw from the stock, or take the discard if it makes a meld' : 'Meld if you can, then discard one card'
-  else T.msg = p.name + ' is thinking…'
+  T.selMap = {}
+  T.msg = ''
   notify()
   if (!p.human) { const g = T.gen; after(rnd(0.9, 1.5), () => { if (T.gen === g) botTurn(p) }) }
 }
@@ -126,7 +134,7 @@ function discardCard(p, c) {
   p.hand = p.hand.filter((x) => x !== c); T.discard.push(c); sfx('cPlay')
   if (p.hand.length === 0) { tongitsWin(p); return }
   T.turn = (T.turn + 1) % 3; T.first = false
-  T.sel = new Set(); notify(); after(0.55, beginTurn)
+  T.selMap = {}; notify(); after(0.55, beginTurn)
 }
 function botMelds(p) {
   const best = bestMelds(p.hand)
@@ -182,7 +190,7 @@ function stockOut() {
 }
 function tongitsWin(p) {
   banner('TONG-ITS!', p.name, '#ff4de1', 1.6); sfx('cWin'); speak('Tongits!', 0.8, 1.15)
-  if (p.human) celebrate()
+  if (p.id === 0 && p.human) celebrate()
   settle(p, T.players.filter((q) => q !== p).map((q) => [q, 2]), 'TONG-ITS')
 }
 function callDraw(p) {
@@ -192,7 +200,7 @@ function callDraw(p) {
   const mine = dead(p.hand)
   for (const q of T.players) {
     if (q === p) continue
-    if (q.human) { T.challenge.waiting.push(q.id); T.msg = `${p.name} called DRAW (${mine} points). Fight or Fold?` }
+    if (q.human && !q.auto) { T.challenge.waiting.push(q.id) }
     else T.challenge.answers[q.id] = dead(q.hand) < mine ? 'fight' : (dead(q.hand) === mine && Math.random() < 0.3 ? 'fight' : 'fold')
   }
   notify()
@@ -221,64 +229,68 @@ function settle(winner, pays, kind, extra = []) {
   for (const [q, mult, w] of lines) {
     const burned = q.melds.length === 0
     let amt = T.stake * mult + (burned ? T.stake : 0)
-    if (q.human) amt = Math.min(amt, bank())
-    else amt = Math.min(amt, q.chips)
-    if (q.human) addChips(-amt); else q.chips -= amt
-    if (w.human) addChips(amt); else w.chips += amt
+    amt = Math.min(amt, chipsOf(q))
+    adj(q, -amt); adj(w, amt)
     rows.push([`${q.name} → ${w.name}`, amt, burned ? 'BURNED' : ''])
     if (w === winner) gain += amt
   }
-  const humanNet = lines.reduce((a, [q, m, w]) => a + (w.human ? 1 : 0) * (T.stake * m + (q.melds.length === 0 ? T.stake : 0)) - (q.human ? 1 : 0) * (T.stake * m + (q.melds.length === 0 ? T.stake : 0)), 0)
+  const humanNet = lines.reduce((a, [q, m, w]) => a + (banked(w) ? 1 : 0) * (T.stake * m + (q.melds.length === 0 ? T.stake : 0)) - (banked(q) ? 1 : 0) * (T.stake * m + (q.melds.length === 0 ? T.stake : 0)), 0)
   T.net += humanNet
   T.roundInfo = { winner: winner.id, kind, rows, gain, humanNet }
   T.dealer = winner.id
-  if (kind !== 'TONG-ITS') { sfx(winner.human ? 'cWin' : 'cLose'); banner(`${winner.name} WINS`, kind, '#3dff7a', 1.8) }
-  if (winner.human) { if (kind === 'TONG-ITS') { profile.tongitsWins = (profile.tongitsWins || 0) + 1; saveProfile() } celebrate() }
+  if (kind !== 'TONG-ITS') { sfx(banked(winner) ? 'cWin' : 'cLose'); banner(`${winner.name} WINS`, kind, '#3dff7a', 1.8) }
+  if (banked(winner)) { if (kind === 'TONG-ITS') { profile.tongitsWins = (profile.tongitsWins || 0) + 1; saveProfile() } celebrate() }
   T.msg = ''
   notify()
   if (T.auto) after(3, () => { if (T.phase === 'roundOver') { T.round++; newRound() } })
 }
 // ---- human input ----
-const hand0 = () => me().hand.slice().sort((a, b) => (T.sortMode === 'suit' ? SO[a.suit] - SO[b.suit] || rv(a) - rv(b) : rv(a) - rv(b) || SO[a.suit] - SO[b.suit]))
-function selCards() { return me().hand.filter((c) => T.sel.has(c.id)) }
+const hand0 = () => me().hand.slice().sort((a, b) => ((T.sortBy[ACTOR] || 'suit') === 'suit' ? SO[a.suit] - SO[b.suit] || rv(a) - rv(b) : rv(a) - rv(b) || SO[a.suit] - SO[b.suit]))
+function selCards() { const s = selOf(); return me().hand.filter((c) => s.has(c.id)) }
 function click(id) {
   if (!me().human) return
   const p = me()
   if (T.stock.some((c) => c.id === id)) return button('stock')
   if (T.discard.length && T.discard[T.discard.length - 1].id === id) return button('discard')
-  if (T.turn !== 0) return
+  if (T.turn !== ACTOR) return
   const c = p.hand.find((x) => x.id === id)
-  if (c) { if (T.phase !== 'action' && T.phase !== 'draw') return; if (T.sel.has(id)) T.sel.delete(id); else T.sel.add(id); sfx('cSelect'); notify(); return }
+  if (c) { if (T.phase !== 'action' && T.phase !== 'draw') return; const sl = selOf(); if (sl.has(id)) sl.delete(id); else sl.add(id); sfx('cSelect'); notify(); return }
   // clicking a meld card: sapaw with the selected cards
   const meld = allMelds().find((m) => m.cards.some((x) => x.id === id))
   if (meld && T.phase === 'action') {
     const cs = selCards()
     if (!cs.length) { toast('Select card(s) from your hand first', '#ff8a96'); sfx('cBad'); return }
     if (!validMeld(meld.cards.concat(cs))) { toast('Those cards do not fit that meld', '#ff8a96'); sfx('cBad'); return }
-    sapawOnto(p, meld, cs); T.sel = new Set()
+    sapawOnto(p, meld, cs); T.selMap[ACTOR] = new Set()
     if (!p.hand.length) { tongitsWin(p); return }
     notify()
   }
 }
 function button(name) {
   const p = me()
-  if (name === 'sort') { T.sortMode = T.sortMode === 'suit' ? 'rank' : 'suit'; sfx('cShuffle'); notify(); return }
-  if (name === 'next') { if (T.phase === 'roundOver') { T.round++; newRound() } return }
+  if (name === 'sort') { T.sortBy[ACTOR] = (T.sortBy[ACTOR] || 'suit') === 'suit' ? 'rank' : 'suit'; sfx('cShuffle'); notify(); return }
+  if (name === 'next') { if (ACTOR === 0 && T.phase === 'roundOver') { T.round++; newRound() } return }
   if (name === 'cash') {
+    if (ACTOR !== 0) return
+    if (CS.online) {
+      const hum = T.players.filter((q) => q.human), top = hum.slice().sort((a, b) => b.chips - a.chips)[0]
+      finish({ title: `${top.name} LEADS WITH ${top.chips}`, win: false, rows: hum.map((q) => [q.name, q.chips]).sort((a, b) => b[1] - a[1]), score: 0, game: 'tongits', winner: top.id, winnerCid: top.cid || null, scores: T.players.map((q) => ({ cid: q.cid || null, score: q.human ? q.chips : 0 })), chipsMode: true })
+      return
+    }
     const chips = bank(); recordScore('tongits', chips)
     profile.cardGames = (profile.cardGames || 0) + 1; if (T.net > 0) profile.cardWins = (profile.cardWins || 0) + 1; saveProfile()
     finish({ title: T.net >= 0 ? 'CASHED OUT AHEAD!' : 'CASHED OUT', win: T.net > 0, rows: [['STARTED WITH', T.start], ['NOW HAVE', chips], ['NET', T.net]], score: chips, game: 'tongits' })
     if (T.net > 0) celebrate(); return
   }
-  if (T.phase === 'challenge' && T.challenge && T.challenge.waiting.includes(0)) {
+  if (T.phase === 'challenge' && T.challenge && T.challenge.waiting.includes(ACTOR)) {
     if (name === 'fight' || name === 'fold') {
-      T.challenge.answers[0] = name; T.challenge.waiting = T.challenge.waiting.filter((x) => x !== 0)
-      toast(name === 'fight' ? 'You FIGHT!' : 'You fold', '#ffe84a'); sfx('cSelect'); notify(); after(1, resolveChallenge)
+      T.challenge.answers[ACTOR] = name; T.challenge.waiting = T.challenge.waiting.filter((x) => x !== ACTOR)
+      toast(`${p.name} ${name === 'fight' ? 'FIGHTS!' : 'folds'}`, '#ffe84a'); sfx('cSelect'); notify(); if (!T.challenge.waiting.length) after(1, resolveChallenge)
     }
     return
   }
-  if (T.turn !== 0 || !p.human) return
-  if (name === 'stock' && T.phase === 'draw') { drawStock(p); T.msg = 'Meld if you can, then discard one card'; notify(); return }
+  if (T.turn !== ACTOR || !p.human) return
+  if (name === 'stock' && T.phase === 'draw') { drawStock(p); notify(); return }
   if (name === 'discard' && T.phase === 'draw') {
     const top = T.discard[T.discard.length - 1]
     if (!top) return
@@ -287,7 +299,7 @@ function button(name) {
     if (sel.length >= 2 && validMeld([top, ...sel])) cs = sel
     else { const mw = meldWith(p.hand, top); if (mw) cs = mw.cs }
     if (!cs) { toast('That discard does not make a meld with your cards', '#ff8a96'); sfx('cBad'); return }
-    takeDiscard(p, cs); T.sel = new Set(); T.msg = 'Meld more, sapaw, then discard one card'
+    takeDiscard(p, cs); T.selMap[ACTOR] = new Set()
     if (!p.hand.length) { tongitsWin(p); return }
     notify(); return
   }
@@ -298,7 +310,7 @@ function button(name) {
   if (name === 'meld' && T.phase === 'action') {
     const cs = selCards()
     if (!validMeld(cs)) { toast('Not a valid meld (set of 3-4 same rank, or run of 3+ same suit)', '#ff8a96'); sfx('cBad'); return }
-    doMeld(p, cs); T.sel = new Set(); T.msg = 'Meld more, sapaw, or discard one card'
+    doMeld(p, cs); T.selMap[ACTOR] = new Set()
     if (!p.hand.length) { tongitsWin(p); return }
     notify(); return
   }
@@ -316,27 +328,46 @@ function button(name) {
     discardCard(p, cs[0])
   }
 }
-function snap() {
+const hideC = (c) => (CS.online && T.phase !== 'roundOver' ? { ...HIDDEN, id: c.id } : c)
+function viewerMsg(v) {
+  const p = T.players[v]
+  if (T.phase === 'challenge' && T.challenge) {
+    const caller = T.players[T.challenge.caller]
+    if (T.challenge.waiting.includes(v)) return `${caller.name} called DRAW (${dead(caller.hand)} points). Fight or Fold?`
+    return `${caller.name} called DRAW…`
+  }
+  if (T.phase !== 'draw' && T.phase !== 'action') return T.msg
+  const t = T.players[T.turn]
+  if (t.id === v && p.human) return T.phase === 'draw' ? 'Draw from the stock, or take the discard if it makes a meld' : 'Meld if you can, then discard one card'
+  return t.human ? `Waiting for ${t.name}…` : t.name + ' is thinking…'
+}
+function snap(v = 0) {
+  const prev = ACTOR; ACTOR = v
+  try { return snapFor(v) } finally { ACTOR = prev }
+}
+function snapFor(v) {
   const cards = []
-  const myTurn = T.turn === 0 && me().human && (T.phase === 'draw' || T.phase === 'action')
+  const rel = (i) => (i - v + 3) % 3
+  const sel = selOf()
+  const myTurn = T.turn === v && me().human && (T.phase === 'draw' || T.phase === 'action')
   hand0().forEach((c, i) => {
     const f = fan(me().hand.length, i, { cx: 50, cy: 86, spread: 5.0, max: 56, arc: 1.2, curve: 0.2 })
-    cards.push({ id: c.id, face: c, x: f.x, y: T.sel.has(c.id) ? f.y - 5 : f.y, rot: f.rot, s: 1, z: 30 + i, up: true, mine: true, sel: T.sel.has(c.id) })
+    cards.push({ id: c.id, face: c, x: f.x, y: sel.has(c.id) ? f.y - 5 : f.y, rot: f.rot, s: 1, z: 30 + i, up: true, mine: true, sel: sel.has(c.id) })
   })
   T.players.forEach((p, pi) => {
-    if (pi === 0) return
-    const seat = seatPos(pi, 3)
-    p.hand.forEach((c, i) => { const f = botFan(p.hand.length, i, seat, 0.5); cards.push({ id: c.id, face: c, x: f.x, y: f.y + 6, rot: f.rot, s: f.s, z: 10 + i, up: T.phase === 'roundOver' }) })
+    if (pi === v) return
+    const seat = seatPos(rel(pi), 3)
+    p.hand.forEach((c, i) => { const f = botFan(p.hand.length, i, seat, 0.5); cards.push({ id: c.id, face: hideC(c), x: f.x, y: f.y + 6, rot: f.rot, s: f.s, z: 10 + i, up: T.phase === 'roundOver' }) })
   })
   // melds (face up, small)
-  const anchor = (pi, i) => (pi === 0 ? { x: 12 + (i % 3) * 25, y: 63 + Math.floor(i / 3) * 9 } : pi === 1 ? { x: 21 + (i % 2) * 18, y: 17 + Math.floor(i / 2) * 11 } : { x: 62 + (i % 2) * 18, y: 17 + Math.floor(i / 2) * 11 })
-  T.players.forEach((p, pi) => p.melds.forEach((m, mi) => { const a = anchor(pi, mi); m.cards.forEach((c, k) => cards.push({ id: c.id, face: c, x: a.x + k * 2.6, y: a.y, rot: 0, s: pi === 0 ? 0.62 : 0.5, z: 5 + k, up: true, glow: T.phase === 'action' && T.turn === 0 && T.sel.size > 0 && validMeld(m.cards.concat(selCards())) })) }))
+  const anchor = (pj, i) => { const pi = rel(pj); return pi === 0 ? { x: 12 + (i % 3) * 25, y: 63 + Math.floor(i / 3) * 9 } : pi === 1 ? { x: 21 + (i % 2) * 18, y: 17 + Math.floor(i / 2) * 11 } : { x: 62 + (i % 2) * 18, y: 17 + Math.floor(i / 2) * 11 } }
+  T.players.forEach((p, pi) => p.melds.forEach((m, mi) => { const a = anchor(pi, mi); m.cards.forEach((c, k) => cards.push({ id: c.id, face: c, x: a.x + k * 2.6, y: a.y, rot: 0, s: pi === v ? 0.62 : 0.5, z: 5 + k, up: true, glow: T.phase === 'action' && T.turn === v && sel.size > 0 && validMeld(m.cards.concat(selCards())) })) }))
   const placed = new Set(cards.map((c) => c.id))
   T.discard.forEach((c, i) => { const top = i === T.discard.length - 1; cards.push({ id: c.id, face: c, x: 57 + (i % 4) * 0.12, y: 44 + (i % 3) * 0.1, rot: rotOf(c), s: 1, z: 2 + i * 0.01, up: true, glow: top && myTurn && T.phase === 'draw' }); placed.add(c.id) })
-  T.stock.forEach((c, i) => { cards.push({ id: c.id, face: c, x: 43 + i * 0.015, y: 44 - i * 0.015, rot: 0, s: 1, z: 1 + i * 0.001, up: false, glow: myTurn && T.phase === 'draw' && i === T.stock.length - 1 }); placed.add(c.id) })
-  const seats = T.players.map((p, i) => { const pos = seatPos(i, 3); return { id: i, name: p.name, avatar: p.avatar, x: pos.x, y: i === 0 ? 96 : pos.y + 21, chips: p.human ? bank() : p.chips, count: p.hand.length, turn: (T.phase === 'draw' || T.phase === 'action') && T.turn === i, human: p.human, score: dead(p.hand), tag: T.phase === 'roundOver' && T.roundInfo ? (T.roundInfo.winner === i ? 'WINNER' : '') : '', note: p.melds.length ? '' : T.first ? '' : 'NO MELD' } })
+  T.stock.forEach((c, i) => { cards.push({ id: c.id, face: hideC(c), x: 43 + i * 0.015, y: 44 - i * 0.015, rot: 0, s: 1, z: 1 + i * 0.001, up: false, glow: myTurn && T.phase === 'draw' && i === T.stock.length - 1 }); placed.add(c.id) })
+  const seats = T.players.map((p, i) => { const pos = seatPos(rel(i), 3); return { id: i, name: p.name, avatar: p.avatar, x: pos.x, y: rel(i) === 0 ? 96 : pos.y + 21, chips: chipsOf(p), count: p.hand.length, turn: (T.phase === 'draw' || T.phase === 'action') && T.turn === i, human: i === v, bot: !p.human, score: !CS.online || i === v || T.phase === 'roundOver' ? dead(p.hand) : null, tag: T.phase === 'roundOver' && T.roundInfo ? (T.roundInfo.winner === i ? 'WINNER' : '') : '', note: p.melds.length ? '' : T.first ? '' : 'NO MELD' } })
   const buttons = []
-  if (me().human) {
+  if (me().human && !me().auto) {
     if (T.phase === 'draw') buttons.push({ name: 'call', label: 'CALL DRAW', off: !myTurn || !me().melds.length })
     if (T.phase === 'action') {
       const sel = selCards()
@@ -344,11 +375,25 @@ function snap() {
       buttons.push({ name: 'auto', label: 'AUTO MELD', off: !myTurn || !bestMelds(me().hand).melds.length })
       buttons.push({ name: 'discardsel', label: 'DISCARD', hot: true, off: !myTurn || sel.length !== 1, pulse: myTurn && sel.length === 1 })
     }
-    if (T.phase === 'challenge' && T.challenge && T.challenge.waiting.includes(0)) { buttons.push({ name: 'fight', label: 'FIGHT ⚔', hot: true, pulse: true }); buttons.push({ name: 'fold', label: 'FOLD', hot: true }) }
-    if (T.phase === 'roundOver') buttons.push({ name: 'next', label: 'NEXT ROUND ▶', hot: true, pulse: true })
-    buttons.push({ name: 'sort', label: T.sortMode === 'suit' ? 'SORT: SUIT' : 'SORT: RANK' })
-    if (T.phase !== 'deal') buttons.push({ name: 'cash', label: 'CASH OUT' })
+    if (T.phase === 'challenge' && T.challenge && T.challenge.waiting.includes(v)) { buttons.push({ name: 'fight', label: 'FIGHT ⚔', hot: true, pulse: true }); buttons.push({ name: 'fold', label: 'FOLD', hot: true }) }
+    if (T.phase === 'roundOver' && v === 0) buttons.push({ name: 'next', label: 'NEXT ROUND ▶', hot: true, pulse: true })
+    buttons.push({ name: 'sort', label: (T.sortBy[v] || 'suit') === 'suit' ? 'SORT: SUIT' : 'SORT: RANK' })
+    if (T.phase !== 'deal' && v === 0) buttons.push({ name: 'cash', label: CS.online ? 'END TABLE' : 'CASH OUT' })
   }
-  return { phase: T.phase, msg: T.msg, seats, cards, buttons, deckClick: true, info: `ROUND ${T.round} · STAKE ${T.stake} · NET ${T.net >= 0 ? '+' : ''}${T.net}`, stock: T.stock.length, roundInfo: T.roundInfo, myPoints: dead(me().hand) }
+  return { phase: T.phase, msg: viewerMsg(v), seats, cards, buttons, deckClick: true, info: CS.online ? `ROUND ${T.round} · STAKE ${T.stake} · ONLINE TABLE` : `ROUND ${T.round} · STAKE ${T.stake} · NET ${T.net >= 0 ? '+' : ''}${T.net}`, stock: T.stock.length, roundInfo: T.roundInfo, myPoints: dead(me().hand) }
 }
 registerCardGame({ id: 'tongits', name: 'TONG-ITS', start, snap, click, button })
+export const tongitsApi = {
+  setActor(i) { ACTOR = i },
+  players: () => T.players,
+  dropToBot(i) {
+    const p = T.players[i]
+    if (!p || !p.human) return
+    p.human = false; p.cid = null; p.name = p.name.replace(/ 🤖$/, '') + ' 🤖'
+    const ch = T.challenge
+    if (T.phase === 'challenge' && ch && ch.waiting.includes(i)) {
+      ch.answers[i] = dead(p.hand) < dead(T.players[ch.caller].hand) ? 'fight' : 'fold'; ch.waiting = ch.waiting.filter((x) => x !== i)
+      if (!ch.waiting.length) after(1, resolveChallenge)
+    } else if ((T.phase === 'draw' || T.phase === 'action') && T.turn === i) { const g = T.gen; after(0.8, () => { if (T.gen === g) botTurn(p) }) }
+  },
+}

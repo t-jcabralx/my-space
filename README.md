@@ -31,7 +31,8 @@ npm run test:sim             # headless bot playthroughs of all three games
 | Variable | Purpose |
 |---|---|
 | `MONGODB_URI`, `MONGODB_DB` | permanent score history (`scores` collection) |
-| `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | fast leaderboard (sorted sets `lb:<game>`) + rate limiting |
+| `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | fast leaderboard (sorted sets `lb:<game>`), rate limiting, **online rooms + pub/sub** |
+| `RT_SECRET` (optional) | signs room membership tokens; defaults to the Upstash token |
 
 Without these the games still work; the global leaderboard just shows empty.
 
@@ -39,6 +40,18 @@ Without these the games still work; the global leaderboard just shows empty.
 
 - `POST /api/score` `{ game: "space"|"slug"|"pickle"|"bomber"|"tetris"|"chomp"|"uno"|"pusoy"|"lucky9"|"tongits", name, score }`
 - `GET /api/leaderboard?game=space&limit=10`
+
+## Online multiplayer (no extra server)
+
+The **🌐 ONLINE** tab lets friends play together: **Tetra Blast 1v1, UNO, Pusoy Dos, Tong-its, Lucky 9**. Create a room, share the 5-letter code, the host presses START (bots fill empty seats).
+Everything runs inside this Next.js app: rooms are stored in Redis, and messages travel over **Redis pub/sub** through route handlers.
+
+- `POST /api/rt/room` list / create / join / leave / start / finish (rooms live in Redis, 2h TTL)
+- `POST /api/rt/send` publish a message to the room, or privately to one player (`PUBLISH rt:<code>[:<cid>]`)
+- `GET /api/rt/stream` Server-Sent Events bridge: subscribes to Upstash (`/subscribe/...`) and relays frames to the browser
+
+The host simulates card games and sends each player a private snapshot (other hands are masked); Tetra Blast runs on both clients with the same seeded piece bag and exchanges attacks and board snapshots.
+Disconnected players are replaced by a bot. On serverless hosts a long-lived SSE response is capped by `maxDuration` (300s); the client reconnects automatically. `npm run dev` + `node scripts/sim-online.mjs` runs a two-process end-to-end test against real Redis.
 
 ## Controls
 

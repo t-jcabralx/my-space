@@ -1,7 +1,7 @@
 // UNO: 2-4 players, stacking option, call-UNO / catch mechanic, match scoring. Bots with simple strategy.
 import { CS, after, notify, shuffle, newId, fan, botFan, seatPos, banner, toast, celebrate, finish, registerCardGame, rnd, pickOne } from './core.js'
 import { sfx, speak } from '../audio.js'
-import { profile, saveProfile } from '../engine.js'
+import { profile, saveProfile, recordScore } from '../engine.js'
 
 const COLORS = ['R', 'Y', 'G', 'B']
 export const UCOL = { R: '#e8384a', Y: '#f2c21a', G: '#2fb85a', B: '#2f6df0', W: '#20242c' }
@@ -20,7 +20,9 @@ function deck() {
 }
 const U = { players: [], deck: [], discard: [], dir: 1, turn: 0, color: 'R', top: null, pend: 0, pendKind: null, phase: 'idle', msg: '', scores: [], opts: { count: 3, stack: true, target: 200 }, drawn: null, pick: null, round: 1, rot: {}, think: -1, roundInfo: null, uno: {} }
 const rotOf = (c) => U.rot[c.id] || (U.rot[c.id] = rnd(-16, 16))
-const human = () => U.players[0]
+let ACTOR = 0
+const actor = () => U.players[ACTOR]
+const HIDDEN = { id: 'h', kind: 'uno', color: 'W', value: '?' }
 const cur = () => U.players[U.turn]
 const nextIdx = (from, steps = 1) => { let i = from; for (let k = 0; k < steps; k++) i = (i + U.dir + U.players.length) % U.players.length; return i }
 const canPlay = (c) => {
@@ -39,7 +41,13 @@ function drawCard(p, n = 1, instant = false) {
 function start(opts) {
   CS.opts = opts
   U.opts = { count: opts.count || 3, stack: opts.stack !== false, target: opts.target || 200, sevenZero: !!opts.sevenZero }
-  U.players = Array.from({ length: U.opts.count }, (_, i) => ({ id: i, name: NAMES[i], avatar: AVATAR[i], human: i === 0, hand: [], score: 0 }))
+  const humans = opts.humans || [{ name: 'YOU' }]
+  const botNames = ['MAYA', 'JUN', 'BEA', 'KAI'].filter((n) => !humans.some((h) => h.name === n))
+  U.players = Array.from({ length: U.opts.count }, (_, i) => {
+    const h = humans[i]
+    return { id: i, name: h ? h.name : botNames.shift(), avatar: AVATAR[i % AVATAR.length], human: !!h, cid: h ? h.cid : null, hand: [], score: 0 }
+  })
+  ACTOR = 0
   U.round = 1; U.uno = {}
   CS.opts.game = 'uno'
   newRound()
@@ -58,8 +66,8 @@ function newRound() {
     sfx('cFlip'); U.phase = 'play'; U.turn = 0
     if (first.value === 'R' && U.players.length > 2) U.dir = -1
     if (first.value === 'S') U.turn = nextIdx(0)
-    if (first.value === 'D') { drawCard(human(), 2); U.turn = nextIdx(0) }
-    U.msg = U.turn === 0 ? 'Your turn' : cur().name + ' is thinking…'
+    if (first.value === 'D') { drawCard(U.players[0], 2); U.turn = nextIdx(0) }
+    U.msg = ''
     banner(`ROUND ${U.round}`, `FIRST TO ${U.opts.target} POINTS`, '#ffe84a', 1.2)
     notify(); beginTurn()
   })
@@ -68,7 +76,6 @@ function beginTurn() {
   if (U.phase !== 'play') return
   U.drawn = null
   const p = cur()
-  U.msg = p.human ? (U.pend ? `Stack a ${U.pendKind === 'W4' ? '+4' : '+2'} or draw ${U.pend}!` : 'Your turn: play a card or draw') : p.name + ' is thinking…'
   notify()
   if (!p.human) after(rnd(0.9, 1.6), botTurn)
 }
@@ -89,7 +96,7 @@ function playCard(p, c, chosenColor) {
     const called = !p.human && Math.random() < 0.88
     U.uno[p.id] = { called, t: 3.2, caught: false }
     if (called) { sfx('cUno'); speak('Uno!', 1.1, 1.15); banner('UNO!', p.name, '#ff4de1', 0.9) }
-    else if (p.human) toast('PRESS UNO!', '#ff4de1')
+    else if (p.human) toast(`${p.name}: PRESS UNO!`, '#ff4de1')
     else toast(`${p.name} forgot to say UNO! CATCH!`, '#ff4de1')
   } else delete U.uno[p.id]
   if (p.hand.length === 0) { roundWon(p); return }
@@ -104,7 +111,7 @@ function playCard(p, c, chosenColor) {
   }
   if (U.opts.sevenZero && c.color !== 'W') {
     if (c.value === '7') {
-      if (p.human) { U.swapFrom = p; U.swapNext = proceed; U.msg = 'SEVEN! Pick a player to swap hands with'; notify(); return }
+      if (p.human) { U.swapFrom = p; U.swapNext = proceed; notify(); return }
       const target = U.players.filter((q) => q !== p).sort((x, y) => x.hand.length - y.hand.length)[0]
       swapHands(p, target); after(0.95, proceed); return
     }
@@ -168,61 +175,59 @@ function roundWon(p) {
   const gain = U.players.filter((q) => q !== p).reduce((a, q) => a + q.hand.reduce((s, c) => s + pts(c), 0), 0)
   p.score += gain
   U.roundInfo = { winner: p.id, gain, matchWin: p.score >= U.opts.target }
-  sfx(p.human ? 'cWin' : 'cLose'); speak(p.human ? 'You win the round!' : p.name + ' wins the round', 0.9, 1.1)
+  sfx(p.id === 0 ? 'cWin' : 'cLose'); speak(p.id === 0 && !CS.online ? 'You win the round!' : p.name + ' wins the round', 0.9, 1.1)
   if (p.human) celebrate()
   banner(`${p.name} WINS THE ROUND`, `+${gain} POINTS`, '#3dff7a', 2)
   U.msg = ''
-  for (const q of U.players) for (const c of q.hand) U.uno[q.id] = null
+  U.uno = {}
   if (U.roundInfo.matchWin) {
     after(2.2, () => {
-      const won = p.human
-      profile.cardWins = (profile.cardWins || 0) + (won ? 1 : 0); profile.cardGames = (profile.cardGames || 0) + 1
-      if (won) profile.unoWins = (profile.unoWins || 0) + 1
-      saveProfile()
-      finish({ title: won ? 'YOU WIN THE MATCH!' : p.name + ' WINS THE MATCH', win: won, rows: U.players.map((q) => [q.name, q.score]), score: won ? p.score : 0, game: 'uno' })
-      if (won) celebrate()
+      const won = p.id === 0 && p.human
+      const online = !!CS.online
+      if (p.id === 0 && won && p.score > 0) recordScore('uno', p.score)
+      if (p.id === 0) { profile.cardWins = (profile.cardWins || 0) + (won ? 1 : 0); profile.cardGames = (profile.cardGames || 0) + 1; if (won) profile.unoWins = (profile.unoWins || 0) + 1; saveProfile() }
+      finish({ title: online ? `${p.name} WINS THE MATCH!` : won ? 'YOU WIN THE MATCH!' : p.name + ' WINS THE MATCH', win: won, rows: U.players.map((q) => [q.name, q.score]), score: won ? p.score : 0, game: 'uno', winner: p.id, winnerCid: p.cid || null, scores: U.players.map((q) => ({ cid: q.cid, score: q.score })) })
+      if (p.human) celebrate()
     })
   }
   notify()
 }
 function click(id) {
-  if (U.phase !== 'play' || !cur().human || U.pick || U.swapFrom) return
-  const h = human()
+  if (U.phase !== 'play' || cur().id !== ACTOR || !cur().human || U.pick || U.swapFrom) return
+  const h = actor()
   const c = h.hand.find((x) => x.id === id)
-  if (!c) { if (id === 'deck' || U.deck.some((x) => x.id === id)) drawHuman(); return }
+  if (!c) { if (id === 'deck' || U.deck.some((x) => x.id === id)) drawFor(h); return }
   if (U.drawn && U.drawn !== c) { sfx('cBad'); return }
   if (!canPlay(c)) { sfx('cBad'); toast(U.pend ? 'You must stack or draw!' : 'That card cannot be played', '#ff8a96'); return }
-  if (c.color === 'W') { U.pick = c; U.msg = 'Pick a colour'; notify(); return }
+  if (c.color === 'W') { U.pick = c; U.pickBy = ACTOR; notify(); return }
   playCard(h, c, null)
 }
-function drawHuman() {
-  const h = human()
+function drawFor(h) {
   if (U.drawn) return
   if (U.pend) { forceDraw(h); return }
   const c = drawCard(h, 1)
   notify()
-  if (c && canPlay(c)) { U.drawn = c; U.msg = 'Play the drawn card or pass'; notify() }
+  if (c && canPlay(c)) { U.drawn = c; notify() }
   else { toast('No match: turn passes', '#9fd'); after(0.8, () => { U.turn = nextIdx(U.turn); beginTurn() }) }
 }
 function button(name, arg) {
-  if (name === 'deck') { if (U.phase === 'play' && cur().human && !U.pick) drawHuman(); return }
-  if (name === 'swap' && U.swapFrom) { const t = U.players[arg]; if (t && t !== U.swapFrom) { const f = U.swapNext; swapHands(U.swapFrom, t); U.swapFrom = null; U.swapNext = null; after(0.95, f) } return }
-  if (name === 'color' && U.pick) { const c = U.pick; U.pick = null; playCard(human(), c, arg); return }
-  if (name === 'pass' && U.drawn && cur().human) { U.drawn = null; U.turn = nextIdx(U.turn); beginTurn(); return }
+  if (name === 'deck') { if (U.phase === 'play' && cur().id === ACTOR && cur().human && !U.pick && !U.swapFrom) drawFor(actor()); return }
+  if (name === 'swap' && U.swapFrom && U.swapFrom.id === ACTOR) { const t = U.players[arg]; if (t && t !== U.swapFrom) { const f = U.swapNext; swapHands(U.swapFrom, t); U.swapFrom = null; U.swapNext = null; after(0.95, f) } return }
+  if (name === 'color' && U.pick && U.pickBy === ACTOR) { const c = U.pick; U.pick = null; playCard(actor(), c, ['R', 'Y', 'G', 'B'].includes(arg) ? arg : 'R'); return }
+  if (name === 'pass' && U.drawn && cur().id === ACTOR) { U.drawn = null; U.turn = nextIdx(U.turn); beginTurn(); return }
   if (name === 'uno') {
-    const st = U.uno[0]
-    if (st && !st.called && human().hand.length === 1) { st.called = true; sfx('cUno'); speak('Uno!', 1.1, 1.15); banner('UNO!', 'YOU', '#ff4de1', 0.9); notify() }
-    else if (human().hand.length === 2 && cur().human) { U.preUno = true; toast('UNO ready!', '#ff4de1') }
+    const st = U.uno[ACTOR]
+    if (st && !st.called && actor().hand.length === 1) { st.called = true; sfx('cUno'); speak('Uno!', 1.1, 1.15); banner('UNO!', actor().name, '#ff4de1', 0.9); notify() }
     return
   }
   if (name === 'catch') {
     for (const p of U.players) {
       const st = U.uno[p.id]
-      if (!p.human && st && !st.called && !st.caught && p.hand.length === 1) { st.caught = true; sfx('cSkip'); toast(`Caught ${p.name}! +2 cards`, '#3dff7a'); drawCard(p, 2); drawCard(p, 0); notify(); return }
+      if (p.id !== ACTOR && st && !st.called && !st.caught && p.hand.length === 1) { st.caught = true; sfx('cSkip'); toast(`${actor().name} caught ${p.name}! +2 cards`, '#3dff7a'); drawCard(p, 2); notify(); return }
     }
     return
   }
-  if (name === 'next') { if (U.phase === 'roundOver' && !U.roundInfo.matchWin) { U.round++; newRound() } }
+  if (name === 'next') { if (ACTOR === 0 && U.phase === 'roundOver' && !U.roundInfo.matchWin) { U.round++; newRound() } }
 }
 function tick(dt) {
   for (const k of Object.keys(U.uno)) {
@@ -230,46 +235,71 @@ function tick(dt) {
     if (!st) continue
     st.t -= dt
     const p = U.players[+k]
-    if (p && !st.called && !st.caught && st.t < 1.8 && !p.human) { /* human may CATCH until the timer ends */ }
     if (st.t <= 0) {
-      if (p && p.human && !st.called && !st.caught && p.hand.length === 1) { st.caught = true; sfx('cSkip'); toast('You forgot UNO! +2 cards', '#ff8a96'); drawCard(p, 2); notify() }
+      if (p && p.human && !st.called && !st.caught && p.hand.length === 1) { st.caught = true; sfx('cSkip'); toast(`${p.name} forgot UNO! +2 cards`, '#ff8a96'); drawCard(p, 2); notify() }
       U.uno[k] = null
     }
   }
 }
-function snap() {
+function viewerMsg(v) {
+  if (U.phase !== 'play') return U.msg
+  if (U.swapFrom) return U.swapFrom.id === v ? 'SEVEN! Pick a player to swap hands with' : `${U.swapFrom.name} is choosing who to swap with…`
+  if (U.pick) return U.pickBy === v ? 'Pick a colour' : `${cur().name} is choosing a colour…`
+  const p = cur()
+  if (p.id === v && p.human) return U.drawn ? 'Play the drawn card or pass' : U.pend ? `Stack a ${U.pendKind === 'W4' ? '+4' : '+2'} or draw ${U.pend}!` : 'Your turn: play a card or draw'
+  return p.name + (p.human ? ' is playing…' : ' is thinking…')
+}
+function snap(v = 0) {
   const cards = []
   const n = U.players.length
-  const hand0 = human().hand.slice().sort((a, b) => COLORS.indexOf(a.color) - COLORS.indexOf(b.color) || a.value.localeCompare(b.value, undefined, { numeric: true }))
-  const myTurn = U.phase === 'play' && cur().human && !U.pick
-  const placed = new Set()
+  const me = U.players[v]
+  const hidden = !!CS.online
+  const hide = (c) => (hidden && U.phase !== 'roundOver' ? HIDDEN : c)
+  const rel = (i) => (i - v + n) % n
+  const hand0 = me.hand.slice().sort((a, b) => COLORS.indexOf(a.color) - COLORS.indexOf(b.color) || a.value.localeCompare(b.value, undefined, { numeric: true }))
+  const myTurn = U.phase === 'play' && cur().id === v && cur().human && !U.pick && !U.swapFrom
   hand0.forEach((c, i) => {
     const f = fan(hand0.length, i, { cx: 50, cy: 84, spread: 5.4, max: 56, arc: 1.5, curve: 0.2 })
     cards.push({ id: c.id, face: c, x: f.x, y: f.y, rot: f.rot, s: 1, z: 20 + i, up: true, glow: myTurn && canPlay(c) && (!U.drawn || U.drawn === c), dim: myTurn && !canPlay(c), mine: true, sel: U.drawn === c })
-    placed.add(c.id)
   })
   U.players.forEach((p, pi) => {
-    if (pi === 0) return
-    const seat = seatPos(pi, n)
-    p.hand.forEach((c, i) => { const f = botFan(p.hand.length, i, seat); cards.push({ id: c.id, face: c, x: f.x, y: f.y, rot: f.rot, s: f.s, z: 10 + i, up: U.phase === 'roundOver' }); placed.add(c.id) })
+    if (pi === v) return
+    const seat = seatPos(rel(pi), n)
+    p.hand.forEach((c, i) => { const f = botFan(p.hand.length, i, seat); cards.push({ id: c.id, face: hide(c), x: f.x, y: f.y, rot: f.rot, s: f.s, z: 10 + i, up: U.phase === 'roundOver' }) })
   })
   const top = U.discard.slice(-9)
-  U.discard.forEach((c) => { const k = top.indexOf(c); cards.push({ id: c.id, face: c, x: 58 + (k < 0 ? 0 : (k - top.length) * 0.15), y: 45 + (k < 0 ? 0 : (k - top.length) * 0.1), rot: rotOf(c), s: 1, z: 2 + (k < 0 ? 0 : k), up: true }); placed.add(c.id) })
-  U.deck.forEach((c, i) => { cards.push({ id: c.id, face: c, x: 41 + i * 0.012, y: 45 - i * 0.012, rot: 0, s: 1, z: 1 + (i / 200), up: false, glow: myTurn && !U.drawn && i === U.deck.length - 1 }); placed.add(c.id) })
-  const seats = U.players.map((p, i) => { const pos = seatPos(i, n); const st = U.uno[p.id]; return { id: p.id, name: p.name, avatar: p.avatar, x: pos.x, y: i === 0 ? 96 : pos.y + (pos.y < 20 ? -9 : pos.x < 20 || pos.x > 80 ? 17 : 9), score: p.score, count: p.hand.length, turn: U.phase === 'play' && U.turn === i, uno: p.hand.length === 1 && st && st.called, danger: p.hand.length === 1 && st && !st.called, human: p.human } })
+  U.discard.forEach((c) => { const k = top.indexOf(c); cards.push({ id: c.id, face: c, x: 58 + (k < 0 ? 0 : (k - top.length) * 0.15), y: 45 + (k < 0 ? 0 : (k - top.length) * 0.1), rot: rotOf(c), s: 1, z: 2 + (k < 0 ? 0 : k), up: true }) })
+  U.deck.forEach((c, i) => { cards.push({ id: c.id, face: hide(c), x: 41 + i * 0.012, y: 45 - i * 0.012, rot: 0, s: 1, z: 1 + (i / 200), up: false, glow: myTurn && !U.drawn && i === U.deck.length - 1 }) })
+  const seats = U.players.map((p, i) => { const pos = seatPos(rel(i), n); const st = U.uno[p.id]; return { id: p.id, name: p.name, avatar: p.avatar, x: pos.x, y: rel(i) === 0 ? 96 : pos.y + (pos.y < 20 ? -9 : pos.x < 20 || pos.x > 80 ? 17 : 9), score: p.score, count: p.hand.length, turn: U.phase === 'play' && U.turn === i, uno: p.hand.length === 1 && st && st.called, danger: p.hand.length === 1 && st && !st.called, human: i === v, bot: !p.human } })
   const buttons = []
   if (U.phase === 'play') {
-    buttons.push({ name: 'uno', label: 'UNO!', hot: human().hand.length <= 2, pulse: !!(U.uno[0] && !U.uno[0].called) })
-    if (U.players.some((p) => !p.human && U.uno[p.id] && !U.uno[p.id].called && p.hand.length === 1)) buttons.push({ name: 'catch', label: 'CATCH!', hot: true, pulse: true })
-    if (U.drawn) buttons.push({ name: 'pass', label: 'PASS' })
+    buttons.push({ name: 'uno', label: 'UNO!', hot: me.hand.length <= 2, pulse: !!(U.uno[v] && !U.uno[v].called) })
+    if (U.players.some((p) => p.id !== v && U.uno[p.id] && !U.uno[p.id].called && p.hand.length === 1)) buttons.push({ name: 'catch', label: 'CATCH!', hot: true, pulse: true })
+    if (U.drawn && myTurn) buttons.push({ name: 'pass', label: 'PASS' })
   }
-  if (U.phase === 'roundOver' && !U.roundInfo.matchWin) buttons.push({ name: 'next', label: 'NEXT ROUND ▶', hot: true, pulse: true })
+  if (U.phase === 'roundOver' && !U.roundInfo.matchWin && v === 0) buttons.push({ name: 'next', label: 'NEXT ROUND ▶', hot: true, pulse: true })
+  const prompt = U.pick && U.pickBy === v ? { type: 'color', colors: COLORS } : U.swapFrom && U.swapFrom.id === v ? { type: 'swap', players: U.players.filter((q) => q !== U.swapFrom).map((q) => ({ id: q.id, name: q.name, count: q.hand.length })) } : null
   return {
-    phase: U.phase, msg: U.msg, seats, cards, buttons, deckClick: true,
-    center: { color: U.color, dir: U.dir, pend: U.pend, top: U.top },
-    prompt: U.pick ? { type: 'color', colors: COLORS } : U.swapFrom ? { type: 'swap', players: U.players.filter((q) => q !== U.swapFrom).map((q) => ({ id: q.id, name: q.name, count: q.hand.length })) } : null,
-    info: `ROUND ${U.round} · FIRST TO ${U.opts.target}${U.opts.sevenZero ? ' · SEVEN-0' : ''}`,
+    phase: U.phase, msg: viewerMsg(v), seats, cards, buttons, deckClick: true, viewer: v,
+    center: { color: U.color, dir: U.dir, pend: U.pend, top: U.top && { id: U.top.id, color: U.top.color, value: U.top.value } },
+    prompt,
+    info: `ROUND ${U.round} · FIRST TO ${U.opts.target}${U.opts.sevenZero ? ' · SEVEN-0' : ''}${CS.online ? ' · ONLINE' : ''}`,
     scores: U.players.map((p) => [p.name, p.score]),
   }
+}
+// ---- hooks for the online host ----
+export const unoApi = {
+  setActor(i) { ACTOR = i },
+  players: () => U.players,
+  // a human left: a bot takes the seat and finishes any decision they owed
+  dropToBot(i) {
+    const p = U.players[i]
+    if (!p || !p.human) return
+    p.human = false; p.cid = null; p.name = p.name.replace(/ 🤖$/, '') + ' 🤖'
+    if (U.pick && U.pickBy === i) { const c = U.pick; U.pick = null; playCard(p, c, bestColor(p, c)); return }
+    if (U.swapFrom && U.swapFrom.id === i) { const t = U.players.filter((q) => q !== p).sort((x, y) => x.hand.length - y.hand.length)[0]; const f = U.swapNext; swapHands(p, t); U.swapFrom = null; U.swapNext = null; after(0.95, f); return }
+    if (U.phase === 'play' && cur().id === i && !U.drawn) after(0.8, botTurn)
+    notify()
+  },
 }
 registerCardGame({ id: 'uno', name: 'UNO', start, snap, click, button, tick })
