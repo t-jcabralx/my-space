@@ -106,7 +106,7 @@ export default function OnlineLobby({ s, TopPlayers, initGame }) {
     <div className="lobby">
       <div className="lobbyL">
         <h4>ROOM <b style={{ letterSpacing: 4, fontSize: 22, color: '#ffe84a' }}>{share}</b> · {g ? g[2] : room.game}</h4>
-        <div className="lobbyinfo"><small>{rt.connected ? '🟢 connected' : '🟠 connecting…'} · share the code so friends can join ({room.players.length}/{room.max})</small></div>
+        <div className="lobbyinfo"><small>{rt.connected ? '🟢 connected' : '🟠 connecting…'}{Object.keys(rt.p2p || {}).length ? ' · ⚡ direct link' : ' · ☁ relay'} · share the code so friends can join ({room.players.length}/{room.max})</small></div>
         <div className="roomPlayers">
           {room.players.map((p) => <div key={p.id} className="chip sel" style={{ margin: 3 }}>{p.id === room.host ? '👑 ' : '🙂 '}{p.name}{p.id === rt.cid ? ' (you)' : ''}</div>)}
           {(room.game === 'uno' || room.game === 'pusoy' || room.game === 'tongits') && Array.from({ length: Math.max(0, room.max - room.players.length) }).map((_, i) => <div key={i} className="chip" style={{ margin: 3, opacity: 0.6 }}>🤖 BOT</div>)}

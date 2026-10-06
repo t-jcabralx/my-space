@@ -15,9 +15,9 @@ const hit = (a, b) => Math.abs(a.x - b.x) < a.hw + b.hw && Math.abs(a.y - b.y) <
 const PUP_WEIGHTS = { P: 22, S: 14, R: 14, W: 12, L: 9, M: 9, H: 10, B: 8, U: 2, X: 6, G: 6, D: 8 }
 
 export const keys = {}
-const ARCADE = new Set(['slug', 'pickle', 'bomber', 'tetris', 'chomp', 'cards'])
+const ARCADE = new Set(['slug', 'pickle', 'bomber', 'tetris', 'chomp', 'cards', 'flames'])
 export const games = {} // other game modes register themselves here (see slug.js)
-export const profile = { quests: null, awardsDone: {}, awardsInit: false, jackpot: 1000, chips: 1000, cardWins: 0, cardGames: 0, unoWins: 0, pusoyWins: 0, luckyNines: 0, tongitsWins: 0, chompDots: 0, chompGhosts: 0, chompGames: 0, chompLevels: 0, chompHi: 0, tetrisLines: 0, tetrises: 0, tspins: 0, tetrisGames: 0, tetrisWins: 0, sprints: 0, bomberGames: 0, bomberWins: 0, bomberKills: 0, bricks: 0, seen: {}, name: '', pickleGames: 0, pickleWins: 0, aces: 0, ship: { model: 0, paint: 0, trail: 0, bullet: 0 }, kills: 0, bosses: 0, pows: 0, skills: 0, bonus: 0, spaceWins: 0, slugWins: 0, played: 0, spaceHi: 0, slugHi: 0, tops: { space: [], slug: [], pickle: [], bomber: [], tetris: [], chomp: [], uno: [], pusoy: [], lucky9: [], tongits: [] } }
+export const profile = { squad: 2, squadHuman: false, quests: null, awardsDone: {}, awardsInit: false, jackpot: 1000, chips: 1000, cardWins: 0, cardGames: 0, unoWins: 0, pusoyWins: 0, luckyNines: 0, tongitsWins: 0, chompDots: 0, chompGhosts: 0, chompGames: 0, chompLevels: 0, chompHi: 0, tetrisLines: 0, tetrises: 0, tspins: 0, tetrisGames: 0, tetrisWins: 0, sprints: 0, bomberGames: 0, bomberWins: 0, bomberKills: 0, bricks: 0, seen: {}, name: '', pickleGames: 0, pickleWins: 0, aces: 0, ship: { model: 0, paint: 0, trail: 0, bullet: 0 }, kills: 0, bosses: 0, pows: 0, skills: 0, bonus: 0, spaceWins: 0, slugWins: 0, played: 0, spaceHi: 0, slugHi: 0, tops: { space: [], slug: [], pickle: [], bomber: [], tetris: [], chomp: [], uno: [], pusoy: [], lucky9: [], tongits: [] } }
 try { const sv = JSON.parse(localStorage.getItem('si_profile') || '{}'); Object.assign(profile, sv); profile.tops = { space: [], slug: [], pickle: [], bomber: [], tetris: [], chomp: [], uno: [], pusoy: [], lucky9: [], tongits: [], ...(sv.tops || {}) }; profile.ship = { model: 0, paint: 0, trail: 0, bullet: 0, ...(sv.ship || {}) }; profile.seen = { ...(sv.seen || {}) } } catch { /* ignore */ }
 export const saveProfile = () => { try { localStorage.setItem('si_profile', JSON.stringify(profile)) } catch { /* ignore */ } }
 export function recordScore(game, score) {
@@ -623,6 +623,8 @@ function startMission(i) {
   G.meter = Math.min(G.meter || 0, 40); G.mt = 0; G.dirT = 1.2; G.evtT = 20; G.golden = 0; G.meteor = 0; G.introT = 3.4; G.bossState = 'none'; G.exitT = 0; G.warped = false; G.overT = 0; G.combo = 0; G.slow = 1; G.scroll = 1
   G.specialsDone = new Set(); G.summary = null
   G.p = newPlayer()
+  G.squad = newSquad()
+  if (G.squad.length) toast(G.squad.length === 2 ? 'SQUAD READY: 3 SPACECRAFT' : 'DUO READY: 2 SPACECRAFT', '#3de8ff')
   G.save = { droneKeep: G.droneKeep, score: G.score, credits: G.credits, lives: G.lives, up: { ...G.up }, wl: G.wlKeep, nextLife: G.nextLife }
   const m = MISSIONS[i]
   G.banner = { title: i === MISSIONS.length - 1 ? 'FINAL ROUND' : 'MISSION ' + (i + 1), sub: m.name, sub2: 'CHALLENGE: ' + m.challenge.desc.toUpperCase(), kind: 'intro', t: 3.4 }
@@ -682,8 +684,9 @@ function stepPlayer(dt) {
     return
   }
   if (G.warped) { p.vx += 130 * dt; p.x += p.vx * dt; p.y += (0 - p.y) * dt * 2; return }
-  const ax = (keys.ArrowRight || keys.KeyD ? 1 : 0) - (keys.ArrowLeft || keys.KeyA ? 1 : 0)
-  const ay = (keys.ArrowUp || keys.KeyW ? 1 : 0) - (keys.ArrowDown || keys.KeyS ? 1 : 0)
+  const two = !!(G.squad && G.squad.some((m) => m.human))
+  const ax = ((!two && keys.ArrowRight) || keys.KeyD ? 1 : 0) - ((!two && keys.ArrowLeft) || keys.KeyA ? 1 : 0)
+  const ay = ((!two && keys.ArrowUp) || keys.KeyW ? 1 : 0) - ((!two && keys.ArrowDown) || keys.KeyS ? 1 : 0)
   const len = Math.hypot(ax, ay) || 1
   const speed = (G.lz ? 0.6 : 1) * p.spd
   p.vx += ((ax / len) * speed - p.vx) * Math.min(1, dt * 14)
@@ -710,6 +713,80 @@ function stepPlayer(dt) {
   })
   // engine flame
   if (Math.random() < 0.9) part(p.x - 5, p.y + R(-0.6, 0.6), R(-34, -20), R(-3, 3), R(0.15, 0.32), pick(TRAIL_COLS[Math.min(profile.ship.trail, TRAIL_COLS.length - 1)]), R(0.6, 1))
+}
+
+// ---------- squad: teammates that fly with you (up to 2, so 3 spacecraft in total) ----------
+const SLOTS = [[-3, 11], [-3, -11]]
+function newSquad() {
+  const n = Math.max(0, Math.min(2, profile.squad === undefined ? 2 : profile.squad))
+  const m = profile.ship.model, nm = SHIP_DEFS.length
+  const out = []
+  for (let i = 0; i < n; i++) {
+    out.push({ id: i, human: i === 0 && !!profile.squadHuman, model: (m + 1 + i) % nm, paint: (profile.ship.paint + 2 + i * 2) % 6, x: -40, y: i ? -10 : 10, vx: 0, vy: 0, hw: 2, hh: 1.4, hp: 3, maxHp: 3, alive: true, respawn: 0, inv: 2, cd: R(0, 0.3), hitT: 0 })
+  }
+  return out
+}
+function squadHitFx(m) { part(m.x, m.y, 0, 0, 0.2, COLS.fire[1], 1.4) }
+function stepSquad(dt) {
+  const p = G.p
+  if (!G.squad || !G.squad.length || !p) return
+  const humanOn = G.squad.some((m) => m.human)
+  for (const m of G.squad) {
+    m.inv = Math.max(0, m.inv - dt)
+    if (!m.alive) {
+      m.respawn -= dt
+      if (m.respawn <= 0 && !G.overT) { Object.assign(m, { alive: true, hp: m.maxHp, inv: 2.5, x: p.x - 8, y: p.y + (m.id ? -10 : 10) }); ring(m.x, m.y, 22, 40, COLS.green); sfx('shield'); toast('TEAMMATE BACK IN ACTION', '#3dff7a') }
+      continue
+    }
+    if (G.warped) { m.x += 130 * dt; continue }
+    const slot = SLOTS[m.id]
+    if (m.human) {
+      const ax = (keys.ArrowRight ? 1 : 0) - (keys.ArrowLeft ? 1 : 0), ay = (keys.ArrowUp ? 1 : 0) - (keys.ArrowDown ? 1 : 0)
+      const len = Math.hypot(ax, ay) || 1
+      m.vx += ((ax / len) * 46 - m.vx) * Math.min(1, dt * 14); m.vy += ((ay / len) * 46 - m.vy) * Math.min(1, dt * 14)
+      m.x += m.vx * dt; m.y += m.vy * dt
+    } else {
+      // follow the formation slot, drifting toward the nearest threat in front
+      let ty = p.y + slot[1], tx = p.x + slot[0]
+      let tgt = null, best = 1e9
+      for (const e of G.enemies) if (!e.dead && e.x > m.x && e.x < HW - 2) { const d = (e.x - m.x) + Math.abs(e.y - m.y) * 1.5; if (d < best) { best = d; tgt = e } }
+      if (!tgt && G.boss && !G.boss.dying) tgt = G.boss
+      if (tgt) ty = ty * 0.45 + tgt.y * 0.55
+      ty += Math.sin(G.time * 1.7 + m.id * 2) * 2
+      for (const b of G.ebul) if (!b.dead && b.x > m.x && b.x - m.x < 14 && Math.abs(b.y - m.y) < 3.2) ty += (m.y >= b.y ? 1 : -1) * 6 // dodge
+      m.vx += ((tx - m.x) * 3.2 - m.vx) * Math.min(1, dt * 6); m.vy += ((ty - m.y) * 4 - m.vy) * Math.min(1, dt * 6)
+      m.vx = clamp(m.vx, -40, 40); m.vy = clamp(m.vy, -36, 36)
+      m.x += m.vx * dt; m.y += m.vy * dt
+    }
+    m.x = clamp(m.x, -HW + 8, HW - 5); m.y = clamp(m.y, -HH + 4, HH - 8.5)
+    m.cd -= dt
+    const wantFire = m.human ? (keys.Enter || keys.Slash || keys.NumpadEnter || keys.Period) : (G.enemies.some((e) => !e.dead && e.x > m.x && e.x < HW && Math.abs(e.y - m.y) < 6) || (G.boss && !G.boss.dying && !G.boss.enter && Math.abs(G.boss.y - m.y) < G.boss.hh + 4))
+    if (wantFire && m.cd <= 0 && !G.lz) {
+      m.cd = m.human ? 0.17 : 0.24
+      const lv = Math.min(3, p.wl)
+      const offs = lv >= 3 ? [-1.4, 0, 1.4] : lv === 2 ? [-1, 1] : [0]
+      for (const oy of offs) G.pbul.push({ x: m.x + 4, y: m.y + oy, vx: 88, vy: oy * 3, spr: BS().pb, hw: 1.6, hh: 0.9, dmg: 1, pierce: false, homing: false, blast: false, k: 1.5, t: 0 })
+      sfx('shoot')
+    }
+    if (Math.random() < 0.7) part(m.x - 4.5, m.y + R(-0.5, 0.5), R(-30, -18), R(-3, 3), R(0.12, 0.26), pick(TRAIL_COLS[Math.min(profile.ship.trail, TRAIL_COLS.length - 1)]), R(0.5, 0.9))
+  }
+  void humanOn
+}
+function squadCollisions() {
+  if (!G.squad) return
+  for (const m of G.squad) {
+    if (!m.alive || G.exitT > 0 || G.bonus) continue
+    let dmg = 0
+    for (const b of G.ebul) if (!b.dead && hit(m, b)) { b.dead = true; dmg++ }
+    for (const e of G.enemies) if (!e.dead && e.x < HW && e.type !== 'ufo' && hit(m, e)) { dmg++; if (e.maxhp <= 6) killEnemy(e); else hurtEnemy(e, 3) }
+    if (G.boss && !G.boss.dying && !G.boss.enter && hit(m, G.boss)) dmg++
+    for (const bm of G.beams) if (bm.t >= bm.warn && bm.t < bm.warn + bm.life && Math.abs(m.y - bm.y) < bm.h / 2 + m.hh && m.x < bm.x) dmg++
+    if (dmg && m.inv <= 0) {
+      if (G.p.skT > 0 || G.p.shieldT > 0) { m.inv = 0.5; continue }
+      m.hp--; m.inv = 1.4; squadHitFx(m); sfx('hurt')
+      if (m.hp <= 0) { m.alive = false; m.respawn = 9; boom(m.x, m.y, 30, 40, COLS.fire); sfx('bigBoom'); toast(m.human ? 'PLAYER 2 DOWN: BACK IN 9s' : 'TEAMMATE DOWN: BACK IN 9s', '#ff8a96') }
+    }
+  }
 }
 
 function stepBullets(dt) {
@@ -914,6 +991,7 @@ function stepPlaying(dtRaw) {
   const p = G.p
   G.stats.time = (G.stats.time || 0) + dt
   stepPlayer(dt)
+  stepSquad(dt)
   stepLaser(dt)
   stepDirector(dt)
   stepEnemies(dt)
@@ -926,6 +1004,7 @@ function stepPlaying(dtRaw) {
     if (!bm.fired && bm.t >= bm.warn) { bm.fired = true; sfx('laserFire'); shake(1.2) }
   }
   collisions()
+  squadCollisions()
   for (const pu of G.pups) {
     pu.t += dt
     if (pu.drag) { const k = Math.max(0, 1 - 1.6 * dt); pu.vx *= k; pu.vy *= k; pu.vx -= 3 * dt }
@@ -985,11 +1064,12 @@ export function startGame() {
   Object.assign(G, { score: 0, credits: 0, lives: 3, nextLife: 20000, wlKeep: 1, droneKeep: 0, up: { fire: 0, rate: 0, armor: 0, magnet: 0, drone: 0, laser: 0, bomb: 0, shield: 0 }, toasts: [], final: null })
   profile.played++; saveProfile(); sfx('ui'); startMission(0)
 }
+export function setSquad(n, human) { profile.squad = Math.max(0, Math.min(2, n | 0)); profile.squadHuman = !!human && profile.squad > 0; saveProfile(); sfx('ui'); emit() }
 export function startGameAt(i) {
   if (i > G.unlocked) { sfx('deny'); return }
   startGame(); if (i > 0) { G.credits = 300 * i; startMission(i) }
 }
-export function toMenu() { if (games.slug) games.slug.stop(); if (games.pickle) games.pickle.stop(); if (games.bomber) games.bomber.stop(); if (games.tetris) games.tetris.stop(); if (games.chomp) games.chomp.stop(); if (games.cards) games.cards.stop(); G.parts = []; G.pops = []; G.shake = 0; G.flash = 0; saveProfile(); G.mode = 'menu'; G.banner = null; G.boss = null; G.enemies = []; G.ebul = []; G.pbul = []; G.pups = []; G.beams = []; initAudio(); music.set('menu'); sfx('ui'); emit() }
+export function toMenu() { if (games.slug) games.slug.stop(); if (games.pickle) games.pickle.stop(); if (games.bomber) games.bomber.stop(); if (games.tetris) games.tetris.stop(); if (games.chomp) games.chomp.stop(); if (games.cards) games.cards.stop(); if (games.flames) games.flames.stop(); G.parts = []; G.pops = []; G.shake = 0; G.flash = 0; saveProfile(); G.mode = 'menu'; G.banner = null; G.boss = null; G.enemies = []; G.ebul = []; G.pbul = []; G.pups = []; G.beams = []; initAudio(); music.set('menu'); sfx('ui'); emit() }
 export function retryMission() {
   const s = G.save
   G.score = s.score; G.credits = s.credits; G.lives = Math.max(3, s.lives); G.up = { ...s.up }; G.wlKeep = s.wl; G.droneKeep = s.droneKeep || 0; G.nextLife = s.nextLife
@@ -1017,7 +1097,7 @@ export function announce(text, color = '#ffe84a', snd = 'cChip') {
   sfx(snd); emit()
 }
 const dayKey = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` }
-const gamesPlayed = (p) => (p.played || 0) + (p.pickleGames || 0) + (p.bomberGames || 0) + (p.tetrisGames || 0) + (p.chompGames || 0) + (p.cardGames || 0)
+const gamesPlayed = (p) => (p.played || 0) + (p.pickleGames || 0) + (p.bomberGames || 0) + (p.tetrisGames || 0) + (p.chompGames || 0) + (p.cardGames || 0) + (p.flamesGames || 0)
 const counter = (key) => (key === 'gamesPlayed' ? gamesPlayed(profile) : profile[key] || 0)
 export const QUEST_POOL = [
   { id: 'kills', desc: 'Destroy 40 enemies (Space Impact / Ground Zero)', key: 'kills', goal: 40, reward: 150 },
@@ -1117,7 +1197,7 @@ function buildSnap() {
     quests: (() => { const q = ensureQuests(); return { streak: q.streak, bonusClaimed: q.bonusClaimed, list: q.list.map((x) => ({ id: x.id, desc: x.desc, goal: x.goal, reward: x.reward, done: x.done, value: questProgress(x) })) } })(),
     seen: { ...profile.seen }, unlocked: G.unlocked, mode: G.mode, score: G.score, hi: G.hi, credits: G.credits, lives: G.lives,
     mission: G.mission, missionName: m.name, missionSub: m.sub, missions: MISSIONS.length, color: m.color,
-    hp: p ? Math.max(0, p.hp) : 0, maxHp: p ? p.maxHp : 3,
+    hp: p ? Math.max(0, p.hp) : 0, maxHp: p ? p.maxHp : 3, squad: (G.squad || []).map((m) => ({ human: m.human, hp: Math.max(0, m.hp), max: m.maxHp, alive: m.alive, respawn: Math.ceil(m.respawn) })), squadSize: profile.squad === undefined ? 2 : profile.squad, squadHuman: !!profile.squadHuman,
     skills: p ? Object.keys(SK).map((k) => ({ k, key: SK[k].key, name: SK[k].name, color: SK[k].color, lv: skillLv(k), cd: p.cd[k], max: p.cdMax[k], active: k === 'laser' ? !!G.lz : k === 'shield' ? p.skT > 0 : p.cd.bomb > p.cdMax.bomb - 0.6 })).concat([{ k: 'od', key: 'R', name: 'OVERDRIVE', color: '#ff4de1', lv: '', label: p.od > 0 ? `${Math.ceil(p.od)}s` : G.meter >= 100 ? 'READY' : Math.floor(G.meter) + '%', cd: p.od > 0 ? 0 : G.meter >= 100 ? 0 : 100 - G.meter, max: 100, active: p.od > 0 }]) : [],
     profile: { ...profile, tops: { space: profile.tops.space.slice(), slug: profile.tops.slug.slice(), pickle: (profile.tops.pickle || []).slice(), bomber: (profile.tops.bomber || []).slice(), tetris: (profile.tops.tetris || []).slice(), chomp: (profile.tops.chomp || []).slice(), uno: (profile.tops.uno || []).slice(), pusoy: (profile.tops.pusoy || []).slice(), lucky9: (profile.tops.lucky9 || []).slice(), tongits: (profile.tops.tongits || []).slice() } }, wl: p ? p.wl : 1,
     special: p ? p.special : 'normal', specialT: p ? p.specialT : 0, rapidT: p ? p.rapidT : 0, shieldT: p ? p.shieldT : 0,

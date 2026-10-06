@@ -2,12 +2,13 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import OnlineLobby from './OnlineLobby.jsx'
-import { subscribe, getSnap, startGame, toShop, launchNext, buy, retryMission, toMenu, togglePause, useSkill, startGameAt, setShip, setName, markSeen, claimDaily } from '../game/engine.js'
+import { setSquad, subscribe, getSnap, startGame, toShop, launchNext, buy, retryMission, toMenu, togglePause, useSkill, startGameAt, setShip, setName, markSeen, claimDaily } from '../game/engine.js'
 import { subscribeSlug, getSlugSnap, slugActions } from '../game/slug.js'
 import { subscribePickle, getPickleSnap, pickleActions, MODES } from '../game/pickle.js'
 import { subscribeBomber, getBomberSnap, bomberActions, MODES as BMODES } from '../game/bomber.js'
 import { subscribeTetris, getTetrisSnap, tetrisActions, MODES as TMODES, COLORS as TCOL, SHAPES as TSH } from '../game/tetris.js'
 import { subscribeChomp, getChompSnap, chompActions, MODES as CMODES } from '../game/chomp.js'
+import { subscribeFlames, getFlamesSnap, flamesActions, OUTCOMES as FOUT } from '../game/flames.js'
 import CardsHUD from './CardsUI.jsx'
 import { cardsActions } from '../game/cards/core.js'
 import { subscribeSettings, getSettings, setSetting, resetSettings } from '../game/settings.js'
@@ -177,6 +178,20 @@ const HELP = {
       </>
     ),
   },
+  flames: {
+    name: '🔥 FLAMES',
+    body: () => (
+      <>
+        <p><b>The classic name game.</b> Type two names and press <b>REVEAL</b>.</p>
+        <ul>
+          <li><b>1.</b> Letters that appear in both names are <b>crossed out</b> (one match per letter).</li>
+          <li><b>2.</b> Count the letters that are left.</li>
+          <li><b>3.</b> Go around <b>F-L-A-M-E-S</b> using that count and cross out the letter you land on. Repeat until one letter remains.</li>
+          <li><b>F</b> Friends · <b>L</b> Lovers · <b>A</b> Affection · <b>M</b> Marriage · <b>E</b> Enemies (fist fight!) · <b>S</b> Siblings. Identical names are Soulmates (S).</li>
+        </ul>
+      </>
+    ),
+  },
   chomp: {
     name: '🟡 MAZE CHOMP',
     body: () => (
@@ -252,7 +267,7 @@ function HelpModal() {
     </div>
   )
 }
-const FIRST = { playing: 'space', slug: 'slug', pickle: 'pickle', bomber: 'bomber', tetris: 'tetris', chomp: 'chomp', cards: 'cards' }
+const FIRST = { flames: 'flames', playing: 'space', slug: 'slug', pickle: 'pickle', bomber: 'bomber', tetris: 'tetris', chomp: 'chomp', cards: 'cards' }
 function HelpLayer({ s }) {
   const g = FIRST[s.mode]
   useEffect(() => {
@@ -927,6 +942,70 @@ function CardRoomLobby({ s, onOnline }) {
   )
 }
 
+function FlamesLobby({ s }) {
+  const p = s.profile
+  const hist = p.flamesHistory || []
+  return (
+    <div className="lobby">
+      <div className="lobbyL">
+        <h4>🔥 FLAMES · THE NAME GAME</h4>
+        <div className="lobbyinfo">Type two names. Matching letters are crossed out, the rest are counted, and the count eliminates letters of <b>F·L·A·M·E·S</b> until one is left:<br />
+          <small>F = Friends · L = Lovers · A = Affection · M = Marriage · E = Enemies · S = Siblings. Each result plays its own animated scene!</small></div>
+        <div className="flameslegend">{Object.entries(FOUT).map(([k, o]) => <span key={k} style={{ '--c': o.color }}><b>{k}</b> {o.icon} {o.word}</span>)}</div>
+        <div className="chips"><button className="big" onClick={flamesActions.start}>▶ START</button></div>
+      </div>
+      <div className="lobbyR">
+        <div className="panel"><h4>RECENT RESULTS</h4>
+          {hist.length === 0 && <div className="lobbyinfo"><small>Nothing yet. Try your name and your crush's!</small></div>}
+          {hist.slice(0, 8).map((h, i) => <div key={i} className="kv"><span>{h.a} + {h.b}</span><b style={{ color: FOUT[h.r].color }}>{FOUT[h.r].icon} {FOUT[h.r].word}</b></div>)}
+        </div>
+      </div>
+    </div>
+  )
+}
+function FlamesHUD() {
+  const g = useSyncExternalStore(subscribeFlames, getFlamesSnap)
+  const [a, setA] = useState('')
+  const [b, setB] = useState('')
+  if (!g) return null
+  const go = () => flamesActions.reveal(a, b)
+  return (
+    <div className="hud flames">
+      <div className="top"><div className="col"><div className="lbl">🔥 FLAMES</div></div><div className="col right"><SoundBtn /></div></div>
+      {g.phase === 'input' && (
+        <div className="flamesform">
+          <h2>WHO ARE WE TALKING ABOUT?</h2>
+          <input className="nameinp" value={a} maxLength={18} placeholder="FIRST NAME" onChange={(e) => setA(e.target.value)} onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Enter') go() }} autoFocus />
+          <div className="plus">+</div>
+          <input className="nameinp" value={b} maxLength={18} placeholder="SECOND NAME" onChange={(e) => setB(e.target.value)} onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Enter') go() }} />
+          {g.note && <div className="fnote">{g.note}</div>}
+          <button className="big blink" onClick={go}>🔥 REVEAL OUR FLAMES</button>
+          <button className="big sec" onClick={flamesActions.quit}>DASHBOARD</button>
+        </div>
+      )}
+      {g.phase !== 'input' && (
+        <div className="flamesboard">
+          <div className="fnames">
+            {[[g.A, g.crossedA, g.a], [g.B, g.crossedB, g.b]].map(([letters, crossed, full], r) => (
+              <div key={r} className="fname">{letters.map((ch, i) => <span key={i} className={'fl ' + (crossed[i] ? 'x' : '')}>{ch}</span>)}<small>{full}</small></div>
+            ))}
+          </div>
+          {g.phase !== 'cross' && <div className="fcount">{g.phase === 'result' ? '' : <>LETTERS LEFT <b>{g.remaining}</b>{g.counter ? <> · COUNT <b className="cn">{g.counter}</b></> : null}</>}</div>}
+          <div className="fletters">{g.letters.map((l) => <span key={l.ch} className={'fl2 ' + (l.out ? 'out ' : '') + (l.hot ? 'hot' : '')} style={{ '--c': FOUT[l.ch].color }}>{l.ch}</span>)}</div>
+          {g.phase === 'result' && g.out && (
+            <div className="fresult" style={{ '--c': g.out.color }}>
+              <div className="fword">{g.out.icon} {g.out.word}</div>
+              <div className="ftag">{g.out.tag}</div>
+              <div className="fbtns"><button className="big" onClick={flamesActions.again}>↻ ANOTHER PAIR</button><button className="big sec" onClick={flamesActions.quit}>DASHBOARD</button></div>
+            </div>
+          )}
+        </div>
+      )}
+      <div className="scan" />
+    </div>
+  )
+}
+
 function Notices({ list }) {
   if (!list || !list.length) return null
   return <div className="notices">{list.map((n) => <div key={n.id} className="notice" style={{ borderColor: n.color, color: n.color }}>{n.text}</div>)}</div>
@@ -951,13 +1030,14 @@ function DailyPanel({ q }) {
   )
 }
 
-function GameCard({ cls, title, tag, hi, hiLabel, art, onPlay, label, sub, onInvite }) {
+function GameCard({ cls, title, tag, hi, hiLabel, art, onPlay, label, sub, onInvite, extra }) {
   return (
     <div className={'gcard ' + cls}>
       <h4>{title}</h4>
       <small>{tag}</small>
       <div className="gart">{art}</div>
       <div className="kv"><span>{hiLabel}</span><b>{hi}</b>{sub}</div>
+      {extra}
       <button className="big" onClick={onPlay}>{label}</button>
       {onInvite && <button className="big sec" onClick={onInvite}>🌐 INVITE FRIEND</button>}
     </div>
@@ -986,7 +1066,7 @@ function Hub({ s }) {
   const next = RANKS[ri + 1]
   const pct = next ? ((xp - RANKS[ri][0]) / (next[0] - RANKS[ri][0])) * 100 : 100
   const doneAch = ACH.filter(([, , g, goal]) => g(p, s.unlocked) >= goal).length
-  const TABS = [['home', 'DASHBOARD'], ['pickle', '🏓 PICKLEBALL'], ['bomber', '💣 BOMBER'], ['tetris', '🧱 TETRIS'], ['chomp', '🟡 CHOMP'], ['cards', '🃏 CARDS'], ['online', '🌐 ONLINE'], ['top', '🏆 TOP PLAYERS'], ['ship', 'CUSTOMIZE SHIP'], ['levels', 'SPACE LEVELS'], ['skills', 'CONTROLS'], ['settings', '⚙ SETTINGS'], ['awards', `AWARDS ${doneAch}/${ACH.length}`]]
+  const TABS = [['home', 'DASHBOARD'], ['pickle', '🏓 PICKLEBALL'], ['bomber', '💣 BOMBER'], ['tetris', '🧱 TETRIS'], ['chomp', '🟡 CHOMP'], ['cards', '🃏 CARDS'], ['flames', '🔥 FLAMES'], ['online', '🌐 ONLINE'], ['top', '🏆 TOP PLAYERS'], ['ship', 'CUSTOMIZE SHIP'], ['levels', 'SPACE LEVELS'], ['skills', 'CONTROLS'], ['settings', '⚙ SETTINGS'], ['awards', `AWARDS ${doneAch}/${ACH.length}`]]
   return (
     <div className="screen hub">
       <div className="hubtop">
@@ -998,8 +1078,9 @@ function Hub({ s }) {
       {tab === 'home' && (
         <>
           <div className="cards4">
-            <GameCard cls="space" title="🚀 SPACE IMPACT: NEON" tag="10 levels · 10 bosses · skills · drones" hiLabel="HI-SCORE" hi={p.spaceHi.toLocaleString()}
+            <GameCard cls="space" title="🚀 SPACE IMPACT: NEON" tag="10 levels · 10 bosses · squad of 3 ships" hiLabel="HI-SCORE" hi={p.spaceHi.toLocaleString()}
               art={<ShipPreview ship={p.ship} />} label="▶ PLAY" onPlay={startGame}
+              extra={<div className="squadsel"><small>SQUAD</small><div className="chips">{[[0, 'SOLO'], [1, 'DUO'], [2, 'TRIO']].map(([n, l]) => <button key={n} className={'chip ' + ((s.squadSize === n) ? 'sel' : '')} onClick={() => setSquad(n, s.squadHuman)}>{l}</button>)}<button className={'chip ' + (s.squadHuman ? 'sel' : '')} disabled={s.squadSize < 1} onClick={() => setSquad(s.squadSize, !s.squadHuman)} title="A friend flies ship #2 on the same keyboard: arrows + Enter">👥 P2 HUMAN</button></div></div>}
               sub={<><span>LEVELS</span><b>{s.unlocked + 1}/10</b></>} />
             <GameCard cls="slug" title="🪖 OPERATION GROUND ZERO" tag="Run & gun · POWs · tank · 3 bosses" hiLabel="HI-SCORE" hi={p.slugHi.toLocaleString()}
               art={<SpriteArt scene={[[SP.palm, 22, false, 3], [SP.vsv, 110, false, 3], [SP.heroS, 66, false, 4], [SP.solS, 178, true, 4], [SP.runS, 206, true, 4]]} />} label="▶ PLAY" onPlay={() => slugActions.start(0)}
@@ -1016,6 +1097,9 @@ function Hub({ s }) {
             <GameCard cls="chomp" title="🟡 MAZE CHOMP" tag="Ghosts · pellets · fruit · co-op" hiLabel="BEST" hi={(p.chompHi || 0).toLocaleString()}
               art={<MiniChomp />} label="SELECT MODE ▶" onPlay={() => setTab('chomp')}
               sub={<><span>GHOSTS</span><b>{p.chompGhosts || 0}</b></>} />
+            <GameCard cls="flames" title="🔥 FLAMES" tag="Friends · Lovers · Affection · Marriage · Enemies · Siblings" hiLabel="TRIED" hi={p.flamesGames || 0}
+              art={<div className="miniFlames"><i>F</i><i>L</i><i>A</i><i>M</i><i>E</i><i>S</i></div>} label="PLAY FLAMES ▶" onPlay={() => setTab('flames')}
+              sub={<><span>LAST</span><b>{(p.flamesHistory && p.flamesHistory[0]) ? FOUT[p.flamesHistory[0].r].word : '-'}</b></>} />
             <GameCard cls="cards" title="🃏 CARD ROOM" tag="UNO · Pusoy Dos · Lucky 9 · Tong-its" hiLabel="CHIPS" hi={'🪙 ' + Number(p.chips || 0).toLocaleString()}
               art={<div className="miniCards"><i>♥</i><i>♠</i><i>9</i><i>+2</i></div>} label="SELECT GAME ▶" onPlay={() => setTab('cards')} onInvite={() => { setOgame('uno'); setTab('online') }}
               sub={<><span>WON</span><b>{p.cardWins || 0}</b></>} />
@@ -1040,6 +1124,7 @@ function Hub({ s }) {
         </>
       )}
       {tab === 'pickle' && <PickleLobby s={s} mode={pmode} setMode={setPmode} diff={pdiff} setDiff={setPdiff} target={ptarget} setTarget={setPtarget} />}
+      {tab === 'flames' && <FlamesLobby s={s} />}
       {tab === 'cards' && <CardRoomLobby s={s} onOnline={(g) => { setOgame(g || 'uno'); setTab('online') }} />}
       {tab === 'online' && <OnlineLobby s={s} TopPlayers={TopPlayers} initGame={ogame} />}
       {tab === 'chomp' && <ChompLobby s={s} mode={cmode} setMode={setCmode} level={clevel} setLevel={setClevel} />}
@@ -1358,6 +1443,7 @@ function HUDInner({ s }) {
   if (s.mode === 'bomber') return <BomberHUD />
   if (s.mode === 'tetris') return <TetrisHUD />
   if (s.mode === 'chomp') return <ChompHUD />
+  if (s.mode === 'flames') return <FlamesHUD />
   if (s.mode === 'cards') return <CardsHUD SoundBtn={SoundBtn} openHelp={openHelp} TopPlayersMini={TopPlayersMini} />
   const playing = s.mode === 'playing' || s.mode === 'paused'
   return (

@@ -41,6 +41,11 @@ Without these the games still work; the global leaderboard just shows empty.
 - `POST /api/score` `{ game: "space"|"slug"|"pickle"|"bomber"|"tetris"|"chomp"|"uno"|"pusoy"|"lucky9"|"tongits", name, score }`
 - `GET /api/leaderboard?game=space&limit=10`
 
+## Also in the box
+
+- **🔥 FLAMES**: type two names, watch the shared letters get crossed out, count the rest and eliminate F-L-A-M-E-S letters until one remains: Friends, Lovers, Affection, Marriage, Enemies, Siblings. Every result has its own animated voxel scene (high-five and rainbow, kiss and hearts, bouquet, wedding bells and rings, a proper punch-up, piggyback and noogie).
+- **Space Impact squad**: fly with up to **2 teammates (3 spacecraft)**. Teammates are AI wingmen that follow, dodge, shoot and respawn; switch a teammate to **P2 HUMAN** on the Space Impact card (WASD + Space for P1, arrows + Enter for P2). Choose SOLO / DUO / TRIO.
+
 ## Online multiplayer (no extra server)
 
 The **🌐 ONLINE** tab lets friends play together: **Tetra Blast 1v1, UNO, Pusoy Dos, Tong-its, Lucky 9**. Create a room, share the 5-letter code, the host presses START (bots fill empty seats).
@@ -49,6 +54,8 @@ Everything runs inside this Next.js app: rooms are stored in Redis, and messages
 - `POST /api/rt/room` list / create / join / leave / start / finish (rooms live in Redis, 2h TTL)
 - `POST /api/rt/send` publish a message to the room, or privately to one player (`PUBLISH rt:<code>[:<cid>]`)
 - `GET /api/rt/stream` Server-Sent Events bridge: subscribes to Upstash (`/subscribe/...`) and relays frames to the browser
+
+Real-time games (Pickleball, Bomber, Tetra Blast) upgrade to a **direct WebRTC data channel** between browsers once it connects (signalled through the same Redis channel, so no extra server); if the direct link cannot be made, everything keeps working through Redis. The lobby shows ⚡ direct link or ☁ relay.
 
 The host simulates card games and sends each player a private snapshot (other hands are masked); Tetra Blast runs on both clients with the same seeded piece bag and exchanges attacks and board snapshots.
 Disconnected players are replaced by a bot. On serverless hosts a long-lived SSE response is capped by `maxDuration` (300s); the client reconnects automatically. `npm run dev` + `node scripts/sim-online.mjs` runs a two-process end-to-end test against real Redis.
