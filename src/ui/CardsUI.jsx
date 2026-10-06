@@ -108,6 +108,9 @@ export default function CardsHUD({ SoundBtn, openHelp, TopPlayersMini }) {
         {s.prompt && s.prompt.type === 'color' && (
           <div className="ct-overlay"><div className="colorpick"><h3>CHOOSE A COLOUR</h3><div>{s.prompt.colors.map((k) => <button key={k} style={{ background: UCOL[k] }} onClick={() => cardsActions.button('color', k)}>{{ R: 'RED', Y: 'YELLOW', G: 'GREEN', B: 'BLUE' }[k]}</button>)}</div></div></div>
         )}
+        {s.prompt && s.prompt.type === 'swap' && (
+          <div className="ct-overlay"><div className="colorpick"><h3>7 · SWAP HANDS WITH…</h3><div>{s.prompt.players.map((q) => <button key={q.id} style={{ background: '#6a2a8a' }} onClick={() => cardsActions.button('swap', q.id)}>{q.name} ({q.count} cards)</button>)}</div></div></div>
+        )}
         {/* round result panel */}
         {s.roundInfo && s.phase === 'roundOver' && (
           <div className="roundinfo"><b>{s.id === 'tongits' ? s.roundInfo.kind : 'ROUND RESULT'}</b>

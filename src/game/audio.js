@@ -117,6 +117,9 @@ const SFX = {
   phase: () => { noise(0.8, 0.4, 2000, 50); tone('sawtooth', 80, 400, 0.8, 0.2) },
   warp: () => { tone('sawtooth', 100, 1600, 1.4, 0.12); noise(1.4, 0.2, 300, 5000, 0, 'bandpass') },
   // run & gun
+  crowd: () => { noise(1.4, 0.3, 500, 2600, 0, 'bandpass'); for (let i = 0; i < 9; i++) noise(0.05, 0.22, 2800, 1800, 0.1 + i * 0.1, 'highpass'); tone('triangle', 330, 660, 0.4, 0.06, 0.1) },
+  event: () => { tone('sawtooth', 220, 880, 0.35, 0.14); tone('square', 440, 1320, 0.3, 0.08, 0.1); noise(0.4, 0.2, 400, 5000, 0, 'bandpass') },
+  jackpot: () => { arp([523, 659, 784, 1046, 1318, 1568, 2093, 2637], 'square', 0.12, 0.14, 0.06); for (let i = 0; i < 14; i++) tone('square', 2600 + (i % 3) * 400, 2000, 0.05, 0.07, 0.5 + i * 0.05); noise(1, 0.2, 800, 7000, 0.2, 'bandpass') },
   cDeal: () => { noise(0.07, 0.22, 4500, 1500, 0, 'bandpass'); tone('sine', 1300, 700, 0.04, 0.05) },
   cFlip: () => { noise(0.07, 0.2, 6000, 2000, 0, 'highpass'); tone('triangle', 700, 1150, 0.05, 0.08) },
   cPlay: () => { tone('sine', 230, 110, 0.08, 0.22); noise(0.05, 0.16, 2500, 600, 0, 'bandpass') },

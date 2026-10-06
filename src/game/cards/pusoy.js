@@ -168,7 +168,7 @@ function roundWon(p) {
   if (p.human) celebrate()
   banner(`${p.name} WINS THE ROUND`, `+${gain} POINTS`, '#3dff7a', 2)
   P.msg = ''
-  if (P.auto && !P.roundInfo.matchWin) after(2.6, () => { P.round++; newRound() })
+  if (P.auto && !P.roundInfo.matchWin) after(2.6, () => { if (P.phase === 'roundOver') { P.round++; newRound() } })
   if (P.roundInfo.matchWin) {
     after(2.4, () => {
       const won = p.human

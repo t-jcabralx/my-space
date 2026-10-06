@@ -116,7 +116,13 @@ function endRally(winner, reason) {
   else { P.serveTeam = 1 - P.serveTeam; P.serverNum = 1; P.newTurn = true }
   P.bestRally = Math.max(P.bestRally, P.rally)
   const label = ace ? 'ACE!' : reason === 'WINNER' ? 'WINNER' : 'FAULT: ' + reason
-  P.msg = { text: label, team: winner, sub: serverWon ? 'POINT' : 'SIDE OUT' }
+  const tgt = P.cfg.target, sa0 = P.score[0], sb0 = P.score[1], hi0 = Math.max(sa0, sb0)
+  let drama = ''
+  if (hi0 >= tgt - 1 && sa0 === sb0) drama = ' · DEUCE!'
+  else if (hi0 >= tgt - 1 && Math.abs(sa0 - sb0) >= 1) drama = ` · MATCH POINT ${sa0 > sb0 ? 'TEAM A' : 'TEAM B'}!`
+  if (drama && !(hi0 >= tgt && Math.abs(sa0 - sb0) >= 2)) { sfx('crowd'); speak(drama.includes('DEUCE') ? 'Deuce!' : 'Match point!', 0.7, 1.1) }
+  if (P.rally >= 10 && !P.over) sfx('crowd')
+  P.msg = { text: label, team: winner, sub: (serverWon ? 'POINT' : 'SIDE OUT') + drama + (P.rally >= 10 ? ` · ${P.rally}-SHOT RALLY!` : '') }
   if (ace && humanSide) profile.aces = (profile.aces || 0) + 1
   P.phase = 'point'; P.pointT = 2.3
   sfx(reason === 'WINNER' || ace ? 'point' : 'fault')
@@ -176,6 +182,7 @@ function launch(p, type, aim = {}) {
   solveShot(B, xt, yt, vh, kind === 'smash' ? -30 : 4)
   B.lastHit = p.team; B.hitCount++; B.bounces = [0, 0]; B.serve = false; B.t = 0; B.lastHitter = p; B.held = false
   P.rally++
+  if ([10, 15, 20, 30].includes(P.rally)) { popup(0, 22, `${P.rally} SHOT RALLY!`, [1, 0.9, 0.3]); sfx('crowd'); ring(0, 0, 40, 60, COLS.fire); speak(`${P.rally} shot rally!`, 0.8, 1.1) }
   p.swingT = 0.28; p.swingK = kind
   sfx(kind === 'smash' ? 'smash' : 'paddle')
   part(B.x, B.y + B.h * 0.4, 0, 0, 0.18, COLS.fire[1], 1.5)

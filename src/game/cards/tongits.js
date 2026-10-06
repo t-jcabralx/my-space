@@ -59,7 +59,7 @@ function meldWith(hand, card) {
   }
   return best
 }
-const T = { players: [], stock: [], discard: [], turn: 0, dealer: 0, phase: 'idle', stake: 50, sel: new Set(), msg: '', first: true, round: 1, roundInfo: null, challenge: null, sortMode: 'suit', rot: {}, net: 0, start: 0, auto: false, drew: false }
+const T = { gen: 0, players: [], stock: [], discard: [], turn: 0, dealer: 0, phase: 'idle', stake: 50, sel: new Set(), msg: '', first: true, round: 1, roundInfo: null, challenge: null, sortMode: 'suit', rot: {}, net: 0, start: 0, auto: false, drew: false }
 const rotOf = (c) => T.rot[c.id] || (T.rot[c.id] = rnd(-12, 12))
 const me = () => T.players[0]
 const allMelds = () => T.players.flatMap((p) => p.melds)
@@ -72,6 +72,7 @@ function start(opts) {
   newRound()
 }
 function newRound() {
+  T.gen++
   const d = shuffle(stdDeck())
   for (const p of T.players) { p.hand = []; p.melds = [] }
   T.stock = []; T.discard = []; T.sel = new Set(); T.roundInfo = null; T.challenge = null; T.first = true; T.rot = {}; T.drew = false
@@ -80,8 +81,10 @@ function newRound() {
   const order = []
   for (let r = 0; r < 12; r++) for (let k = 0; k < 3; k++) order.push((T.dealer + 1 + k) % 3)
   order.push(T.dealer)
-  order.forEach((pi, k) => after(0.4 + k * 0.08, () => { T.players[pi].hand.push(T.stock.pop()); sfx('cDeal'); notify() }))
+  const g0 = T.gen
+  order.forEach((pi, k) => after(0.4 + k * 0.08, () => { if (T.gen !== g0 || !T.stock.length) return; T.players[pi].hand.push(T.stock.pop()); sfx('cDeal'); notify() }))
   after(0.5 + order.length * 0.08 + 0.3, () => {
+    if (T.gen !== g0) return
     T.turn = T.dealer; T.phase = 'action'
     banner(`ROUND ${T.round}`, `${T.players[T.dealer].name} DEALS AND DISCARDS FIRST`, '#ffe84a', 1.3)
     notify(); beginTurn()
@@ -96,7 +99,7 @@ function beginTurn() {
   if (p.human) T.msg = T.phase === 'draw' ? 'Draw from the stock, or take the discard if it makes a meld' : 'Meld if you can, then discard one card'
   else T.msg = p.name + ' is thinking…'
   notify()
-  if (!p.human) after(rnd(0.9, 1.5), () => botTurn(p))
+  if (!p.human) { const g = T.gen; after(rnd(0.9, 1.5), () => { if (T.gen === g) botTurn(p) }) }
 }
 function drawStock(p) {
   if (!T.stock.length) { stockOut(); return null }
@@ -138,6 +141,7 @@ function botMelds(p) {
   }
 }
 function discardChoice(p) {
+  if (!p.hand.length) return null
   let best = null
   for (const c of p.hand) {
     const same = p.hand.filter((x) => x !== c && x.rank === c.rank).length
@@ -148,7 +152,8 @@ function discardChoice(p) {
   return best.c
 }
 function botTurn(p) {
-  if (T.phase === 'roundOver' || T.phase === 'challenge') return
+  if (T.phase === 'roundOver' || T.phase === 'challenge' || T.phase === 'deal') return
+  const gen = T.gen
   // maybe call a challenge before drawing
   if (T.phase === 'draw' && p.melds.length && !T.first) {
     const dw = dead(p.hand)
@@ -162,9 +167,10 @@ function botTurn(p) {
     notify()
   }
   after(0.8, () => {
+    if (T.gen !== gen || T.phase !== 'action') return
     botMelds(p); notify()
     if (!p.hand.length) { tongitsWin(p); return }
-    after(0.8, () => discardCard(p, discardChoice(p)))
+    after(0.8, () => { if (T.gen === gen && T.phase === 'action' && p.hand.length) discardCard(p, discardChoice(p)) })
   })
 }
 // ---- endings ----
@@ -207,6 +213,7 @@ function resolveChallenge() {
   settle(winner, pays.filter((x) => x[2] === winner).map((x) => [x[0], x[1]]), 'DRAW FIGHT', pays.filter((x) => x[2] !== winner))
 }
 function settle(winner, pays, kind, extra = []) {
+  T.gen++
   T.phase = 'roundOver'
   const rows = []
   let gain = 0
@@ -229,7 +236,7 @@ function settle(winner, pays, kind, extra = []) {
   if (winner.human) { if (kind === 'TONG-ITS') { profile.tongitsWins = (profile.tongitsWins || 0) + 1; saveProfile() } celebrate() }
   T.msg = ''
   notify()
-  if (T.auto) after(3, () => { T.round++; newRound() })
+  if (T.auto) after(3, () => { if (T.phase === 'roundOver') { T.round++; newRound() } })
 }
 // ---- human input ----
 const hand0 = () => me().hand.slice().sort((a, b) => (T.sortMode === 'suit' ? SO[a.suit] - SO[b.suit] || rv(a) - rv(b) : rv(a) - rv(b) || SO[a.suit] - SO[b.suit]))

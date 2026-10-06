@@ -38,14 +38,14 @@ function drawCard(p, n = 1, instant = false) {
 }
 function start(opts) {
   CS.opts = opts
-  U.opts = { count: opts.count || 3, stack: opts.stack !== false, target: opts.target || 200 }
+  U.opts = { count: opts.count || 3, stack: opts.stack !== false, target: opts.target || 200, sevenZero: !!opts.sevenZero }
   U.players = Array.from({ length: U.opts.count }, (_, i) => ({ id: i, name: NAMES[i], avatar: AVATAR[i], human: i === 0, hand: [], score: 0 }))
   U.round = 1; U.uno = {}
   CS.opts.game = 'uno'
   newRound()
 }
 function newRound() {
-  U.deck = shuffle(deck()); U.discard = []; U.dir = 1; U.pend = 0; U.pendKind = null; U.drawn = null; U.pick = null; U.roundInfo = null; U.rot = {}; U.uno = {}
+  U.deck = shuffle(deck()); U.discard = []; U.dir = 1; U.pend = 0; U.pendKind = null; U.drawn = null; U.pick = null; U.swapFrom = null; U.swapNext = null; U.roundInfo = null; U.rot = {}; U.uno = {}
   for (const p of U.players) p.hand = []
   U.phase = 'deal'; U.turn = 0; U.msg = 'Shuffling…'
   sfx('cShuffle'); notify()
@@ -93,13 +93,35 @@ function playCard(p, c, chosenColor) {
     else toast(`${p.name} forgot to say UNO! CATCH!`, '#ff4de1')
   } else delete U.uno[p.id]
   if (p.hand.length === 0) { roundWon(p); return }
-  let n = nextIdx(U.turn)
-  for (let k = 0; k < skipExtra; k++) n = nextIdx(n)
-  U.turn = n
-  // pending draws land on the next player unless they can stack
-  const np = U.players[n]
-  if (U.pend > 0 && !(U.opts.stack && np.hand.some((x) => canPlay(x)))) { forceDraw(np); return }
-  notify(); after(0.55, beginTurn)
+  const proceed = () => {
+    let n = nextIdx(U.turn)
+    for (let k = 0; k < skipExtra; k++) n = nextIdx(n)
+    U.turn = n
+    // pending draws land on the next player unless they can stack
+    const np = U.players[n]
+    if (U.pend > 0 && !(U.opts.stack && np.hand.some((x) => canPlay(x)))) { forceDraw(np); return }
+    notify(); after(0.55, beginTurn)
+  }
+  if (U.opts.sevenZero && c.color !== 'W') {
+    if (c.value === '7') {
+      if (p.human) { U.swapFrom = p; U.swapNext = proceed; U.msg = 'SEVEN! Pick a player to swap hands with'; notify(); return }
+      const target = U.players.filter((q) => q !== p).sort((x, y) => x.hand.length - y.hand.length)[0]
+      swapHands(p, target); after(0.95, proceed); return
+    }
+    if (c.value === '0') { rotateHands(); after(0.95, proceed); return }
+  }
+  proceed()
+}
+function swapHands(a, b) {
+  const t = a.hand; a.hand = b.hand; b.hand = t
+  U.uno = {}
+  sfx('cReverse'); sfx('cWild'); banner('SWAP!', `${a.name} ⇄ ${b.name}`, '#ff4de1', 1.2); toast(`${a.name} swapped hands with ${b.name}`, '#ff4de1'); notify()
+}
+function rotateHands() {
+  const n = U.players.length, hs = U.players.map((q) => q.hand)
+  U.players.forEach((q, i) => { q.hand = hs[(i - U.dir + n * 2) % n] })
+  U.uno = {}
+  sfx('cReverse'); banner('ROTATE!', 'EVERYONE PASSES THEIR HAND', '#ff4de1', 1.2); notify()
 }
 function forceDraw(p) {
   const n = U.pend; U.pend = 0; U.pendKind = null
@@ -164,7 +186,7 @@ function roundWon(p) {
   notify()
 }
 function click(id) {
-  if (U.phase !== 'play' || !cur().human || U.pick) return
+  if (U.phase !== 'play' || !cur().human || U.pick || U.swapFrom) return
   const h = human()
   const c = h.hand.find((x) => x.id === id)
   if (!c) { if (id === 'deck' || U.deck.some((x) => x.id === id)) drawHuman(); return }
@@ -184,6 +206,7 @@ function drawHuman() {
 }
 function button(name, arg) {
   if (name === 'deck') { if (U.phase === 'play' && cur().human && !U.pick) drawHuman(); return }
+  if (name === 'swap' && U.swapFrom) { const t = U.players[arg]; if (t && t !== U.swapFrom) { const f = U.swapNext; swapHands(U.swapFrom, t); U.swapFrom = null; U.swapNext = null; after(0.95, f) } return }
   if (name === 'color' && U.pick) { const c = U.pick; U.pick = null; playCard(human(), c, arg); return }
   if (name === 'pass' && U.drawn && cur().human) { U.drawn = null; U.turn = nextIdx(U.turn); beginTurn(); return }
   if (name === 'uno') {
@@ -244,8 +267,8 @@ function snap() {
   return {
     phase: U.phase, msg: U.msg, seats, cards, buttons, deckClick: true,
     center: { color: U.color, dir: U.dir, pend: U.pend, top: U.top },
-    prompt: U.pick ? { type: 'color', colors: COLORS } : null,
-    info: `ROUND ${U.round} · FIRST TO ${U.opts.target}`,
+    prompt: U.pick ? { type: 'color', colors: COLORS } : U.swapFrom ? { type: 'swap', players: U.players.filter((q) => q !== U.swapFrom).map((q) => ({ id: q.id, name: q.name, count: q.hand.length })) } : null,
+    info: `ROUND ${U.round} · FIRST TO ${U.opts.target}${U.opts.sevenZero ? ' · SEVEN-0' : ''}`,
     scores: U.players.map((p) => [p.name, p.score]),
   }
 }

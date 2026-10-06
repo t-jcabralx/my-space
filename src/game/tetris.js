@@ -46,7 +46,7 @@ function emitT() {
   snap = {
     mode: T.mode, paused: T.paused, phase: T.phase, type: T.cfg.type, modeName: m.name, versus: !!m.versus, diff: DIFF[T.cfg.diff - 1].name, countdown: T.phase === 'ready' ? Math.ceil(T.readyT) : 0,
     time: T.elapsed, goal: m.goal || null, over: T.over, msgs: T.msgs.map((x) => ({ ...x })),
-    boards: T.bd.map((b) => ({ id: b.id, human: b.human, name: b.name, score: b.score, lines: b.lines, level: b.level, combo: Math.max(0, b.combo), b2b: b.b2b, pending: b.pending.reduce((a, x) => a + x, 0), dead: b.dead, pps: T.elapsed > 1 ? +(b.stats.pieces / T.elapsed).toFixed(2) : 0, danger: b.danger, attack: b.stats.sent })),
+    boards: T.bd.map((b) => ({ id: b.id, human: b.human, name: b.name, score: b.score, lines: b.lines, level: b.level, combo: Math.max(0, b.combo), b2b: b.b2b, pending: b.pending.reduce((a, x) => a + x, 0), dead: b.dead, pps: T.elapsed > 1 ? +(b.stats.pieces / T.elapsed).toFixed(2) : 0, danger: b.danger, attack: b.stats.sent, fever: b.fever > 0 ? Math.ceil(b.fever) : 0 })),
   }
   subs.forEach((f) => f())
 }
@@ -58,7 +58,7 @@ function newBoard(id, human, name) {
     id, human, name, grid: Array.from({ length: H }, () => Array(W).fill(null)), fl: Array.from({ length: H }, () => new Float32Array(W)), rowOff: new Float32Array(H),
     piece: null, hold: null, canHold: true, queue: [], bag: [], score: 0, lines: 0, level: 1, combo: -1, b2b: false, gravT: 0, lockT: 0, lockResets: 0, onGround: false,
     das: { dir: 0, t: 0 }, state: 'wait', clearRows: [], clearT: 0, areT: 0, pending: [], dead: false, danger: false, trails: [], stats: { pieces: 0, tetrises: 0, tspins: 0, maxCombo: 0, sent: 0 },
-    cx: 0, plan: null, actT: 0, deadT: 0, goalDone: false, soft: false,
+    cx: 0, fever: 0, plan: null, actT: 0, deadT: 0, goalDone: false, soft: false,
   }
 }
 function refill(b) { const bag = KINDS.split(''); for (let i = bag.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [bag[i], bag[j]] = [bag[j], bag[i]] } b.bag.push(...bag) }
@@ -194,8 +194,10 @@ function startClear(b, rows, spin, p) {
   pts *= b.level
   if (gotB2B) pts = Math.round(pts * 1.5)
   if (b.combo > 0) pts += 50 * b.combo * b.level
+  if (b.fever > 0) pts *= 2
   b.score += pts
   b.b2b = hard ? true : false
+  if (!(b.fever > 0) && (b.combo >= 3 || (gotB2B && hard))) { b.fever = 12; say(b, 'FEVER!', 'SCORE ×2 FOR 12s', '#ffd84a'); sfx('tLevel'); flash(0.3, [1, 0.85, 0.3]); ring(b.cx, 0, 50, 70, COLS.fire); if (b.human) speak('Fever!', 0.7, 1.2) }
   b.lines += n
   b.clearRows = rows; b.clearT = 0.42; b.state = 'clear'
   profile.tetrisLines = (profile.tetrisLines || 0) + (b.human ? n : 0)
@@ -322,6 +324,7 @@ const gravity = (lvl) => Math.max(0.012, Math.pow(0.8 - (lvl - 1) * 0.007, lvl -
 function stepBoard(b, dt, danger) {
   for (let r = 0; r < H; r++) { if (b.rowOff[r] > 0) b.rowOff[r] = Math.max(0, b.rowOff[r] - dt * 28 * (0.4 + b.rowOff[r] * 0.5)); for (let c = 0; c < W; c++) if (b.fl[r][c] > 0) b.fl[r][c] -= dt }
   b.trails = b.trails.filter((t) => (t.t -= dt) > 0)
+  if (b.fever > 0) { b.fever -= dt; if (Math.random() < dt * 30) part(bx(b, Math.random() * W), by(2 + Math.random() * 20), R(-6, 6), R(10, 26), 0.8, rgb('#ffd84a'), 1.2, 1) }
   let hi = 0
   for (let r = 0; r < H; r++) if (b.grid[r].some((c) => c)) { hi = H - r; break }
   b.danger = hi > 16
@@ -537,7 +540,7 @@ function drawBoard(api, b, t, hue, pulse) {
   const x0 = b.cx
   // backdrop + frame
   for (let r = 2; r < H; r++) for (let c = 0; c < W; c++) { const d = ((r + c) & 1) ? 0.045 : 0.07; put(bx(b, c), by(r), -3, CS, CS, d * 0.8, d * 0.9, d * 1.4) }
-  const fc = b.danger ? [2.2 * (0.5 + 0.5 * Math.sin(t * 12)), 0.2, 0.2] : hsv(hue, 0.6, 1.2 + pulse * 0.5)
+  const fc = b.fever > 0 ? [2.6, 2 + 0.6 * Math.sin(t * 14), 0.3] : b.danger ? [2.2 * (0.5 + 0.5 * Math.sin(t * 12)), 0.2, 0.2] : hsv(hue, 0.6, 1.2 + pulse * 0.5)
   for (let r = 2; r <= H; r++) { put(x0 - (W / 2 + 0.5) * CS, by(r) + 0, 0, CS * 0.7, CS, fc[0], fc[1], fc[2]); put(x0 + (W / 2 + 0.5) * CS, by(r), 0, CS * 0.7, CS, fc[0], fc[1], fc[2]) }
   for (let c = -1; c <= W; c++) put(bx(b, c), by(H), 0, CS, CS * 0.7, fc[0], fc[1], fc[2])
   // incoming garbage meter

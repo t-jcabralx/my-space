@@ -12,6 +12,8 @@ Three games in one Next.js app (React Three Fiber, WebAudio, no asset files):
 
 Built-in **How to play** helper (opens automatically the first time you play each game), **Settings** (volume sliders, voice, screen shake, graphics) and **gamepad** support.
 
+**Daily quests, login streak and award popups** run across all games, and each game has a signature random event (meteor showers, air raids, power-up rain, Tetris fever, golden fruit, UNO Seven-0, Lucky 9 jackpot...). See `FEATURES.md` for the full analysis.
+
 Dashboard with pilot profile, ranks, achievements, ship lab, and a **global Top Players** leaderboard.
 
 ## Run

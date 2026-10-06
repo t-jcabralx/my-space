@@ -4,6 +4,7 @@ import { ENEMIES, MISSIONS, BOSSES, UPGRADES, BONUS_AFTER } from './levels.js'
 import { sfx, music, initAudio, speak } from './audio.js'
 import { submitScore } from './online.js'
 import { settings } from './settings.js'
+import { ACH } from './awards.js'
 
 export const W = 100, H = 56, HW = 50, HH = 28
 const TAU = Math.PI * 2
@@ -16,7 +17,7 @@ const PUP_WEIGHTS = { P: 22, S: 14, R: 14, W: 12, L: 9, M: 9, H: 10, B: 8, U: 2,
 export const keys = {}
 const ARCADE = new Set(['slug', 'pickle', 'bomber', 'tetris', 'chomp', 'cards'])
 export const games = {} // other game modes register themselves here (see slug.js)
-export const profile = { chips: 1000, cardWins: 0, cardGames: 0, unoWins: 0, pusoyWins: 0, luckyNines: 0, tongitsWins: 0, chompDots: 0, chompGhosts: 0, chompGames: 0, chompLevels: 0, chompHi: 0, tetrisLines: 0, tetrises: 0, tspins: 0, tetrisGames: 0, tetrisWins: 0, sprints: 0, bomberGames: 0, bomberWins: 0, bomberKills: 0, bricks: 0, seen: {}, name: '', pickleGames: 0, pickleWins: 0, aces: 0, ship: { model: 0, paint: 0, trail: 0, bullet: 0 }, kills: 0, bosses: 0, pows: 0, skills: 0, bonus: 0, spaceWins: 0, slugWins: 0, played: 0, spaceHi: 0, slugHi: 0, tops: { space: [], slug: [], pickle: [], bomber: [], tetris: [], chomp: [], uno: [], pusoy: [], lucky9: [], tongits: [] } }
+export const profile = { quests: null, awardsDone: {}, awardsInit: false, jackpot: 1000, chips: 1000, cardWins: 0, cardGames: 0, unoWins: 0, pusoyWins: 0, luckyNines: 0, tongitsWins: 0, chompDots: 0, chompGhosts: 0, chompGames: 0, chompLevels: 0, chompHi: 0, tetrisLines: 0, tetrises: 0, tspins: 0, tetrisGames: 0, tetrisWins: 0, sprints: 0, bomberGames: 0, bomberWins: 0, bomberKills: 0, bricks: 0, seen: {}, name: '', pickleGames: 0, pickleWins: 0, aces: 0, ship: { model: 0, paint: 0, trail: 0, bullet: 0 }, kills: 0, bosses: 0, pows: 0, skills: 0, bonus: 0, spaceWins: 0, slugWins: 0, played: 0, spaceHi: 0, slugHi: 0, tops: { space: [], slug: [], pickle: [], bomber: [], tetris: [], chomp: [], uno: [], pusoy: [], lucky9: [], tongits: [] } }
 try { const sv = JSON.parse(localStorage.getItem('si_profile') || '{}'); Object.assign(profile, sv); profile.tops = { space: [], slug: [], pickle: [], bomber: [], tetris: [], chomp: [], uno: [], pusoy: [], lucky9: [], tongits: [], ...(sv.tops || {}) }; profile.ship = { model: 0, paint: 0, trail: 0, bullet: 0, ...(sv.ship || {}) }; profile.seen = { ...(sv.seen || {}) } } catch { /* ignore */ }
 export const saveProfile = () => { try { localStorage.setItem('si_profile', JSON.stringify(profile)) } catch { /* ignore */ } }
 export function recordScore(game, score) {
@@ -87,7 +88,7 @@ export function popup(x, y, text, c = [1, 1, 0.5]) { G.pops.push({ x, y, text, l
 
 // ---------- scoring ----------
 function addScore(base, x, y, showPop = true) {
-  const v = Math.round(base * comboMult() * (G.p && (G.p.multT > 0 || G.p.od > 0) ? 2 : 1))
+  const v = Math.round(base * comboMult() * (G.p && (G.p.multT > 0 || G.p.od > 0) ? 2 : 1) * (G.golden > 0 ? 2 : 1))
   G.score += v
   if (showPop && v >= 100 && G.pops.length < 14) popup(x, y + 3, String(v))
   if (G.score >= G.nextLife) { G.nextLife += 20000; G.lives = Math.min(9, G.lives + 1); toast('1UP  SCORE BONUS', '#3dff7a'); sfx('life') }
@@ -352,7 +353,7 @@ function killEnemy(e) {
   addScore(d.score, e.x, e.y)
   if (!e.noCount) registerKill()
   if (d.bonus) { G.stats.ufos++; toast('BONUS UFO DOWN!', '#ffe84a'); flash(0.3, [1, 0.95, 0.5]); dropPup(e.x, e.y, weightedPup()) }
-  for (let i = 0; i < d.coins; i++) dropCoin(e.x, e.y)
+  for (let i = 0; i < d.coins + (G.golden > 0 ? 3 : 0) + (e.rich ? 2 : 0); i++) dropCoin(e.x, e.y)
   G.dryDrone = (G.dryDrone || 0) + 1
   const dChance = e.minion ? 0.2 : e.maxhp >= 8 ? 0.2 : 0.015
   if (!d.bonus && G.p.drones < 3 && (Math.random() < dChance || G.dryDrone > 40)) { dropPup(e.x, e.y, 'D'); G.dryDrone = 0; toast('DRONE DROPPED!', '#b6ff3d') }
@@ -619,7 +620,7 @@ function startMission(i) {
   G.mission = i; G.mode = 'playing'; G.bonus = null; G.lz = null
   G.enemies = []; G.pbul = []; G.ebul = []; G.pups = []; G.parts = []; G.beams = []; G.pops = []; G.boss = null
   G.stats = { kills: 0, total: 0, dmg: 0, pups: 0, maxCombo: 0, ufos: 0, coins: 0, lost: 0, bombs: 0, scoreStart: G.score, bossKilled: false }
-  G.meter = Math.min(G.meter || 0, 40); G.mt = 0; G.dirT = 1.2; G.introT = 3.4; G.bossState = 'none'; G.exitT = 0; G.warped = false; G.overT = 0; G.combo = 0; G.slow = 1; G.scroll = 1
+  G.meter = Math.min(G.meter || 0, 40); G.mt = 0; G.dirT = 1.2; G.evtT = 20; G.golden = 0; G.meteor = 0; G.introT = 3.4; G.bossState = 'none'; G.exitT = 0; G.warped = false; G.overT = 0; G.combo = 0; G.slow = 1; G.scroll = 1
   G.specialsDone = new Set(); G.summary = null
   G.p = newPlayer()
   G.save = { droneKeep: G.droneKeep, score: G.score, credits: G.credits, lives: G.lives, up: { ...G.up }, wl: G.wlKeep, nextLife: G.nextLife }
@@ -807,6 +808,19 @@ function blast(b) {
   for (const e of G.enemies) if (!e.dead && Math.hypot(e.x - b.x, e.y - b.y) < 9) hurtEnemy(e, 2)
 }
 
+export function triggerSpaceEvent(kind) { spaceEvent(kind) }
+function spaceEvent(kind) {
+  sfx('event')
+  if (kind ? kind === 'meteor' : Math.random() < 0.5) {
+    G.meteor = 8; G.meteorT = 0
+    G.banner = { title: 'METEOR SHOWER!', sub: 'DODGE THE ROCKS · SHOOT THEM FOR COINS', kind: 'warn', t: 2.4 }; speak('Meteor shower!', 0.7, 1.1)
+  } else {
+    G.golden = 10
+    G.banner = { title: 'GOLDEN WAVE!', sub: 'SCORE ×2 · EXTRA COINS · KILL EVERYTHING', kind: 'bonus', t: 2.4 }; speak('Golden wave!', 0.8, 1.15)
+    for (let i = 0; i < 8; i++) spawnEnemy('drone', HW + 6 + i * 6, -16 + (i % 4) * 11)
+    flash(0.3, [1, 0.9, 0.4])
+  }
+}
 function stepDirector(dt) {
   const m = MISSIONS[G.mission]
   if (G.introT > 0) { G.introT -= dt; return }
@@ -825,6 +839,14 @@ function stepDirector(dt) {
       else spawnEnemy(s.e, HW + 10, R(-12, 12))
     }
   }
+  // random events: meteor shower / golden wave
+  G.evtT = (G.evtT ?? 18) - dt
+  if (G.mt > 8 && G.mt < m.length - 6 && G.evtT <= 0 && !(G.golden > 0) && !(G.meteor > 0)) { G.evtT = R(26, 40); spaceEvent() }
+  if (G.meteor > 0) {
+    G.meteor -= dt; G.meteorT -= dt
+    if (G.meteorT <= 0) { G.meteorT = 0.3; spawnEnemy('rockL', HW + 8, R(-22, 22), { vx: -R(34, 54), vy: R(-6, 6), noCount: true, rich: true }) }
+  }
+  if (G.golden > 0) G.golden -= dt
   if (G.mt < m.length) {
     G.dirT -= dt
     if (G.dirT <= 0) { spawnGroup(m); G.dirT = lerp(m.interval[0], m.interval[1], G.mt / m.length) }
@@ -938,6 +960,9 @@ function stepPlaying(dtRaw) {
 }
 
 export function update(dtRaw) {
+  metaT -= dtRaw
+  if (metaT <= 0) { metaT = 1; try { tickMeta() } catch { /* ignore */ } }
+  if (notices.length) { for (const n of notices) n.t -= dtRaw; if (notices.some((n) => n.t <= 0)) { notices.splice(0, notices.length, ...notices.filter((n) => n.t > 0)); emit() } }
   let left = Math.min(dtRaw, 0.2)
   while (left > 0.0001) {
     const d = Math.min(left, 1 / 30)
@@ -984,6 +1009,71 @@ export function buy(key) {
   sfx('buy'); emit()
 }
 export function markSeen(g) { if (!profile.seen[g]) { profile.seen[g] = true; saveProfile() } }
+// ---------- meta systems: daily quests, login streak, award popups ----------
+export const notices = []
+export function announce(text, color = '#ffe84a', snd = 'cChip') {
+  notices.push({ id: ++G.uid, text, color, t: 5 })
+  if (notices.length > 4) notices.shift()
+  sfx(snd); emit()
+}
+const dayKey = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` }
+const gamesPlayed = (p) => (p.played || 0) + (p.pickleGames || 0) + (p.bomberGames || 0) + (p.tetrisGames || 0) + (p.chompGames || 0) + (p.cardGames || 0)
+const counter = (key) => (key === 'gamesPlayed' ? gamesPlayed(profile) : profile[key] || 0)
+export const QUEST_POOL = [
+  { id: 'kills', desc: 'Destroy 40 enemies (Space Impact / Ground Zero)', key: 'kills', goal: 40, reward: 150 },
+  { id: 'bosses', desc: 'Defeat 1 boss', key: 'bosses', goal: 1, reward: 250 },
+  { id: 'pows', desc: 'Rescue 3 POWs in Ground Zero', key: 'pows', goal: 3, reward: 200 },
+  { id: 'skills', desc: 'Use 10 skills in Space Impact or Ground Zero', key: 'skills', goal: 10, reward: 150 },
+  { id: 'lines', desc: 'Clear 20 lines in Tetra Blast', key: 'tetrisLines', goal: 20, reward: 150 },
+  { id: 'tetris', desc: 'Clear 4 lines at once (a TETRIS)', key: 'tetrises', goal: 1, reward: 250 },
+  { id: 'dots', desc: 'Eat 150 dots in Maze Chomp', key: 'chompDots', goal: 150, reward: 150 },
+  { id: 'ghosts', desc: 'Eat 5 ghosts in Maze Chomp', key: 'chompGhosts', goal: 5, reward: 200 },
+  { id: 'blocks', desc: 'Blow up 30 blocks in Bomber Blast', key: 'bricks', goal: 30, reward: 150 },
+  { id: 'bwin', desc: 'Win a Bomber Blast match', key: 'bomberWins', goal: 1, reward: 250 },
+  { id: 'pwin', desc: 'Win a Pickleball game', key: 'pickleWins', goal: 1, reward: 250 },
+  { id: 'aces', desc: 'Serve 2 aces in Pickleball', key: 'aces', goal: 2, reward: 200 },
+  { id: 'cwin', desc: 'Win a game in the Card Room', key: 'cardWins', goal: 1, reward: 250 },
+  { id: 'played', desc: 'Play 3 games of anything', key: 'gamesPlayed', goal: 3, reward: 150 },
+]
+export function ensureQuests() {
+  const d = dayKey()
+  const q = profile.quests
+  if (q && q.day === d) return q
+  let streak = 1
+  if (q && q.day) { const diff = Math.round((Date.parse(d) - Date.parse(q.day)) / 86400000); streak = diff === 1 ? (q.streak || 1) + 1 : 1 }
+  const pool = QUEST_POOL.slice().sort(() => Math.random() - 0.5).slice(0, 3)
+  profile.quests = { day: d, streak, bonusClaimed: false, list: pool.map((def) => ({ ...def, base: counter(def.key), done: false })) }
+  saveProfile()
+  return profile.quests
+}
+export function claimDaily() {
+  const q = ensureQuests()
+  if (q.bonusClaimed) return
+  const amt = 100 + 50 * Math.min(q.streak - 1, 6)
+  q.bonusClaimed = true
+  profile.chips = (profile.chips || 0) + amt
+  saveProfile()
+  announce(`DAILY BONUS +${amt} CHIPS  ·  DAY ${q.streak} STREAK`, '#ffe84a', 'life')
+}
+export const questProgress = (qu) => Math.min(qu.goal, Math.max(0, counter(qu.key) - qu.base))
+function tickMeta() {
+  const q = ensureQuests()
+  for (const qu of q.list) {
+    if (!qu.done && counter(qu.key) - qu.base >= qu.goal) {
+      qu.done = true; profile.chips = (profile.chips || 0) + qu.reward; saveProfile()
+      announce(`QUEST COMPLETE: ${qu.desc}  +${qu.reward} CHIPS`, '#3dff7a', 'cChip')
+    }
+  }
+  if (!profile.awardsInit) { for (const [name, , get, goal] of ACH) if (get(profile, G.unlocked) >= goal) profile.awardsDone[name] = true; profile.awardsInit = true; saveProfile(); return }
+  for (const [name, desc, get, goal] of ACH) {
+    if (!profile.awardsDone[name] && get(profile, G.unlocked) >= goal) {
+      profile.awardsDone[name] = true; profile.chips = (profile.chips || 0) + 100; saveProfile()
+      announce(`🏆 AWARD UNLOCKED: ${name}  (+100 CHIPS)`, '#ffe84a', 'tLevel')
+    }
+  }
+}
+let metaT = 0
+
 export function setName(n) { profile.name = String(n || '').replace(/[^\w .-]/g, '').slice(0, 14); saveProfile(); emit() }
 export function setShip(k, v) { profile.ship[k] = v; saveProfile(); sfx('ui'); emit() }
 export function togglePause() {
@@ -1022,6 +1112,9 @@ function buildSnap() {
   const ch = G.stats && G.stats.kills !== undefined ? chalProgress() : null
   const b = G.boss
   return {
+    golden: G.golden > 0 ? G.golden : 0, meteor: G.meteor > 0 ? G.meteor : 0,
+    notices: notices.map((n) => ({ id: n.id, text: n.text, color: n.color })),
+    quests: (() => { const q = ensureQuests(); return { streak: q.streak, bonusClaimed: q.bonusClaimed, list: q.list.map((x) => ({ id: x.id, desc: x.desc, goal: x.goal, reward: x.reward, done: x.done, value: questProgress(x) })) } })(),
     seen: { ...profile.seen }, unlocked: G.unlocked, mode: G.mode, score: G.score, hi: G.hi, credits: G.credits, lives: G.lives,
     mission: G.mission, missionName: m.name, missionSub: m.sub, missions: MISSIONS.length, color: m.color,
     hp: p ? Math.max(0, p.hp) : 0, maxHp: p ? p.maxHp : 3,

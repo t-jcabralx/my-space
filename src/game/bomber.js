@@ -107,13 +107,28 @@ function start(type = 'ffa', diff = 2, rounds = 3) {
 }
 function newRound() {
   B.g = genGrid(B.spawns.slice(0, B.pl.length))
-  B.bombs = []; B.flames = []; B.items = []; B.sudden = false; B.sIdx = 0; B.sT = 0; B.elapsed = 0; B.endT = 0; B.spiral = makeSpiral(); B.msg = null
+  B.bombs = []; B.flames = []; B.items = []; B.sudden = false; B.sIdx = 0; B.sT = 0; B.elapsed = 0; B.endT = 0; B.rainT = 22; B.spiral = makeSpiral(); B.msg = null
   B.pl.forEach((p, i) => {
     const s = B.spawns[i]
     Object.assign(p, { x: s[0] + 0.5, y: s[1] + 0.5, alive: true, dying: 0, cap: 1, range: 2, speed: 3.3, kick: false, shield: 0, inv: 1.2, active: 0, path: null, face: [0, 1] })
   })
   B.phase = 'ready'; B.readyT = 3.4; B.lastCount = 4
   G.parts = []
+}
+function powerRain() {
+  const free = []
+  for (let r = 1; r < ROWS_N - 1; r++) for (let c = 1; c < COLS_N - 1; c++) {
+    if (B.g[r][c] !== 0 || bombAt(c, r) || B.items.some((it) => it.c === c && it.r === r)) continue
+    if (B.pl.some((p) => p.alive && Math.abs(p.x - c - 0.5) < 1.6 && Math.abs(p.y - r - 0.5) < 1.6)) continue
+    free.push([c, r])
+  }
+  for (let i = 0; i < 5 && free.length; i++) {
+    const [c, r] = free.splice(Math.floor(Math.random() * free.length), 1)[0]
+    const pick = ITEMS[Math.floor(Math.random() * ITEMS.length)]
+    B.items.push({ c, r, glyph: pick[0], kind: pick[1], t: 0, drop: 1 })
+  }
+  B.msg = { text: 'POWER-UP RAIN!', sub: 'ITEMS ARE FALLING · GRAB THEM FIRST', color: '#3dff7a', t: 2 }
+  sfx('event'); speak('Power-up rain!', 0.7, 1.1)
 }
 function stop() { B.mode = 'idle'; B.paused = false; music.set('menu'); emitB() }
 
@@ -384,6 +399,8 @@ function play(dt) {
     if (B.readyT <= 0) { B.phase = 'fight'; sfx('go'); speak(B.round === 1 ? 'Fight!' : 'Round ' + B.round + '. Fight!', 0.6, 1.1); B.msg = null }
   } else if (B.phase === 'fight') {
     B.elapsed += dt
+    B.rainT = (B.rainT ?? 22) - dt
+    if (B.rainT <= 0 && !B.sudden && B.elapsed > 10 && B.elapsed < 80) { B.rainT = R(24, 36); powerRain() }
     if (!B.sudden && B.elapsed > 90) { B.sudden = true; sfx('alarm'); speak('Sudden death!'); B.msg = { text: 'SUDDEN DEATH!', sub: 'THE ARENA IS CLOSING IN', color: '#ff3b4e', t: 2.5 } }
     if (B.sudden) {
       B.sT -= dt
@@ -426,7 +443,7 @@ function play(dt) {
     // pickups
     for (let i = B.items.length - 1; i >= 0; i--) {
       const it = B.items[i]
-      if (Math.floor(p.x) === it.c && Math.floor(p.y) === it.r) {
+      if (!(it.drop > 0) && Math.floor(p.x) === it.c && Math.floor(p.y) === it.r) {
         B.items.splice(i, 1)
         if (it.kind === 'bomb') p.cap = Math.min(8, p.cap + 1); else if (it.kind === 'fire') p.range = Math.min(9, p.range + 1)
         else if (it.kind === 'speed') p.speed = Math.min(6.2, p.speed + 0.55); else if (it.kind === 'kick') p.kick = true; else if (it.kind === 'shield') { p.shield = 12 }
@@ -435,6 +452,7 @@ function play(dt) {
       }
     }
   }
+  for (const it of B.items) if (it.drop > 0) it.drop = Math.max(0, it.drop - dt * 2.2)
   // sliding (kicked) bombs
   for (const b of B.bombs) {
     b.t -= dt
@@ -510,7 +528,7 @@ function draw(api) {
   // sudden death preview
   if (B.sudden && B.sIdx < B.spiral.length) { const [c, r] = B.spiral[B.sIdx]; const k = 1 + Math.sin(t * 14) * 0.5; put(wx(c) + 2, wy(r) - 2, 3, 3.8, 3.8, 2.2 * k, 0.2, 0.2) }
   // items
-  for (const it of B.items) sprite(SP['pup' + it.glyph], wx(it.c) + 2, wy(it.r) - 2 + Math.sin(t * 5 + it.c) * 0.4, { scale: 0.52, k: 1.6 })
+  for (const it of B.items) sprite(SP['pup' + it.glyph], wx(it.c) + 2, wy(it.r) - 2 + Math.sin(t * 5 + it.c) * 0.4 + (it.drop || 0) * 14, { scale: 0.52, k: 1.6 })
   // bombs
   for (const b of B.bombs) {
     const x = wx(b.fx !== undefined ? b.fx : b.c + 0.5), y = wy(b.fy !== undefined ? b.fy : b.r + 0.5)

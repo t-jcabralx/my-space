@@ -43,6 +43,7 @@ const CRATE = { M: 'hmg', S: 'shot', R: 'rocket' }
 export const S = {
   mode: 'idle', paused: false, stage: 0, score: 0, lives: 3, cam: 0, t: 0, p: null, veh: null, vp: [],
   en: [], bul: [], ebul: [], items: [], pows: [], bombs: [], props: [], decor: [], plats: [], spawns: [], si: 0, air: [],
+  raid: null, raidQ: [], evtT: 22,
   stats: {}, boss: null, bossState: 'none', toasts: [], banner: null, summary: null, final: null, streak: 0, streakT: 0, ambT: 2, engT: 0,
   cd: { q: 0, e: 0 }, cdMax: { q: 1, e: 1 }, shT: 0, od: 0, meter: 0, camMax: 0, jumpReq: false, emitT: 0, endT: 0, mf: 0, weapon: 'pistol', ammo: 0, gren: 8,
 }
@@ -108,7 +109,7 @@ function startStage(i, fresh) {
   G.mode = 'slug'; G.parts = []; G.pops = []; G.shake = 0; G.flash = 0
   Object.assign(S, {
     mode: 'play', paused: false, stage: i, cam: 0, t: 0, en: [], bul: [], ebul: [], items: [], bombs: [], air: [], veh: null, streak: 0, streakT: 0,
-    plats: gen.plats, spawns: gen.spawns, props: gen.props, decor: gen.decor, si: 0, boss: null, bossState: 'none', summary: null, final: null, banner: null, toasts: [],
+    plats: gen.plats, spawns: gen.spawns, props: gen.props, decor: gen.decor, si: 0, boss: null, bossState: 'none', raid: null, raidQ: [], evtT: 22, summary: null, final: null, banner: null, toasts: [],
     camMax: st.len, shT: 0, od: 0, jumpReq: false, endT: 0, weapon: 'pistol', ammo: 0, cd: { q: 0, e: 0 }, meter: Math.min(S.meter || 0, 30), ambT: 2, engT: 0, mf: 0,
   })
   if (fresh) { S.score = 0; S.lives = 3; S.gren = 8 }
@@ -485,6 +486,16 @@ function stepBoss(dt) {
 }
 
 // ---------- main step ----------
+function slugEvent() {
+  sfx('event')
+  if (Math.random() < 0.5) {
+    S.raid = { t: 6, n: 0 }
+    S.banner = { title: 'AIR RAID!', sub: 'RED MARKS = BOMBS. KEEP MOVING!', kind: 'warn', t: 2.4 }; speak('Air raid! Take cover!', 0.7, 1.1)
+  } else {
+    S.items.push({ x: S.cam + R(-16, 24), fy: 40, t: ['M', 'R', 'S'][(Math.random() * 3) | 0], hw: 2.5, hh: 3.5, life: 30, vy: -9, chute: true })
+    S.banner = { title: 'SUPPLY DROP!', sub: 'GRAB THE CRATE FALLING FROM THE SKY', kind: 'bonus', t: 2.4 }; speak('Supply drop!', 0.8, 1.15); sfx('chute')
+  }
+}
 function ambience(dt) {
   S.ambT -= dt
   if (S.ambT > 0) return
@@ -501,6 +512,16 @@ function play(dt) {
   p.inv = Math.max(0, p.inv - dt); p.fcd -= dt; p.gcd -= dt; p.knife = Math.max(0, p.knife - dt)
   S.streakT -= dt; if (S.streakT <= 0) S.streak = 0
   ambience(dt)
+  // random events: air raid / supply drop
+  S.evtT = (S.evtT ?? 20) - dt
+  if (S.evtT <= 0 && !S.boss && S.bossState === 'none' && S.cam > 30 && S.cam < st.len - 40 && !S.raid) { S.evtT = R(30, 46); slugEvent() }
+  if (S.raid) {
+    S.raid.t -= dt; S.raid.n -= dt
+    if (S.raid.n <= 0) { S.raid.n = 0.32; S.raidQ.push({ delay: 0.95, x: S.cam + R(-44, 44) }) }
+    if (S.raid.t <= 0) S.raid = null
+  }
+  for (const r of S.raidQ) { r.delay -= dt; if (r.delay <= 0 && !r.done) { r.done = true; sfx('whistle'); S.bombs.push({ x: r.x, y: 38, vx: 0, vy: -34, spr: SP.bm, hw: 1.2, hh: 1.5, team: 'e', g: 60, t: 0, r: 8, dmg: 1 }) } }
+  S.raidQ = S.raidQ.filter((r) => !r.done)
 
   if (!p.alive) {
     p.rt -= dt
@@ -588,7 +609,7 @@ function play(dt) {
   for (const it of S.items) {
     it.life -= dt
     const g = groundAt(it.x, 999)
-    it.vy = (it.vy || 0) - 90 * dt; it.fy += it.vy * dt; if (it.fy <= g) { it.fy = g; it.vy = 0 }
+    if (it.chute) { it.vy = -9; it.fy += it.vy * dt; if (it.fy <= g) { it.fy = g; it.vy = 0; it.chute = false } } else { it.vy = (it.vy || 0) - 90 * dt; it.fy += it.vy * dt; if (it.fy <= g) { it.fy = g; it.vy = 0 } }
     if (it.life <= 0) it.dead = true
     if (p.alive && Math.abs(pbx.x - it.x) < pbx.hw + it.hw && Math.abs(pbx.y - (it.fy + it.hh)) < pbx.hh + it.hh) {
       it.dead = true; ring(it.x, it.fy + 3, 16, 25, COLS.green)
@@ -832,7 +853,10 @@ function draw(api) {
   for (const it of S.items) {
     const bob = Math.sin(t * 4 + it.x) * 0.6
     if (it.t === 'C') sprite(SP.coin, it.x - cam, it.fy + 3.5 + bob, { k: 1.8, sx: Math.max(0.2, Math.abs(Math.cos(t * 5))) })
-    else sprite(SP['pup' + it.t], it.x - cam, it.fy + 3.5 + bob, { k: 1.4 })
+    else {
+      sprite(SP['pup' + it.t], it.x - cam, it.fy + 3.5 + bob, { k: 1.4 })
+      if (it.chute) { for (let i = -4; i <= 4; i++) put(it.x - cam + i, it.fy + 12 - Math.abs(i) * 0.2, 0, 1.1, 1, 1.9, 1.9, 0.5); for (const sx of [-4, 4]) for (let j = 0; j < 5; j++) put(it.x - cam + sx * (1 - j * 0.2), it.fy + 11 - j * 1.6, 0, 0.35, 1.4, 1.4, 1.4, 1.4) }
+    }
   }
   for (const w of S.pows) {
     const px = w.x - cam
@@ -900,6 +924,7 @@ function draw(api) {
   for (const q of S.ebul) sprite(q.spr, q.x - cam, q.y, { k: 1.9 })
   for (const q of S.bombs) sprite(q.spr, q.x - cam, q.y, { k: 1.5 })
   for (const a of S.air) put(a.x - cam, GROUND + 1, 0, 1.2, 1.2, 2.4, 0.3, 0.3)
+  for (const r of S.raidQ) { const k = Math.floor(t * 12) % 2 ? 2.6 : 1.1; put(r.x - cam, GROUND + 1, 1, 6, 1.1, k, 0.15, 0.15); put(r.x - cam, GROUND + 3, 1, 1.2, 3, k, 0.15, 0.15) }
   for (const q of G.parts) { const f = q.life / q.max; put(q.x - cam, q.y, 1, q.s * (0.35 + 0.65 * f) * 0.9, q.s * (0.35 + 0.65 * f) * 0.9, q.c[0] * 1.6, q.c[1] * 1.6, q.c[2] * 1.6) }
   api.pops(G.pops, cam)
 }

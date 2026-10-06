@@ -43,7 +43,7 @@ function deal() {
   const hp = humanP()
   hp.bet = hp.human ? Math.min(L.bet, bank()) : Math.min(L.bet, hp.chips)
   for (const p of L.players) if (!p.human) p.bet = Math.min(p.chips, [10, 20, 50, 100][Math.floor(Math.random() * 4)])
-  if (hp.human) addChips(-hp.bet)
+  if (hp.human) { addChips(-hp.bet); profile.jackpot = (profile.jackpot || 1000) + Math.ceil(hp.bet * 0.05); saveProfile() }
   L.phase = 'deal'; L.msg = 'Dealing…'; sfx('cChip'); notify()
   const order = [...L.players, L.dealer]
   let t = 0.25
@@ -58,6 +58,11 @@ function afterDeal() {
   for (const p of L.players) p.nat = natural(p.hand)
   const hp = humanP()
   if (hp.human && total(hp.hand) === 9 && hp.hand.length === 2) { profile.luckyNines = (profile.luckyNines || 0) + 1; saveProfile(); banner('LUCKY 9!', 'NATURAL NINE', '#ffe84a', 1.5); sfx('cWin'); speak('Lucky nine!', 0.9, 1.15) }
+  if (hp.human && hp.hand.length === 2 && total(hp.hand) === 9 && hp.hand.every((c) => c.suit === hp.hand[0].suit)) {
+    const jp = profile.jackpot || 1000
+    addChips(jp); L.net += jp; profile.jackpot = 1000; saveProfile()
+    banner('JACKPOT!!!', `SUITED NATURAL 9 · +${jp} CHIPS`, '#ffe84a', 2.4); sfx('jackpot'); speak('Jackpot!', 0.8, 1.2); celebrate()
+  }
   if (natural(L.dealer.hand) || L.players.every((p) => p.nat)) { L.msg = 'A natural! Revealing…'; after(0.8, reveal); notify(); return }
   L.phase = 'act'
   if (hp.human) { L.msg = hp.nat ? 'Natural! Standing.' : 'Hit for a 3rd card or Stand'; if (hp.nat) { after(0.9, () => stand()) } }
@@ -71,6 +76,12 @@ function hit() {
   if (hp.hand.length >= 3) return
   hp.hand.push(L.deck.pop()); sfx('cDraw'); notify()
   after(0.6, () => { if (hp.hand.length >= 3) stand() })
+}
+function doubleDown() {
+  const hp = humanP()
+  if (L.phase !== 'act' || L.humanDone || hp.hand.length !== 2 || hp.nat || bank() < hp.bet) return
+  addChips(-hp.bet); hp.bet *= 2; sfx('cChip'); banner('DOUBLE DOWN!', `BET ${hp.bet} · ONE MORE CARD`, '#ff4de1', 1.1); notify()
+  after(0.8, () => { hp.hand.push(L.deck.pop()); sfx('cDraw'); notify(); after(0.9, stand) })
 }
 function stand() {
   if (L.phase !== 'act' || L.humanDone) return
@@ -133,6 +144,7 @@ function button(name, arg) {
   if (name === 'deal') { if (bank() >= 10) deal(); return }
   if (name === 'hit') { hit(); return }
   if (name === 'stand') { stand(); return }
+  if (name === 'double') { doubleDown(); return }
   if (name === 'next') { if (L.phase === 'payout') { L.round++; bettingPhase() } return }
   if (name === 'loan') { if (bank() < 10) { addChips(500); toast('Loan: +500 chips', '#ffe84a'); sfx('cChip'); bettingPhase() } return }
   if (name === 'cash') {
@@ -165,9 +177,9 @@ function snap() {
       buttons.push({ name: 'deal', label: `DEAL (${L.bet}) ▶`, hot: true, pulse: true })
     }
   }
-  if (L.phase === 'act' && humanP().human && !L.humanDone) { buttons.push({ name: 'hit', label: 'HIT', hot: true, off: humanP().hand.length >= 3 || humanP().nat }); buttons.push({ name: 'stand', label: 'STAND', hot: true }) }
+  if (L.phase === 'act' && humanP().human && !L.humanDone) { buttons.push({ name: 'hit', label: 'HIT', hot: true, off: humanP().hand.length >= 3 || humanP().nat }); buttons.push({ name: 'double', label: 'DOUBLE DOWN', off: humanP().hand.length !== 2 || humanP().nat || bank() < humanP().bet }); buttons.push({ name: 'stand', label: 'STAND', hot: true }) }
   if (L.phase === 'payout' && humanP().human) buttons.push({ name: 'next', label: 'NEXT ROUND ▶', hot: true, pulse: true })
   if (humanP().human && L.phase !== 'deal') buttons.push({ name: 'cash', label: 'CASH OUT' })
-  return { phase: L.phase, msg: L.msg, seats, cards, buttons, dealer: { name: 'HOUSE', avatar: '🎩', x: 50, y: 4, val: dtag, note: L.revealed.has('D') ? special(L.dealer.hand).name : '' }, info: `ROUND ${L.round} · NET ${L.net >= 0 ? '+' : ''}${L.net}`, bet: L.bet }
+  return { phase: L.phase, msg: L.msg, seats, cards, buttons, dealer: { name: 'HOUSE', avatar: '🎩', x: 50, y: 4, val: dtag, note: L.revealed.has('D') ? special(L.dealer.hand).name : '' }, info: `ROUND ${L.round} · NET ${L.net >= 0 ? '+' : ''}${L.net} · JACKPOT 🪙 ${(profile.jackpot || 1000).toLocaleString()}`, bet: L.bet }
 }
 registerCardGame({ id: 'lucky9', name: 'LUCKY 9', start, snap, button, click() {} })

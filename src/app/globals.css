@@ -378,3 +378,11 @@ li.bonus { border-color: var(--gr); color: var(--gr); } li.fail { border-color: 
 @container (max-width: 760px) { .ct-buttons { bottom: 34%; transform: translateX(-50%); width: 96cqw; } .ct-buttons.low { bottom: 11%; } }
 .ct-mid, .selhint { top: 56%; } .selhint { top: 60.5%; font-size: .75em; } .uno-cap { top: 84%; margin-top: 0; }
 @container (max-width: 760px) { .ct-mid { top: 56%; } }
+
+/* ---- notices, daily quests ---- */
+.notices { position: absolute; top: 1.2cqw; left: 50%; transform: translateX(-50%); z-index: 900; display: flex; flex-direction: column; gap: .7cqw; align-items: center; pointer-events: none; width: 90cqw; }
+.notice { background: #050a1cf2; border: 2px solid; padding: .8cqw 2cqw; border-radius: 99px; font-size: .85em; box-shadow: 0 0 2cqw #000a; animation: noticeIn 5s both; text-align: center; max-width: 90cqw; }
+@keyframes noticeIn { 0% { transform: translateY(-40px) scale(.8); opacity: 0; } 8% { transform: none; opacity: 1; } 88% { opacity: 1; } 100% { opacity: 0; transform: translateY(-14px); } }
+.daily { gap: 1cqw; } .dailyhead { display: flex; align-items: center; gap: 2cqw; flex-wrap: wrap; } .streak2 { color: #ff9a2e; font-size: .8em; } .dailyhead .chip { margin-left: auto; } .dailyhead .chip:disabled { opacity: .55; cursor: default; }
+.pulsebtn { animation: btnpulse 1s infinite; }
+.quests { display: grid; grid-template-columns: repeat(auto-fit, minmax(clamp(200px, 22cqw, 380px), 1fr)); gap: 1.2cqw; } .quest { background: #060a1c; border: 1px solid #2a3a78; padding: .9cqw 1.2cqw; display: flex; flex-direction: column; gap: .6cqw; font-size: .75em; line-height: 1.5; } .quest.done { border-color: var(--gr); } .quest em { font-style: normal; color: var(--yl); font-size: .85em; }

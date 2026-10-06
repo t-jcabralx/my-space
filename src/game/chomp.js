@@ -286,13 +286,14 @@ function eatAt(p) {
       if (C.fright <= 0) for (const g of C.ghosts) if (g.state === 'frightened') g.state = 'normal'
     } else { addScore(10, x, y, false); C.wakaAlt ^= 1; sfx('waka', C.wakaAlt); part(x, y, R(-6, 6), R(-6, 6), 0.25, [1, 0.9, 0.4], 0.6) }
     const eaten = C.dotsTotal - C.dotsLeft
-    if (!C.fruit && (eaten === 70 || eaten === 170) && C.fruitCount < 2) { C.fruitCount++; C.fruit = { c: 11, r: 13, t: 10 }; sfx('pFruitSpawn') }
+    if (!C.fruit && (eaten === 70 || eaten === 170) && C.fruitCount < 2) { C.fruitCount++; const gold = Math.random() < 0.2; C.fruit = { c: 11, r: 13, t: gold ? 12 : 10, gold }; sfx('pFruitSpawn'); if (gold) { C.msg = { text: 'GOLDEN FRUIT!' }; C.msgT = 1.8; sfx('event'); speak('Golden fruit!', 0.8, 1.15) } }
     if (C.dotsLeft <= 0) levelClear()
   }
   if (C.fruit && C.fruit.c === c && C.fruit.r === r) {
     const f = FRUITS[Math.min(C.level - 1, 7)]
     const [x, y] = tilePos(c, r)
-    addScore(f[1], x, y); sfx('pFruit'); C.fruit = null; C.stats.fruits++; ring(x, y, 16, 30, COLS.green)
+    const gold = C.fruit.gold
+    addScore(gold ? 5000 : f[1], x, y); if (gold) { sfx('jackpot'); ring(x, y, 36, 60, COLS.fire); shake(0.8); flash(0.3, [1, 0.9, 0.4]) }; sfx('pFruit'); C.fruit = null; C.stats.fruits++; ring(x, y, 16, 30, COLS.green)
   }
 }
 function levelClear() {
@@ -388,6 +389,7 @@ function play(dt) {
     stepParticles(dt)
     return
   }
+  if (C.msg && C.msgT !== undefined) { C.msgT -= dt; if (C.msgT <= 0) { C.msg = null; C.msgT = undefined } }
   if (C.hitStop > 0) { C.hitStop -= dt; stepParticles(dt); return }
   // scatter / chase
   C.modeT += dt
@@ -493,7 +495,7 @@ function draw(api) {
     else if (dv === 2) { const s = 1.1 + 0.5 * Math.sin(t * 8); disc(put, x, y, 0.7 * s, [2.4, 2.1, 1.2], 1, 0.5, 0.35) }
   }
   // fruit
-  if (C.fruit) { const [x, y] = tilePos(C.fruit.c, C.fruit.r); const f = FRUITS[Math.min(C.level - 1, 7)]; const col = lc(f[2]); disc(put, x, y + Math.sin(t * 5) * 0.2, 0.85, col, 1.8, 0.5, 0.42); put(x + 0.4, y + 1.1, 1, 0.4, 0.8, 0.3, 1.2, 0.3) }
+  if (C.fruit) { const [x, y] = tilePos(C.fruit.c, C.fruit.r); const f = FRUITS[Math.min(C.level - 1, 7)]; const col = C.fruit.gold ? [2.6, 2 + 0.5 * Math.sin(t * 12), 0.3] : lc(f[2]); if (C.fruit.gold) for (let i = 0; i < 6; i++) { const a = t * 3 + i; put(x + Math.cos(a) * 1.7, y + Math.sin(a) * 1.7, 2, 0.5, 0.5, 2.6, 2.4, 0.8) }; disc(put, x, y + Math.sin(t * 5) * 0.2, 0.85, col, 1.8, 0.5, 0.42); put(x + 0.4, y + 1.1, 1, 0.4, 0.8, 0.3, 1.2, 0.3) }
   // pacs
   for (const p of C.pacs) {
     const [px, py] = ePos(p); const [x, y] = tilePos(px, py)

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
-import { subscribe, getSnap, startGame, toShop, launchNext, buy, retryMission, toMenu, togglePause, useSkill, startGameAt, setShip, setName, markSeen } from '../game/engine.js'
+import { subscribe, getSnap, startGame, toShop, launchNext, buy, retryMission, toMenu, togglePause, useSkill, startGameAt, setShip, setName, markSeen, claimDaily } from '../game/engine.js'
 import { subscribeSlug, getSlugSnap, slugActions } from '../game/slug.js'
 import { subscribePickle, getPickleSnap, pickleActions, MODES } from '../game/pickle.js'
 import { subscribeBomber, getBomberSnap, bomberActions, MODES as BMODES } from '../game/bomber.js'
@@ -149,6 +149,7 @@ const HELP = {
           <li>Match the top card by <b>colour</b> or <b>number/symbol</b>. No match? Click the <b>deck</b> to draw (play it if it fits, or pass).</li>
           <li><b>Skip</b> ⊘ skips the next player. <b>Reverse</b> ⇄ flips direction. <b>+2</b> and <b>Wild +4</b> make the next player draw (with <b>stacking</b> on, they can answer with another +2 / +4). <b>Wild</b> lets you pick the colour.</li>
           <li>Down to <b>one card</b>? Press <b>UNO!</b> fast, or you draw 2 when caught. If a bot forgets, press <b>CATCH!</b> to make them draw 2.</li>
+          <li><b>Seven-0 rule</b> (optional): playing a <b>7</b> lets you <b>swap hands</b> with anyone; playing a <b>0</b> makes <b>everyone pass their hand</b> in the play direction. Chaos!</li>
           <li>Win a round to score the points left in the others' hands. First to the target wins the match.</li>
         </ul>
         <h5>PUSOY DOS (4 players)</h5>
@@ -161,6 +162,7 @@ const HELP = {
         <h5>LUCKY 9 (vs the house)</h5>
         <ul>
           <li>Pick a bet, press <b>DEAL</b>. You get 2 cards; <b>A=1, 2-9 face value, 10/J/Q/K=0</b>. Hand value = <b>total mod 10</b>. Closest to 9 wins. <b>HIT</b> for a 3rd card or <b>STAND</b>.</li>
+          <li><b>DOUBLE DOWN</b>: after your first two cards, double your bet and take exactly one more card. <b>JACKPOT</b>: a small slice of every bet builds the pot; a <b>suited natural 9</b> wins all of it!</li>
           <li>A 2-card <b>8 or 9</b> is a <b>natural</b>. Bonuses: all <b>same suit</b> pays ×2 (2 cards) or ×3 (3 cards); <b>three of a kind</b> pays ×5. Ties push (bet returned).</li>
           <li>Out of chips? Take the free <b>loan</b>. <b>CASH OUT</b> to bank your score on the leaderboard.</li>
         </ul>
@@ -313,6 +315,8 @@ function TopBar({ s }) {
         <Buff label="RAPID" t={s.rapidT} max={11} color="#ff9a2e" />
         <Buff label="SHIELD" t={s.shieldT} max={9} color="#3de8ff" />
         <Buff label="SCORE x2" t={s.multT} max={12} color="#a64dff" />
+        <Buff label="GOLDEN WAVE x2" t={s.golden} max={10} color="#ffd84a" />
+        <Buff label="METEORS!" t={s.meteor} max={8} color="#ff6a3a" />
         <Buff label="MAGNET" t={s.magnetT} max={10} color="#12c9a5" />
       </div>
       {s.comboMult > 1 || s.combo > 2 ? (
@@ -496,39 +500,7 @@ function Victory({ s }) {
 
 
 // ===================== DASHBOARD =====================
-const ACH = [
-  ['FIRST BLOOD', 'Destroy 1 enemy', (p) => p.kills, 1],
-  ['EXTERMINATOR', 'Destroy 500 enemies', (p) => p.kills, 500],
-  ['BOSS HUNTER', 'Defeat 5 bosses', (p) => p.bosses, 5],
-  ['BOSS SLAYER', 'Defeat 15 bosses', (p) => p.bosses, 15],
-  ['SKILLED', 'Use skills 50 times', (p) => p.skills, 50],
-  ['TREASURE HUNTER', 'Clear 3 bonus rounds', (p) => p.bonus, 3],
-  ['HALFWAY THERE', 'Reach Space Impact level 5', (p, u) => u + 1, 5],
-  ['EARTH SAVED', 'Beat Space Impact', (p) => p.spaceWins, 1],
-  ['LIFE SAVER', 'Rescue 10 POWs', (p) => p.pows, 10],
-  ['COMMANDO', 'Beat Operation Ground Zero', (p) => p.slugWins, 1],
-  ['HIGH FLYER', 'Score 100,000 in Space Impact', (p) => p.spaceHi, 100000],
-  ['FIRST WIN', 'Win a pickleball game', (p) => p.pickleWins || 0, 1],
-  ['PICKLE PRO', 'Win 10 pickleball games', (p) => p.pickleWins || 0, 10],
-  ['ACE SERVER', 'Serve 5 aces', (p) => p.aces || 0, 5],
-  ['CARD SHARK', 'Win 5 card games', (p) => p.cardWins || 0, 5],
-  ['UNO CHAMP', 'Win a UNO match', (p) => p.unoWins || 0, 1],
-  ['BIG TWO', 'Win a Pusoy Dos match', (p) => p.pusoyWins || 0, 1],
-  ['LUCKY NINE', 'Get a natural 9 in Lucky 9', (p) => p.luckyNines || 0, 1],
-  ['TONG-ITS!', 'Empty your hand to win Tong-its', (p) => p.tongitsWins || 0, 1],
-  ['CHOMPER', 'Eat 1000 dots in Maze Chomp', (p) => p.chompDots || 0, 1000],
-  ['GHOST BUSTER', 'Eat 50 ghosts', (p) => p.chompGhosts || 0, 50],
-  ['MAZE RUNNER', 'Clear 5 mazes', (p) => p.chompLevels || 0, 5],
-  ['LINE CLEARER', 'Clear 100 lines in Tetra Blast', (p) => p.tetrisLines || 0, 100],
-  ['TETRIS!', 'Clear 4 lines at once', (p) => p.tetrises || 0, 1],
-  ['T-SPINNER', 'Land 5 T-spins', (p) => p.tspins || 0, 5],
-  ['SPRINTER', 'Finish a 40-line Sprint', (p) => p.sprints || 0, 1],
-  ['BATTLE WINNER', 'Win a Tetra Blast battle', (p) => p.tetrisWins || 0, 1],
-  ['BOMBERMAN', 'Win a Bomber Blast match', (p) => p.bomberWins || 0, 1],
-  ['DEMOLITION', 'Blow up 100 blocks', (p) => p.bricks || 0, 100],
-  ['BOMB SQUAD', 'Knock out 10 opponents', (p) => p.bomberKills || 0, 10],
-  ['SOLDIER', 'Score 50,000 in Ground Zero', (p) => p.slugHi, 50000],
-]
+import { ACH } from '../game/awards.js'
 const RANKS = [[0, 'CADET'], [100, 'PILOT'], [500, 'ACE'], [1500, 'CAPTAIN'], [4000, 'MAJOR'], [9000, 'COLONEL'], [20000, 'LEGEND']]
 const xpOf = (p) => p.kills + p.bosses * 50 + p.pows * 20 + (p.spaceWins + p.slugWins) * 500 + (p.pickleWins || 0) * 300 + (p.bomberWins || 0) * 300 + (p.tetrisWins || 0) * 300 + (p.tetrisLines || 0) + (p.cardWins || 0) * 200 + Math.floor((p.chompDots || 0) / 10) + p.played * 5
 
@@ -911,6 +883,7 @@ function CardRoomLobby({ s }) {
   const [game, setGame] = useState('uno')
   const [count, setCount] = useState(3)
   const [stack, setStack] = useState(true)
+  const [seven, setSeven] = useState(false)
   const [target, setTarget] = useState(200)
   const [stake, setStake] = useState(50)
   const [bots, setBots] = useState(3)
@@ -922,7 +895,7 @@ function CardRoomLobby({ s }) {
     ['tongits', '🀄', 'TONG-ITS', 'Filipino rummy. Meld, sapaw, call Draw or go Tong-its!'],
   ]
   const start = (auto) => {
-    const opts = game === 'uno' ? { count, stack, target, auto } : game === 'pusoy' ? { target: 40, auto } : game === 'lucky9' ? { bots, auto } : { stake, auto }
+    const opts = game === 'uno' ? { count, stack, target, auto, sevenZero: seven } : game === 'pusoy' ? { target: 40, auto } : game === 'lucky9' ? { bots, auto } : { stake, auto }
     cardsActions.start(game, opts)
   }
   return (
@@ -935,6 +908,7 @@ function CardRoomLobby({ s }) {
           {game === 'uno' && <>
             <div><h4>PLAYERS</h4><div className="chips">{[2, 3, 4].map((v) => <button key={v} className={'chip ' + (count === v ? 'sel' : '')} onClick={() => setCount(v)}>{v} PLAYERS</button>)}</div></div>
             <div><h4>STACKING +2/+4</h4><div className="chips">{[[true, 'ON'], [false, 'OFF']].map(([v, n]) => <button key={n} className={'chip ' + (stack === v ? 'sel' : '')} onClick={() => setStack(v)}>{n}</button>)}</div></div>
+            <div><h4>SEVEN-0 RULE 🔄</h4><div className="chips">{[[true, 'ON'], [false, 'OFF']].map(([v, n]) => <button key={n} className={'chip ' + (seven === v ? 'sel' : '')} onClick={() => setSeven(v)}>{n}</button>)}</div></div>
             <div><h4>PLAY TO</h4><div className="chips">{[100, 200, 500].map((v) => <button key={v} className={'chip ' + (target === v ? 'sel' : '')} onClick={() => setTarget(v)}>{v} PTS</button>)}</div></div>
           </>}
           {game === 'pusoy' && <div><h4>MATCH</h4><div className="chips"><button className="chip sel">FIRST TO 40 POINTS · 4 PLAYERS</button></div></div>}
@@ -947,6 +921,30 @@ function CardRoomLobby({ s }) {
       <div className="lobbyR">
         <div className="panel"><h4>MY CARD ROOM</h4><div className="kv"><span>CHIP BANK</span><b>🪙 {Number(p.chips || 0).toLocaleString()}</b><span>GAMES WON</span><b>{p.cardWins || 0}</b><span>UNO WINS</span><b>{p.unoWins || 0}</b><span>PUSOY WINS</span><b>{p.pusoyWins || 0}</b><span>LUCKY 9s</span><b>{p.luckyNines || 0}</b><span>TONG-ITS</span><b>{p.tongitsWins || 0}</b></div></div>
         <TopPlayers s={s} initial={game} compact fixed key={game} />
+      </div>
+    </div>
+  )
+}
+
+function Notices({ list }) {
+  if (!list || !list.length) return null
+  return <div className="notices">{list.map((n) => <div key={n.id} className="notice" style={{ borderColor: n.color, color: n.color }}>{n.text}</div>)}</div>
+}
+function DailyPanel({ q }) {
+  if (!q) return null
+  const amt = 100 + 50 * Math.min(q.streak - 1, 6)
+  return (
+    <div className="panel daily">
+      <div className="dailyhead"><h4>📅 DAILY QUESTS</h4><span className="streak2">🔥 {q.streak} DAY STREAK</span>
+        <button className={'chip ' + (q.bonusClaimed ? '' : 'sel pulsebtn')} disabled={q.bonusClaimed} onClick={claimDaily}>{q.bonusClaimed ? '✓ BONUS CLAIMED' : `CLAIM DAILY BONUS +${amt} 🪙`}</button></div>
+      <div className="quests">
+        {q.list.map((x) => (
+          <div key={x.id} className={'quest' + (x.done ? ' done' : '')}>
+            <span>{x.done ? '✅' : '🎯'} {x.desc}</span>
+            <div className="bar"><b style={{ width: (x.value / x.goal) * 100 + '%' }} /></div>
+            <em>{x.value}/{x.goal} · +{x.reward} 🪙</em>
+          </div>
+        ))}
       </div>
     </div>
   )
@@ -1018,6 +1016,7 @@ function Hub({ s }) {
               art={<div className="miniCards"><i>♥</i><i>♠</i><i>9</i><i>+2</i></div>} label="SELECT GAME ▶" onPlay={() => setTab('cards')}
               sub={<><span>WON</span><b>{p.cardWins || 0}</b></>} />
           </div>
+          <DailyPanel q={s.quests} />
           <div className="hubrow">
             <div className="panel prof">
               <h4>PILOT PROFILE</h4>
@@ -1154,6 +1153,7 @@ function TetrisHUD() {
                 <div className="tstat"><span>PIECES/SEC</span><b>{b0.pps}</b></div>
                 {b0.combo > 0 && <div className="tstat hot" key={b0.combo}><span>COMBO</span><b>×{b0.combo}</b></div>}
                 {b0.b2b && <div className="tstat hot"><span>BACK-TO-BACK</span><b>ON</b></div>}
+                {b0.fever > 0 && <div className="tstat hot fever"><span>🔥 FEVER ×2</span><b>{b0.fever}s</b></div>}
                 <div className="tstat"><span>MODE</span><b>{g.modeName}</b></div>
               </div>
             </>
@@ -1342,6 +1342,7 @@ export default function HUD() {
   return (
     <>
       <HUDInner s={s} />
+      <Notices list={s.notices} />
       <div className="hud helplayer"><HelpLayer s={s} /></div>
     </>
   )
