@@ -2,7 +2,7 @@
 import { createHmac, timingSafeEqual } from 'node:crypto'
 import { getRedis } from './db'
 
-export const GAME_MAX = { race: 4, fight: 2, space: 3, pickle: 2, bomber: 4, tetris: 2, hockey: 2, pool: 2, rogue: 3, uno: 4, pusoy: 4, lucky9: 4, tongits: 3 }
+export const GAME_MAX = { race: 4, fight: 2, space: 3, pickle: 2, bomber: 4, tetris: 2, hockey: 2, pool: 2, rogue: 3, c4: 2, uno: 4, pusoy: 4, lucky9: 4, tongits: 3 }
 const CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'
 export const roomKey = (code) => `room:${code}`
 export const chan = (code) => `rt:${code}`

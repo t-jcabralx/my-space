@@ -31,34 +31,62 @@ ROCKET = [
  '....W....', '...WCW...', '..WCCCW..', '..WCCCW..', '..WBBBW..', '..WBBBW..', '.WWBBBWW.', 'WWW.B.WWW', 'W.W.B.W.W', '..R.Y.R..', '....Y....',
 ]
 PAL = {'W': '#e8f1ff', 'C': '#3de8ff', 'B': '#3d7bff', 'R': '#ff4d8d', 'Y': '#ffe84a'}
+ICONS = {
+ 'ship': (['..#....', '..##...', '#####..', '#######', '#####..', '..##...', '..#....'], '#3de8ff'),
+ 'ball': (['..###..', '.#####.', '#######', '#######', '#######', '.#####.', '..###..'], '#ffe84a'),
+ 'bomb': (['....#.#', '...#...', '..###..', '.#####.', '.#####.', '.#####.', '..###..'], '#ff9a3a'),
+ 'tetris': (['.......', '.##....', '.##....', '.##....', '.####..', '.####..', '.......'], '#c58aff'),
+ 'chomp': (['..###..', '.#####.', '#####..', '####...', '#####..', '.#####.', '..###..'], '#ffd23a'),
+ 'card': (['.#####.', '#.....#', '#.#.#.#', '#..#..#', '#.#.#.#', '#.....#', '.#####.'], '#ff4a6a'),
+ 'car': (['.......', '..###..', '.#####.', '#######', '#.###.#', '.#...#.', '.......'], '#6aff9a'),
+ 'fist': (['.#####.', '#######', '#######', '#######', '.#####.', '..###..', '..###..'], '#ff5a5a'),
+ 'puck': (['.......', '..###..', '.#####.', '#######', '#######', '.#####.', '..###..'], '#3de8ff'),
+ 'eight': (['.#####.', '#######', '###.###', '##...##', '###.###', '#######', '.#####.'], '#e8e8ff'),
+ 'tower': (['#.#.#.#', '#######', '.#####.', '.#####.', '.#.#.#.', '.#####.', '#######'], '#ff8a2a'),
+ 'sword': (['.....##', '....##.', '...##..', '#.##...', '.##....', '.##....', '#..#...'], '#ffd23a'),
+ 'note': (['...####', '...#..#', '...#..#', '...#...', '.###...', '####...', '.##....'], '#ff4a8a'),
+ 'word': (['#.....#', '#..#..#', '#.#.#.#', '#.#.#.#', '##...##', '#.....#', '#.....#'], '#6aff9a'),
+ 'tile': (['#######', '#.....#', '#.###.#', '#...#.#', '#.###.#', '#.....#', '#######'], '#edc22e'),
+}
 def logo():
-    px = 8
+    px = 9
     my, wmy = word('MY', 0, 0, px, '#ffe84a')
     sp, wsp = word('SPACE', 0, 0, px, '#3de8ff')
     ar, war = word('ARCADE', 0, 0, px, '#ff4de1')
-    W = 640; H = 250
-    # layout: rocket on the left, text on the right
+    def shadow(txt, x, y):  # a dark offset copy gives the letters a chunky 3D edge
+        return f'<g transform="translate({x+4},{y+5})" opacity="0.55">' + txt.replace('#ffe84a', '#160a30').replace('#3de8ff', '#160a30').replace('#ff4de1', '#160a30') + '</g>'
+    W = 760; H = 280
     parts = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}" shape-rendering="crispEdges">',
-      '<defs><filter id="g" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>',
-      '<linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#070a1c"/><stop offset="1" stop-color="#150a2e"/></linearGradient></defs>',
-      f'<rect width="{W}" height="{H}" rx="10" fill="url(#bg)"/>']
-    # stars
+      '<defs><filter id="g" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="3.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>',
+      '<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#050818"/><stop offset="0.55" stop-color="#150a34"/><stop offset="1" stop-color="#2a0a3a"/></linearGradient>',
+      '<radialGradient id="n1" cx="0.15" cy="0.3" r="0.5"><stop offset="0" stop-color="#3de8ff" stop-opacity="0.28"/><stop offset="1" stop-color="#3de8ff" stop-opacity="0"/></radialGradient>',
+      '<radialGradient id="n2" cx="0.85" cy="0.75" r="0.55"><stop offset="0" stop-color="#ff4de1" stop-opacity="0.3"/><stop offset="1" stop-color="#ff4de1" stop-opacity="0"/></radialGradient>',
+      '<radialGradient id="pl" cx="0.35" cy="0.3" r="0.8"><stop offset="0" stop-color="#ffb86a"/><stop offset="0.6" stop-color="#ff5a8a"/><stop offset="1" stop-color="#4a1a6a"/></radialGradient></defs>',
+      f'<rect width="{W}" height="{H}" rx="14" fill="url(#bg)"/><rect width="{W}" height="{H}" rx="14" fill="url(#n1)"/><rect width="{W}" height="{H}" rx="14" fill="url(#n2)"/>',
+      f'<rect x="3" y="3" width="{W-6}" height="{H-6}" rx="12" fill="none" stroke="#3de8ff" stroke-opacity="0.35" stroke-width="2"/>']
     import random
-    random.seed(7)
-    for _ in range(46):
-        parts.append(f'<rect x="{random.randrange(6, W-6, 4)}" y="{random.randrange(6, H-6, 4)}" width="4" height="4" fill="#ffffff" opacity="{random.choice([0.25,0.4,0.7])}"/>')
-    # rocket with a flame trail
-    parts.append('<g filter="url(#g)">' + sprite(ROCKET, 36, 52, 12, PAL) + '</g>')
-    for i, c in enumerate(['#ffe84a', '#ff9a2e', '#ff4d4d']):
-        parts.append(f'<rect x="{36+4*12}" y="{52+11*12+i*12}" width="12" height="12" fill="{c}" opacity="{0.95-i*0.25}"/>')
-    # text
-    tx = 190
-    parts.append(f'<g filter="url(#g)"><g transform="translate({tx},34)">{my}</g><g transform="translate({tx+wmy+px*3},34)">{sp}</g></g>')
-    parts.append(f'<g filter="url(#g)"><g transform="translate({tx},108)">{ar}</g></g>')
-    # shadow underline + tagline blocks
-    for i in range(0, 430, 8):
-        parts.append(f'<rect x="{tx+i}" y="176" width="8" height="4" fill="{["#ffe84a","#3de8ff","#ff4de1"][(i//8)%3]}" opacity="0.8"/>')
-    parts.append(f'<g transform="translate({tx},196)">' + sprite(['..#..', '.###.', '#####'], 0, 0, 4, {'#': '#7dff5a'}) + sprite(['#.#', '###', '#.#'], 40, 0, 4, {'#': '#3de8ff'}) + sprite(['.##.', '####', '.##.'], 80, 0, 4, {'#': '#ffb02e'}) + sprite(['###', '#.#', '###'], 124, 0, 4, {'#': '#ff4d8d'}) + '</g>')
+    random.seed(11)
+    for _ in range(70):
+        parts.append(f'<rect x="{random.randrange(8, W-8, 4)}" y="{random.randrange(8, H-8, 4)}" width="4" height="4" fill="#ffffff" opacity="{random.choice([0.2,0.35,0.6,0.9])}"/>')
+    # a ringed planet in the top right
+    parts.append('<g><circle cx="672" cy="74" r="38" fill="url(#pl)"/><ellipse cx="672" cy="78" rx="66" ry="14" fill="none" stroke="#ffe84a" stroke-opacity="0.8" stroke-width="5" transform="rotate(-16 672 78)"/><circle cx="660" cy="62" r="7" fill="#ffffff" fill-opacity="0.18"/></g>')
+    # rocket with a long flame trail
+    parts.append('<g filter="url(#g)">' + sprite(ROCKET, 34, 40, 13, PAL) + '</g>')
+    for i, c in enumerate(['#ffe84a', '#ff9a2e', '#ff4d4d', '#8a2a6a']):
+        parts.append(f'<rect x="{34+4*13}" y="{40+11*13+i*13}" width="13" height="13" fill="{c}" opacity="{0.95-i*0.2}"/>')
+    tx = 198
+    parts.append(shadow(my, tx, 30) + shadow(sp, tx + wmy + px * 3, 30) + shadow(ar, tx, 112))
+    parts.append(f'<g filter="url(#g)"><g transform="translate({tx},30)">{my}</g><g transform="translate({tx+wmy+px*3},30)">{sp}</g></g>')
+    parts.append(f'<g filter="url(#g)"><g transform="translate({tx},112)">{ar}</g></g>')
+    for i in range(0, 520, 8):
+        parts.append(f'<rect x="{tx+i}" y="188" width="8" height="4" fill="{["#ffe84a","#3de8ff","#ff4de1"][(i//8)%3]}" opacity="0.85"/>')
+    # a strip of game icons: the arcade at a glance
+    names = ['ship', 'ball', 'bomb', 'tetris', 'chomp', 'card', 'car', 'fist', 'puck', 'eight', 'tower', 'sword', 'note', 'word', 'tile']
+    x = 26
+    for n in names:
+        rows, c = ICONS[n]
+        parts.append(f'<g filter="url(#g)">' + sprite(rows, x, 214, 5, {'#': c}) + '</g>')
+        x += 49
     parts.append('</svg>')
     return ''.join(parts)
 def icon():
