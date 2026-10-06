@@ -15,7 +15,7 @@ const hit = (a, b) => Math.abs(a.x - b.x) < a.hw + b.hw && Math.abs(a.y - b.y) <
 const PUP_WEIGHTS = { P: 22, S: 14, R: 14, W: 12, L: 9, M: 9, H: 10, B: 8, U: 2, X: 6, G: 6, D: 8 }
 
 export const keys = {}
-const ARCADE = new Set(['slug', 'pickle', 'bomber', 'tetris', 'chomp', 'cards', 'flames'])
+const ARCADE = new Set(['slug', 'pickle', 'bomber', 'tetris', 'chomp', 'cards', 'flames', 'fight'])
 export const games = {} // other game modes register themselves here (see slug.js)
 export const profile = { squad: 2, squadHuman: false, squadBots: false, quests: null, awardsDone: {}, awardsInit: false, jackpot: 1000, chips: 1000, cardWins: 0, cardGames: 0, unoWins: 0, pusoyWins: 0, luckyNines: 0, tongitsWins: 0, chompDots: 0, chompGhosts: 0, chompGames: 0, chompLevels: 0, chompHi: 0, tetrisLines: 0, tetrises: 0, tspins: 0, tetrisGames: 0, tetrisWins: 0, sprints: 0, bomberGames: 0, bomberWins: 0, bomberKills: 0, bricks: 0, seen: {}, name: '', pickleGames: 0, pickleWins: 0, aces: 0, ship: { model: 0, paint: 0, trail: 0, bullet: 0 }, kills: 0, bosses: 0, pows: 0, skills: 0, bonus: 0, spaceWins: 0, slugWins: 0, played: 0, spaceHi: 0, slugHi: 0, tops: { space: [], slug: [], pickle: [], bomber: [], tetris: [], chomp: [], uno: [], pusoy: [], lucky9: [], tongits: [] } }
 try { const sv = JSON.parse(localStorage.getItem('si_profile') || '{}'); Object.assign(profile, sv); profile.tops = { space: [], slug: [], pickle: [], bomber: [], tetris: [], chomp: [], uno: [], pusoy: [], lucky9: [], tongits: [], ...(sv.tops || {}) }; profile.ship = { model: 0, paint: 0, trail: 0, bullet: 0, ...(sv.ship || {}) }; profile.seen = { ...(sv.seen || {}) } } catch { /* ignore */ }
@@ -1142,7 +1142,7 @@ export function startGameAt(i) {
   if (i > G.unlocked) { sfx('deny'); return }
   startGame(); if (i > 0) { G.credits = 300 * i; startMission(i) }
 }
-export function toMenu() { if (G.net) { const n = G.net; G.net = null; if (n.onEnd) { try { n.onEnd() } catch { /* ignore */ } } } if (games.slug) games.slug.stop(); if (games.pickle) games.pickle.stop(); if (games.bomber) games.bomber.stop(); if (games.tetris) games.tetris.stop(); if (games.chomp) games.chomp.stop(); if (games.cards) games.cards.stop(); if (games.flames) games.flames.stop(); G.parts = []; G.pops = []; G.shake = 0; G.flash = 0; saveProfile(); G.mode = 'menu'; G.banner = null; G.boss = null; G.enemies = []; G.ebul = []; G.pbul = []; G.pups = []; G.beams = []; initAudio(); music.set('menu'); sfx('ui'); emit() }
+export function toMenu() { if (G.net) { const n = G.net; G.net = null; if (n.onEnd) { try { n.onEnd() } catch { /* ignore */ } } } if (games.slug) games.slug.stop(); if (games.pickle) games.pickle.stop(); if (games.bomber) games.bomber.stop(); if (games.tetris) games.tetris.stop(); if (games.chomp) games.chomp.stop(); if (games.cards) games.cards.stop(); if (games.flames) games.flames.stop(); if (games.fight) games.fight.stop(); G.parts = []; G.pops = []; G.shake = 0; G.flash = 0; saveProfile(); G.mode = 'menu'; G.banner = null; G.boss = null; G.enemies = []; G.ebul = []; G.pbul = []; G.pups = []; G.beams = []; initAudio(); music.set('menu'); sfx('ui'); emit() }
 export function retryMission() {
   const s = G.save
   G.score = s.score; G.credits = s.credits; G.lives = Math.max(3, s.lives); G.up = { ...s.up }; G.wlKeep = s.wl; G.droneKeep = s.droneKeep || 0; G.nextLife = s.nextLife
@@ -1170,7 +1170,7 @@ export function announce(text, color = '#ffe84a', snd = 'cChip') {
   sfx(snd); emit()
 }
 const dayKey = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` }
-const gamesPlayed = (p) => (p.played || 0) + (p.pickleGames || 0) + (p.bomberGames || 0) + (p.tetrisGames || 0) + (p.chompGames || 0) + (p.cardGames || 0) + (p.flamesGames || 0)
+const gamesPlayed = (p) => (p.played || 0) + (p.pickleGames || 0) + (p.bomberGames || 0) + (p.tetrisGames || 0) + (p.chompGames || 0) + (p.cardGames || 0) + (p.flamesGames || 0) + (p.fightGames || 0)
 const counter = (key) => (key === 'gamesPlayed' ? gamesPlayed(profile) : profile[key] || 0)
 export const QUEST_POOL = [
   { id: 'kills', desc: 'Destroy 40 enemies (Space Impact / Ground Zero)', key: 'kills', goal: 40, reward: 150 },

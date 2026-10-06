@@ -7,7 +7,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 if (!role) {
   const self = fileURLToPath(import.meta.url)
   let fail = 0
-  for (const g of (process.env.GAMES || 'tetris,pickle,bomber,space,uno,pusoy,tongits,lucky9').split(',')) {
+  for (const g of (process.env.GAMES || 'tetris,pickle,bomber,space,fight,uno,pusoy,tongits,lucky9').split(',')) {
     const host = spawn('node', [self, 'host', g], { stdio: ['ignore', 'pipe', 'inherit'] })
     let hostOut = '', guestOut = '', guest
     host.stdout.on('data', (d) => {
@@ -34,7 +34,9 @@ const { B: BM } = await import('../src/game/bomber.js')
 const { hostPickle, installPickleOnline } = await import('../src/game/online/pickle-online.js')
 const { hostBomber, installBomberOnline } = await import('../src/game/online/bomber-online.js')
 const { hostSpace, installSpaceOnline } = await import('../src/game/online/space-online.js')
-installPickleOnline(); installBomberOnline(); installSpaceOnline()
+const { FT, fightActions } = await import('../src/game/fight.js')
+const { hostFightMatch, installFightOnline } = await import('../src/game/online/fight-online.js')
+installPickleOnline(); installBomberOnline(); installSpaceOnline(); installFightOnline()
 installTetrisOnline(); installCardsOnline()
 let bad = 0
 const check = (n, c, i) => { if (!c) bad++; console.log(c ? 'PASS' : 'FAIL', role, n, i || '') }
@@ -81,6 +83,32 @@ if (game === 'tetris') {
   check('match ends on both sides', await until(() => PK.mode === 'over', 280000), JSON.stringify(PK.score))
   clearInterval(drive); clearInterval(watch)
   console.log('RESULT', role, JSON.stringify(PK.score), PK.over && PK.over.winner)
+  await sleep(2500)
+} else if (game === 'fight') {
+  const eng = await import('../src/game/engine.js')
+  if (role === 'host') {
+    const room = await rtm.createRoom('fight', 'HOSTY'); console.log('CODE', room.code)
+    check('guest joins', await until(() => rtm.RT.room.players.length === 2))
+    await sleep(1500)
+    await hostFightMatch(1)
+  } else { await sleep(500); await rtm.joinRoom(code, 'GUESTY') }
+  check('fight starts on both sides', await until(() => FT.mode === 'play' && FT.cfg.type === 'online'), FT.mode)
+  check('both fighters are loaded', FT.f.length === 2 && FT.f[0].ch && FT.f[1].ch, FT.f.map((f) => f.ch && f.ch.name).join(' vs '))
+  const names = FT.f.map((f) => f.ch.name).join(' vs ')
+  console.log('MATCH', role, names)
+  const btns = ['KeyJ', 'KeyK', 'KeyU', 'KeyI', 'KeyL', 'KeyO']
+  const drive = setInterval(() => {
+    const me = role === 'host' ? FT.f[0] : FT.f[1], opp = role === 'host' ? FT.f[1] : FT.f[0]
+    const toward = opp.x > me.x ? 1 : -1
+    eng.keys.KeyD = toward > 0 && Math.abs(opp.x - me.x) > 7; eng.keys.KeyA = toward < 0 && Math.abs(opp.x - me.x) > 7; eng.keys.KeyW = Math.random() < 0.04; eng.keys.KeyS = Math.random() < 0.1
+    if (Math.random() < 0.5) onKey(btns[rr(6)], true)
+  }, 90)
+  let sawHit = false
+  const watch = setInterval(() => { if (FT.f.some((f) => f.hp < f.maxHp)) sawHit = true }, 100)
+  check('fighters trade blows on both sides', await until(() => sawHit, 60000))
+  check('match ends on both sides', await until(() => FT.mode === 'over', 280000), FT.over && FT.over.name)
+  clearInterval(drive); clearInterval(watch)
+  console.log('RESULT', role, FT.over && FT.over.name, JSON.stringify(FT.wins))
   await sleep(2500)
 } else if (game === 'space') {
   const eng = await import('../src/game/engine.js')

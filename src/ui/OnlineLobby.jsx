@@ -6,11 +6,13 @@ import { hostTetris, installTetrisOnline } from '../game/online/tetris-online.js
 import { hostPickle, installPickleOnline } from '../game/online/pickle-online.js'
 import { hostBomber, installBomberOnline } from '../game/online/bomber-online.js'
 import { hostSpace, installSpaceOnline } from '../game/online/space-online.js'
+import { hostFightMatch, installFightOnline } from '../game/online/fight-online.js'
 import { setName } from '../game/engine.js'
 
-if (typeof window !== 'undefined') { installCardsOnline(); installTetrisOnline(); installPickleOnline(); installBomberOnline(); installSpaceOnline() }
+if (typeof window !== 'undefined') { installCardsOnline(); installTetrisOnline(); installPickleOnline(); installBomberOnline(); installSpaceOnline(); installFightOnline() }
 
 const GAMES = [
+  ['fight', '🥊', 'IRON FISTS 1V1', '40 fighters, specials and supers. Pick your fighter in the 🥊 FIGHT tab first.', 2],
   ['space', '🚀', 'SPACE IMPACT CO-OP', 'Fly together: you + up to 2 friends as teammates (3 spacecraft). The host runs the missions.', 3],
   ['pickle', '🏓', 'PICKLEBALL 1V1', 'Real rules, first to 11 win by 2. Host runs the match; WASD/arrows + F G H to hit.', 2],
   ['bomber', '💣', 'BOMBER BLAST', '2-4 friends in the arena, bots fill empty slots. Move with WASD/arrows, Space drops a bomb.', 4],
@@ -64,7 +66,8 @@ export default function OnlineLobby({ s, TopPlayers, initGame }) {
   const isHost = !!room && room.host === rt.cid
   const g = room ? GAMES.find((x) => x[0] === room.game) : null
   const start = () => run(async () => {
-    if (room.game === 'tetris') await hostTetris()
+    if (room.game === 'fight') await hostFightMatch()
+    else if (room.game === 'tetris') await hostTetris()
     else if (room.game === 'space') await hostSpace()
     else if (room.game === 'pickle') await hostPickle()
     else if (room.game === 'bomber') await hostBomber()
@@ -117,11 +120,11 @@ export default function OnlineLobby({ s, TopPlayers, initGame }) {
         <div className="roomPlayers">
           {room.players.map((p) => <div key={p.id} className="chip sel" style={{ margin: 3 }}>{p.id === room.host ? '👑 ' : '🙂 '}{p.name}{p.id === rt.cid ? ' (you)' : ''}</div>)}
           {(room.game === 'uno' || room.game === 'pusoy' || room.game === 'tongits' || room.game === 'space') && Array.from({ length: Math.max(0, room.max - room.players.length) }).map((_, i) => <div key={i} className="chip" style={{ margin: 3, opacity: 0.6 }}>🤖 BOT</div>)}
-          {(room.game === 'tetris' || room.game === 'pickle') && room.players.length < 2 && <div className="chip" style={{ margin: 3, opacity: 0.6 }}>… waiting for opponent</div>}
+          {(room.game === 'tetris' || room.game === 'pickle' || room.game === 'fight') && room.players.length < 2 && <div className="chip" style={{ margin: 3, opacity: 0.6 }}>… waiting for opponent</div>}
         </div>
         <div className="chips">
           {isHost
-            ? <button className="big" disabled={(room.game === 'tetris' || room.game === 'pickle' || room.game === 'bomber') && room.players.length < 2} onClick={start}>▶ START GAME</button>
+            ? <button className="big" disabled={(room.game === 'tetris' || room.game === 'pickle' || room.game === 'bomber' || room.game === 'fight') && room.players.length < 2} onClick={start}>▶ START GAME</button>
             : <div className="lobbyinfo">Waiting for the host to start…</div>}
           <button className="big sec" onClick={copyLink}>{copied ? '✔ LINK COPIED' : '🔗 COPY INVITE LINK'}</button>
           <button className="big sec" onClick={() => leaveRoom()}>LEAVE ROOM</button>
@@ -138,7 +141,7 @@ export default function OnlineLobby({ s, TopPlayers, initGame }) {
         </form>
       </div>
       <div className="lobbyR">
-        <div className="panel"><h4>HOW IT WORKS</h4><div className="lobbyinfo"><small>{room.game === 'space' ? 'The host flies ship #1 and runs the missions, upgrades and bosses. Friends fly the other ships (WASD/arrows + Space) and share the score and lives. Free ships are flown by AI teammates. Best with the direct link (⚡).' : room.game === 'pickle' ? 'The host runs the match and the ball; you move your own player instantly and your hits are checked by the host, so a fast connection helps. First to 11, win by 2.' : room.game === 'bomber' ? 'The host runs the arena. Move and drop bombs; last one standing wins the round, best of 3. Bots fill empty slots; if a friend leaves a bot takes over.' : room.game === 'tetris' ? 'Both of you get the same piece order. Your clears send garbage to the other board. Last one standing wins. Leaving or disconnecting forfeits.' : 'The host runs the table; you only see your own cards (chips are per-table). If someone disconnects a bot takes their seat. If the host leaves the game ends.'}</small></div></div>
+        <div className="panel"><h4>HOW IT WORKS</h4><div className="lobbyinfo"><small>{room.game === 'fight' ? 'Best of 3 rounds. The host runs the fight; your controls and moves are sent instantly over the direct link (⚡). WASD or arrows to move, J K U I to punch and kick, L special, O super. Choose your fighter in the 🥊 FIGHT tab before the host presses START.' : room.game === 'space' ? 'The host flies ship #1 and runs the missions, upgrades and bosses. Friends fly the other ships (WASD/arrows + Space) and share the score and lives. Free ships are flown by AI teammates. Best with the direct link (⚡).' : room.game === 'pickle' ? 'The host runs the match and the ball; you move your own player instantly and your hits are checked by the host, so a fast connection helps. First to 11, win by 2.' : room.game === 'bomber' ? 'The host runs the arena. Move and drop bombs; last one standing wins the round, best of 3. Bots fill empty slots; if a friend leaves a bot takes over.' : room.game === 'tetris' ? 'Both of you get the same piece order. Your clears send garbage to the other board. Last one standing wins. Leaving or disconnecting forfeits.' : 'The host runs the table; you only see your own cards (chips are per-table). If someone disconnects a bot takes their seat. If the host leaves the game ends.'}</small></div></div>
         <TopPlayers s={s} initial={room.game} compact fixed key={room.game} />
       </div>
     </div>

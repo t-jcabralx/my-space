@@ -209,6 +209,27 @@ const SFX = {
   net: () => { noise(0.18, 0.3, 700, 150); tone('triangle', 180, 110, 0.14, 0.14) },
   point: () => { arp([659, 784, 988, 1319], 'triangle', 0.14, 0.14, 0.07); noise(0.7, 0.14, 700, 3500, 0.05, 'bandpass') },
   fault: () => { tone('sawtooth', 160, 120, 0.3, 0.14); tone('square', 120, 90, 0.3, 0.1, 0.05) },
+  // ---- IRON FISTS (fighting game) ----
+  fPunch: () => { noise(0.06, 0.34, 2600, 700, 0, 'highpass'); tone('square', 360, 140, 0.07, 0.12) },
+  fKick: () => { noise(0.09, 0.4, 1800, 500, 0, 'bandpass'); tone('sawtooth', 240, 90, 0.1, 0.12) },
+  fWhiff: () => noise(0.12, 0.16, 3600, 900, 0, 'bandpass'),
+  fHit: () => { noise(0.08, 0.5, 1400, 200, 0, 'lowpass'); tone('square', 180, 60, 0.1, 0.22); tone('sine', 90, 45, 0.14, 0.3) },
+  fHeavy: () => { noise(0.14, 0.6, 1100, 120, 0, 'lowpass'); tone('sawtooth', 150, 40, 0.18, 0.26); tone('sine', 70, 35, 0.22, 0.34) },
+  fBlock: () => { tone('square', 620, 480, 0.05, 0.14); noise(0.05, 0.3, 4200, 2200, 0, 'highpass') },
+  fLand: () => { noise(0.12, 0.34, 700, 120, 0, 'lowpass'); tone('sine', 80, 40, 0.14, 0.26) },
+  fJump: () => tone('square', 260, 520, 0.12, 0.08),
+  fFire: () => { noise(0.4, 0.3, 900, 3000, 0, 'bandpass'); tone('sawtooth', 220, 880, 0.3, 0.12) },
+  fBeam: () => { tone('sawtooth', 1400, 300, 0.45, 0.14); tone('square', 700, 160, 0.4, 0.1); noise(0.35, 0.25, 5000, 800, 0, 'highpass') },
+  fRise: () => { tone('square', 200, 900, 0.3, 0.14); noise(0.25, 0.25, 600, 3200, 0, 'bandpass') },
+  fDash: () => { noise(0.22, 0.4, 5000, 600, 0, 'highpass'); tone('triangle', 900, 200, 0.18, 0.1) },
+  fGrab: () => { tone('square', 150, 110, 0.12, 0.2); noise(0.1, 0.3, 900, 400, 0, 'lowpass') },
+  fSlam: () => { noise(0.35, 0.7, 800, 60, 0, 'lowpass'); tone('sine', 110, 28, 0.4, 0.5); tone('sawtooth', 90, 40, 0.3, 0.22) },
+  fSpecial: () => { arp([392, 523, 659, 988], 'square', 0.16, 0.1, 0.05); noise(0.2, 0.2, 1500, 5000, 0, 'bandpass') },
+  fSuper: () => { arp([262, 330, 392, 523, 659, 784, 1046], 'sawtooth', 0.4, 0.12, 0.06); tone('sine', 60, 240, 0.9, 0.3); noise(0.8, 0.35, 300, 6000, 0.1, 'bandpass') },
+  fRound: () => arp([392, 392, 523], 'square', 0.18, 0.1, 0.16),
+  fFight: () => { arp([523, 659, 784, 1046], 'square', 0.18, 0.13, 0.07); noise(0.4, 0.4, 1000, 3000, 0.05, 'bandpass') },
+  fKO: () => { noise(0.9, 0.7, 2000, 60, 0, 'lowpass'); tone('sawtooth', 300, 40, 0.9, 0.3); tone('square', 120, 30, 1, 0.3, 0.1) },
+  fWin: () => arp([523, 659, 784, 1046, 784, 1046, 1318], 'square', 0.2, 0.12, 0.11),
   test: () => { arp([523, 659, 784, 1046], 'square', 0.16, 0.12, 0.11); noise(0.3, 0.3, 2000, 100, 0.5) },
 }
 const MIN_GAP = { vulcan: 45, tankEngine: 150, grunt: 60, jeep: 200, plane: 300, crate: 60, shoot: 50, pistol: 60, hmg: 42, eshot: 90, rotor: 110, hit: 25, boom: 35, coin: 30, ding: 40, step: 80, whistle: 70, bossHit: 40, deflect: 50 }
@@ -234,7 +255,7 @@ export function testSound() { unlockAudio(); sfx('test'); speak('Sound check. Re
 // ---------------- music ----------------
 const M = { mode: null, step: 0, next: 0, timer: null, mission: 0, bpm: 120, trans: 0 }
 const mtof = (m) => 440 * Math.pow(2, (m - 69) / 12)
-const PROG = { cards: [0, 5, 3, 7], tetris: [0, -2, -4, -5], bomber: [0, 3, 5, 2], pickle: [0, 5, 7, 9], play: [0, -4, -2, -5], boss: [0, 0, 1, -1], menu: [0, -4, -7, -5], slug: [0, 0, -5, -2], slugboss: [0, 1, 0, -2] }
+const PROG = { cards: [0, 5, 3, 7], tetris: [0, -2, -4, -5], bomber: [0, 3, 5, 2], pickle: [0, 5, 7, 9], play: [0, -4, -2, -5], boss: [0, 0, 1, -1], menu: [0, -4, -7, -5], slug: [0, 0, -5, -2], slugboss: [0, 1, 0, -2], fight: [0, -3, -5, -2] }
 const CH = [[0, 3, 7, 12], [0, 4, 7, 12], [0, 4, 7, 12], [0, 4, 7, 11]]
 const ARP = [0, 1, 2, 3, 2, 1, 2, 1, 0, 1, 2, 3, 2, 3, 2, 1]
 const CHP = [[0, 4, 7, 12], [0, 4, 7, 12], [0, 4, 7, 12], [0, 3, 7, 12]]
@@ -345,7 +366,7 @@ export const music = {
     M.mode = mode; M.mission = mission
     const m = mission
     const bpms = [120, 124, 128, 132, 136, 140, 144, 148, 152, 156]
-    M.bpm = mode === 'menu' ? 92 : mode === 'cards' ? 100 : mode === 'tetris' ? 128 + m * 5 : mode === 'bomber' ? 134 : mode === 'pickle' ? 116 : mode === 'boss' ? 150 + m * 2 : mode === 'slug' ? 112 + m * 6 : mode === 'slugboss' ? 146 + m * 4 : bpms[m] || 120
+    M.bpm = mode === 'menu' ? 92 : mode === 'cards' ? 100 : mode === 'tetris' ? 128 + m * 5 : mode === 'bomber' ? 134 : mode === 'pickle' ? 116 : mode === 'fight' ? 142 : mode === 'boss' ? 150 + m * 2 : mode === 'slug' ? 112 + m * 6 : mode === 'slugboss' ? 146 + m * 4 : bpms[m] || 120
     M.trans = mode === 'slug' || mode === 'slugboss' ? [0, 2, -3][m] || 0 : [0, 2, -2, 3, 5, -3, 1, -5, 4, 0][m] || 0
     if (!keepStep) M.step = 0
     if (ctx) { M.next = Math.max(M.next, ctx.currentTime + 0.05); startTimer() }

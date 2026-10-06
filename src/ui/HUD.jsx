@@ -9,6 +9,8 @@ import { subscribePickle, getPickleSnap, pickleActions, MODES } from '../game/pi
 import { subscribeBomber, getBomberSnap, bomberActions, MODES as BMODES } from '../game/bomber.js'
 import { subscribeTetris, getTetrisSnap, tetrisActions, MODES as TMODES, COLORS as TCOL, SHAPES as TSH } from '../game/tetris.js'
 import { pickleScoring } from '../game/pickle.js'
+import { subscribeFight, getFightSnap, fightActions, setFightPick } from '../game/fight.js'
+import { ROSTER, ELEMENTS as ELS } from '../game/roster.js'
 import { subscribeChomp, getChompSnap, chompActions, MODES as CMODES } from '../game/chomp.js'
 import { subscribeFlames, getFlamesSnap, flamesActions, OUTCOMES as FOUT } from '../game/flames.js'
 import CardsHUD from './CardsUI.jsx'
@@ -180,6 +182,22 @@ const HELP = {
       </>
     ),
   },
+  fight: {
+    name: '🥊 IRON FISTS',
+    body: () => (
+      <>
+        <p><b>Beat your opponent in a best-of-three.</b> Pick one of 40 fighters (10 styles x 4 elements). Every fighter has their own <b>special</b> and a cinematic <b>super</b>.</p>
+        <ul>
+          <li><b>Move:</b> A/D walk · W jump · S crouch · <b>hold back to block</b> (stand blocks high/mid, crouch blocks low/mid).</li>
+          <li><b>Attacks:</b> J light punch · K heavy punch · U light kick · I heavy kick. Crouch (S) for low kicks and uppercuts, jump for air attacks.</li>
+          <li><b>L = special</b> (cooldown). <b>O = super</b>: the meter fills when you hit or get hit.</li>
+          <li><b>P2 (same keyboard):</b> arrows · N M punch · , . kick · / special · Right Shift super.</li>
+          <li>Chain light attacks into combos, but damage shrinks with long combos. Grabs (wrestlers) cannot be blocked.</li>
+          <li><b>Online:</b> use the INVITE FRIEND button; both players use WASD or the arrows.</li>
+        </ul>
+      </>
+    ),
+  },
   flames: {
     name: '🔥 FLAMES',
     body: () => (
@@ -269,7 +287,7 @@ function HelpModal() {
     </div>
   )
 }
-const FIRST = { flames: 'flames', playing: 'space', slug: 'slug', pickle: 'pickle', bomber: 'bomber', tetris: 'tetris', chomp: 'chomp', cards: 'cards' }
+const FIRST = { fight: 'fight', flames: 'flames', playing: 'space', slug: 'slug', pickle: 'pickle', bomber: 'bomber', tetris: 'tetris', chomp: 'chomp', cards: 'cards' }
 function HelpLayer({ s }) {
   const g = FIRST[s.mode]
   useEffect(() => {
@@ -1025,6 +1043,142 @@ function FlamesHUD() {
   )
 }
 
+// ---------- IRON FISTS (fighting game) ----------
+function FighterFace({ c, size = 44, sel = '' }) {
+  return (
+    <div className={'ffig ' + sel} style={{ '--skin': c.skin, '--hair': c.hair, '--top': c.top, '--trim': c.trim, '--el': ELS[c.element].color, width: size, height: size }}>
+      <i className={'hair ' + c.hairStyle} /><i className="head" /><i className="eyes" /><i className="body" />{c.acc === 'mask' && <i className="mask" />}{c.acc === 'visor' && <i className="visor" />}{c.acc === 'headband' && <i className="hband" />}
+    </div>
+  )
+}
+function Stat({ label, v, max = 100, color }) { return <div className="fstat"><span>{label}</span><div><b style={{ width: Math.min(100, (v / max) * 100) + '%', background: color }} /></div></div> }
+function FightLobby({ s }) {
+  const p = s.profile
+  const beaten = p.fightBeaten || {}
+  const [mine, setMine] = useState(typeof p.fightPick === 'number' ? p.fightPick : 0)
+  const [opp, setOpp] = useState('random')
+  const [target, setTarget] = useState('you')
+  const [mode, setMode] = useState('cpu')
+  const [diff, setDiff] = useState(2)
+  const [rounds, setRounds] = useState(2)
+  const c = ROSTER[mine]
+  const o = opp === 'random' ? null : ROSTER[opp]
+  const show = target === 'you' ? c : (o || c)
+  const pick = (id) => { if (target === 'you') { setMine(id); setFightPick(id) } else setOpp(id) }
+  const go = () => fightActions.start({ type: mode, p1: mine, p2: mode === 'demo' ? 'random' : opp, diff, rounds })
+  return (
+    <div className="lobby fightlobby">
+      <div className="lobbyL">
+        <h4>🥊 IRON FISTS · 40 FIGHTERS · {Object.keys(beaten).length}/40 BEATEN</h4>
+        <div className="chips">
+          {[['cpu', 'VS CPU'], ['2p', '2 PLAYERS'], ['demo', 'WATCH CPU vs CPU']].map(([k, l]) => <button key={k} className={'chip ' + (mode === k ? 'sel' : '')} onClick={() => setMode(k)}>{l}</button>)}
+          <span className="sep" />
+          {['EASY', 'MEDIUM', 'HARD'].map((d, i) => <button key={d} className={'chip ' + (diff === i + 1 ? 'sel' : '')} onClick={() => setDiff(i + 1)}>{d}</button>)}
+          <span className="sep" />
+          {[1, 2, 3].map((r) => <button key={r} className={'chip ' + (rounds === r ? 'sel' : '')} onClick={() => setRounds(r)}>FIRST TO {r}</button>)}
+        </div>
+        <div className="chips">
+          <button className={'chip ' + (target === 'you' ? 'sel' : '')} onClick={() => setTarget('you')}>PICK YOUR FIGHTER</button>
+          <button className={'chip ' + (target === 'opp' ? 'sel' : '')} onClick={() => setTarget('opp')}>PICK THE OPPONENT {opp === 'random' ? '(RANDOM)' : '(' + ROSTER[opp].name + ')'}</button>
+          {opp !== 'random' && <button className="chip" onClick={() => setOpp('random')}>🎲 RANDOM</button>}
+        </div>
+        <div className="fgrid">
+          {ROSTER.map((r) => (
+            <button key={r.id} className={'ftile ' + (mine === r.id ? 'p1 ' : '') + (opp === r.id ? 'p2 ' : '') + (beaten[r.id] ? 'beat' : '')} style={{ '--el': ELS[r.element].color }} onClick={() => pick(r.id)} title={`${r.name} · ${r.styleName} · ${ELS[r.element].name}`}>
+              <FighterFace c={r} size={40} /><small>{r.name}</small>{beaten[r.id] && <b className="chk">✓</b>}
+            </button>
+          ))}
+        </div>
+        <div className="chips">
+          <button className="big" onClick={go}>🥊 {mode === 'demo' ? 'WATCH' : 'FIGHT'}!</button>
+          <button className="big sec" onClick={() => { setFightPick(mine); window.dispatchEvent(new CustomEvent('si-open-tab', { detail: 'online:fight' })) }}>🌐 INVITE FRIEND</button>
+        </div>
+        <small className="hint">P1: A/D move · W jump · S crouch · J K punch · U I kick · L special · O super (full meter) &nbsp;|&nbsp; P2: arrows · N M punch · , . kick · / special · Right Shift super. Hold back to block. Online: use WASD or arrows.</small>
+      </div>
+      <div className="lobbyR">
+        <div className="panel fdetail" style={{ '--el': ELS[show.element].color }}>
+          <div className="fdhead"><FighterFace c={show} size={86} /><div><h4>{show.name}</h4><small>{show.styleName} · {ELS[show.element].name}</small><small>{show.tag}</small></div></div>
+          <Stat label="HEALTH" v={show.hp} max={140} color="#3dff7a" />
+          <Stat label="SPEED" v={show.spd * 100} max={125} color="#3de8ff" />
+          <Stat label="POWER" v={show.pow * 100} max={130} color="#ff4d4d" />
+          <Stat label="REACH" v={show.reach * 100} max={130} color="#ffe84a" />
+          <div className="fmoves">
+            <div><b>L · SPECIAL</b> <em style={{ color: ELS[show.element].color }}>{show.special.name}</em><small>{show.special.tip} · {show.special.dmg} dmg · {show.special.cd}s cooldown</small></div>
+            <div><b>O · SUPER</b> <em style={{ color: ELS[show.element].color }}>{show.super.name}</em><small>{show.super.tip} · {show.super.dmg} dmg · needs a full meter</small></div>
+          </div>
+        </div>
+        <div className="panel"><h4>MY RECORD</h4><div className="kv"><span>FIGHTS</span><b>{p.fightGames || 0}</b><span>WINS</span><b>{p.fightWins || 0}</b><span>FIGHTERS BEATEN</span><b>{Object.keys(beaten).length}/40</b></div></div>
+      </div>
+    </div>
+  )
+}
+function FightTouch() {
+  const [touch, setTouch] = useState(false)
+  useEffect(() => { try { setTouch('ontouchstart' in window || navigator.maxTouchPoints > 0 || window.matchMedia('(pointer: coarse)').matches) } catch { /* ignore */ } }, [])
+  if (!touch) return null
+  const hold = (code) => ({
+    onPointerDown: (e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.setPointerCapture && e.currentTarget.setPointerCapture(e.pointerId); engineKey(code, true) },
+    onPointerUp: (e) => { e.preventDefault(); engineKey(code, false) },
+    onPointerCancel: () => engineKey(code, false),
+    onContextMenu: (e) => e.preventDefault(),
+  })
+  return (
+    <div className="touchpad ftouch">
+      <div className="dpad"><button className="up" {...hold('KeyW')}>▲</button><button className="lf" {...hold('KeyA')}>◀</button><button className="rt" {...hold('KeyD')}>▶</button><button className="dn" {...hold('KeyS')}>▼</button></div>
+      <div className="fbtns6">
+        <button {...hold('KeyJ')}>LP</button><button {...hold('KeyK')}>HP</button><button {...hold('KeyL')} className="spc">SP</button>
+        <button {...hold('KeyU')}>LK</button><button {...hold('KeyI')}>HK</button><button {...hold('KeyO')} className="sup">SU</button>
+      </div>
+    </div>
+  )
+}
+function FightHUD() {
+  const g = useSyncExternalStore(subscribeFight, getFightSnap)
+  if (!g) return null
+  const [a, b] = g.f
+  const bar = (f, right) => (
+    <div className={'fbar ' + (right ? 'r' : '')} style={{ '--c': f.color }}>
+      <div className="fname"><b>{f.name}</b><small>{f.style} · {f.element.toUpperCase()}</small></div>
+      <div className="hp"><i style={{ width: (f.hp / f.max) * 100 + '%' }} /></div>
+      <div className="mt"><i className={f.meter >= 100 ? 'full' : ''} style={{ width: f.meter + '%' }} /><span>{f.meter >= 100 ? 'SUPER READY!' : 'SUPER'}</span></div>
+      <div className="sp"><i style={{ width: (f.spCd > 0 ? (1 - f.spCd / f.spMax) : 1) * 100 + '%' }} /><span>{f.spCd > 0 ? f.sp : f.sp + ' READY'}</span></div>
+    </div>
+  )
+  const pips = (w, right) => <div className={'fpips ' + (right ? 'r' : '')}>{Array.from({ length: g.rounds }, (_, i) => <i key={i} className={i < w ? 'on' : ''} />)}</div>
+  return (
+    <div className="hud fhud">
+      {g.mode !== 'over' && (
+        <>
+          <div className="ftop">{bar(a, false)}<div className="ftimer"><strong>{g.timer}</strong><small>ROUND {g.round}</small></div>{bar(b, true)}</div>
+          <div className="fpiprow">{pips(g.wins[0], false)}<span>{g.type === 'online' ? 'ONLINE' : g.diff}</span>{pips(g.wins[1], true)}</div>
+          {a.combo > 1 && <div className="fcombo l" key={a.combo}>{a.combo} HITS!</div>}
+          {b.combo > 1 && <div className="fcombo r" key={'b' + b.combo}>{b.combo} HITS!</div>}
+          {g.say && <div className="fsay" key={g.say.id} style={{ color: g.say.color, textShadow: `0 0 18px ${g.say.color}` }}>{g.say.text}</div>}
+          {g.msg && <div className="fmsg" key={g.msg.text + g.round} style={{ color: g.msg.color, textShadow: `0 0 26px ${g.msg.color}` }}><h1>{g.msg.text}</h1>{g.msg.sub && <p>{g.msg.sub}</p>}</div>}
+          {g.cine && <div className="fcine" style={{ '--c': g.cine.color }}><div className="band" /><h1>{g.cine.name}</h1><small>{g.f[g.cine.owner].name}</small></div>}
+          <div className="pctl">{g.type === 'online' ? 'WASD/ARROWS MOVE · J K U I ATTACK · L SPECIAL · O SUPER · HOLD BACK TO BLOCK' : g.type === '2p' ? 'P1: WASD · J K U I · L · O   |   P2: ARROWS · N M , . · / · R-SHIFT' : 'WASD MOVE · J K PUNCH · U I KICK · L SPECIAL · O SUPER · P PAUSE'}</div>
+          <FightTouch />
+          <div className="scan" />
+        </>
+      )}
+      {g.paused && <div className="screen pause"><h1>PAUSED</h1><button className="big" onClick={fightActions.resume}>RESUME</button><button className="big sec" onClick={() => openHelp('fight')}>❓ HOW TO PLAY</button><button className="big sec" onClick={fightActions.quit}>QUIT TO MENU</button></div>}
+      {g.mode === 'over' && g.over && (
+        <div className="screen victory">
+          <h1 className="gold">{g.over.left ? 'OPPONENT LEFT: YOU WIN!' : g.type === 'cpu' ? (g.over.human ? 'YOU WIN!' : 'YOU LOSE') : g.over.name + ' WINS!'}</h1>
+          <ul>
+            <li><span>WINNER</span><b style={{ color: ELS[g.over.element].color }}>{g.over.name}</b></li>
+            <li><span>ROUNDS</span><b>{g.over.wins[0]} - {g.over.wins[1]}</b></li>
+            <li><span>BIGGEST COMBO</span><b>{g.over.stats.maxCombo}</b></li>
+            <li><span>SPECIALS / SUPERS</span><b>{g.over.stats.specials} / {g.over.stats.supers}</b></li>
+          </ul>
+          <button className="big" onClick={fightActions.rematch}>↻ REMATCH</button>
+          <button className="big sec" onClick={fightActions.quit}>CHARACTER SELECT</button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function Notices({ list }) {
   if (!list || !list.length) return null
   return <div className="notices">{list.map((n) => <div key={n.id} className="notice" style={{ borderColor: n.color, color: n.color }}>{n.text}</div>)}</div>
@@ -1066,6 +1220,7 @@ function GameCard({ cls, title, tag, hi, hiLabel, art, onPlay, label, sub, onInv
 function Hub({ s }) {
   const [tab, setTab] = useState('home')
   const [ogame, setOgame] = useState('tetris')
+  useEffect(() => { const h = (e) => { const [t, g] = String(e.detail || '').split(':'); if (g) setOgame(g); if (t) setTab(t) }; window.addEventListener('si-open-tab', h); return () => window.removeEventListener('si-open-tab', h) }, [])
   useEffect(() => { try { if (new URLSearchParams(location.search).get('join')) setTab('online') } catch { /* ignore */ } }, [])
   const [pmode, setPmode] = useState('bot')
   const [pdiff, setPdiff] = useState(2)
@@ -1085,7 +1240,7 @@ function Hub({ s }) {
   const next = RANKS[ri + 1]
   const pct = next ? ((xp - RANKS[ri][0]) / (next[0] - RANKS[ri][0])) * 100 : 100
   const doneAch = ACH.filter(([, , g, goal]) => g(p, s.unlocked) >= goal).length
-  const TABS = [['home', 'DASHBOARD'], ['pickle', '🏓 PICKLEBALL'], ['bomber', '💣 BOMBER'], ['tetris', '🧱 TETRIS'], ['chomp', '🟡 CHOMP'], ['cards', '🃏 CARDS'], ['flames', '🔥 FLAMES'], ['online', '🌐 ONLINE'], ['top', '🏆 TOP PLAYERS'], ['ship', 'CUSTOMIZE SHIP'], ['levels', 'SPACE LEVELS'], ['skills', 'CONTROLS'], ['settings', '⚙ SETTINGS'], ['awards', `AWARDS ${doneAch}/${ACH.length}`]]
+  const TABS = [['home', 'DASHBOARD'], ['pickle', '🏓 PICKLEBALL'], ['bomber', '💣 BOMBER'], ['tetris', '🧱 TETRIS'], ['chomp', '🟡 CHOMP'], ['cards', '🃏 CARDS'], ['fight', '🥊 FIGHT'], ['flames', '🔥 FLAMES'], ['online', '🌐 ONLINE'], ['top', '🏆 TOP PLAYERS'], ['ship', 'CUSTOMIZE SHIP'], ['levels', 'SPACE LEVELS'], ['skills', 'CONTROLS'], ['settings', '⚙ SETTINGS'], ['awards', `AWARDS ${doneAch}/${ACH.length}`]]
   return (
     <div className="screen hub">
       <div className="hubtop">
@@ -1117,6 +1272,9 @@ function Hub({ s }) {
             <GameCard cls="chomp" title="🟡 MAZE CHOMP" tag="Ghosts · pellets · fruit · co-op" hiLabel="BEST" hi={(p.chompHi || 0).toLocaleString()}
               art={<MiniChomp />} label="SELECT MODE ▶" onPlay={() => setTab('chomp')}
               sub={<><span>GHOSTS</span><b>{p.chompGhosts || 0}</b></>} />
+            <GameCard cls="fight" title="🥊 IRON FISTS" tag="40 fighters · specials · supers · 1v1" hiLabel="WINS" hi={p.fightWins || 0}
+              art={<div className="miniFight"><span>🥋</span><b>VS</b><span>🥷</span></div>} label="CHOOSE FIGHTER ▶" onPlay={() => setTab('fight')} onInvite={() => { setOgame('fight'); setTab('online') }}
+              sub={<><span>BEATEN</span><b>{Object.keys(p.fightBeaten || {}).length}/40</b></>} />
             <GameCard cls="flames" title="🔥 FLAMES" tag="Friends · Lovers · Affection · Marriage · Enemies · Siblings" hiLabel="TRIED" hi={p.flamesGames || 0}
               art={<div className="miniFlames"><i>F</i><i>L</i><i>A</i><i>M</i><i>E</i><i>S</i></div>} label="PLAY FLAMES ▶" onPlay={() => setTab('flames')}
               sub={<><span>LAST</span><b>{(p.flamesHistory && p.flamesHistory[0]) ? FOUT[p.flamesHistory[0].r].word : '-'}</b></>} />
@@ -1150,6 +1308,7 @@ function Hub({ s }) {
         </>
       )}
       {tab === 'pickle' && <PickleLobby s={s} mode={pmode} setMode={setPmode} diff={pdiff} setDiff={setPdiff} target={ptarget} setTarget={setPtarget} />}
+      {tab === 'fight' && <FightLobby s={s} />}
       {tab === 'flames' && <FlamesLobby s={s} />}
       {tab === 'cards' && <CardRoomLobby s={s} onOnline={(g) => { setOgame(g || 'uno'); setTab('online') }} />}
       {tab === 'online' && <OnlineLobby s={s} TopPlayers={TopPlayers} initGame={ogame} />}
@@ -1491,6 +1650,7 @@ function HUDInner({ s }) {
   if (s.mode === 'tetris') return <TetrisHUD />
   if (s.mode === 'chomp') return <ChompHUD />
   if (s.mode === 'flames') return <FlamesHUD />
+  if (s.mode === 'fight') return <FightHUD />
   if (s.mode === 'cards') return <CardsHUD SoundBtn={SoundBtn} openHelp={openHelp} TopPlayersMini={TopPlayersMini} />
   const playing = s.mode === 'playing' || s.mode === 'paused'
   return (

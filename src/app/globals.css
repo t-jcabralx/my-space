@@ -451,3 +451,52 @@ li.bonus { border-color: var(--gr); color: var(--gr); } li.fail { border-color: 
 .touchpad .act { width: 20cqw; height: 20cqw; min-width: 100px; min-height: 100px; max-width: 150px; max-height: 150px; border-radius: 50%; border-color: #ff4de1; font-size: 2.2em; display: grid; place-items: center; box-shadow: 0 0 20px #ff4de188; }
 .touchpad .act small { font-size: .35em; display: block; margin-top: -.6em; }
 .touchpad button:active { background: #3de8ff; color: #02030a; } .touchpad .act:active { background: #ff4de1; }
+
+/* ---------- IRON FISTS ---------- */
+.ffig { position: relative; flex: none; image-rendering: pixelated; }
+.ffig i { position: absolute; display: block; }
+.ffig .head { left: 28%; top: 22%; width: 44%; height: 40%; background: var(--skin); }
+.ffig .hair { left: 24%; top: 12%; width: 52%; height: 22%; background: var(--hair); z-index: 1; }
+.ffig .hair.spiky { top: 4%; height: 30%; clip-path: polygon(0 100%, 8% 20%, 24% 70%, 40% 0, 58% 70%, 74% 10%, 100% 100%); }
+.ffig .hair.long { height: 62%; width: 60%; left: 20%; z-index: 0; }
+.ffig .hair.mohawk { left: 42%; width: 16%; top: 2%; height: 34%; }
+.ffig .hair.bald { opacity: 0; } .ffig .hair.afro { left: 14%; width: 72%; top: 4%; height: 40%; border-radius: 40%; }
+.ffig .hair.bun { box-shadow: 0 -.5em 0 -.1em var(--hair); } .ffig .hair.band { box-shadow: 0 .45em 0 -.1em #ff3b4e; }
+.ffig .eyes { left: 34%; top: 38%; width: 32%; height: 7%; background: repeating-linear-gradient(90deg, #0a0a14 0 22%, transparent 22% 56%, #0a0a14 56% 78%, transparent 78%); }
+.ffig .body { left: 22%; top: 64%; width: 56%; height: 36%; background: var(--top); border-top: 3px solid var(--trim); }
+.ffig .mask { left: 28%; top: 46%; width: 44%; height: 16%; background: #14141e; z-index: 2; } .ffig .visor { left: 30%; top: 34%; width: 40%; height: 12%; background: var(--el); box-shadow: 0 0 6px var(--el); z-index: 2; }
+.ffig .hband { left: 26%; top: 26%; width: 48%; height: 7%; background: #fff; z-index: 2; }
+.fightlobby .fgrid { display: grid; grid-template-columns: repeat(8, 1fr); gap: .5cqw; margin: .6cqw 0; }
+.ftile { position: relative; display: flex; flex-direction: column; align-items: center; gap: .15cqw; padding: .4cqw .2cqw; font: inherit; color: #cdd8ff; background: #0b1230; border: 2px solid color-mix(in srgb, var(--el) 55%, #1a2350); cursor: pointer; min-width: 0; }
+.ftile small { font-size: .5em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.ftile.p1 { border-color: #3de8ff; box-shadow: 0 0 14px #3de8ff; background: #0f2a4a; } .ftile.p2 { border-color: #ff4de1; box-shadow: 0 0 14px #ff4de1; background: #3a0f3a; } .ftile.p1.p2 { box-shadow: 0 0 14px #3de8ff, 0 0 14px #ff4de1 inset; }
+.ftile .chk { position: absolute; right: 2px; top: 0; font-size: .6em; color: #3dff7a; } .ftile:hover { transform: translateY(-2px); }
+.fdetail { border-color: var(--el); } .fdhead { display: flex; gap: 1cqw; align-items: center; margin-bottom: .6cqw; } .fdhead div { display: flex; flex-direction: column; gap: .2cqw; } .fdhead small { color: #8fa4d8; font-size: .6em; }
+.fstat { display: grid; grid-template-columns: 5.5cqw 1fr; gap: .6cqw; align-items: center; font-size: .6em; color: #8fa4d8; margin: .2cqw 0; } .fstat div { height: .9cqw; background: #0a1028; border: 1px solid #2a3a78; } .fstat b { display: block; height: 100%; }
+.fmoves { display: flex; flex-direction: column; gap: .6cqw; margin-top: .8cqw; font-size: .66em; } .fmoves b { color: #ffe84a; } .fmoves em { font-style: normal; } .fmoves small { display: block; color: #8fa4d8; font-size: .8em; }
+.chips .sep { width: 1.2cqw; }
+.miniFight { display: flex; align-items: center; justify-content: center; gap: 1.4cqw; min-height: 11cqw; font-size: 4.6cqw; } .miniFight b { font-size: 2cqw; color: #ff4d4d; text-shadow: 0 0 12px #ff4d4d; animation: flick .8s infinite alternate; }
+.gcard.fight { border-color: #ff4d4d; box-shadow: 0 0 18px #ff4d4d33; }
+/* in-fight HUD */
+.fhud .ftop { position: absolute; left: 2cqw; right: 2cqw; top: 1.6cqw; display: flex; align-items: flex-start; gap: 1cqw; }
+.fbar { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .35cqw; } .fbar.r { align-items: stretch; text-align: right; }
+.fbar .fname { display: flex; flex-direction: column; font-size: .95em; color: var(--c); text-shadow: 0 0 10px var(--c); } .fbar .fname small { color: #8fa4d8; font-size: .5em; text-shadow: none; }
+.fbar .hp { position: relative; height: 2.2cqw; background: #1a0a10; border: 3px solid #fff; transform: skewX(-18deg); overflow: hidden; } .fbar.r .hp { transform: skewX(18deg); }
+.fbar .hp i { position: absolute; inset: 0 auto 0 0; background: linear-gradient(#ffe84a, #ff9a2e); transition: width .18s; } .fbar.r .hp i { left: auto; right: 0; }
+.fbar .mt, .fbar .sp { position: relative; height: 1cqw; background: #0a1028; border: 2px solid #2a3a78; overflow: hidden; } .fbar .sp { height: .8cqw; }
+.fbar .mt i { position: absolute; inset: 0 auto 0 0; background: #3de8ff; } .fbar .mt i.full { background: linear-gradient(90deg, #ff4de1, #ffe84a, #ff4de1); animation: flick .35s infinite alternate; } .fbar .sp i { position: absolute; inset: 0 auto 0 0; background: var(--c); }
+.fbar.r .mt i, .fbar.r .sp i { left: auto; right: 0; }
+.fbar .mt span, .fbar .sp span { position: absolute; inset: 0; display: grid; place-items: center; font-size: .38em; color: #fff; text-shadow: 0 0 4px #000; }
+.fhud .ftimer { flex: none; width: 8cqw; text-align: center; display: flex; flex-direction: column; } .fhud .ftimer strong { font-size: 3.4cqw; color: #fff; text-shadow: 0 0 14px #ff4d4d; } .fhud .ftimer small { font-size: .5em; color: #8fa4d8; }
+.fhud .fpiprow { position: absolute; left: 2cqw; right: 2cqw; top: 9.4cqw; display: flex; justify-content: space-between; font-size: .5em; color: #8fa4d8; pointer-events: none; }
+.fpips { display: flex; gap: .4cqw; } .fpips i { width: 1.1cqw; height: 1.1cqw; border: 2px solid #ffe84a; transform: rotate(45deg); } .fpips i.on { background: #ffe84a; box-shadow: 0 0 8px #ffe84a; }
+.fcombo { position: absolute; top: 18cqw; font-size: 1.7cqw; white-space: nowrap; color: #ffe84a; text-shadow: 0 0 16px #ff4d4d, 3px 3px 0 #000; animation: pop2 .25s; } .fcombo.l { left: 3cqw; } .fcombo.r { right: 3cqw; }
+@keyframes pop2 { from { transform: scale(1.8); opacity: .3; } to { transform: scale(1); opacity: 1; } }
+.fsay { position: absolute; left: 0; right: 0; top: 13cqw; text-align: center; font-size: 1.7cqw; letter-spacing: .15cqw; animation: pop2 .3s; pointer-events: none; }
+.fmsg { position: absolute; left: 0; right: 0; top: 30%; text-align: center; pointer-events: none; animation: pop2 .4s; } .fmsg h1 { font-size: 6cqw; letter-spacing: .4cqw; } .fmsg p { font-size: 1.2cqw; color: #fff; }
+.fcine { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; pointer-events: none; overflow: hidden; }
+.fcine .band { position: absolute; left: -10%; right: -10%; top: 38%; height: 24%; background: linear-gradient(90deg, transparent, var(--c), transparent); opacity: .85; transform: skewY(-6deg); animation: slidein .35s ease-out; }
+.fcine h1 { position: relative; font-size: 5.4cqw; color: #fff; text-shadow: 0 0 24px var(--c), 4px 4px 0 #000; animation: slidein .35s ease-out; letter-spacing: .3cqw; } .fcine small { position: relative; font-size: 1.4cqw; color: #fff; }
+@keyframes slidein { from { transform: translateX(-60%); opacity: 0; } to { transform: none; opacity: 1; } }
+.ftouch { bottom: 3cqw; } .fbtns6 { display: grid; grid-template-columns: repeat(3, 1fr); gap: .8cqw; } .fbtns6 button { width: 12cqw; height: 12cqw; min-width: 64px; min-height: 64px; max-width: 90px; max-height: 90px; border-radius: 50%; font-size: 1em; } .fbtns6 .spc { border-color: #ffe84a; } .fbtns6 .sup { border-color: #ff4de1; }
+@media (max-width: 800px) { .fightlobby .fgrid { grid-template-columns: repeat(5, 1fr); } }

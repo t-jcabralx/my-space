@@ -42,7 +42,7 @@ const slugApi = {
 function drawAll() {
   n = 0
   const t = G.time
-  if ((G.mode === 'slug' || G.mode === 'pickle' || G.mode === 'bomber' || G.mode === 'tetris' || G.mode === 'chomp' || G.mode === 'cards' || G.mode === 'flames')) { if (games[G.mode]) games[G.mode].draw(slugApi); return }
+  if ((G.mode === 'slug' || G.mode === 'pickle' || G.mode === 'bomber' || G.mode === 'tetris' || G.mode === 'chomp' || G.mode === 'cards' || G.mode === 'flames' || G.mode === 'fight')) { if (games[G.mode]) games[G.mode].draw(slugApi); return }
   for (const p of G.pups) sprite(p.spr, p.x, p.y, { k: 1.15, sx: p.type === 'coin' ? Math.max(0.15, Math.abs(Math.cos(p.t * 5))) : 1, scale: p.type === 'gem' ? 1 + Math.sin(p.t * 8) * 0.15 : 1 })
   for (const e of G.enemies) {
     const mine = e.type === 'mine' ? 1 + Math.sin(e.t * 8) * 0.35 : 1
@@ -171,8 +171,8 @@ export function Stars() {
   useFrame((_, dt) => {
     const m = ref.current
     if (!m) return
-    m.visible = G.mode !== 'slug' && G.mode !== 'pickle' && G.mode !== 'bomber' && G.mode !== 'tetris' && G.mode !== 'chomp' && G.mode !== 'cards' && G.mode !== 'flames'
-    if ((G.mode === 'slug' || G.mode === 'pickle' || G.mode === 'bomber' || G.mode === 'tetris' || G.mode === 'chomp' || G.mode === 'cards' || G.mode === 'flames')) return
+    m.visible = G.mode !== 'slug' && G.mode !== 'pickle' && G.mode !== 'bomber' && G.mode !== 'tetris' && G.mode !== 'chomp' && G.mode !== 'cards' && G.mode !== 'flames' && G.mode !== 'fight'
+    if ((G.mode === 'slug' || G.mode === 'pickle' || G.mode === 'bomber' || G.mode === 'tetris' || G.mode === 'chomp' || G.mode === 'cards' || G.mode === 'flames' || G.mode === 'fight')) return
     const mi = G.mode === 'menu' ? 0 : G.mission
     const tint = rgb(MISSIONS[mi].color)
     const d = Math.min(dt, 0.05)
@@ -203,8 +203,8 @@ export function Planet() {
   const x = useRef(60)
   useFrame((_, dt) => {
     if (!g.current) return
-    g.current.visible = G.mode !== 'slug' && G.mode !== 'pickle' && G.mode !== 'bomber' && G.mode !== 'tetris' && G.mode !== 'chomp' && G.mode !== 'cards' && G.mode !== 'flames'
-    if ((G.mode === 'slug' || G.mode === 'pickle' || G.mode === 'bomber' || G.mode === 'tetris' || G.mode === 'chomp' || G.mode === 'cards' || G.mode === 'flames')) return
+    g.current.visible = G.mode !== 'slug' && G.mode !== 'pickle' && G.mode !== 'bomber' && G.mode !== 'tetris' && G.mode !== 'chomp' && G.mode !== 'cards' && G.mode !== 'flames' && G.mode !== 'fight'
+    if ((G.mode === 'slug' || G.mode === 'pickle' || G.mode === 'bomber' || G.mode === 'tetris' || G.mode === 'chomp' || G.mode === 'cards' || G.mode === 'flames' || G.mode === 'fight')) return
     const mi = G.mode === 'menu' ? 0 : G.mission
     x.current -= dt * 1.1 * G.scroll
     if (x.current < -110) x.current = 110
@@ -229,7 +229,7 @@ export function Planet() {
 
 export function Rig() {
   useFrame((state) => {
-    if (state.scene.background && state.scene.background.set) state.scene.background.set(G.mode === 'slug' && games.slug ? games.slug.sky(games.slug.stageIndex()) : G.mode === 'pickle' ? '#0a1a14' : G.mode === 'bomber' ? '#08101c' : G.mode === 'tetris' ? '#04060f' : G.mode === 'chomp' ? '#03030e' : G.mode === 'cards' ? '#06281c' : G.mode === 'flames' ? '#07040f' : '#04050d')
+    if (state.scene.background && state.scene.background.set) state.scene.background.set(G.mode === 'slug' && games.slug ? games.slug.sky(games.slug.stageIndex()) : G.mode === 'pickle' ? '#0a1a14' : G.mode === 'bomber' ? '#08101c' : G.mode === 'tetris' ? '#04060f' : G.mode === 'chomp' ? '#03030e' : G.mode === 'cards' ? '#06281c' : G.mode === 'flames' ? '#07040f' : G.mode === 'fight' ? '#06040e' : '#04050d')
     const s = G.shake
     state.camera.position.x = (Math.random() - 0.5) * s * 1.6
     state.camera.position.y = (Math.random() - 0.5) * s * 1.6
