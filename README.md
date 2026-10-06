@@ -60,6 +60,14 @@ Real-time games (Pickleball, Bomber, Tetra Blast) upgrade to a **direct WebRTC d
 The host simulates card games and sends each player a private snapshot (other hands are masked); Tetra Blast runs on both clients with the same seeded piece bag and exchanges attacks and board snapshots.
 Disconnected players are replaced by a bot. On serverless hosts a long-lived SSE response is capped by `maxDuration` (300s); the client reconnects automatically. `npm run dev` + `node scripts/sim-online.mjs` runs a two-process end-to-end test against real Redis.
 
+## Playing with friends on other computers
+
+`localhost:3000` only exists on your own machine, so a friend who opens it (or a link that starts with `localhost`) gets their own empty copy of the game and a "room not found" error. Everyone must open the **same public address**:
+
+1. **Deploy** the project (for example on Vercel) with the same environment variables as `.env.local`, or
+2. **Tunnel** your local game: run `npm run build && npm start`, then `npx cloudflared tunnel --url http://localhost:3000` (or ngrok / localtunnel) and share the `https://...` address it prints.
+3. In the 🌐 Online tab paste that address into the box shown on the room screen. **🔗 COPY INVITE LINK** then builds `https://your-address/?join=CODE`, and your friend lands directly in your room. Friends can also type the code into the **JOIN** bar at the top of the dashboard.
+
 ## Controls
 
 See the **Skills & Controls** tab in the dashboard. Press **M** to mute, **P/Esc** to pause.

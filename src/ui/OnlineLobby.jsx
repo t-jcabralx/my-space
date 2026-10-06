@@ -52,7 +52,10 @@ export default function OnlineLobby({ s, TopPlayers, initGame }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   const [copied, setCopied] = useState(false)
-  const copyLink = () => { try { navigator.clipboard.writeText(`${location.origin}/?join=${room.code}`); setCopied(true); setTimeout(() => setCopied(false), 1800) } catch { setMsg('Copy failed: share the code instead') } }
+  const [pub, setPub] = useState(() => { try { return localStorage.getItem('si_public_url') || '' } catch { return '' } })
+  const baseUrl = () => { const v = (pub || '').trim().replace(/\/+$/, ''); return /^https?:\/\//i.test(v) ? v : location.origin }
+  const setPubUrl = (v) => { setPub(v); try { localStorage.setItem('si_public_url', v) } catch { /* ignore */ } }
+  const copyLink = () => { try { navigator.clipboard.writeText(`${baseUrl()}/?join=${room.code}`); setCopied(true); setTimeout(() => setCopied(false), 1800) } catch { setMsg('Copy failed: share the code instead') } }
   useEffect(() => { if (logRef.current) logRef.current.scrollTop = 1e6 }, [rt.chat.length])
 
   const run = async (fn) => { setMsg(''); try { await fn() } catch (e) { setMsg(e.message || 'Something went wrong') } }
@@ -109,7 +112,7 @@ export default function OnlineLobby({ s, TopPlayers, initGame }) {
     <div className="lobby">
       <div className="lobbyL">
         <h4>ROOM <b style={{ letterSpacing: 4, fontSize: 22, color: '#ffe84a' }}>{share}</b> · {g ? g[2] : room.game}</h4>
-        {typeof location !== 'undefined' && /^(localhost|127\.|192\.168\.|10\.|\[::1\])/.test(location.hostname) && <div className="lobbyinfo" style={{ color: '#ffb02e' }}><small>⚠ You are on <b>{location.host}</b>, an address only this computer can open. For friends on other computers, deploy the site (e.g. on Vercel) or share it through a tunnel, then use the invite link from that address.</small></div>}
+        {typeof location !== 'undefined' && /^(localhost|127\.|192\.168\.|10\.|\[::1\])/.test(location.hostname) && <div className="lobbyinfo" style={{ color: '#ffb02e' }}><small>⚠ You are on <b>{location.host}</b>, an address only this computer can open. Friends on other computers need your public address (a deployed site such as Vercel, or a tunnel: <b>npx cloudflared tunnel --url http://localhost:3000</b>). Paste it here and the invite link will use it:</small><br /><input className="nameIn" style={{ width: '100%' }} value={pub} placeholder="https://your-public-address" onChange={(e) => setPubUrl(e.target.value)} /></div>}
         <div className="lobbyinfo"><small>{rt.connected ? '🟢 connected' : '🟠 connecting…'}{Object.keys(rt.p2p || {}).length ? ' · ⚡ direct link' : ' · ☁ relay'} · share the code so friends can join ({room.players.length}/{room.max})</small></div>
         <div className="roomPlayers">
           {room.players.map((p) => <div key={p.id} className="chip sel" style={{ margin: 3 }}>{p.id === room.host ? '👑 ' : '🙂 '}{p.name}{p.id === rt.cid ? ' (you)' : ''}</div>)}
