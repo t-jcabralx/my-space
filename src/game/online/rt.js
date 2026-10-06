@@ -110,7 +110,7 @@ export function send(type, data, to) {
 // ---------- direct peer-to-peer channel (WebRTC) ----------
 // Redis pub/sub stays the signalling + fallback path; once a data channel to the host is open, the real-time game
 // messages (inputs, state snapshots, attacks) travel directly (~20-60ms instead of ~300ms). No extra server needed.
-const FAST = new Set(['sst', 'sin', 'pst', 'pin', 'psh', 'prematch', 'bst', 'bin', 'bbomb', 'tst', 'tatk', 'tdead', 'hb'])
+const FAST = new Set(['sst', 'sin', 'ssk', 'pst', 'pin', 'psh', 'prematch', 'bst', 'bin', 'bbomb', 'tst', 'tatk', 'tdead', 'hb'])
 const P2P_GAMES = new Set(['space', 'pickle', 'bomber', 'tetris'])
 const ICE = { iceServers: [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] }] }
 const peers = new Map()

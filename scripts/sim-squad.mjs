@@ -26,4 +26,31 @@ check('P2 steers with the arrow keys', G.squad[0].y > 5, 'y ' + G.squad[0].y.toF
 const lead = G.p.y; keys.ArrowDown = true; run(0.5); keys.ArrowDown = false
 check('P1 ignores arrows when P2 is human', Math.abs(G.p.y - lead) < 0.5, 'dy ' + Math.abs(G.p.y - lead).toFixed(2))
 void x0
+// ---- teammate skills ----
+{
+  const { mateSkill } = await import('../src/game/engine.js')
+  setSquad(2, false, true); startGame(); run(3)
+  const t = G.squad[0]
+  t.inv = 0
+  check('teammate has skill cooldowns', t.scd && t.scm && t.scd.laser === 0)
+  check('teammate fires its LASER', mateSkill(t, 'laser') && !!t.lz && t.scd.laser > 5, 'cd ' + t.scd.laser.toFixed(1))
+  check('laser is on cooldown (cannot spam)', mateSkill(t, 'laser') === false)
+  run(2.5)
+  check('laser beam ends by itself', t.lz === null)
+  for (let i = 0; i < 15; i++) G.ebul.push({ x: 20 + i, y: 3, vx: -5, vy: 0, hw: 1, hh: 1, spr: null, dmg: 1 })
+  check('teammate BOMB clears enemy bullets', mateSkill(t, 'bomb') && G.ebul.length === 0, G.ebul.length)
+  check('teammate fires SHIELD', mateSkill(G.squad[1], 'shield') && G.squad[1].skT > 3)
+  const sh = G.squad[1]; sh.hp = 3; sh.inv = 0; G.ebul.push({ x: sh.x + 0.5, y: sh.y, vx: 0, vy: 0, hw: 1, hh: 1, spr: null, dmg: 1 }); update(1 / 60)
+  check('shielded teammate takes no damage', sh.hp === 3, 'hp ' + sh.hp)
+  setSquad(2, false, true); startGame(); run(3)
+  const ai = G.squad[0]; ai.inv = 0; G.p.shieldT = 0
+  for (let i = 0; i < 24; i++) G.ebul.push({ x: ai.x + 4 + (i % 8), y: ai.y + ((i % 5) - 2), vx: -2, vy: 0, hw: 1, hh: 1, spr: null, dmg: 1 })
+  run(1)
+  check('AI teammate uses a skill under pressure', G.squad.some((m) => m.scd.bomb > 0 || m.scd.shield > 0 || m.scd.laser > 0))
+  setSquad(2, true, true); startGame(); run(2)
+  const p2 = G.squad[0]
+  const { onKey } = await import('../src/game/engine.js')
+  onKey('Period', true); onKey('Period', false)
+  check('P2 uses skills with , . / keys', p2.scd.bomb > 0, 'bomb cd ' + p2.scd.bomb.toFixed(1))
+}
 process.exit(failures ? 1 : 0)

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import OnlineLobby from './OnlineLobby.jsx'
 import { joinRoom, subscribeRt, getRt } from '../game/online/rt.js'
-import { setSquad, subscribe, getSnap, startGame, toShop, launchNext, buy, retryMission, toMenu, togglePause, useSkill, startGameAt, setShip, setName, markSeen, claimDaily } from '../game/engine.js'
+import { onKey as engineKey, setSquad, subscribe, getSnap, startGame, toShop, launchNext, buy, retryMission, toMenu, togglePause, useSkill, startGameAt, setShip, setName, markSeen, claimDaily } from '../game/engine.js'
 import { subscribeSlug, getSlugSnap, slugActions } from '../game/slug.js'
 import { subscribePickle, getPickleSnap, pickleActions, MODES } from '../game/pickle.js'
 import { subscribeBomber, getBomberSnap, bomberActions, MODES as BMODES } from '../game/bomber.js'
@@ -349,7 +349,7 @@ function TopBar({ s }) {
           <div className="bar"><b style={{ width: (s.boss.hp / s.boss.max) * 100 + '%' }} /></div>
         </div>
       )}
-      <div className="skills" style={s.net && s.net.role === 'guest' ? { display: 'none' } : undefined}>
+      <div className="skills">
         {s.skills.map((k) => (
           <button key={k.k} className={'sk ' + (k.cd <= 0 ? 'ready ' : '') + (k.active ? 'active' : '')} style={{ '--c': k.color }} onPointerDown={(e) => { e.stopPropagation(); useSkill(k.k) }}>
             <i style={{ height: Math.min(100, (k.cd / k.max) * 100) + '%' }} />
@@ -1204,6 +1204,26 @@ function TopPlayersMini({ game = 'pickle' }) {
   )
 }
 
+// On-screen controls for touch devices: a D-pad plus one big action button (bomb)
+function TouchPad({ action, actionKey = 'Space', label = '💣' }) {
+  const [touch, setTouch] = useState(false)
+  useEffect(() => { try { setTouch('ontouchstart' in window || navigator.maxTouchPoints > 0 || window.matchMedia('(pointer: coarse)').matches) } catch { /* ignore */ } }, [])
+  if (!touch) return null
+  const hold = (code) => ({
+    onPointerDown: (e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.setPointerCapture && e.currentTarget.setPointerCapture(e.pointerId); engineKey(code, true) },
+    onPointerUp: (e) => { e.preventDefault(); engineKey(code, false) },
+    onPointerCancel: () => engineKey(code, false),
+    onContextMenu: (e) => e.preventDefault(),
+  })
+  return (
+    <div className="touchpad">
+      <div className="dpad">
+        <button className="up" {...hold('KeyW')}>▲</button><button className="lf" {...hold('KeyA')}>◀</button><button className="rt" {...hold('KeyD')}>▶</button><button className="dn" {...hold('KeyS')}>▼</button>
+      </div>
+      <button className="act" {...hold(actionKey)}>{label}<small>{action}</small></button>
+    </div>
+  )
+}
 function BomberHUD() {
   const g = useSyncExternalStore(subscribeBomber, getBomberSnap)
   if (!g) return null
@@ -1225,6 +1245,7 @@ function BomberHUD() {
           {g.phase === 'ready' && g.countdown > 0 && <div className={'bcount ' + (g.countdown > 3 ? 'small' : '')} key={g.countdown}>{g.countdown > 3 ? 'GET READY' : g.countdown}</div>}
           {g.msg && <div className="pmsg" key={g.msg.text} style={{ borderColor: g.msg.color }}><h2 style={{ color: g.msg.color }}>{g.msg.text}</h2><p>{g.msg.sub}</p></div>}
           <div className="pctl">WASD MOVE · SPACE BOMB · P2: ARROWS + ENTER · P PAUSE</div>
+          <TouchPad action="BOMB" />
           <div className="scan" />
         </>
       )}

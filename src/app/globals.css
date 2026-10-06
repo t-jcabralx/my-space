@@ -441,3 +441,13 @@ li.bonus { border-color: var(--gr); color: var(--gr); } li.fail { border-color: 
 .joinbar { display: flex; align-items: center; gap: 1cqw; flex-wrap: wrap; background: #0b1230cc; border: 2px solid #3de8ff; padding: .8cqw 1.4cqw; margin-bottom: 1.2cqw; font-size: .72em; color: #cdd8ff; }
 .joinbar .nameIn { width: 8cqw; text-align: center; text-transform: uppercase; } .joinbar b { color: #ffe84a; letter-spacing: .2cqw; }
 .joinbar .joinerr { color: #ff8a96; flex-basis: 100%; font-size: .85em; }
+
+/* ---------- touch controls ---------- */
+.touchpad { position: absolute; left: 0; right: 0; bottom: 2cqw; display: flex; justify-content: space-between; align-items: flex-end; padding: 0 3cqw; pointer-events: none; z-index: 8; }
+.touchpad button { pointer-events: auto; touch-action: none; user-select: none; -webkit-user-select: none; font: inherit; color: #e8f1ff; background: #0b1230cc; border: 3px solid #3de8ff; }
+.touchpad .dpad { position: relative; width: 22cqw; height: 22cqw; min-width: 130px; min-height: 130px; max-width: 190px; max-height: 190px; }
+.touchpad .dpad button { position: absolute; width: 34%; height: 34%; font-size: 1.4em; border-radius: 8px; }
+.touchpad .dpad .up { left: 33%; top: 0; } .touchpad .dpad .dn { left: 33%; bottom: 0; } .touchpad .dpad .lf { left: 0; top: 33%; } .touchpad .dpad .rt { right: 0; top: 33%; }
+.touchpad .act { width: 20cqw; height: 20cqw; min-width: 100px; min-height: 100px; max-width: 150px; max-height: 150px; border-radius: 50%; border-color: #ff4de1; font-size: 2.2em; display: grid; place-items: center; box-shadow: 0 0 20px #ff4de188; }
+.touchpad .act small { font-size: .35em; display: block; margin-top: -.6em; }
+.touchpad button:active { background: #3de8ff; color: #02030a; } .touchpad .act:active { background: #ff4de1; }

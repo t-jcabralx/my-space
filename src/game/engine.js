@@ -727,7 +727,7 @@ function newSquad() {
   while (profile.squadBots && kinds.length < slots) kinds.push({})
   const out = []
   kinds.slice(0, 2).forEach((k, i) => {
-    out.push({ id: i, remote: k.remote || null, in: { ix: 0, iy: 0, fire: false }, human: !!k.human, model: (m + 1 + i) % nm, paint: (profile.ship.paint + 2 + i * 2) % 6, x: -40, y: i ? -10 : 10, vx: 0, vy: 0, hw: 2, hh: 1.4, hp: 3, maxHp: 3, alive: true, respawn: 0, inv: 2, cd: R(0, 0.3), hitT: 0 })
+    out.push({ id: i, remote: k.remote || null, in: { ix: 0, iy: 0, fire: false }, human: !!k.human, model: (m + 1 + i) % nm, paint: (profile.ship.paint + 2 + i * 2) % 6, x: -40, y: i ? -10 : 10, vx: 0, vy: 0, hw: 2, hh: 1.4, hp: 3, maxHp: 3, alive: true, respawn: 0, inv: 2, fcd: R(0, 0.3), scd: { laser: 0, bomb: 0, shield: 0 }, scm: { laser: 1, bomb: 1, shield: 1 }, skT: 0, lz: null, hitT: 0 })
   })
   return out
 }
@@ -769,23 +769,85 @@ function stepSquad(dt) {
       m.x += m.vx * dt; m.y += m.vy * dt
     }
     m.x = clamp(m.x, -HW + 8, HW - 5); m.y = clamp(m.y, -HH + 4, HH - 8.5)
-    m.cd -= dt
-    const wantFire = m.remote ? m.in.fire : m.human ? (keys.Enter || keys.Slash || keys.NumpadEnter || keys.Period) : (G.enemies.some((e) => !e.dead && e.x > m.x && e.x < HW && Math.abs(e.y - m.y) < 6) || (G.boss && !G.boss.dying && !G.boss.enter && Math.abs(G.boss.y - m.y) < G.boss.hh + 4))
-    if (wantFire && m.cd <= 0 && !G.lz) {
-      m.cd = m.human || m.remote ? 0.17 : 0.24
+    m.fcd -= dt
+    const wantFire = m.remote ? m.in.fire : m.human ? (keys.Enter || keys.NumpadEnter) : (G.enemies.some((e) => !e.dead && e.x > m.x && e.x < HW && Math.abs(e.y - m.y) < 6) || (G.boss && !G.boss.dying && !G.boss.enter && Math.abs(G.boss.y - m.y) < G.boss.hh + 4))
+    if (wantFire && m.fcd <= 0 && !G.lz && !m.lz) {
+      m.fcd = m.human || m.remote ? 0.17 : 0.24
       const lv = Math.min(3, p.wl)
       const offs = lv >= 3 ? [-1.4, 0, 1.4] : lv === 2 ? [-1, 1] : [0]
       for (const oy of offs) G.pbul.push({ x: m.x + 4, y: m.y + oy, vx: 88, vy: oy * 3, spr: BS().pb, hw: 1.6, hh: 0.9, dmg: 1, pierce: false, homing: false, blast: false, k: 1.5, t: 0 })
       sfx('shoot')
     }
     if (Math.random() < 0.7) part(m.x - 4.5, m.y + R(-0.5, 0.5), R(-30, -18), R(-3, 3), R(0.12, 0.26), pick(TRAIL_COLS[Math.min(profile.ship.trail, TRAIL_COLS.length - 1)]), R(0.5, 0.9))
+    // skills: every teammate has their own laser, bomb and shield (levels come from the shared upgrades)
+    for (const k in m.scd) m.scd[k] = Math.max(0, m.scd[k] - dt)
+    m.skT = Math.max(0, m.skT - dt)
+    if (m.lz) stepMateLaser(m, dt)
+    if (!m.human && !m.remote) aiSkills(m)
   }
   void humanOn
 }
+// ---- teammate skills ----
+export function mateSkill(m, k) {
+  if (!m || !m.alive || G.mode !== 'playing' || G.warped || G.exitT > 0 || m.scd[k] > 0) return false
+  const L = skillLv(k)
+  if (k === 'laser') {
+    if (m.lz) return false
+    m.lz = { t: 0, dur: 1.1 + 0.25 * L, h: 4 + L * 0.9, dmg: 1 + 0.5 * L, tick: 0 }
+    m.scm.laser = m.scd.laser = SK.laser.cd(L) + m.lz.dur
+    sfx('laserFire'); shake(0.6)
+  } else if (k === 'bomb') {
+    m.scm.bomb = m.scd.bomb = SK.bomb.cd(L); m.inv = Math.max(m.inv, 1 + L * 0.15)
+    sfx('bomb'); shake(2); flash(0.5, [0.7, 0.95, 1]); ring(m.x, m.y, 60, 80, COLS.cyan); ring(m.x, m.y, 40, 50, COLS.fire)
+    let gems = 0
+    for (const b of G.ebul) { if (gems++ < 20) dropCoin(b.x, b.y, 'gem') }
+    G.ebul.length = 0
+    for (const e of G.enemies) if (!e.dead && e.x < HW + 4) hurtEnemy(e, 10 + 4 * L)
+    if (G.boss && !G.boss.dying) damageBoss(20 + 8 * L)
+  } else if (k === 'shield') {
+    m.skT = 3 + 0.8 * L; m.scm.shield = m.scd.shield = SK.shield.cd(L) + m.skT
+    sfx('shield'); ring(m.x, m.y, 36, 40, COLS.green)
+  } else return false
+  toast(`${m.remote || m.human ? 'FRIEND' : 'TEAMMATE'}: ${SK[k].name}!`, SK[k].color)
+  return true
+}
+function stepMateLaser(m, dt) {
+  const z = m.lz
+  z.t += dt
+  if (!m.alive || z.t > z.dur) { m.lz = null; return }
+  const x0 = m.x + 4, h2 = z.h / 2 + 0.5
+  if (Math.random() < 0.6) part(HW - 1, m.y + R(-h2, h2), R(-60, -20), R(-8, 8), 0.25, COLS.cyan[0], 1)
+  z.tick -= dt
+  if (z.tick > 0) return
+  z.tick = 0.1
+  for (const e of G.enemies) {
+    if (e.dead || e.x > HW + 2 || e.x + e.hw < x0 || Math.abs(e.y - m.y) > h2 + e.hh) continue
+    e.hp -= z.dmg; e.flash = 0.07
+    part(e.x, e.y, R(-20, 20), R(-20, 20), 0.3, COLS.cyan[0], 1)
+    if (e.hp <= 0) killEnemy(e)
+  }
+  const b = G.boss
+  if (b && !b.dying && b.x + b.hw > x0 && Math.abs(b.y - m.y) < h2 + b.hh) damageBoss(z.dmg)
+  for (const q of G.ebul) if (!q.dead && q.x > x0 && Math.abs(q.y - m.y) < h2 + q.hh) { q.dead = true; part(q.x, q.y, 0, 0, 0.15, COLS.cyan[0], 1.3) }
+}
+function aiSkills(m) {
+  if (G.mode !== 'playing' || G.exitT > 0 || G.bonus) return
+  m.aiT = (m.aiT || 0) - G.dtc
+  if (m.aiT > 0) return
+  m.aiT = 0.35
+  const threat = G.ebul.filter((b) => !b.dead && b.x > m.x - 2 && b.x - m.x < 16 && Math.abs(b.y - m.y) < 7).length
+  const crowd = G.enemies.filter((e) => !e.dead && e.x < HW).length
+  const inLine = G.enemies.filter((e) => !e.dead && e.x > m.x && e.x < HW && Math.abs(e.y - m.y) < 5).length
+  if (m.scd.shield <= 0 && (threat >= 3 || (m.hp <= 1 && threat >= 1))) return void mateSkill(m, 'shield')
+  if (m.scd.bomb <= 0 && (G.ebul.length >= 18 || crowd >= 8 || (G.boss && !G.boss.dying && !G.boss.enter && G.boss.hp > 0 && Math.random() < 0.25))) return void mateSkill(m, 'bomb')
+  if (m.scd.laser <= 0 && (inLine >= 3 || (G.boss && !G.boss.dying && !G.boss.enter && Math.abs(G.boss.y - m.y) < G.boss.hh + 3))) return void mateSkill(m, 'laser')
+}
+export function mateSkillByCid(cid, k) { return mateSkill((G.squad || []).find((x) => x.remote === cid), k) }
 function squadCollisions() {
   if (!G.squad) return
   for (const m of G.squad) {
     if (!m.alive || G.exitT > 0 || G.bonus) continue
+    if (m.skT > 0) { for (const b of G.ebul) if (!b.dead && Math.hypot(b.x - m.x, b.y - m.y) < 8) { b.dead = true; part(b.x, b.y, 0, 0, 0.15, COLS.green[1], 1.3) } for (const e of G.enemies) if (!e.dead && e.type !== 'ufo' && Math.hypot(e.x - m.x, e.y - m.y) < 8 + e.hw) hurtEnemy(e, 1 + skillLv('shield')); continue }
     let dmg = 0
     for (const b of G.ebul) if (!b.dead && hit(m, b)) { b.dead = true; dmg++ }
     for (const e of G.enemies) if (!e.dead && e.x < HW && e.type !== 'ufo' && hit(m, e)) { dmg++; if (e.maxhp <= 6) killEnemy(e); else hurtEnemy(e, 3) }
@@ -1173,7 +1235,7 @@ export function togglePause() {
   emit()
 }
 export function useBomb() { bomb() }
-export function useSkill(k) { if (k === 'od') overdrive(); else if (k === 'laser') laser(); else if (k === 'bomb') bomb(); else if (k === 'shield') shieldSkill() }
+export function useSkill(k) { if (G.net && G.net.role === 'guest') { if (k !== 'od') G.net.skill(k); return } if (k === 'od') overdrive(); else if (k === 'laser') laser(); else if (k === 'bomb') bomb(); else if (k === 'shield') shieldSkill() }
 export function setTouchFire(v) { G.touchFire = v }
 export function dragShip(dx, dy) { G.drag.x += dx; G.drag.y += dy }
 
@@ -1182,7 +1244,17 @@ export function onKey(code, down) {
   if (!down) return
   initAudio()
   if (ARCADE.has(G.mode)) { if (games[G.mode]) games[G.mode].onKey(code); return }
-  if (G.net && G.net.role === 'guest') { if (code === 'Escape') G.net.leave(); return }
+  if (G.net && G.net.role === 'guest') {
+    if (code === 'Escape') G.net.leave()
+    else if (code === 'KeyQ' || code === 'Digit1') G.net.skill('laser')
+    else if (code === 'KeyB' || code === 'KeyX' || code === 'ShiftLeft' || code === 'Digit2') G.net.skill('bomb')
+    else if (code === 'KeyE' || code === 'Digit3') G.net.skill('shield')
+    return
+  }
+  if (G.mode === 'playing' && G.squad) {
+    const h = G.squad.find((m) => m.human)
+    if (h && (code === 'Comma' || code === 'Period' || code === 'Slash')) { mateSkill(h, code === 'Comma' ? 'laser' : code === 'Period' ? 'bomb' : 'shield'); return }
+  }
   if (code === 'KeyP' || code === 'Escape') togglePause()
   else if (G.mode === 'playing' && (code === 'KeyB' || code === 'KeyX' || code === 'ShiftLeft' || code === 'Digit2')) bomb()
   else if (G.mode === 'playing' && (code === 'KeyQ' || code === 'Digit1')) laser()
@@ -1211,7 +1283,7 @@ function buildSnap() {
     seen: { ...profile.seen }, unlocked: G.unlocked, mode: G.mode, score: G.score, hi: G.hi, credits: G.credits, lives: G.lives,
     mission: G.mission, missionName: m.name, missionSub: m.sub, missions: MISSIONS.length, color: m.color,
     hp: G.net && G.net.mine ? Math.max(0, G.net.mine.hp) : p ? Math.max(0, p.hp) : 0, maxHp: G.net && G.net.mine ? G.net.mine.maxHp : p ? p.maxHp : 3, squad: (G.squad || []).map((m) => ({ human: m.human, hp: Math.max(0, m.hp), max: m.maxHp, alive: m.alive, respawn: Math.ceil(m.respawn) })), net: G.net ? { role: G.net.role, me: G.net.me, wait: G.net.wait || '', hostMode: G.net.hostMode || '', mates: G.net.mates || [] } : null, squadSize: profile.squad === undefined ? 2 : profile.squad, squadHuman: !!profile.squadHuman, squadBots: !!profile.squadBots,
-    skills: p ? Object.keys(SK).map((k) => ({ k, key: SK[k].key, name: SK[k].name, color: SK[k].color, lv: skillLv(k), cd: p.cd[k], max: p.cdMax[k], active: k === 'laser' ? !!G.lz : k === 'shield' ? p.skT > 0 : p.cd.bomb > p.cdMax.bomb - 0.6 })).concat([{ k: 'od', key: 'R', name: 'OVERDRIVE', color: '#ff4de1', lv: '', label: p.od > 0 ? `${Math.ceil(p.od)}s` : G.meter >= 100 ? 'READY' : Math.floor(G.meter) + '%', cd: p.od > 0 ? 0 : G.meter >= 100 ? 0 : 100 - G.meter, max: 100, active: p.od > 0 }]) : [],
+    skills: G.net && G.net.role === 'guest' && G.net.mine ? Object.keys(SK).map((k) => ({ k, key: SK[k].key, name: SK[k].name, color: SK[k].color, lv: (G.net.lv && G.net.lv[k]) || 1, cd: G.net.mine.scd[k], max: G.net.mine.scm[k], active: k === 'laser' ? !!G.net.mine.lz : k === 'shield' ? G.net.mine.skT > 0 : G.net.mine.scd.bomb > G.net.mine.scm.bomb - 0.6 })) : p ? Object.keys(SK).map((k) => ({ k, key: SK[k].key, name: SK[k].name, color: SK[k].color, lv: skillLv(k), cd: p.cd[k], max: p.cdMax[k], active: k === 'laser' ? !!G.lz : k === 'shield' ? p.skT > 0 : p.cd.bomb > p.cdMax.bomb - 0.6 })).concat([{ k: 'od', key: 'R', name: 'OVERDRIVE', color: '#ff4de1', lv: '', label: p.od > 0 ? `${Math.ceil(p.od)}s` : G.meter >= 100 ? 'READY' : Math.floor(G.meter) + '%', cd: p.od > 0 ? 0 : G.meter >= 100 ? 0 : 100 - G.meter, max: 100, active: p.od > 0 }]) : [],
     profile: { ...profile, tops: { space: profile.tops.space.slice(), slug: profile.tops.slug.slice(), pickle: (profile.tops.pickle || []).slice(), bomber: (profile.tops.bomber || []).slice(), tetris: (profile.tops.tetris || []).slice(), chomp: (profile.tops.chomp || []).slice(), uno: (profile.tops.uno || []).slice(), pusoy: (profile.tops.pusoy || []).slice(), lucky9: (profile.tops.lucky9 || []).slice(), tongits: (profile.tops.tongits || []).slice() } }, wl: p ? p.wl : 1,
     special: p ? p.special : 'normal', specialT: p ? p.specialT : 0, rapidT: p ? p.rapidT : 0, shieldT: p ? p.shieldT : 0,
     magnetT: p ? p.magnetT : 0, multT: p ? p.multT : 0,

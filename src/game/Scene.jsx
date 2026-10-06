@@ -77,6 +77,8 @@ function drawAll() {
     if (!m.alive) continue
     const blink = m.inv > 0 && Math.floor(t * 18) % 2 === 0
     if (!blink) sprite(shipSprite(m.model, m.paint), m.x, m.y, { k: 1.15 })
+    if (m.lz) { const z = m.lz, grow = Math.min(1, z.t / 0.12), fade = z.t > z.dur - 0.25 ? (z.dur - z.t) / 0.25 : 1; for (let x = m.x + 4; x < HW + 4; x += 1.2) for (let dy = -z.h / 2 * grow; dy <= z.h / 2 * grow; dy += 1.1) { const core = Math.abs(dy) < z.h / 4 + 0.1, fl = (0.75 + Math.random() * 0.5) * fade; put(x, m.y + dy, 0, 1.15, 1.15, (core ? 3 : 0.5) * fl, (core ? 3 : 2.2) * fl, 3 * fl) } }
+    if (m.skT > 0 && (m.skT > 1 || Math.floor(t * 14) % 2 === 0)) for (let i = 0; i < 28; i++) { const a = (i / 28) * Math.PI * 2 + t * 3; put(m.x + Math.cos(a) * 7, m.y + Math.sin(a) * 6.4, 0, 0.8, 0.8, 0.5, 2.6, 1.0) }
     if (m.mine) for (const q of textPx('1')) put(m.x - 7 + q.x * 0.6, m.y + 0.4 + q.y * 0.6, 2, 0.5, 0.5, 0.4, 2.4, 0.9)
     for (let i = 0; i < m.maxHp; i++) put(m.x - 2 + i * 2, m.y + 4.2, 1, 1.3, 0.7, i < m.hp ? 0.4 : 0.5, i < m.hp ? 2.2 : 0.2, i < m.hp ? 0.7 : 0.2)
     if (m.human) for (const q of textPx('2')) put(m.x + q.x * 0.8 - 0.6, m.y + 6.4 + q.y * 0.8, 2, 0.7, 0.7, 2.4, 2.2, 0.4)

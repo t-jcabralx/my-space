@@ -98,6 +98,7 @@ if (game === 'tetris') {
     clearInterval(drive)
     check('the friend\'s controls move their ship on the host', Math.abs(eng.G.squad[0].y - y0) > 0.5, 'y ' + eng.G.squad[0].y.toFixed(1))
     check('host world keeps running with enemies', eng.G.stats.kills > 0 || eng.G.enemies.length > 0, 'kills ' + eng.G.stats.kills)
+    check('friend\'s skills ran on the host', eng.G.squad[0].scd.bomb > 0 || eng.G.squad[0].scm.bomb > 1, JSON.stringify(eng.G.squad[0].scd))
     console.log('SCORE host', eng.G.score)
     await sleep(2500)
   } else {
@@ -112,7 +113,10 @@ if (game === 'tetris') {
     eng.keys.ArrowUp = false
     const y1 = eng.G.net.mine.y
     check('guest ship moves with its own controls', y1 > y0 + 3, y0.toFixed(1) + ' -> ' + y1.toFixed(1))
-    await sleep(9000)
+    eng.G.net.skill('bomb'); eng.G.net.skill('shield')
+    await sleep(2500)
+    check('guest skills show cooldowns from the host', eng.G.net.mine && eng.G.net.mine.scd.bomb > 3 && eng.G.net.mine.scd.shield > 3, JSON.stringify(eng.G.net.mine && eng.G.net.mine.scd))
+    await sleep(6500)
     check('guest sees the host\'s enemies', sawEnemies)
     check('guest sees bullets', sawBullets)
     check('guest mirrors the score', eng.G.score > 0, 'score ' + eng.G.score)

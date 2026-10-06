@@ -1,7 +1,7 @@
 // Online co-op for Space Impact: the host runs the normal game, friends fly the teammate ships (up to 3 spacecraft).
 // Guests send their controls and mirror the host's world. Messages travel over the direct WebRTC link when it is
 // open (see rt.js) and fall back to the Redis pub/sub relay at a lower rate.
-import { G, keys, profile, netStartHost, netStartGuest, toMenu, part, boom, COLS, stepParticles, shake, flash, emit } from '../engine.js'
+import { G, keys, profile, netStartHost, netStartGuest, toMenu, part, boom, COLS, stepParticles, shake, flash, emit, mateSkillByCid, skillLv } from '../engine.js'
 import { sfx } from '../audio.js'
 import { SP, BULLET_SPR } from '../sprites.js'
 import { RT, send, onMsg, isHost, alive, roomAction, leaveRoom } from './rt.js'
@@ -33,7 +33,7 @@ function serBoss(b) {
   for (const k in b) { const v = b[k]; const t = typeof v; if (t === 'number') r[k] = r2(v); else if (t === 'string' || t === 'boolean') r[k] = v }
   return r
 }
-const ship = (m) => ({ x: r2(m.x), y: r2(m.y), hp: m.hp, mh: m.maxHp, al: m.alive ? 1 : 0, inv: r2(m.inv), md: m.model, pt: m.paint, rs: m.respawn > 0 ? Math.ceil(m.respawn) : 0, rc: m.remote || null, hu: m.human ? 1 : 0 })
+const ship = (m) => ({ cd: [r2(m.scd.laser), r2(m.scd.bomb), r2(m.scd.shield)], cm: [r2(m.scm.laser), r2(m.scm.bomb), r2(m.scm.shield)], sk: r2(m.skT), lz: m.lz ? [r2(m.lz.t), r2(m.lz.dur), r2(m.lz.h)] : null, x: r2(m.x), y: r2(m.y), hp: m.hp, mh: m.maxHp, al: m.alive ? 1 : 0, inv: r2(m.inv), md: m.model, pt: m.paint, rs: m.respawn > 0 ? Math.ceil(m.respawn) : 0, rc: m.remote || null, hu: m.human ? 1 : 0 })
 
 let installed = false
 let seq = 0, lastSeq = -1, snapT = 0, inT = 0
@@ -50,6 +50,7 @@ function hostSnapshot() {
   out.lz = G.lz ? { t: r2(G.lz.t), dur: r2(G.lz.dur), h: r2(G.lz.h) } : null
   if (p) out.p = { x: r2(p.x), y: r2(p.y), hp: p.hp, mh: p.maxHp, al: p.alive ? 1 : 0, inv: r2(p.inv), sk: r2(p.skT), sh: r2(p.shieldT), od: r2(p.od), md: profile.ship.model, pt: profile.ship.paint, dr: p.dr.map((d) => [r2(d.x), r2(d.y)]) }
   out.sq = (G.squad || []).map(ship)
+  out.skl = { laser: skillLv('laser'), bomb: skillLv('bomb'), shield: skillLv('shield') }
   out.en = G.enemies.filter((e) => !e.dead).map((e) => ser(e, FIELDS.en))
   out.bs = G.boss ? serBoss(G.boss) : null
   out.pb = G.pbul.filter((b) => !b.dead).slice(0, 140).map((b) => ser(b, FIELDS.pb))
@@ -149,11 +150,13 @@ function guestApply(s) {
     if (!o) o = G.squad[i] = { id: i, x: m.x, y: m.y, vx: 0, vy: 0, maxHp: 3 }
     const mine = m.rc === RT.cid
     o.hp = m.hp; o.maxHp = m.mh; o.alive = !!m.al; o.inv = m.inv; o.model = m.md; o.paint = m.pt; o.human = !!m.hu || !!m.rc; o.remote = m.rc; o.respawn = m.rs; o.mine = mine
+    o.scd = { laser: m.cd[0], bomb: m.cd[1], shield: m.cd[2] }; o.scm = { laser: m.cm[0], bomb: m.cm[1], shield: m.cm[2] }; o.skT = m.sk; o.lz = m.lz ? { t: m.lz[0], dur: m.lz[1], h: m.lz[2] } : null
     o.tx = m.x; o.ty = m.y
     if (mine) { net.me = i; net.mine = o; if (!o.alive || Math.hypot(o.x - m.x, o.y - m.y) > 10) { o.x = m.x; o.y = m.y } }
     else if (Math.abs(o.x - m.x) > 12 || Math.abs(o.y - m.y) > 12) { o.x = m.x; o.y = m.y }
   })
   G.squad.length = mates.length
+  net.lv = s.skl
   const E = reconcile('en', s.en), B = reconcile('eb', s.eb), P = reconcile('pb', s.pb), U = reconcile('pu', s.pu), M = reconcile('bm', s.bm)
   // sounds and effects the host's simulation would have made
   for (const [id, o] of E.prev) if (!maps.en.has(id) && o.x > -HW + 3 && o.x < HW) { boom(o.x, o.y, 12, 26, COLS.fire); sfx('boom') }
@@ -204,6 +207,7 @@ function guestBegin(d) {
     role: 'guest', me: -1, mine: null, wait: 'WAITING FOR THE HOST…', hostMode: 'playing',
     step: guestStep,
     leave: () => { toMenu() },
+    skill: (k) => { send('ssk', { k }, RT.room && RT.room.host).catch(() => {}) },
     onEnd: () => { leaveRoom().catch(() => {}) },
   }
   netStartGuest(net)
@@ -217,6 +221,7 @@ export function installSpaceOnline() {
   onMsg('sstart', (d, env) => { if (!isHost() && RT.room && env.f === RT.room.host) guestBegin(d) })
   onMsg('sst', (d, env) => { if (!isHost() && G.net && G.net.role === 'guest' && env.f === (RT.room && RT.room.host)) guestApply(d) })
   onMsg('sin', (d, env) => { if (isHost()) hostInput(env.f, d) })
+  onMsg('ssk', (d, env) => { if (isHost() && d && ['laser', 'bomb', 'shield'].includes(d.k)) mateSkillByCid(env.f, d.k) })
   onMsg('send', (d, env) => { if (!isHost() && G.net && G.net.role === 'guest' && RT.room && env.f === RT.room.host) { toMenu() } })
   onMsg('presence', (d, env) => { if (isHost() && env.left) hostDrop(env.left) })
   onMsg('hostchange', () => { if (G.net && G.net.role === 'guest') toMenu() })
