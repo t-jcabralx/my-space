@@ -347,7 +347,7 @@ function TopBar({ s }) {
           <div className="bar"><b style={{ width: (s.boss.hp / s.boss.max) * 100 + '%' }} /></div>
         </div>
       )}
-      <div className="skills">
+      <div className="skills" style={s.net && s.net.role === 'guest' ? { display: 'none' } : undefined}>
         {s.skills.map((k) => (
           <button key={k.k} className={'sk ' + (k.cd <= 0 ? 'ready ' : '') + (k.active ? 'active' : '')} style={{ '--c': k.color }} onPointerDown={(e) => { e.stopPropagation(); useSkill(k.k) }}>
             <i style={{ height: Math.min(100, (k.cd / k.max) * 100) + '%' }} />
@@ -1079,7 +1079,7 @@ function Hub({ s }) {
         <>
           <div className="cards4">
             <GameCard cls="space" title="🚀 SPACE IMPACT: NEON" tag="10 levels · 10 bosses · squad of 3 ships" hiLabel="HI-SCORE" hi={p.spaceHi.toLocaleString()}
-              art={<ShipPreview ship={p.ship} />} label="▶ PLAY" onPlay={startGame}
+              art={<ShipPreview ship={p.ship} />} label="▶ PLAY" onPlay={startGame} onInvite={() => { setOgame('space'); setTab('online') }}
               extra={<div className="squadsel"><small>SQUAD</small><div className="chips">{[[0, 'SOLO'], [1, 'DUO'], [2, 'TRIO']].map(([n, l]) => <button key={n} className={'chip ' + ((s.squadSize === n) ? 'sel' : '')} onClick={() => setSquad(n, s.squadHuman)}>{l}</button>)}<button className={'chip ' + (s.squadHuman ? 'sel' : '')} disabled={s.squadSize < 1} onClick={() => setSquad(s.squadSize, !s.squadHuman)} title="A friend flies ship #2 on the same keyboard: arrows + Enter">👥 P2 HUMAN</button></div></div>}
               sub={<><span>LEVELS</span><b>{s.unlocked + 1}/10</b></>} />
             <GameCard cls="slug" title="🪖 OPERATION GROUND ZERO" tag="Run & gun · POWs · tank · 3 bosses" hiLabel="HI-SCORE" hi={p.slugHi.toLocaleString()}
@@ -1450,6 +1450,12 @@ function HUDInner({ s }) {
     <div className="hud">
       {playing && <TopBar s={s} />}
       {playing && <Banner b={s.banner} />}
+      {playing && s.net && s.net.role === 'guest' && (
+        <>
+          <div className="coopbadge">👥 CO-OP · YOU ARE SHIP <b>#{(s.net.me >= 0 ? s.net.me : 0) + 2}</b> · ESC TO LEAVE</div>
+          {s.net.wait && <div className="screen pause"><h1 style={{ fontSize: '1.4em', textAlign: 'center' }}>{s.net.wait}</h1><button className="big sec" onClick={toMenu}>LEAVE GAME</button></div>}
+        </>
+      )}
       {s.mode === 'paused' && (
         <div className="screen pause"><h1>PAUSED</h1><button className="big" onClick={togglePause}>RESUME</button><button className="big sec" onClick={toMenu}>QUIT TO MENU</button></div>
       )}

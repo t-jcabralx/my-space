@@ -36,7 +36,7 @@ export default function GameApp() {
       if (!e.repeat) onKey(e.code, true)
     }
     const up = (e) => onKey(e.code, false)
-    const vis = () => { if (document.hidden && G.mode === 'playing') togglePause() }
+    const vis = () => { if (document.hidden && G.mode === 'playing' && !G.net) togglePause() }
     const unlock = () => unlockAudio()
     window.addEventListener('pointerdown', unlock, true)
     window.addEventListener('click', unlock, true)

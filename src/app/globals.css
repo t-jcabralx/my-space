@@ -419,3 +419,5 @@ li.bonus { border-color: var(--gr); color: var(--gr); } li.fail { border-color: 
 @keyframes pop { from { transform: translateX(-50%) scale(.3); opacity: 0; } to { transform: translateX(-50%) scale(1); opacity: 1; } }
 
 .logoimg { display: block; height: 7cqw; width: auto; max-height: 92px; border-radius: 6px; image-rendering: pixelated; }
+
+.coopbadge { position: absolute; left: 50%; bottom: 1.2cqw; transform: translateX(-50%); background: #0a1230cc; border: 2px solid #3de8ff; color: #cdd8ff; font-size: .6em; padding: .5cqw 1.4cqw; pointer-events: none; } .coopbadge b { color: #ffe84a; }

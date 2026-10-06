@@ -7,7 +7,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 if (!role) {
   const self = fileURLToPath(import.meta.url)
   let fail = 0
-  for (const g of (process.env.GAMES || 'tetris,pickle,bomber,uno,pusoy,tongits,lucky9').split(',')) {
+  for (const g of (process.env.GAMES || 'tetris,pickle,bomber,space,uno,pusoy,tongits,lucky9').split(',')) {
     const host = spawn('node', [self, 'host', g], { stdio: ['ignore', 'pipe', 'inherit'] })
     let hostOut = '', guestOut = '', guest
     host.stdout.on('data', (d) => {
@@ -33,7 +33,8 @@ const { P: PK, pickleActions } = await import('../src/game/pickle.js')
 const { B: BM } = await import('../src/game/bomber.js')
 const { hostPickle, installPickleOnline } = await import('../src/game/online/pickle-online.js')
 const { hostBomber, installBomberOnline } = await import('../src/game/online/bomber-online.js')
-installPickleOnline(); installBomberOnline()
+const { hostSpace, installSpaceOnline } = await import('../src/game/online/space-online.js')
+installPickleOnline(); installBomberOnline(); installSpaceOnline()
 installTetrisOnline(); installCardsOnline()
 let bad = 0
 const check = (n, c, i) => { if (!c) bad++; console.log(c ? 'PASS' : 'FAIL', role, n, i || '') }
@@ -81,6 +82,45 @@ if (game === 'tetris') {
   clearInterval(drive); clearInterval(watch)
   console.log('RESULT', role, JSON.stringify(PK.score), PK.over && PK.over.winner)
   await sleep(2500)
+} else if (game === 'space') {
+  const eng = await import('../src/game/engine.js')
+  if (role === 'host') {
+    eng.setSquad(0, false)
+    const room = await rtm.createRoom('space', 'HOSTY'); console.log('CODE', room.code)
+    check('guest joins', await until(() => rtm.RT.room.players.length === 2))
+    await sleep(1500)
+    await hostSpace()
+    check('host runs the mission', await until(() => eng.G.mode === 'playing' && eng.G.squad && eng.G.squad.length === 1), eng.G.squad && eng.G.squad.length)
+    check('friend owns teammate ship #2', eng.G.squad[0].remote && eng.G.squad[0].remote !== null)
+    const drive = setInterval(() => { eng.keys.Space = true; eng.keys.KeyW = Math.random() < 0.5; eng.keys.KeyS = !eng.keys.KeyW }, 150)
+    const y0 = eng.G.squad[0].y
+    await sleep(14000)
+    clearInterval(drive)
+    check('the friend\'s controls move their ship on the host', Math.abs(eng.G.squad[0].y - y0) > 0.5, 'y ' + eng.G.squad[0].y.toFixed(1))
+    check('host world keeps running with enemies', eng.G.stats.kills > 0 || eng.G.enemies.length > 0, 'kills ' + eng.G.stats.kills)
+    console.log('SCORE host', eng.G.score)
+    await sleep(2500)
+  } else {
+    await sleep(500); await rtm.joinRoom(code, 'GUESTY')
+    check('guest enters the host game', await until(() => eng.G.net && eng.G.net.role === 'guest' && eng.G.mode === 'playing'), eng.G.mode)
+    check('guest receives its own ship', await until(() => eng.G.net && eng.G.net.mine), '')
+    let sawEnemies = false, sawBullets = false
+    const watch = setInterval(() => { if (eng.G.enemies.length) sawEnemies = true; if (eng.G.pbul.length) sawBullets = true }, 100)
+    const y0 = eng.G.net.mine ? eng.G.net.mine.y : 0
+    eng.keys.ArrowUp = true; eng.keys.Space = true
+    await sleep(3000)
+    eng.keys.ArrowUp = false
+    const y1 = eng.G.net.mine.y
+    check('guest ship moves with its own controls', y1 > y0 + 3, y0.toFixed(1) + ' -> ' + y1.toFixed(1))
+    await sleep(9000)
+    check('guest sees the host\'s enemies', sawEnemies)
+    check('guest sees bullets', sawBullets)
+    check('guest mirrors the score', eng.G.score > 0, 'score ' + eng.G.score)
+    check('guest has the leader ship', !!eng.G.p && typeof eng.G.p.x === 'number' && eng.G.p.sk)
+    console.log('SCORE guest', eng.G.score)
+    clearInterval(watch)
+    await sleep(2500)
+  }
 } else if (game === 'bomber') {
   if (role === 'host') {
     const room = await rtm.createRoom('bomber', 'HOSTY'); console.log('CODE', room.code)

@@ -77,13 +77,14 @@ function drawAll() {
     if (!m.alive) continue
     const blink = m.inv > 0 && Math.floor(t * 18) % 2 === 0
     if (!blink) sprite(shipSprite(m.model, m.paint), m.x, m.y, { k: 1.15 })
+    if (m.mine) for (const q of textPx('1')) put(m.x - 7 + q.x * 0.6, m.y + 0.4 + q.y * 0.6, 2, 0.5, 0.5, 0.4, 2.4, 0.9)
     for (let i = 0; i < m.maxHp; i++) put(m.x - 2 + i * 2, m.y + 4.2, 1, 1.3, 0.7, i < m.hp ? 0.4 : 0.5, i < m.hp ? 2.2 : 0.2, i < m.hp ? 0.7 : 0.2)
     if (m.human) for (const q of textPx('2')) put(m.x + q.x * 0.8 - 0.6, m.y + 6.4 + q.y * 0.8, 2, 0.7, 0.7, 2.4, 2.2, 0.4)
   }
   const p = G.p
   if (p && p.alive) {
     const blink = p.inv > 0 && Math.floor(t * 18) % 2 === 0
-    if (!blink) sprite(shipSprite(profile.ship.model, profile.ship.paint), p.x, p.y, { k: 1.25 })
+    if (!blink) sprite(shipSprite(p.sk ? p.sk[0] : profile.ship.model, p.sk ? p.sk[1] : profile.ship.paint), p.x, p.y, { k: 1.25 })
     const z = G.lz
     if (z) {
       const grow = Math.min(1, z.t / 0.12), fade = z.t > z.dur - 0.25 ? (z.dur - z.t) / 0.25 : 1

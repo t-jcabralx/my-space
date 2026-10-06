@@ -718,11 +718,12 @@ function stepPlayer(dt) {
 // ---------- squad: teammates that fly with you (up to 2, so 3 spacecraft in total) ----------
 const SLOTS = [[-3, 11], [-3, -11]]
 function newSquad() {
-  const n = Math.max(0, Math.min(2, profile.squad === undefined ? 2 : profile.squad))
+  const rem = G.net && G.net.role === 'host' ? G.net.remotes || [] : []
+  const n = Math.max(rem.length, Math.min(2, profile.squad === undefined ? 2 : profile.squad))
   const m = profile.ship.model, nm = SHIP_DEFS.length
   const out = []
   for (let i = 0; i < n; i++) {
-    out.push({ id: i, human: i === 0 && !!profile.squadHuman, model: (m + 1 + i) % nm, paint: (profile.ship.paint + 2 + i * 2) % 6, x: -40, y: i ? -10 : 10, vx: 0, vy: 0, hw: 2, hh: 1.4, hp: 3, maxHp: 3, alive: true, respawn: 0, inv: 2, cd: R(0, 0.3), hitT: 0 })
+    out.push({ id: i, remote: rem[i] || null, in: { ix: 0, iy: 0, fire: false }, human: !rem[i] && i === 0 && !!profile.squadHuman, model: (m + 1 + i) % nm, paint: (profile.ship.paint + 2 + i * 2) % 6, x: -40, y: i ? -10 : 10, vx: 0, vy: 0, hw: 2, hh: 1.4, hp: 3, maxHp: 3, alive: true, respawn: 0, inv: 2, cd: R(0, 0.3), hitT: 0 })
   }
   return out
 }
@@ -740,7 +741,12 @@ function stepSquad(dt) {
     }
     if (G.warped) { m.x += 130 * dt; continue }
     const slot = SLOTS[m.id]
-    if (m.human) {
+    if (m.remote) {
+      const ax = m.in.ix, ay = m.in.iy
+      const len = Math.hypot(ax, ay) || 1
+      m.vx += ((ax / len) * 46 - m.vx) * Math.min(1, dt * 14); m.vy += ((ay / len) * 46 - m.vy) * Math.min(1, dt * 14)
+      m.x += m.vx * dt; m.y += m.vy * dt
+    } else if (m.human) {
       const ax = (keys.ArrowRight ? 1 : 0) - (keys.ArrowLeft ? 1 : 0), ay = (keys.ArrowUp ? 1 : 0) - (keys.ArrowDown ? 1 : 0)
       const len = Math.hypot(ax, ay) || 1
       m.vx += ((ax / len) * 46 - m.vx) * Math.min(1, dt * 14); m.vy += ((ay / len) * 46 - m.vy) * Math.min(1, dt * 14)
@@ -760,9 +766,9 @@ function stepSquad(dt) {
     }
     m.x = clamp(m.x, -HW + 8, HW - 5); m.y = clamp(m.y, -HH + 4, HH - 8.5)
     m.cd -= dt
-    const wantFire = m.human ? (keys.Enter || keys.Slash || keys.NumpadEnter || keys.Period) : (G.enemies.some((e) => !e.dead && e.x > m.x && e.x < HW && Math.abs(e.y - m.y) < 6) || (G.boss && !G.boss.dying && !G.boss.enter && Math.abs(G.boss.y - m.y) < G.boss.hh + 4))
+    const wantFire = m.remote ? m.in.fire : m.human ? (keys.Enter || keys.Slash || keys.NumpadEnter || keys.Period) : (G.enemies.some((e) => !e.dead && e.x > m.x && e.x < HW && Math.abs(e.y - m.y) < 6) || (G.boss && !G.boss.dying && !G.boss.enter && Math.abs(G.boss.y - m.y) < G.boss.hh + 4))
     if (wantFire && m.cd <= 0 && !G.lz) {
-      m.cd = m.human ? 0.17 : 0.24
+      m.cd = m.human || m.remote ? 0.17 : 0.24
       const lv = Math.min(3, p.wl)
       const offs = lv >= 3 ? [-1.4, 0, 1.4] : lv === 2 ? [-1, 1] : [0]
       for (const oy of offs) G.pbul.push({ x: m.x + 4, y: m.y + oy, vx: 88, vy: oy * 3, spr: BS().pb, hw: 1.6, hh: 0.9, dmg: 1, pierce: false, homing: false, blast: false, k: 1.5, t: 0 })
@@ -784,7 +790,7 @@ function squadCollisions() {
     if (dmg && m.inv <= 0) {
       if (G.p.skT > 0 || G.p.shieldT > 0) { m.inv = 0.5; continue }
       m.hp--; m.inv = 1.4; squadHitFx(m); sfx('hurt')
-      if (m.hp <= 0) { m.alive = false; m.respawn = 9; boom(m.x, m.y, 30, 40, COLS.fire); sfx('bigBoom'); toast(m.human ? 'PLAYER 2 DOWN: BACK IN 9s' : 'TEAMMATE DOWN: BACK IN 9s', '#ff8a96') }
+      if (m.hp <= 0) { m.alive = false; m.respawn = 9; boom(m.x, m.y, 30, 40, COLS.fire); sfx('bigBoom'); toast(m.human || m.remote ? 'A FRIEND IS DOWN: BACK IN 9s' : 'TEAMMATE DOWN: BACK IN 9s', '#ff8a96') }
     }
   }
 }
@@ -1052,6 +1058,7 @@ export function update(dtRaw) {
 function tick(dt) {
   G.time += dt
   if (ARCADE.has(G.mode)) { G.dtc = dt; if (games[G.mode]) games[G.mode].update(dt) }
+  else if (G.mode === 'playing' && G.net && G.net.role === 'guest') { G.dtc = dt; G.net.step(dt) }
   else if (G.mode === 'playing') stepPlaying(dt)
   else if (G.mode !== 'paused') { G.dtc = dt; stepParticles(dt); G.scroll = lerp(G.scroll, G.mode === 'menu' ? 0.7 : 1, dt * 2) }
   emitT -= dt
@@ -1069,7 +1076,7 @@ export function startGameAt(i) {
   if (i > G.unlocked) { sfx('deny'); return }
   startGame(); if (i > 0) { G.credits = 300 * i; startMission(i) }
 }
-export function toMenu() { if (games.slug) games.slug.stop(); if (games.pickle) games.pickle.stop(); if (games.bomber) games.bomber.stop(); if (games.tetris) games.tetris.stop(); if (games.chomp) games.chomp.stop(); if (games.cards) games.cards.stop(); if (games.flames) games.flames.stop(); G.parts = []; G.pops = []; G.shake = 0; G.flash = 0; saveProfile(); G.mode = 'menu'; G.banner = null; G.boss = null; G.enemies = []; G.ebul = []; G.pbul = []; G.pups = []; G.beams = []; initAudio(); music.set('menu'); sfx('ui'); emit() }
+export function toMenu() { if (G.net) { const n = G.net; G.net = null; if (n.onEnd) { try { n.onEnd() } catch { /* ignore */ } } } if (games.slug) games.slug.stop(); if (games.pickle) games.pickle.stop(); if (games.bomber) games.bomber.stop(); if (games.tetris) games.tetris.stop(); if (games.chomp) games.chomp.stop(); if (games.cards) games.cards.stop(); if (games.flames) games.flames.stop(); G.parts = []; G.pops = []; G.shake = 0; G.flash = 0; saveProfile(); G.mode = 'menu'; G.banner = null; G.boss = null; G.enemies = []; G.ebul = []; G.pbul = []; G.pups = []; G.beams = []; initAudio(); music.set('menu'); sfx('ui'); emit() }
 export function retryMission() {
   const s = G.save
   G.score = s.score; G.credits = s.credits; G.lives = Math.max(3, s.lives); G.up = { ...s.up }; G.wlKeep = s.wl; G.droneKeep = s.droneKeep || 0; G.nextLife = s.nextLife
@@ -1157,6 +1164,7 @@ let metaT = 0
 export function setName(n) { profile.name = String(n || '').replace(/[^\w .-]/g, '').slice(0, 14); saveProfile(); emit() }
 export function setShip(k, v) { profile.ship[k] = v; saveProfile(); sfx('ui'); emit() }
 export function togglePause() {
+  if (G.net && G.net.role === 'guest') return
   if (G.mode === 'playing') { G.mode = 'paused'; sfx('ui') } else if (G.mode === 'paused') { G.mode = 'playing'; sfx('ui') }
   emit()
 }
@@ -1170,6 +1178,7 @@ export function onKey(code, down) {
   if (!down) return
   initAudio()
   if (ARCADE.has(G.mode)) { if (games[G.mode]) games[G.mode].onKey(code); return }
+  if (G.net && G.net.role === 'guest') { if (code === 'Escape') G.net.leave(); return }
   if (code === 'KeyP' || code === 'Escape') togglePause()
   else if (G.mode === 'playing' && (code === 'KeyB' || code === 'KeyX' || code === 'ShiftLeft' || code === 'Digit2')) bomb()
   else if (G.mode === 'playing' && (code === 'KeyQ' || code === 'Digit1')) laser()
@@ -1197,7 +1206,7 @@ function buildSnap() {
     quests: (() => { const q = ensureQuests(); return { streak: q.streak, bonusClaimed: q.bonusClaimed, list: q.list.map((x) => ({ id: x.id, desc: x.desc, goal: x.goal, reward: x.reward, done: x.done, value: questProgress(x) })) } })(),
     seen: { ...profile.seen }, unlocked: G.unlocked, mode: G.mode, score: G.score, hi: G.hi, credits: G.credits, lives: G.lives,
     mission: G.mission, missionName: m.name, missionSub: m.sub, missions: MISSIONS.length, color: m.color,
-    hp: p ? Math.max(0, p.hp) : 0, maxHp: p ? p.maxHp : 3, squad: (G.squad || []).map((m) => ({ human: m.human, hp: Math.max(0, m.hp), max: m.maxHp, alive: m.alive, respawn: Math.ceil(m.respawn) })), squadSize: profile.squad === undefined ? 2 : profile.squad, squadHuman: !!profile.squadHuman,
+    hp: G.net && G.net.mine ? Math.max(0, G.net.mine.hp) : p ? Math.max(0, p.hp) : 0, maxHp: G.net && G.net.mine ? G.net.mine.maxHp : p ? p.maxHp : 3, squad: (G.squad || []).map((m) => ({ human: m.human, hp: Math.max(0, m.hp), max: m.maxHp, alive: m.alive, respawn: Math.ceil(m.respawn) })), net: G.net ? { role: G.net.role, me: G.net.me, wait: G.net.wait || '', hostMode: G.net.hostMode || '', mates: G.net.mates || [] } : null, squadSize: profile.squad === undefined ? 2 : profile.squad, squadHuman: !!profile.squadHuman,
     skills: p ? Object.keys(SK).map((k) => ({ k, key: SK[k].key, name: SK[k].name, color: SK[k].color, lv: skillLv(k), cd: p.cd[k], max: p.cdMax[k], active: k === 'laser' ? !!G.lz : k === 'shield' ? p.skT > 0 : p.cd.bomb > p.cdMax.bomb - 0.6 })).concat([{ k: 'od', key: 'R', name: 'OVERDRIVE', color: '#ff4de1', lv: '', label: p.od > 0 ? `${Math.ceil(p.od)}s` : G.meter >= 100 ? 'READY' : Math.floor(G.meter) + '%', cd: p.od > 0 ? 0 : G.meter >= 100 ? 0 : 100 - G.meter, max: 100, active: p.od > 0 }]) : [],
     profile: { ...profile, tops: { space: profile.tops.space.slice(), slug: profile.tops.slug.slice(), pickle: (profile.tops.pickle || []).slice(), bomber: (profile.tops.bomber || []).slice(), tetris: (profile.tops.tetris || []).slice(), chomp: (profile.tops.chomp || []).slice(), uno: (profile.tops.uno || []).slice(), pusoy: (profile.tops.pusoy || []).slice(), lucky9: (profile.tops.lucky9 || []).slice(), tongits: (profile.tops.tongits || []).slice() } }, wl: p ? p.wl : 1,
     special: p ? p.special : 'normal', specialT: p ? p.specialT : 0, rapidT: p ? p.rapidT : 0, shieldT: p ? p.shieldT : 0,
@@ -1227,3 +1236,13 @@ export function debugStart(m, seconds = 0, boss = false) {
 
 export function debugBonus(next, seconds = 0) { startGame(); G.up.drone = 2; startBonus(next); keys.Space = true; for (let i = 0; i < seconds * 60; i++) update(1 / 60); keys.Space = false }
 if (typeof window !== 'undefined') window.__update = update
+
+// ---------- online co-op hooks (see online/space-online.js) ----------
+export function netStartHost(net) { G.net = net; startGame() }
+export function netStartGuest(net) {
+  initAudio()
+  G.net = net
+  Object.assign(G, { mode: 'playing', mission: 0, score: 0, credits: 0, lives: 3, enemies: [], pbul: [], ebul: [], pups: [], beams: [], boss: null, lz: null, bonus: null, banner: null, toasts: [], parts: [], pops: [], squad: [], combo: 0, comboT: 0, meter: 0, scroll: 1, slow: 1, stats: { kills: 0, total: 0, dmg: 0, pups: 0, maxCombo: 0, ufos: 0, coins: 0, lost: 0, bombs: 0, scoreStart: 0, bossKilled: false }, summary: null, final: null, exitT: 0, warped: false, introT: 0, overT: 0 })
+  G.p = newPlayer(); G.p.alive = true
+  music.set('play', 0); sfx('mission'); emit()
+}
