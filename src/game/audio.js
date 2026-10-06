@@ -281,6 +281,16 @@ const SFX = {
   rgKill: () => { tone('square', 500, 150, 0.14, 0.1); noise(0.1, 0.08, 2500, 300) },
   rgDoor: () => arp([330, 392, 494], 'triangle', 0.14, 0.1, 0.1),
   rgPerk: () => arp([523, 659, 784, 1046], 'triangle', 0.15, 0.1, 0.12),
+  emSword: () => { noise(0.07, 0.1, 4500, 1500, 0, 'highpass'); tone('square', 900, 500, 0.05, 0.06) },
+  emBow: () => { tone('triangle', 700, 300, 0.07, 0.07); noise(0.05, 0.05, 3000, 900) },
+  emCata: () => { tone('sawtooth', 120, 60, 0.3, 0.14); noise(0.25, 0.1, 900, 150, 0.05) },
+  emHorn: () => { tone('sawtooth', 130, 130, 0.6, 0.16); tone('sawtooth', 196, 196, 0.6, 0.12, 0.05); tone('sawtooth', 130, 110, 0.5, 0.14, 0.7); tone('sawtooth', 196, 165, 0.5, 0.1, 0.75) },
+  emAlarm: () => { for (let i = 0; i < 3; i++) { tone('square', 740, 740, 0.12, 0.1, i * 0.22); tone('square', 520, 520, 0.12, 0.1, i * 0.22 + 0.11) } },
+  emReady: () => arp([392, 523, 659], 'triangle', 0.1, 0.09, 0.08),
+  emUp: () => { arp([262, 330, 392, 523, 659, 784], 'square', 0.18, 0.1, 0.1); tone('sine', 130, 130, 0.9, 0.12) },
+  emDone: () => { tone('triangle', 440, 660, 0.12, 0.1); tone('triangle', 660, 880, 0.14, 0.09, 0.1) },
+  emBoom: () => { noise(0.5, 0.25, 1200, 70); tone('sine', 110, 35, 0.45, 0.22) },
+  emMarch: () => { tone('triangle', 200, 160, 0.08, 0.08); tone('triangle', 200, 160, 0.08, 0.06, 0.15) },
   rgWind: () => { noise(2.2, 0.07, 400, 1400, 0, 'bandpass'); noise(2.2, 0.05, 900, 300, 0.3, 'bandpass') },
   rgOwl: () => { tone('sine', 420, 380, 0.35, 0.07); tone('sine', 360, 320, 0.5, 0.07, 0.45) },
   rgCreak: () => { tone('sawtooth', 90, 60, 0.7, 0.05); tone('square', 140, 110, 0.5, 0.025, 0.1) },
@@ -304,7 +314,7 @@ const SFX = {
   mgPow: () => tone('sine', 300, 900, 0.15, 0.12),
   test: () => { arp([523, 659, 784, 1046], 'square', 0.16, 0.12, 0.11); noise(0.3, 0.3, 2000, 100, 0.5) },
 }
-const MIN_GAP = { rgWind: 3000, rgOwl: 3000, rgCreak: 3000, rgHeart: 400, hkHit: 40, hkWall: 40, plClack: 25, plRail: 40, tdShot: 40, tdKill: 40, tdZap: 60, rgSwing: 60, rgShot: 50, rgKill: 40, rtPerfect: 20, rtGood: 20, rtHat: 30, wdKey: 30, mgSlide: 40, mgMerge: 40, rBump: 150, rBoost: 400, rDrift: 200, fVoice: 120, fStep: 160, fCrowd: 800, vulcan: 45, tankEngine: 150, grunt: 60, jeep: 200, plane: 300, crate: 60, shoot: 50, pistol: 60, hmg: 42, eshot: 90, rotor: 110, hit: 25, boom: 35, coin: 30, ding: 40, step: 80, whistle: 70, bossHit: 40, deflect: 50 }
+const MIN_GAP = { emSword: 60, emBow: 70, emCata: 300, emHorn: 3000, emAlarm: 3000, emReady: 250, emDone: 300, emBoom: 120, emMarch: 400, rgWind: 3000, rgOwl: 3000, rgCreak: 3000, rgHeart: 400, hkHit: 40, hkWall: 40, plClack: 25, plRail: 40, tdShot: 40, tdKill: 40, tdZap: 60, rgSwing: 60, rgShot: 50, rgKill: 40, rtPerfect: 20, rtGood: 20, rtHat: 30, wdKey: 30, mgSlide: 40, mgMerge: 40, rBump: 150, rBoost: 400, rDrift: 200, fVoice: 120, fStep: 160, fCrowd: 800, vulcan: 45, tankEngine: 150, grunt: 60, jeep: 200, plane: 300, crate: 60, shoot: 50, pistol: 60, hmg: 42, eshot: 90, rotor: 110, hit: 25, boom: 35, coin: 30, ding: 40, step: 80, whistle: 70, bossHit: 40, deflect: 50 }
 const lastAt = {}
 export function sfx(name, arg) {
   if (!ctx || muted || !SFX[name]) return

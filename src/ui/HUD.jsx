@@ -329,10 +329,22 @@ const HELP = {
     name: '🗡 NEON DEPTHS',
     body: () => (
       <>
-        <p><b>The tale:</b> beneath the Grid a haunted forest grew from deleted games. At its heart burns the <b>Last Lantern</b>, guarded by the Slime King, the Bone Lord and the Void Eye. <b>Goal:</b> clear 3 forests of 4 rooms (the 4th room of each is a boss). After each room pick <b>1 of 3 perks</b>. <b>Co-op:</b> press <b>INVITE FRIENDS</b> to bring up to 2 friends; everyone picks their own perks and fallen friends revive in the next room. Low on hearts? You will hear your heartbeat.</p>
+        <p><b>The tale:</b> beneath the Grid a haunted forest grew from deleted games. The Last Lantern shattered into five Shards, each held by a guardian. Clear the 5 <b>chapters</b> (Woods, Marsh, Caverns, Ember Ruins, Void Grove), or dive into <b>The Abyss</b>: 50 different rooms.</p>
         <h5>CONTROLS</h5>
-        <p><K>WASD</K> / <K>ARROWS</K> move (touch: the stick). You <b>attack automatically</b> at the nearest enemy; move the mouse to aim yourself. <K>SPACE</K> dashes (you are invincible while dashing). <K>Q</K> uses your class special. <K>1</K> <K>2</K> <K>3</K> pick a perk.</p>
-        <ul><li><b>KNIGHT:</b> sword arc, whirlwind. <b>RANGER:</b> piercing arrows, volley. <b>MAGE:</b> homing orbs, frost nova.</li><li>Collect gold and hearts. When the room is clear, the right door glows.</li></ul>
+        <p><K>WASD</K> / <K>ARROWS</K> move. <b>Nothing attacks by itself:</b> <b>click</b> (or hold) to attack toward the mouse, or press <K>J</K>. On a phone use the left stick and tap anywhere or the ⚔ button. <K>SPACE</K> dashes, <K>Q</K> <K>E</K> <K>R</K> are your class skills (levels 1, 3, 6), <K>F</K> is your <b>relic skill</b>, <K>1</K> <K>2</K> <K>3</K> pick a perk.</p>
+        <h5>GROWING STRONGER</h5>
+        <ul>
+          <li><b>Levels</b> up to 10. At levels 3, 6 and 9 your hero <b>ascends</b>: a rune ring, then a river of light that flows behind you, then a halo.</li>
+          <li><b>Companions</b> (wolf, eagle, owl, lion, tiger, bear, fairy, dragon, phoenix) are unlocked by playing. They gain XP with you, <b>evolve</b> at levels 4 and 7, and keep their levels forever.</li>
+          <li><b>Weapons</b> and <b>powers</b> unlock by clearing chapters, finding secrets and collecting lore.</li>
+        </ul>
+        <h5>SECRETS</h5>
+        <ul>
+          <li><b>Rune trials:</b> watch the runes light up, then step on them in the same order.</li>
+          <li><b>Cracked walls</b> hide vaults. <b>Clay pots</b> hide something too.</li>
+          <li><b>Hidden agendas</b> reward an <b>orb</b> that floats beside you and a <b>relic skill</b>. The codex in the lobby has a riddle for each one.</li>
+        </ul>
+        <p><b>Co-op:</b> press INVITE FRIENDS to bring up to 2 friends. Everyone picks their own perks; fallen friends revive in the next room.</p>
       </>
     ),
   },

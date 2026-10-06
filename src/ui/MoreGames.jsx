@@ -5,7 +5,7 @@ import { subscribeHockey, getHockeySnap, hockeyActions } from '../game/hockey.js
 import { subscribePool, getPoolSnap, poolActions } from '../game/pool.js'
 import { subscribeTd, getTdSnap, tdActions, TOWERS, MAPS as TDMAPS, mapOk } from '../game/td.js'
 import { TDCAMP } from '../game/tdstory.js'
-import { subscribeRogue, getRogueSnap, rogueActions, CLASSES as RCLS, RACES, PETS, SKILLS, MAXLV, CHAPTERS, WEAPONS, POWERS, LORE, weaponOk, powerOk, chapterOk, progress } from '../game/rogue.js'
+import { subscribeRogue, getRogueSnap, rogueActions, CLASSES as RCLS, RACES, PETS, SKILLS, MAXLV, CHAPTERS, WEAPONS, POWERS, LORE, weaponOk, powerOk, chapterOk, progress, AGENDAS, ORBS, RELICS, orbOk, relicOk, abyssOk, abyssBest, ABYSS_ROOMS, agendasDone, petOk, petInfo, PET_MAXLV } from '../game/rogue.js'
 import { subscribeRhythm, getRhythmSnap, rhythmActions, SONGS, laneGeom } from '../game/rhythm.js'
 import { subscribeWord, getWordSnap, wordActions } from '../game/word.js'
 import { subscribeMerge, getMergeSnap, mergeActions } from '../game/merge.js'
@@ -234,11 +234,14 @@ export function RogueLobby({ s, TopPlayers, onInvite }) {
   const [chap, setChap] = useState(Math.min(p.rogueChapter || 1, Math.max(1, U.cleared + 1)))
   const [cls, setCls] = useState(p.roguePick || 0)
   const [race, setRace] = useState(RACES[p.rogueRace || 0] && RACES[p.rogueRace || 0].ok() ? (p.rogueRace || 0) : 0)
-  const [pet, setPet] = useState(PETS[p.roguePet || 0] && PETS[p.roguePet || 0].ok() ? (p.roguePet || 0) : 0)
+  const [pet, setPet] = useState(PETS[p.roguePet || 0] && petOk(PETS[p.roguePet || 0].id) ? (p.roguePet || 0) : 0)
   const cid = RCLS[cls].id
   const [weapon, setWeapon] = useState(p.rogueWeapon && weaponOk(cid, p.rogueWeapon) ? p.rogueWeapon : WEAPONS[cid][0].id)
   const [power, setPower] = useState(p.roguePower && powerOk(p.roguePower) ? p.roguePower : 'none')
   const [codex, setCodex] = useState(false)
+  const [mode, setMode] = useState(p.rogueMode === 'abyss' && abyssOk() ? 'abyss' : 'chapters')
+  const [orb, setOrb] = useState(p.rogueOrb && orbOk(p.rogueOrb) ? p.rogueOrb : 'none')
+  const [relic, setRelic] = useState(p.rogueRelic && relicOk(p.rogueRelic) ? p.rogueRelic : 'none')
   const save = (k, v) => { p[k] = v; try { localStorage.setItem('si_profile', JSON.stringify(p)) } catch { /* ignore */ } }
   const pickClass = (i) => { setCls(i); save('roguePick', i); const id = RCLS[i].id; const w = weaponOk(id, weapon) && WEAPONS[id].some((x) => x.id === weapon) ? weapon : WEAPONS[id][0].id; setWeapon(w); save('rogueWeapon', w) }
   const sk = SKILLS[cid]
@@ -246,6 +249,8 @@ export function RogueLobby({ s, TopPlayers, onInvite }) {
   return (
     <div className="lobby">
       <div className="lobbyL">
+        <div className="chips">{[['chapters', '📖 STORY CHAPTERS'], ['abyss', '🕳 THE ABYSS (' + ABYSS_ROOMS + ' ROOMS)']].map(([k, n]) => <button key={k} className={'chip ' + (mode === k ? 'sel' : '')} disabled={k === 'abyss' && !abyssOk()} onClick={() => { setMode(k); save('rogueMode', k) }}>{k === 'abyss' && !abyssOk() ? '🔒 ' + n + ' · CLEAR CHAPTER 1' : n}</button>)}</div>
+        {mode === 'abyss' ? <div className="lobbyinfo"><b>THE ABYSS</b> · {ABYSS_ROOMS} rooms, {ABYSS_ROOMS} different scenarios: ambushes, gauntlets, survival rooms, trap floors, shrines, merchants, rune trials, elites and a guardian every 10 rooms. Best so far: <b>{abyssBest()}/{ABYSS_ROOMS}</b>. <small>Break every clay pot you see, kneel at shrines, walk untouched… the Abyss keeps hidden agendas that reward an ORB and a relic skill (key F).</small></div> : null}
         <h4>1 · CHOOSE A CHAPTER <small className="dim">({pg.cleared}/5 CLEARED · 🗝 {pg.secrets}/5 SECRETS · 📜 {pg.lore}/10 LORE)</small></h4>
         <div className="chapgrid">{CHAPTERS.map((c) => { const open = chapterOk(c.id); return <button key={c.id} className={'chapcard ' + (chap === c.id ? 'sel ' : '') + (open ? '' : 'locked')} disabled={!open} onClick={() => { setChap(c.id); save('rogueChapter', c.id) }}><b>{open ? c.id : '🔒'}</b><strong>{c.name}</strong><small>{open ? c.sub.split('·')[1] : 'CLEAR CHAPTER ' + (c.id - 1)}</small><em>{U.cleared >= c.id ? '✔ CLEARED' : ''}{U.secret && U.secret[c.id] ? ' 🗝' : ''}{(U.lore && (U.lore['L' + c.id + 'a'] ? 1 : 0) + (U.lore['L' + c.id + 'b'] ? 1 : 0)) ? ' 📜' + ((U.lore['L' + c.id + 'a'] ? 1 : 0) + (U.lore['L' + c.id + 'b'] ? 1 : 0)) : ''}</em></button> })}</div>
         <div className="lobbyinfo"><b>{ch.name}</b> · {ch.blurb} <small>5 rooms: {ch.plan.map((t) => ({ combat: '⚔', elite: '💀', puzzle: '🔮', treasure: '💰', boss: '👑' }[t])).join(' → ')} · a hidden vault waits behind a cracked wall in room {ch.secretRoom}</small></div>
@@ -257,12 +262,15 @@ export function RogueLobby({ s, TopPlayers, onInvite }) {
         <div className="modegrid four">{POWERS.map((w) => { const open = powerOk(w.id); return <button key={w.id} className={'modecard ' + (power === w.id ? 'sel ' : '') + (open ? '' : 'locked')} disabled={!open} onClick={() => { setPower(w.id); save('roguePower', w.id) }}><div className="vs"><span>{open ? w.ico : '🔒'}</span></div><strong>{w.name}</strong><small>{open ? w.desc : 'UNLOCK: ' + w.hint}</small></button> })}</div>
         <h4>5 · RACE</h4>
         <div className="modegrid five">{RACES.map((r, i) => { const open = r.ok(); return <button key={r.id} className={'modecard ' + (race === i ? 'sel ' : '') + (open ? '' : 'locked')} disabled={!open} onClick={() => { setRace(i); save('rogueRace', i) }}><div className="vs"><span>{open ? r.ico : '🔒'}</span></div><strong>{r.name}</strong><small>{open ? r.desc : 'UNLOCK: ' + r.hint}</small></button> })}</div>
-        <h4>6 · COMPANION</h4>
-        <div className="modegrid four">{PETS.map((r, i) => { const open = r.ok(); return <button key={r.id} className={'modecard ' + (pet === i ? 'sel ' : '') + (open ? '' : 'locked')} disabled={!open} onClick={() => { setPet(i); save('roguePet', i) }}><div className="vs"><span>{open ? r.ico : '🔒'}</span></div><strong>{r.name}</strong><small>{open ? r.desc : 'UNLOCK: ' + r.hint}</small></button> })}</div>
+        <h4>6 · COMPANION <small className="dim">(unlock by playing; it levels up and evolves as you fight)</small></h4>
+        <div className="modegrid five">{PETS.map((r, i) => { const open = petOk(r.id), inf = petInfo(r.id); return <button key={r.id} className={'modecard ' + (pet === i ? 'sel ' : '') + (open ? '' : 'locked')} disabled={!open} onClick={() => { setPet(i); save('roguePet', i) }}><div className="vs"><span>{open ? r.ico : '🔒'}</span></div><strong>{open && r.id !== 'none' ? inf.name : r.name}</strong><small>{open ? (r.id !== 'none' ? 'LV ' + inf.lv + '/' + PET_MAXLV + ' · ' : '') + r.desc : 'UNLOCK: ' + r.hint}</small></button> })}</div>
+        <h4>7 · ORB &amp; RELIC SKILL <small className="dim">(rewards of the hidden agendas)</small></h4>
+        <div className="modegrid four">{ORBS.map((o) => { const open = orbOk(o.id); return <button key={o.id} className={'modecard ' + (orb === o.id ? 'sel ' : '') + (open ? '' : 'locked')} disabled={!open} onClick={() => { setOrb(o.id); save('rogueOrb', o.id) }}><div className="vs"><span>{open ? o.ico : '❓'}</span></div><strong>{open ? o.name : '???'}</strong><small>{open ? o.desc : 'HIDDEN: solve an agenda'}</small></button> })}</div>
+        <div className="modegrid four">{RELICS.map((o) => { const open = relicOk(o.id); return <button key={o.id} className={'modecard ' + (relic === o.id ? 'sel ' : '') + (open ? '' : 'locked')} disabled={!open} onClick={() => { setRelic(o.id); save('rogueRelic', o.id) }}><div className="vs"><span>{open ? o.ico : '❓'}</span></div><strong>{open ? o.name : '???'}</strong><small>{open ? o.desc + ' (F)' : 'HIDDEN: solve an agenda'}</small></button> })}</div>
         <div className="lobbyinfo"><b>HOW IT WORKS</b> · Each chapter is 5 rooms: fights, an elite guard, a <b>rune trial</b> (watch the glowing runes, then step on them in the same order), sometimes a treasure room, and a guardian. Hit the <b>cracked wall</b> in one room to find a <b>hidden vault</b> with a secret weapon and a lore tablet. Skills: {sk.map((k) => k.ico + ' ' + k.name + ' (LV ' + k.lv + ')').join(' · ')}.</div>
-        <div className="lobbyinfo"><b>CONTROLS</b> · <b>WASD / arrows</b> move · <b>mouse</b> aims, <b>hold left click</b> attacks where you aim · <b>SPACE</b> dash · <b>Q / E / R</b> skills · <b>1-2-3</b> pick a perk · <b>P</b> pause. Gamepad: stick, A = dash, bumpers/triggers = skills. Phone: stick + buttons.</div>
-        <div className="chips"><button className="big" onClick={() => { save('rogueChapter', chap); rogueActions.start({ chapter: chap, cls, race, pet, weapon, power }) }}>▶ ENTER CHAPTER {chap}</button><button className="big sec" onClick={onInvite}>🌐 INVITE FRIENDS (CO-OP)</button><button className="big sec" onClick={() => setCodex(!codex)}>📜 CODEX {pg.lore}/10</button></div>
-        {codex && <div className="codex">{LORE.map((t) => { const got = U.lore && U.lore[t.id]; return <div key={t.id} className={'tablet ' + (got ? 'got' : '')}><b>{got ? t.title : '??? (CH ' + t.ch + ')'}</b><small>{got ? t.text : 'A lore tablet you have not found yet. Solve rune trials and search the hidden vaults.'}</small></div> })}</div>}
+        <div className="lobbyinfo"><b>CONTROLS</b> · <b>WASD / arrows</b> move · <b>CLICK</b> (or hold) to attack toward the mouse: nothing attacks on its own · <b>J</b> attacks too · <b>SPACE</b> dash · <b>Q / E / R</b> skills · <b>F</b> relic skill · <b>1-2-3</b> pick a perk · <b>P</b> pause. Gamepad: stick, A = dash, bumpers/triggers = skills. Phone: left stick, tap anywhere or the ⚔ button to attack.</div>
+        <div className="chips"><button className="big" onClick={() => { save('rogueChapter', chap); rogueActions.start({ mode: mode === 'abyss' ? 'abyss' : '', chapter: chap, cls, race, pet, weapon, power, orb, relic }) }}>{mode === 'abyss' ? '▶ DESCEND INTO THE ABYSS' : '▶ ENTER CHAPTER ' + chap}</button><button className="big sec" onClick={onInvite}>🌐 INVITE FRIENDS (CO-OP)</button><button className="big sec" onClick={() => setCodex(!codex)}>📜 CODEX {pg.lore}/10</button></div>
+        {codex && <div className="codex">{AGENDAS.map((a) => { const got = agendasDone().includes(a.id); return <div key={a.id} className={'tablet ' + (got ? 'got' : '')}><b>{got ? '🔮 ' + a.name : '🔮 HIDDEN AGENDA #' + (AGENDAS.indexOf(a) + 1)}</b><small>{got ? 'SOLVED. Reward: ' + ORBS.find((o) => o.id === a.orb).name + ' and the ' + RELICS.find((o) => o.id === a.relic).name + ' skill.' : a.riddle}</small></div> })}{LORE.map((t) => { const got = U.lore && U.lore[t.id]; return <div key={t.id} className={'tablet ' + (got ? 'got' : '')}><b>{got ? t.title : '??? (CH ' + t.ch + ')'}</b><small>{got ? t.text : 'A lore tablet you have not found yet. Solve rune trials and search the hidden vaults.'}</small></div> })}</div>}
       </div>
       <div className="lobbyR">
         <div className="panel"><h4>MY DUNGEON STATS</h4><div className="kv"><Stat k="RUNS" v={p.rogueRuns || 0} /><Stat k="CHAPTERS CLEARED" v={pg.cleared + '/5'} /><Stat k="SECRETS FOUND" v={pg.secrets + '/5'} /><Stat k="LORE TABLETS" v={pg.lore + '/10'} /><Stat k="MONSTERS SLAIN" v={fmt(p.rogueKills || 0)} /></div></div>
@@ -293,7 +301,7 @@ export function RogueHUD({ openHelp }) {
       <div className={'mg-vig' + (low ? ' low' : '') + (g.boss ? ' boss' : '')} />
       <div className="mg-topbar rg">
         <span className="hearts">{Array.from({ length: g.max }).map((_, i) => <i key={i} className={i < g.hp ? 'on' : ''}>♥</i>)}{g.shield > 0 && <i className="on sh">🛡</i>}</span>
-        <span title={RACES[g.race].name}>{RACES[g.race].ico}{PETS[g.pet].ico} <b>LV {g.lv}</b></span><span title={g.chName}>📖 <b>CH {g.chapter} · {g.roomN}/{g.rooms}</b> <small className="dim">{{ combat: '⚔', elite: '💀', puzzle: '🔮', treasure: '💰', boss: '👑', secret: '🗝' }[g.rtype]}</small></span><span title={(g.wpn && g.wpn.name) + ' · ' + (g.pwr && g.pwr.name)}>{g.wpn && g.wpn.ico}{g.pwr && g.pwr.ico !== '·' ? g.pwr.ico : ''}</span><span>🪙 <b>{g.gold}</b></span><span>☠ <b>{g.kills}</b></span>
+        <span title={RACES[g.race].name}>{RACES[g.race].ico}{PETS[g.pet].ico} <b>LV {g.lv}</b></span><span title={g.chName}>{g.abyss ? <>🕳 <b>ABYSS {g.aroom}/{g.aroomN}</b> <small className="dim">{g.atitle}</small></> : <>📖 <b>CH {g.chapter} · {g.roomN}/{g.rooms}</b></>} <small className="dim">{{ combat: '⚔', elite: '💀', puzzle: '🔮', treasure: '💰', boss: '👑', secret: '🗝', ambush: '🌪', gauntlet: '🏁', survival: '⏳', trap: '☠', shrine: '⛩', merchant: '🛒' }[g.rtype]}</small></span><span title={(g.wpn && g.wpn.name) + ' · ' + (g.pwr && g.pwr.name)}>{g.wpn && g.wpn.ico}{g.pwr && g.pwr.ico !== '·' ? g.pwr.ico : ''}</span><span>🪙 <b>{g.gold}</b></span><span>☠ <b>{g.kills}</b></span>
         <span className="perks">{g.perks.map((p, i) => <i key={i}>{p}</i>)}</span>
         <span className="grow" />
         {g.mode === 'play' && !g.net && <button className="mg-btn" onClick={() => rogueActions.pause()}>⏸</button>}
@@ -307,11 +315,16 @@ export function RogueHUD({ openHelp }) {
         <div className="mg-rgctl">
           {touch && <Stick onMove={rogueActions.stick} />}
           <div className="mg-abil">
+            {touch && <button className="mg-ab atk" onPointerDown={(e) => { e.stopPropagation(); rogueActions.hold(true) }} onPointerUp={() => rogueActions.hold(false)} onPointerCancel={() => rogueActions.hold(false)}>⚔<small>ATTACK</small></button>}
+            {g.relic && g.relic.has && <button className={'mg-ab ' + (g.relic.cd > 0 ? 'cd' : '')} onClick={rogueActions.relic} title={g.relic.name}><i style={{ height: g.relic.cd * 100 + '%' }} />{g.relic.ico}<small>F</small></button>}
             <button className={'mg-ab ' + (g.dash > 0 ? 'cd' : '')} onClick={rogueActions.dash}><i style={{ height: g.dash * 100 + '%' }} />💨<small>DASH</small></button>
             {g.skills.map((k, i) => <button key={k.name} className={'mg-ab ' + (!k.open ? 'locked ' : k.cd > 0 ? 'cd' : '')} disabled={!k.open} onClick={() => rogueActions.special(i)} title={k.name}><i style={{ height: (k.open ? k.cd : 1) * 100 + '%' }} />{k.open ? k.ico : '🔒'}<small>{['Q', 'E', 'R'][i]}{!k.open ? ' LV' + k.lv : ''}</small></button>)}
           </div>
         </div>
       )}
+      {g.surv > 0 && <div className="mg-hint">⏳ SURVIVE {g.surv}s</div>}
+      {g.shops && g.shops.length > 0 && <div className="mg-shops">{g.shops.map((sh, i) => <span key={i}>{sh.label} · 🪙{sh.price}</span>)}</div>}
+      {g.mode === 'play' && g.slow && <div className="mg-hint">⏳ TIME IS SLOW</div>}
       {g.puz && !g.puz.solved && <div className="mg-hint">{g.puz.showing ? '🔮 WATCH THE RUNES…' : '🔮 STEP ON THE RUNES IN ORDER · ' + g.puz.step + '/' + g.puz.n + ' · THE MIDDLE PEDESTAL REPLAYS IT'}</div>}
       {g.secretHint && <div className="mg-hint">THE WALL AT THE TOP LOOKS CRACKED… ATTACK IT?</div>}
       {g.secretOpen && <div className="mg-hint">A HIDDEN PASSAGE IS OPEN · WALK INTO THE PURPLE LIGHT</div>}
@@ -338,6 +351,7 @@ export function RogueHUD({ openHelp }) {
           <h1 className={g.over.win ? 'gold' : 'red'}>{g.over.left ? 'THE HOST LEFT' : g.over.win ? (g.over.complete ? 'THE LAST LANTERN BURNS!' : 'CHAPTER ' + g.over.chapter + ' CLEARED!') : 'THE DEPTHS CLAIM YOU'}</h1>
           {g.over.win ? <p className="epilogue">{g.over.epilogue}</p> : <h3>{g.over.chName} · ROOM {g.over.room}/5</h3>}
           {g.over.win && g.over.next && <div className="lobbyinfo"><b>NEXT:</b> {g.over.next}</div>}
+          {g.over.abyss && <div className="lobbyinfo"><b>🕳 ROOMS CLEARED:</b> {g.over.rooms}/{g.aroomN} · HIDDEN AGENDAS SOLVED: {g.over.agendas}/6</div>}
           <ul><li><span>MONSTERS SLAIN</span><b>{g.over.kills}</b></li><li><span>GOLD</span><b>{g.over.gold}</b></li><li><span>LORE · SECRET</span><b>{g.over.lore} 📜 · {g.over.secret ? '🗝 FOUND' : 'NONE'}</b></li><li><span>PERKS</span><b>{g.over.perks}</b></li><li className="bonus"><span>SCORE{g.over.coop ? ' (CO-OP)' : ''}</span><b>{fmt(g.over.score)}</b></li></ul>
           {g.over.unlocks && g.over.unlocks.length > 0 && <div className="lobbyinfo"><b>🎉 UNLOCKED:</b> {g.over.unlocks.join(' · ')}</div>}<ul><li><span>HERO</span><b>{g.over.race} · LV {g.over.lv}</b></li><li><span>COMPANION</span><b>{g.over.pet}</b></li></ul><button className="big" onClick={rogueActions.rematch}>{g.over.win && g.over.next ? '▶ NEXT CHAPTER' : '↻ AGAIN'}</button><button className="big sec" onClick={rogueActions.quit}>DASHBOARD</button>
         </div>

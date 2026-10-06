@@ -9,6 +9,9 @@ const pickRace = () => Math.max(0, (profile.rogueRace | 0) || 0)
 const pickPet = () => Math.max(0, (profile.roguePet | 0) || 0)
 const pickW = () => profile.rogueWeapon || ''
 const pickP = () => profile.roguePower || ''
+const pickO = () => profile.rogueOrb || ''
+const pickR = () => profile.rogueRelic || ''
+const pickA = () => (profile.rogueMode === 'abyss' ? 'abyss' : '')
 const pickC = () => Math.max(1, (profile.rogueChapter | 0) || 1)
 
 function begin(role) {
@@ -21,8 +24,8 @@ function begin(role) {
     rematch: () => { if (isHost()) hostStart(); else send('drematch', {}, RT.room && RT.room.host).catch(() => {}) },
     onStop: () => { if (isHost()) roomAction('finish').catch(() => {}) },
   })
-  if (role === 'host') rogueActions.start({ type: 'online', cls: pick(), race: pickRace(), pet: pickPet(), weapon: pickW(), power: pickP(), chapter: pickC() })
-  else joinAsGuest(pick(), pickRace(), pickPet(), pickW(), pickP())
+  if (role === 'host') rogueActions.start({ type: 'online', cls: pick(), race: pickRace(), pet: pickPet(), weapon: pickW(), power: pickP(), orb: pickO(), relic: pickR(), mode: pickA(), chapter: pickC() })
+  else joinAsGuest(pick(), pickRace(), pickPet(), pickW(), pickP(), pickO(), pickR())
 }
 async function hostStart() {
   if (!RT.room || RT.room.players.length < 2) throw new Error('Waiting for a friend to join')

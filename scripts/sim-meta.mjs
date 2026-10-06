@@ -21,7 +21,7 @@ profile.kills = 0; profile.awardsDone = {}; profile.kills = 1
 update(1.05)
 check('award unlock popup', notices.some((n) => /AWARD UNLOCKED: FIRST BLOOD/.test(n.text)) && profile.awardsDone['FIRST BLOOD'])
 // next day: streak continues
-profile.quests.day = new Date(Date.now() - 86400000 * 1).toISOString().slice(0, 10)
+profile.quests.day = (() => { const d = new Date(Date.now() - 86400000); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` })()
 const st = ensureQuests()
 check('next-day streak increments', st.streak === 2, 'streak ' + st.streak)
 profile.quests.day = '2000-01-01'

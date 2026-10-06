@@ -5,8 +5,8 @@ import { G, emit as engineEmit, keys, games, profile, saveProfile, recordScore, 
 import { sfx, music, speak } from './audio.js'
 import { col, clamp, R } from './pxl.js'
 import { drawRogue3, rogueCamera, rogueLights, unprojectGround, THEMES } from './rogue3d.js'
-import { CHAPTERS, WEAPONS, POWERS, LORE, ROOM_SIZE, weaponOk, powerOk, chapterOk, markCleared, markSecret, markLore, unlockSnap, diffUnlocks, progress } from './rogueworld.js'
-export { CHAPTERS, WEAPONS, POWERS, LORE, weaponOk, powerOk, chapterOk, progress }
+import { CHAPTERS, WEAPONS, POWERS, LORE, ROOM_SIZE, weaponOk, powerOk, chapterOk, markCleared, markSecret, markLore, unlockSnap, diffUnlocks, progress, PETS, petOk, petInfo, petGain, petStageOf, savePets, PET_MAXLV, AGENDAS, ORBS, RELICS, orbOk, relicOk, markAgenda, abyssRoom, ABYSS_ROOMS, markAbyss, abyssOk, abyssBest, agendasDone } from './rogueworld.js'
+export { AGENDAS, ORBS, RELICS, orbOk, relicOk, abyssRoom, ABYSS_ROOMS, abyssOk, abyssBest, agendasDone, CHAPTERS, WEAPONS, POWERS, LORE, weaponOk, powerOk, chapterOk, progress, PETS, petOk, petInfo, PET_MAXLV }
 const ROOMS = 5
 const themeOf = () => THEMES[CHAPTERS[Math.min(RG.floor, 4)].theme]
 
@@ -40,12 +40,6 @@ export const RACES = [
   { id: 'undead', name: 'UNDEAD', ico: '💀', desc: 'Death is a suggestion. Rises once per run, heals 1 heart per 6 kills, but has 1 less heart.', hint: 'Clear the marsh (room 8)', ok: () => dp() >= 8 || (profile.rogueWins || 0) >= 1, f: (p) => { p.max = Math.max(2, p.max - 1); p.hp = Math.min(p.hp, p.max); p.rise = 1 } },
   { id: 'fairy', name: 'FAIRY', ico: '🧚', desc: 'Tiny and hovering. Dash recharges 40% faster and your light heals friends nearby.', hint: 'Clear the first forest', ok: () => dp() >= 4, f: (p) => { p.dashCd *= 0.6; p.glow = true; p.max = Math.max(2, p.max - 1); p.hp = Math.min(p.hp, p.max) } },
 ]
-export const PETS = [
-  { id: 'wolf', name: 'WOLF PUP', ico: '🐺', color: '#9aa4b8', desc: 'Bites anything near you.', hint: '', ok: () => true },
-  { id: 'owl', name: 'FOREST OWL', ico: '🦉', color: '#c8a46a', desc: 'Throws feather bolts from the air.', hint: 'Finish one run', ok: () => (profile.rogueRuns || 0) >= 1 },
-  { id: 'sprite', name: 'FAIRY SPRITE', ico: '🧚‍♀️', color: '#ff9ae8', desc: 'Heals you, or shields you when you are healthy.', hint: 'Clear the first forest', ok: () => dp() >= 4 },
-  { id: 'dragon', name: 'DRAGON WHELP', ico: '🐉', color: '#ff6a3a', desc: 'Breathes fire on whatever you fight.', hint: 'Clear the marsh (room 8)', ok: () => dp() >= 8 || (profile.rogueWins || 0) >= 1 },
-]
 export const SKILLS = {
   knight: [{ name: 'WHIRLWIND', lv: 1, cd: 9, ico: '🌀' }, { name: 'SHIELD BASH', lv: 3, cd: 7, ico: '🛡️' }, { name: 'WAR CRY', lv: 6, cd: 16, ico: '📣' }],
   ranger: [{ name: 'ARROW VOLLEY', lv: 1, cd: 9, ico: '🏹' }, { name: 'SPIKE TRAP', lv: 3, cd: 8, ico: '🪤' }, { name: 'ARROW RAIN', lv: 6, cd: 16, ico: '🌧️' }],
@@ -53,7 +47,7 @@ export const SKILLS = {
 }
 export const MAXLV = 10
 export const xpNeed = (lv) => 22 + lv * 16 + lv * lv * 2
-const unlockSnapshot = () => ({ races: RACES.filter((r) => r.ok()).map((r) => r.id), pets: PETS.filter((r) => r.ok()).map((r) => r.id) })
+const unlockSnapshot = () => ({ races: RACES.filter((r) => r.ok()).map((r) => r.id), pets: PETS.filter((r) => petOk(r.id)).map((r) => r.id) })
 export const EN = {
   slime: { hp: 20, spd: 12, c: '#5aff7a', r: 1.6, dmg: 1, gold: 2 },
   wolf: { hp: 14, spd: 21, c: '#8a93a8', r: 1.4, dmg: 1, gold: 2 },
@@ -94,14 +88,14 @@ function say(lines) {
 const mkPlayer = (cls, name, remote, race = 0, pet = 0) => {
   const c = CLASSES[clamp(cls | 0, 0, 2)]
   const pl = mkBase(cls, name, remote, c)
-  pl.race = clamp(race | 0, 0, RACES.length - 1); pl.pet = clamp(pet | 0, 0, PETS.length - 1)
+  pl.race = clamp(race | 0, 0, RACES.length - 1); pl.pet = clamp(pet | 0, 0, PETS.length - 1); if (!petOk(PETS[pl.pet].id)) pl.pet = 0
   RACES[pl.race].f(pl)
   return pl
 }
 const mkBase = (cls, name, remote, c) => {
-  return { cls: clamp(cls | 0, 0, 2), wid: '', wmod: {}, pw: 'none', hitN: 0, greed: false, aura: false, trail: false, xp: 0, lv: 1, xpMul: 1, perkN: 3, armor: 0, rise: 0, killHeal: 0, glow: false, race: 0, pet: 0, buff: 0, sT2: 0, sT3: 0, hold: false, sn: [0, 0, 0], seenSn: [0, 0, 0], lvT: 0, name, remote: !!remote, x: -AX + 6, y: 0, hp: c.hp, max: c.hp, spd: c.spd, dmg: c.dmg, rate: c.rate, multi: 1, crit: 0.05, vamp: 0, shield: 0, aegis: false, pierce: 0, magnet: 4, dashCd: 1.3, spCd: 9, dashT: 0, spT: 0, atkT: 0, inv: 0, dash: 0, dx: 1, dy: 0, face: 0, mx: 0, my: 0, walk: 0, alive: true, perks: [], choices: null, swing: null, aimPt: null, aimT: -9, dashN: 0, spN: 0, seenDash: 0, seenSp: 0, inp: { mx: 0, my: 0 }, hurtT: 0, vx: 0, vy: 0 }
+  return { cls: clamp(cls | 0, 0, 2), orb: 'none', relic: 'none', rT: 0, orbA: 0, vk: 0, orbT: 0, wid: '', wmod: {}, pw: 'none', hitN: 0, greed: false, aura: false, trail: false, xp: 0, lv: 1, xpMul: 1, perkN: 3, armor: 0, rise: 0, killHeal: 0, glow: false, race: 0, pet: 0, buff: 0, sT2: 0, sT3: 0, hold: false, sn: [0, 0, 0, 0], seenSn: [0, 0, 0, 0], lvT: 0, name, remote: !!remote, x: -AX + 6, y: 0, hp: c.hp, max: c.hp, spd: c.spd, dmg: c.dmg, rate: c.rate, multi: 1, crit: 0.05, vamp: 0, shield: 0, aegis: false, pierce: 0, magnet: 4, dashCd: 1.3, spCd: 9, dashT: 0, spT: 0, atkT: 0, inv: 0, dash: 0, dx: 1, dy: 0, face: 0, mx: 0, my: 0, walk: 0, alive: true, perks: [], choices: null, swing: null, aimPt: null, aimT: -9, dashN: 0, spN: 0, seenDash: 0, seenSp: 0, inp: { mx: 0, my: 0 }, hurtT: 0, vx: 0, vy: 0 }
 }
-export const RG = { mode: 'idle', paused: false, floors: 3, floor: 0, room: 0, players: [], me: 0, p: null, en: [], eb: [], pb: [], loot: [], obst: [], open: false, gold: 0, kills: 0, t: 0, emitT: 0, msg: null, over: null, stick: [0, 0], fx: [], spawnQ: [], net: null, eid: 1, tale: null, chapter: 1, rtype: 'combat', ax: 44, ay: 23, puz: null, chests: [], secret: null, sub: null, found: null, unlockBefore: null, rk: 0, pets: [], traps: [], rains: [], meteors: [], unlocked: null, bossT: 0, ambT: 4, heartT: 0, cam: null, doorT: 0 }
+export const RG = { mode: 'idle', paused: false, floors: 3, floor: 0, room: 0, players: [], me: 0, p: null, en: [], eb: [], pb: [], loot: [], obst: [], open: false, gold: 0, kills: 0, t: 0, emitT: 0, msg: null, over: null, stick: [0, 0], fx: [], spawnQ: [], net: null, eid: 1, tale: null, abyss: false, ag: null, roomT: 0, hurtRoom: false, hz: [], urns: [], surv: 0, survMax: 0, slowT: 0, chapter: 1, rtype: 'combat', ax: 44, ay: 23, puz: null, chests: [], secret: null, sub: null, found: null, unlockBefore: null, rk: 0, pets: [], traps: [], rains: [], meteors: [], unlocked: null, bossT: 0, ambT: 4, heartT: 0, cam: null, doorT: 0 }
 let snap = null
 const subs = new Set()
 export const subscribeRogue = (f) => { subs.add(f); return () => subs.delete(f) }
@@ -117,13 +111,14 @@ function emitR() {
     choices: p && p.choices ? p.choices.map((c) => ({ id: c.id, name: c.name, ico: c.ico, desc: c.desc })) : null, msg: RG.msg ? { ...RG.msg } : null, over: RG.over,
     boss: bossE ? { name: bossE.def.name, hp: Math.max(0, bossE.hp) / bossE.max } : null, perks: p ? p.perks.slice() : [], open: RG.open,
     coop: RG.players.length > 1 || !!RG.net, net: RG.net ? RG.net.role : null, waiting: RG.players.filter((x) => x.choices).length,
-    team: RG.players.map((x, i) => ({ name: x.name, cls: x.cls, race: x.race, lv: x.lv, hp: x.hp, max: x.max, alive: x.alive, me: i === RG.me })), theme: themeOf().name, chapter: RG.chapter, chName: CHAPTERS[RG.chapter - 1].name, chSub: CHAPTERS[RG.chapter - 1].sub, roomN: RG.room + 1, rooms: ROOMS, rtype: RG.rtype, sub: RG.sub, puz: RG.puz ? { step: RG.puz.step, n: RG.puz.seq.length, showing: RG.puz.showing, solved: RG.puz.solved } : null, secretHint: !!(RG.secret && !RG.secret.found && RG.open), secretOpen: !!(RG.secret && RG.secret.found), wpn: p ? (WEAPONS[CLASSES[p.cls].id].find((w) => w.id === p.wid) || {}) : {}, pwr: p ? (POWERS.find((w) => w.id === p.pw) || {}) : {}, dead: !!(p && !p.alive), lv: p ? p.lv : 1, xp: p ? p.xp : 0, need: p ? (p.lv >= MAXLV ? 1 : xpNeed(p.lv)) : 1, race: p ? p.race : 0, pet: p ? p.pet : 0, buff: p ? p.buff > 0 : false,
+    team: RG.players.map((x, i) => ({ name: x.name, cls: x.cls, race: x.race, lv: x.lv, hp: x.hp, max: x.max, alive: x.alive, me: i === RG.me })), theme: themeOf().name, abyss: RG.abyss, aroom: RG.room + 1, aroomN: ABYSS_ROOMS, atitle: RG.abyss ? abyssRoom(Math.min(RG.room, ABYSS_ROOMS - 1)).title : '', surv: Math.ceil(RG.surv), orb: p ? (ORBS.find((o) => o.id === p.orb) || ORBS[0]) : ORBS[0], relic: p ? (() => { const d = RELICS.find((o) => o.id === p.relic) || RELICS[0]; return { id: d.id, name: d.name, ico: d.ico, cd: d.cd ? Math.max(0, p.rT) / d.cd : 0, has: d.id !== 'none' } })() : null, shops: RG.chests.filter((c) => c.kind === 'shop' && !c.open).map((c) => ({ label: c.label, price: c.price })), hazard: RG.hz.length > 0, urns: RG.urns.length, slow: RG.slowT > 0, chapter: RG.chapter, chName: CHAPTERS[RG.chapter - 1].name, chSub: CHAPTERS[RG.chapter - 1].sub, roomN: RG.room + 1, rooms: ROOMS, rtype: RG.rtype, sub: RG.sub, puz: RG.puz ? { step: RG.puz.step, n: RG.puz.seq.length, showing: RG.puz.showing, solved: RG.puz.solved } : null, secretHint: !!(RG.secret && !RG.secret.found && RG.open), secretOpen: !!(RG.secret && RG.secret.found), wpn: p ? (WEAPONS[CLASSES[p.cls].id].find((w) => w.id === p.wid) || {}) : {}, pwr: p ? (POWERS.find((w) => w.id === p.pw) || {}) : {}, dead: !!(p && !p.alive), lv: p ? p.lv : 1, xp: p ? p.xp : 0, need: p ? (p.lv >= MAXLV ? 1 : xpNeed(p.lv)) : 1, race: p ? p.race : 0, pet: p ? p.pet : 0, petName: p && p.pet ? petInfo(PETS[p.pet].id).name : '', petLv: p && p.pet ? petInfo(PETS[p.pet].id).lv : 0, buff: p ? p.buff > 0 : false,
     skills: p ? SKILLS[CLASSES[p.cls].id].map((k, i) => ({ name: k.name, ico: k.ico, lv: k.lv, open: p.lv >= k.lv, cd: Math.max(0, i === 0 ? p.spT : i === 1 ? p.sT2 : p.sT3) / (k.cd * p.spCd / 9) })) : [], tale: RG.tale ? { who: TALE.who[RG.tale.lines[RG.tale.i][0]], text: RG.tale.lines[RG.tale.i][1], i: RG.tale.i, n: RG.tale.lines.length } : null,
   }
   subs.forEach((f) => f())
 }
 
-function applyGear(p, wid, pid) {
+function applyGear(p, wid, pid, orb, relic) {
+  p.orb = orb && orbOk(orb) ? orb : 'none'; p.relic = relic && relicOk(relic) ? relic : 'none'
   const list = WEAPONS[CLASSES[p.cls].id], w = list.find((x) => x.id === wid && weaponOk(CLASSES[p.cls].id, x.id)) || list[0]
   p.wid = w.id; p.wmod = w.mod || {}
   if (p.wmod.pierce) p.pierce += p.wmod.pierce
@@ -136,38 +131,57 @@ function applyGear(p, wid, pid) {
   else if (pw.id === 'trail') p.trail = true
   else if (pw.id === 'greed') { p.greed = true; p.magnet += 12 }
 }
-function levelTo(p, lv) { while (p.lv < lv) { p.lv++; p.dmg *= 1.06; if (p.lv % 2 === 0) { p.max += 1; p.hp += 1 } } p.hp = p.max }
+const tierOf = (lv) => (lv >= 9 ? 3 : lv >= 6 ? 2 : lv >= 3 ? 1 : 0)
+export const TIER_NAME = ['', 'AWAKENED', 'ASCENDANT', 'RADIANT']
+function syncTier(p, quiet) {
+  while ((p.tier || 0) < tierOf(p.lv)) {
+    p.tier = (p.tier || 0) + 1
+    if (p.tier === 1) p.dmg *= 1.08; else if (p.tier === 2) { p.spd *= 1.08; p.dashCd *= 0.9; p.max += 1; p.hp += 1 } else { p.dmg *= 1.12; p.crit += 0.08; p.max += 1; p.hp += 1 }
+    if (!quiet) { ring(p.x, p.y, 50, 60, [col(CLASSES[p.cls].color)]); shake(0.6); if (p === lp()) { sfx('mission'); RG.msg = { text: 'YOU ASCEND: ' + TIER_NAME[p.tier], sub: ['', 'A RUNE RING WAKES AROUND YOU', 'LIGHT FLOWS BEHIND YOU WHEREVER YOU RUN', 'A HALO OF THE LAST LANTERN CROWNS YOU'][p.tier], color: '#ffe84a', t: 4 } } }
+  }
+}
+function trailStep(p, dt) { p.hT = (p.hT || 0) - dt; if (p.hT <= 0) { p.hT = 0.05; const h = p.hist || (p.hist = []); h.unshift([p.x, p.y]); if (h.length > 14) h.pop() } }
+function levelTo(p, lv) { while (p.lv < lv) { p.lv++; p.dmg *= 1.06; if (p.lv % 2 === 0) { p.max += 1; p.hp += 1 } } p.hp = p.max; syncTier(p, true) }
 function start(cfg = {}) {
   const net = RG.net && cfg.type === 'online' ? RG.net : null
   RG.net = net
-  RG.chapter = clamp(cfg.chapter | 0 || 1, 1, CHAPTERS.length); RG.floor = RG.chapter - 1; RG.floors = 1
+  RG.abyss = cfg.mode === 'abyss' && abyssOk()
+  RG.chapter = RG.abyss ? 1 : clamp(cfg.chapter | 0 || 1, 1, CHAPTERS.length); RG.floor = RG.chapter - 1; RG.floors = 1
   const me = mkPlayer(cfg.cls | 0, (profile.name || 'YOU').slice(0, 10), false, cfg.race | 0, cfg.pet | 0)
-  applyGear(me, cfg.weapon, cfg.power); levelTo(me, 1 + 2 * (RG.chapter - 1))
-  RG.players = [me]; RG.me = 0; RG.p = me; RG.pets = [mkPet(me)]; RG.traps = []; RG.rains = []; RG.meteors = []; RG.unlocked = unlockSnapshot(); RG.unlockBefore = unlockSnap()
+  applyGear(me, cfg.weapon, cfg.power, cfg.orb, cfg.relic); levelTo(me, RG.abyss ? 6 : 1 + 2 * (RG.chapter - 1))
+  RG.players = [me]; RG.me = 0; RG.p = me; RG.pets = mkPets([me]); RG.traps = []; RG.rains = []; RG.meteors = []; RG.unlocked = unlockSnapshot(); RG.unlockBefore = unlockSnap()
   RG.room = 0; RG.sub = null; RG.gold = 0; RG.kills = 0; RG.over = null; RG.paused = false; RG.t = 0; RG.fx = []; RG.eid = 1; RG.rk = 0; RG.bossT = 0; RG.found = { secret: false, lore: [] }
+  RG.ag = { urns: 0, streak: 0, shrines: 0, vault: false, puzzle: false, done: [] }; RG.slowT = 0
   G.mode = 'rogue'; engineEmit(); G.parts = []; G.pops = []; G.shake = 0; G.flash = 0
   RG.mode = 'play'; RG.tale = null
   enterRoom()
-  { const ch = CHAPTERS[RG.chapter - 1], me2 = lp(), line = RACE_LINE[RACES[me2.race].id], pl = PETS[me2.pet]; say(RG.chapter === 1 ? [...ch.intro, line, ['nova', 'Your ' + pl.name.toLowerCase() + ' will watch your back. Level up, learn new skills, unlock stronger weapons, and keep an eye out for cracked walls.']] : ch.intro) }
+  { const ch = CHAPTERS[RG.chapter - 1], me2 = lp(), line = RACE_LINE[RACES[me2.race].id], pl = PETS[me2.pet]
+    if (RG.abyss) say([['sys', 'BELOW THE FIVE FORESTS THE GRID KEPT A SIXTH PLACE: THE ABYSS. FIFTY ROOMS, EACH A LITTLE SCENARIO, EACH ONE DEEPER THAN THE LAST.'], ['nova', 'Nobody has ever reached the bottom. Rumour says the dungeon rewards those who play it differently: break the pots, walk untouched, kneel at the shrines. It keeps secrets for the curious.'], line, ['hero', 'Fifty rooms. Then let us count them.']])
+    else say(RG.chapter === 1 ? [...ch.intro, line, ['nova', (pl.id === 'none' ? 'You travel alone, which is brave. Companions unlock as you play. ' : 'Your ' + petInfo(pl.id).name.toLowerCase() + ' will watch your back and grow stronger with you. ') + 'CLICK to attack, level up, learn skills, unlock stronger weapons, and keep an eye out for cracked walls and clay pots.']] : ch.intro) }
   music.set('slugboss', 0); sfx('mission'); emitR()
 }
 function stop() { RG.mode = 'idle'; RG.paused = false; if (RG.net) { const n = RG.net; RG.net = null; if (n.onStop) try { n.onStop() } catch { /* ignore */ } } music.set('menu'); emitR() }
 const RUNE_COL = ['#ff4a8a', '#3de8ff', '#6aff9a', '#ffd23a', '#c58aff']
+const SIZE_OF = { ambush: 'combat', gauntlet: 'combat', survival: 'combat', trap: 'combat', shrine: 'treasure', merchant: 'treasure' }
 function enterRoom() {
-  const n = RG.players.length, ch = CHAPTERS[RG.chapter - 1]
-  RG.rtype = RG.sub === 'secret' ? 'secret' : ch.plan[Math.min(RG.room, ROOMS - 1)]
-  const [sx, sy] = ROOM_SIZE[RG.rtype]; RG.ax = AX = sx; RG.ay = AY = sy
+  const n = RG.players.length
+  const ar = RG.abyss && RG.sub !== 'secret' ? abyssRoom(Math.min(RG.room, ABYSS_ROOMS - 1)) : null
+  if (ar) { RG.floor = ar.biome; RG.chapter = ar.biome + 1 }
+  const ch = CHAPTERS[RG.chapter - 1]
+  RG.rtype = RG.sub === 'secret' ? 'secret' : ar ? ar.type : ch.plan[Math.min(RG.room, ROOMS - 1)]
+  const [sx, sy] = ROOM_SIZE[SIZE_OF[RG.rtype] || RG.rtype]; RG.ax = AX = sx; RG.ay = AY = sy
   RG.players.forEach((p, i) => {
     p.x = -AX + 6; p.y = (i - (n - 1) / 2) * 7; p.inv = 1; if (p.aegis) p.shield = 1
     if (!p.alive) { p.alive = true; p.hp = Math.max(1, Math.ceil(p.max / 2)) }
-    p.choices = null; p.swing = null
+    p.choices = null; p.swing = null; p.hist = []
   })
   RG.en = []; RG.eb = []; RG.pb = []; RG.loot = []; RG.open = false; RG.spawnQ = []; RG.rk++; RG.doorT = 0; RG.traps = []; RG.rains = []; RG.meteors = []
-  RG.puz = null; RG.chests = []; RG.secret = null
+  RG.puz = null; RG.chests = []; RG.secret = null; RG.hz = []; RG.urns = []; RG.surv = 0; RG.roomT = 0; RG.hurtRoom = false
   for (const pt of RG.pets) { pt.x = pt.owner.x - 2; pt.y = pt.owner.y + 2 }
   RG.obst = []
   const boss = RG.rtype === 'boss'
-  const k = RG.rtype === 'treasure' ? 1 : boss ? 3 : RG.rtype === 'puzzle' ? 2 : Math.round((AX * AY) / 330) + ((Math.random() * 3) | 0)
+  const quiet = RG.rtype === 'treasure' || RG.rtype === 'shrine' || RG.rtype === 'merchant'
+  const k = quiet ? 1 : boss ? 3 : RG.rtype === 'puzzle' ? 2 : Math.round((AX * AY) / 330) + ((Math.random() * 3) | 0)
   for (let i = 0; i < k; i++) {
     const w = 4 + 2 * ((Math.random() * 3) | 0), h = 4 + 2 * ((Math.random() * 3) | 0)
     const x = R(-AX + 16, AX - 14), y = R(-AY + 6, AY - 6)
@@ -176,28 +190,114 @@ function enterRoom() {
     RG.obst.push({ x, y, w, h, s: (Math.random() * 1000) | 0 })
   }
   RG.obst = RG.obst.filter((o) => !(Math.abs(o.x + AX - 6) < o.w / 2 + 8 && Math.abs(o.y) < o.h / 2 + 8 + n * 4))
-  const sc = (1 + RG.floor * 0.28) * (1 + 0.5 * (n - 1))
+  const dif = RG.abyss ? 1 + RG.room * 0.035 : 1
+  const sc = (1 + RG.floor * 0.28) * (1 + 0.5 * (n - 1)) * dif
+  const areaK = clamp((AX * AY) / 2300, 0.7, 2.3)
   const spawn = (type, x, y, delay, elite) => RG.spawnQ.push({ type, x, y, t: delay, sc, elite: !!elite })
-  const fight = (budget, eliteN) => {
+  const fight = (budget, eliteN, t0 = 0) => {
     let b = budget, i = 0
     const pool = ch.pool
-    while (b > 0) { const t = pool[(Math.random() * pool.length) | 0], cost = t === 'brute' ? 4 : t === 'caster' || t === 'imp' ? 3 : t === 'archer' || t === 'skeleton' ? 2 : 1.5; b -= cost; if (t === 'wolf') { const bx = R(-8, AX - 8), by = R(-AY + 6, AY - 6); for (let q = 0; q < 3; q++) spawn('wolf', bx + R(-3, 3), by + R(-3, 3), 0.8 + i * 0.35); b -= 2.5; i++ } else { spawn(t, R(-6, AX - 6), R(-AY + 4, AY - 4), 0.8 + i * 0.35); i++ } }
-    for (let q = 0; q < eliteN; q++) spawn(pool[(Math.random() * pool.length) | 0], R(6, AX - 8), R(-AY + 6, AY - 6), 1.2 + q * 0.6, true)
+    while (b > 0) { const t = pool[(Math.random() * pool.length) | 0], cost = t === 'brute' ? 4 : t === 'caster' || t === 'imp' ? 3 : t === 'archer' || t === 'skeleton' ? 2 : 1.5; b -= cost; if (t === 'wolf') { const bx = R(-8, AX - 8), by = R(-AY + 6, AY - 6); for (let q = 0; q < 3; q++) spawn('wolf', bx + R(-3, 3), by + R(-3, 3), t0 + 0.8 + i * 0.3); b -= 2.5; i++ } else { spawn(t, R(-6, AX - 6), R(-AY + 4, AY - 4), t0 + 0.8 + i * 0.3); i++ } }
+    for (let q = 0; q < eliteN; q++) spawn(pool[(Math.random() * pool.length) | 0], R(6, AX - 8), R(-AY + 6, AY - 6), t0 + 1.2 + q * 0.6, true)
   }
-  const budget = (6 + RG.chapter * 3 + RG.room * 2) * (1 + 0.4 * (n - 1))
-  if (boss) { spawn(BOSS[RG.floor], AX - 16, 0, 1.6); RG.bossT = 3.2; sfx('rgBoss'); speak(EN[BOSS[RG.floor]].name, 0.4, 0.9) }
+  const idx = RG.abyss ? RG.room : RG.room
+  const budget = ((6 + (RG.abyss ? 4 + RG.floor * 3 : RG.chapter * 3) + idx * (RG.abyss ? 0.5 : 2)) * (1 + 0.4 * (n - 1))) * areaK * 0.75
+  if (boss) { const bt = BOSS[Math.min(RG.floor, 4)]; spawn(bt, AX - 18, 0, 1.6); RG.bossT = 3.2; sfx('rgBoss'); speak(EN[bt].name, 0.4, 0.9) }
   else if (RG.rtype === 'combat') fight(budget, 0)
-  else if (RG.rtype === 'elite') fight(budget * 1.05, 2 + (n > 1 ? 1 : 0))
-  else if (RG.rtype === 'secret') fight(budget * 1.3, 3)
+  else if (RG.rtype === 'elite') fight(budget * 1.0, 2 + (n > 1 ? 1 : 0) + (RG.abyss ? 1 : 0))
+  else if (RG.rtype === 'secret') fight(budget * 1.2, 3)
+  else if (RG.rtype === 'ambush') { fight(budget * 0.5, 0, 0); for (let q = 0; q < Math.round(8 * areaK); q++) { const a = Math.random() * 6.28; spawn(ch.pool[(Math.random() * ch.pool.length) | 0], clamp(Math.cos(a) * AX * 0.9, -AX + 4, AX - 4), clamp(Math.sin(a) * AY * 0.9, -AY + 4, AY - 4), 3 + q * 0.25) } }
+  else if (RG.rtype === 'gauntlet') { fight(budget * 0.45, 0, 0); fight(budget * 0.45, 1, 14); fight(budget * 0.5, 1, 30) }
+  else if (RG.rtype === 'survival') { RG.surv = RG.survMax = 28 + RG.floor * 4; fight(budget * 0.35, 0) }
+  else if (RG.rtype === 'trap') { fight(budget * 0.7, 0); const nz = 4 + Math.round(areaK * 2); for (let q = 0; q < nz; q++) RG.hz.push({ x: R(-AX + 14, AX - 14), y: R(-AY + 6, AY - 6), w: R(6, 11), h: R(5, 9), ph: Math.random() * 3, on: false, warn: false }) }
   else if (RG.rtype === 'puzzle') initPuzzle(ch)
   else if (RG.rtype === 'treasure') { RG.chests.push({ x: AX * 0.3, y: 0, open: false, kind: 'treasure' }); RG.open = true }
+  else if (RG.rtype === 'shrine') { RG.chests.push({ x: AX * 0.2, y: 0, open: false, kind: 'shrine' }); RG.open = true }
+  else if (RG.rtype === 'merchant') {
+    const items = [['heart', 35, 'A HEART JAR', 'MAX HEARTS +1 AND A FULL HEAL'], ['perk', 55, 'A FREE PERK', 'PICK 1 OF 3 PERKS'], ['refresh', 25, 'SKILL SCROLL', 'ALL COOLDOWNS RESET'], ['tome', 45, 'AN XP TOME', 'GAIN A LEVEL']].sort(() => Math.random() - 0.5).slice(0, 3)
+    items.forEach((it, i) => RG.chests.push({ x: AX * 0.2 + 0, y: (i - 1) * 8, open: false, kind: 'shop', item: it[0], price: it[1] + RG.floor * 10, label: it[2], sub: it[3] }))
+    RG.open = true
+  }
+  // clay pots hide in many rooms: five of them hold a secret
+  if ((RG.rtype === 'combat' || RG.rtype === 'elite' || RG.rtype === 'ambush' || RG.rtype === 'trap' || RG.rtype === 'gauntlet' || RG.rtype === 'survival') && Math.random() < 0.55) for (let q = 0; q < 1 + (Math.random() < 0.4 ? 1 : 0); q++) RG.urns.push({ x: R(-AX + 10, AX - 12), y: R(-AY + 5, AY - 5), hp: 2 })
   // a hidden passage hides in one room of every chapter: a cracked wall that only opens once the room is quiet
-  if (RG.rtype !== 'secret' && !boss && RG.room === ch.secretRoom - 1) RG.secret = { x: R(-AX * 0.4, AX * 0.3), y: AY - 0.8, hp: 6, found: false }
+  if (!RG.abyss && RG.rtype !== 'secret' && !boss && RG.room === ch.secretRoom - 1) RG.secret = { x: R(-AX * 0.4, AX * 0.3), y: AY - 0.8, hp: 6, found: false }
   if (boss && RG.rtype === 'boss') say(ch.boss_in)
-  const label = { combat: 'ROOM ' + (RG.room + 1) + ' OF ' + ROOMS, elite: 'ELITE GUARD', puzzle: 'RUNE TRIAL', treasure: 'TREASURE ROOM', secret: 'THE HIDDEN VAULT', boss: 'SOMETHING STIRS IN THE DARK…' }[RG.rtype]
-  RG.msg = { text: RG.rtype === 'boss' ? 'BOSS: ' + EN[BOSS[RG.floor]].name : RG.room === 0 && RG.sub !== 'secret' ? ch.name : { combat: 'THE DEPTHS', elite: 'ELITE GUARD', puzzle: 'RUNE TRIAL', treasure: 'TREASURE ROOM', secret: 'HIDDEN VAULT' }[RG.rtype], sub: label, color: boss ? '#ff4a5a' : RG.rtype === 'secret' ? '#c58aff' : '#ffe84a', t: 2.6 }
+  if (RG.abyss && RG.room % 10 === 0 && RG.room > 0) say([['sys', 'THE ABYSS DEEPENS. ' + CHAPTERS[RG.floor].name + '.'], ['nova', ['', 'The marsh again, but older, and hungrier.', 'The crystals sing in a key you have not heard before.', 'The ember rooms are hotter than the ruins ever were.', 'There is no light left but yours. Hold the lantern high.'][RG.floor] || '']])
+  if (RG.abyss && RG.room >= 24) agenda('deep')
+  const lab = ar ? ar.title : { combat: 'ROOM ' + (RG.room + 1) + ' OF ' + ROOMS, elite: 'ELITE GUARD', puzzle: 'RUNE TRIAL', treasure: 'TREASURE ROOM', secret: 'THE HIDDEN VAULT', boss: 'SOMETHING STIRS IN THE DARK…' }[RG.rtype]
+  const head = ar ? 'ROOM ' + (RG.room + 1) + ' / ' + ABYSS_ROOMS : RG.rtype === 'boss' ? 'BOSS: ' + EN[BOSS[Math.min(RG.floor, 4)]].name : RG.room === 0 && RG.sub !== 'secret' ? ch.name : { combat: 'THE DEPTHS', elite: 'ELITE GUARD', puzzle: 'RUNE TRIAL', treasure: 'TREASURE ROOM', secret: 'HIDDEN VAULT' }[RG.rtype]
+  RG.msg = { text: head, sub: lab + (RG.rtype === 'ambush' ? ' · THEY ARE COMING FROM EVERYWHERE' : RG.rtype === 'survival' ? ' · SURVIVE ' + RG.surv + 's' : RG.rtype === 'trap' ? ' · WATCH THE FLOOR' : RG.rtype === 'shrine' ? ' · KNEEL FOR A BLESSING' : RG.rtype === 'merchant' ? ' · SPEND YOUR GOLD' : ''), color: boss ? '#ff4a5a' : RG.rtype === 'secret' ? '#c58aff' : '#ffe84a', t: 3 }
   sfx('rgDoor')
 }
+function agenda(id) {
+  if (!RG.ag || RG.ag.done.includes(id)) return
+  if (!markAgenda(id)) { RG.ag.done.push(id); return }
+  RG.ag.done.push(id)
+  const a = AGENDAS.find((x) => x.id === id), orb = ORBS.find((x) => x.id === a.orb), rel = RELICS.find((x) => x.id === a.relic)
+  RG.msg = { text: 'HIDDEN AGENDA: ' + a.name, sub: 'YOU WON ' + orb.ico + ' ' + orb.name + ' AND THE ' + rel.ico + ' ' + rel.name + ' SKILL (KEY F)', color: '#c58aff', t: 6 }
+  sfx('mission'); sfx('rgPerk'); shake(1); flash(0.3, [0.8, 0.5, 1]); const p = lp(); if (p) { ring(p.x, p.y, 60, 60, [col('#c58aff')]); for (let i = 0; i < 30; i++) part(p.x, p.y, R(-40, 40), R(5, 50), R(0.5, 1.2), col('#c58aff'), R(1.2, 2)) }
+}
+
+// ---------- the Abyss rooms: hazards, survival, pots, shrines and shops ----------
+function stepHazards(dt) {
+  for (const z of RG.hz) {
+    const c = (RG.t + z.ph) % 3.2
+    z.warn = c > 1.6 && c < 2.3; z.on = c >= 2.3
+    if (z.on) for (const q of RG.players) if (q.alive && Math.abs(q.x - z.x) < z.w / 2 && Math.abs(q.y - z.y) < z.h / 2) hurtPlayer(q, 1)
+  }
+}
+function stepSurvival(dt) {
+  if (RG.rtype !== 'survival' || RG.surv <= 0) return
+  RG.surv -= dt
+  RG.survT = (RG.survT || 0) - dt
+  if (RG.survT <= 0 && RG.surv > 0) { RG.survT = Math.max(2.2, 4.4 - RG.floor * 0.4); const ch = CHAPTERS[RG.chapter - 1], nn = 2 + RG.floor; for (let q = 0; q < nn; q++) { const a = Math.random() * 6.28; RG.spawnQ.push({ type: ch.pool[(Math.random() * ch.pool.length) | 0], x: clamp(Math.cos(a) * AX * 0.9, -AX + 4, AX - 4), y: clamp(Math.sin(a) * AY * 0.9, -AY + 4, AY - 4), t: 0.6 + q * 0.2, sc: (1 + RG.floor * 0.28) * (1 + RG.room * 0.035) }) } }
+  if (RG.surv <= 0) { RG.surv = 0; RG.msg = { text: 'YOU SURVIVED', sub: 'FINISH OFF WHAT IS LEFT', color: '#6aff9a', t: 2 }; sfx('mission') }
+}
+function hitUrns(x, y, r) {
+  for (const u of RG.urns) {
+    if (u.hp <= 0 || Math.hypot(u.x - x, u.y - y) > r) continue
+    u.hp--; sfx('rgSwing'); for (let i = 0; i < 6; i++) part(u.x, u.y, R(-16, 16), R(0, 24), 0.5, col('#b87a4a'), R(0.8, 1.5))
+    if (u.hp <= 0) {
+      sfx('rgKill'); RG.ag.urns++
+      for (let i = 0; i < 4; i++) RG.loot.push({ k: 'gold', x: u.x + R(-1, 1), y: u.y + R(-1, 1), vx: R(-10, 10), vy: R(-10, 10), v: 1 })
+      if (Math.random() < 0.25) RG.loot.push({ k: 'heart', x: u.x, y: u.y, vx: 0, vy: 0, v: 1 })
+      RG.msg = { text: 'A CLAY POT SHATTERS', sub: 'POTS BROKEN THIS RUN: ' + RG.ag.urns + ' / 5', color: '#d8a070', t: 2 }
+      if (RG.ag.urns >= 5) agenda('urns')
+    }
+  }
+  RG.urns = RG.urns.filter((u) => u.hp > 0)
+}
+// orbs float beside you and do a small, constant job
+function stepOrb(p, dt) {
+  if (p.orb === 'none' || !p.alive) return
+  p.orbA += dt * 2.6; p.orbT -= dt
+  const ox = p.x + Math.cos(p.orbA) * 3.2, oy = p.y + Math.sin(p.orbA) * 3.2, lv = p.lv
+  if (p.orb === 'ember') { if (p.orbT <= 0) { p.orbT = 0.5; for (const e of RG.en) if (!e.dead && e.spawnT <= 0 && Math.hypot(e.x - p.x, e.y - p.y) < 8 + e.def.r) { hitEnemy(e, 3 + lv * 0.6, false, 0, 0, 0, p); e.burn = e.burn || { t: 2, dps: 3, by: p } } part(ox, oy, R(-6, 6), R(2, 10), 0.4, col('#ff8a2a'), 1.3) } }
+  else if (p.orb === 'frost') { for (const e of RG.en) if (!e.dead && e.spawnT <= 0 && Math.hypot(e.x - p.x, e.y - p.y) < 11 + e.def.r) e.frozen = Math.max(e.frozen || 0, 0.35); if (Math.random() < 0.2) part(ox, oy, R(-6, 6), R(2, 10), 0.4, col('#7ad8ff'), 1.2) }
+  else if (p.orb === 'storm') { if (p.orbT <= 0) { const ne = nearestEnemy(p.x, p.y, 28); if (ne) { p.orbT = 2.2; RG.fx.push({ k: 'zap', l: 0.2, x0: ox, y0: oy, x1: ne.e.x, y1: ne.e.y }); hitEnemy(ne.e, 10 + lv * 2.2, false, 0, 0, 0, p); sfx('tdZap') } else p.orbT = 0.5 } }
+  else if (p.orb === 'aegis') { if (p.orbT <= 0) { p.orbT = 7; if (p.shield < 1) { p.shield = 1; ring(p.x, p.y, 20, 30, [col('#6ac8ff')]); sfx('deflect') } } }
+  else if (p.orb === 'gravity') {
+    for (const l of RG.loot) { const d = Math.hypot(l.x - p.x, l.y - p.y); if (d < 30 && d > 1) { l.x += ((p.x - l.x) / d) * 40 * dt; l.y += ((p.y - l.y) / d) * 40 * dt } }
+    for (const e of RG.en) if (!e.dead && e.spawnT <= 0 && !e.def.boss) { const d = Math.hypot(e.x - ox, e.y - oy); if (d < 13 && d > 1) { e.x += ((ox - e.x) / d) * 5 * dt; e.y += ((oy - e.y) / d) * 5 * dt; e.frozen = Math.max(e.frozen || 0, 0.25) } }
+  }
+}
+// the relic skill (key F): the reward of a hidden agenda
+function relicSkill(p) {
+  if (RG.mode !== 'play' || !p.alive || p.relic === 'none' || p.rT > 0) return
+  const def = RELICS.find((x) => x.id === p.relic); if (!def) return
+  p.rT = def.cd; const lv = p.lv, d0 = 8 + lv * 2
+  let aim = p.aimPt && G.time - p.aimT < 2.5 ? p.aimPt : null
+  if (p.relic === 'flamedash') { const a = aim ? Math.atan2(aim.y - p.y, aim.x - p.x) : p.face; p.dx = Math.cos(a); p.dy = Math.sin(a); p.dash = 0.28; p.bash = 0.35; p.inv = Math.max(p.inv, 0.5); p.face = a; p.trail = true; p.flameT = 0.6; sfx('rgBoss'); RG.fx.push({ k: 'whirl', l: 0.3, p }) }
+  else if (p.relic === 'spiritshield') { p.inv = Math.max(p.inv, 3.5); p.shield = Math.max(p.shield, 1); ring(p.x, p.y, 40, 40, [col('#c8d8ff')]); sfx('deflect') }
+  else if (p.relic === 'chain') { const hit = []; let cur = { x: p.x, y: p.y }; for (let k = 0; k < 6; k++) { let best = null; for (const e of RG.en) { if (e.dead || e.spawnT > 0 || hit.includes(e)) continue; const dd = Math.hypot(e.x - cur.x, e.y - cur.y); if (dd < 26 && (!best || dd < best.d)) best = { e, d: dd } } if (!best) break; hit.push(best.e); RG.fx.push({ k: 'zap', l: 0.25, x0: cur.x, y0: cur.y, x1: best.e.x, y1: best.e.y }); hitEnemy(best.e, d0 * 1.6 + 6, false, 0, 0, 0, p); cur = best.e } if (hit.length) sfx('tdZap') }
+  else if (p.relic === 'drain') { let n = 0; for (const e of RG.en) if (!e.dead && e.spawnT <= 0 && Math.hypot(e.x - p.x, e.y - p.y) < 13 + e.def.r) { hitEnemy(e, d0, false, 0, 0, 0, p); n++; for (let i = 0; i < 3; i++) part(e.x, e.y, (p.x - e.x) * 2, (p.y - e.y) * 2, 0.4, col('#c58aff'), 1.3) } p.hp = Math.min(p.max, p.hp + Math.min(3, Math.ceil(n / 3))); ring(p.x, p.y, 40, 40, [col('#c58aff')]); sfx('rgBoss') }
+  else if (p.relic === 'timeslow') { RG.slowT = 5; ring(p.x, p.y, 50, 60, [col('#9ad8ff')]); sfx('tdIce'); flash(0.2, [0.6, 0.8, 1]) }
+  else if (p.relic === 'frostwave') { for (const e of RG.en) if (!e.dead && e.spawnT <= 0 && Math.hypot(e.x - p.x, e.y - p.y) < 19 + e.def.r) { hitEnemy(e, d0 * 0.6, false, 0, 0, 0, p); e.frozen = Math.max(e.frozen || 0, 2.6) } RG.eb = RG.eb.filter((b) => Math.hypot(b.x - p.x, b.y - p.y) > 19); RG.fx.push({ k: 'nova', l: 0.6, p }); shake(0.6); sfx('tdIce') }
+  ring(p.x, p.y, 30, 50, [col(RELIC_COL[p.relic] || '#ffffff')])
+}
+const RELIC_COL = { flamedash: '#ff8a2a', spiritshield: '#c8d8ff', chain: '#ffe84a', drain: '#c58aff', timeslow: '#9ad8ff', frostwave: '#7ad8ff' }
+
 // ---------- rune trial ----------
 function initPuzzle(ch) {
   const n = RG.chapter <= 1 ? 3 : RG.chapter <= 3 ? 4 : 5
@@ -235,13 +335,22 @@ function solvePuzzle() {
   RG.msg = { text: 'THE RUNES ARE AWAKE', sub: 'A CHEST RISES FROM THE FLOOR', color: '#6aff9a', t: 2.6 }; sfx('mission'); shake(0.8)
   for (const r of z.runes) { r.lit = 3; ring(r.x, r.y, 24, 30, [col(r.c)]) }
 }
+function buyItem(c, who) {
+  c.open = true; sfx('rgPerk'); ring(c.x, c.y, 24, 40, [col('#ffd23a')])
+  if (c.item === 'heart') for (const q of RG.players) { q.max += 1; q.hp = q.max } else if (c.item === 'perk') offerPerks()
+  else if (c.item === 'refresh') for (const q of RG.players) { q.spT = q.sT2 = q.sT3 = q.rT = q.dashT = 0 } else if (c.item === 'tome') gainXp(who, xpNeed(who.lv) - who.xp + 1)
+  RG.msg = { text: 'BOUGHT: ' + c.label, sub: c.sub, color: '#ffd23a', t: 2.6 }
+}
 function openChest(c, by) {
+  if (c.kind === 'shrine') { c.open = true; sfx('rgPerk'); shake(0.5); ring(c.x, c.y, 40, 50, [col('#9ae8ff')]); for (const q of RG.players) { q.hp = q.max; q.shield = Math.max(q.shield, 1) } RG.ag.shrines++; RG.msg = { text: 'THE SHRINE BLESSES YOU', sub: 'FULL HEALTH · SHIELD · A FREE PERK · SHRINES KNELT AT: ' + RG.ag.shrines, color: '#9ae8ff', t: 3.5 }; offerPerks(); if (RG.ag.shrines >= 3) agenda('shrine'); return }
   c.open = true; sfx('rgPerk'); shake(0.5); ring(c.x, c.y, 30, 40, [col('#ffd23a')])
   for (let i = 0; i < 18; i++) part(c.x, c.y, R(-26, 26), R(8, 40), R(0.5, 1.1), col('#ffd23a'), R(1, 1.8))
   const ch = CHAPTERS[RG.chapter - 1]
   let text = '', sub = ''
   if (c.kind === 'puzzle' || c.kind === 'vault') {
     const id = 'L' + RG.chapter + (c.kind === 'puzzle' ? 'a' : 'b'), tab = LORE.find((x) => x.id === id)
+    if (c.kind === 'puzzle') RG.ag.puzzle = true; else RG.ag.vault = true
+    if (RG.ag.puzzle && RG.ag.vault) agenda('collector')
     if (c.kind === 'vault') { const fresh = markSecret(RG.chapter); RG.found.secret = true; if (fresh) sub = 'THE SECRET OF ' + ch.name + ' IS YOURS. ' }
     if (tab && markLore(id)) { RG.found.lore.push(id); text = 'LORE TABLET: ' + tab.title; sub += tab.text.slice(0, 80) + '…' } else { text = c.kind === 'vault' ? 'VAULT TREASURE' : 'RUNE TREASURE'; sub += 'GOLD AND HEARTS' }
     RG.gold += 30 + RG.chapter * 12
@@ -287,36 +396,80 @@ function gainXp(p, base) {
     p.dmg *= 1.06; if (p.lv % 2 === 0) { p.max += 1 } p.hp = Math.min(p.max, p.hp + 2); p.lvT = 1.6
     const sk = SKILLS[CLASSES[p.cls].id].find((k) => k.lv === p.lv)
     ring(p.x, p.y, 36, 46, [col('#ffe84a')]); for (let i = 0; i < 24; i++) part(p.x, p.y, R(-26, 26), R(10, 50), R(0.5, 1.1), col('#ffe84a'), R(0.9, 1.6))
+    syncTier(p, false)
     if (p === lp()) { sfx('rgPerk'); sfx('mission'); RG.msg = { text: 'LEVEL UP!  LV ' + p.lv, sub: sk ? 'NEW SKILL: ' + sk.name + ' (' + ['Q', 'E', 'R'][SKILLS[CLASSES[p.cls].id].indexOf(sk)] + ')' : (p.lv % 2 === 0 ? '+1 HEART · STRONGER' : 'STRONGER'), color: '#ffe84a', t: 3 } }
   }
 }
 const xpFor = (e) => Math.round(e.def.hp * 0.22) + 3 + (e.def.boss ? 40 : 0)
-function mkPet(p) { return { type: PETS[p.pet].id, owner: p, x: p.x - 3, y: p.y, face: 0, atkT: 1, act: 0, hv: 0, t: Math.random() * 6, heal: 8 } }
+function mkPet(p) {
+  const def = PETS[p.pet]; if (!def || def.id === 'none') return null
+  const info = petInfo(def.id)
+  return { type: def.id, owner: p, x: p.x - 3, y: p.y, face: 0, atkT: 1, act: 0, hv: 0, t: Math.random() * 6, heal: 8, lv: info.lv, st: info.stage, cd2: 6, used: false, p2: 0 }
+}
+const mkPets = (ps) => ps.map(mkPet).filter(Boolean)
+function petGrow(o, xp) {
+  const pt = RG.pets.find((x) => x.owner === o); if (!pt) return
+  const up = petGain(pt.type, xp)
+  if (up) {
+    const was = pt.st; pt.lv = up; pt.st = petStageOf(up)
+    ring(pt.x, pt.y, 24, 40, [col(PETS[o.pet].color)]); sfx('rgPerk')
+    if (o === lp()) { const nm = petInfo(pt.type).name; RG.msg = pt.st > was ? { text: 'YOUR COMPANION EVOLVED!', sub: nm + ' · LEVEL ' + up, color: '#ffe84a', t: 4 } : { text: PETS[o.pet].name + ' LEVEL ' + up, sub: 'IT GROWS STRONGER', color: '#9ae8ff', t: 2.4 } }
+  }
+}
+const PET_AIR = new Set(['eagle', 'owl', 'sprite', 'dragon', 'phoenix'])
 function stepPets(dt) {
   for (const pt of RG.pets) {
     const o = pt.owner
     if (!o || !o.alive) continue
-    pt.t += dt; pt.atkT -= dt; pt.act = Math.max(0, pt.act - dt)
-    const lv = o.lv
+    pt.t += dt; pt.atkT -= dt; pt.act = Math.max(0, pt.act - dt); pt.cd2 -= dt
+    const lv = pt.lv, st = pt.st, base = 4 + lv * 1.8
     const ne = nearestEnemy(o.x, o.y, 26)
-    // follow the owner, or chase an enemy (wolf)
-    let tx = o.x - Math.cos(o.face) * 3.2 + Math.sin(pt.t * 1.5) * 1.4, ty = o.y - Math.sin(o.face) * 3.2 + Math.cos(pt.t * 1.3) * 1.4
-    if (pt.type === 'wolf' && ne && ne.d < 22) { tx = ne.e.x; ty = ne.e.y }
-    if (pt.type === 'dragon' || pt.type === 'owl' || pt.type === 'sprite') { tx = o.x + Math.cos(pt.t * 0.9) * 4.5; ty = o.y + Math.sin(pt.t * 0.9) * 3.5 + 1.5 }
-    const dx = tx - pt.x, dy = ty - pt.y, d = Math.hypot(dx, dy) || 1, sp = pt.type === 'wolf' ? 34 : 26
+    const ground = !PET_AIR.has(pt.type)
+    let tx = o.x - Math.cos(o.face) * 3.4 + Math.sin(pt.t * 1.5) * 1.4, ty = o.y - Math.sin(o.face) * 3.4 + Math.cos(pt.t * 1.3) * 1.4
+    if (ground && (pt.type === 'wolf' || pt.type === 'lion' || pt.type === 'tiger') && ne && ne.d < 22) { tx = ne.e.x; ty = ne.e.y }
+    if (!ground) { tx = o.x + Math.cos(pt.t * (pt.type === 'eagle' ? 1.4 : 0.9)) * (4.5 + st); ty = o.y + Math.sin(pt.t * (pt.type === 'eagle' ? 1.4 : 0.9)) * (3.5 + st) + 1.5 }
+    const dx = tx - pt.x, dy = ty - pt.y, d = Math.hypot(dx, dy) || 1, sp = (pt.type === 'wolf' || pt.type === 'tiger' ? 38 : 28) * (1 + st * 0.1)
     if (d > 0.6) { pt.x += (dx / d) * Math.min(d, sp * dt * (d > 10 ? 2 : 1)); pt.y += (dy / d) * Math.min(d, sp * dt * (d > 10 ? 2 : 1)); pt.face = Math.atan2(dy, dx) }
     if (ne) pt.face = Math.atan2(ne.e.y - pt.y, ne.e.x - pt.x)
-    if (pt.type === 'wolf' && ne && pt.atkT <= 0 && Math.hypot(ne.e.x - pt.x, ne.e.y - pt.y) < ne.e.def.r + 2.6) { pt.atkT = 0.7; pt.act = 0.25; hitEnemy(ne.e, 5 + lv * 1.6, false, 25, Math.cos(pt.face), Math.sin(pt.face), o); sfx('rgSwing') }
-    else if (pt.type === 'owl' && ne && pt.atkT <= 0) { pt.atkT = 1.1; pt.act = 0.2; const a = Math.atan2(ne.e.y - pt.y, ne.e.x - pt.x); RG.pb.push({ x: pt.x, y: pt.y, vx: Math.cos(a) * 70, vy: Math.sin(a) * 70, dmg: 4 + lv * 1.4, crit: false, pierce: 0, homing: true, life: 1.2, c: '#e8d29a', hit: new Set(), by: o }); sfx('rgShot') }
-    else if (pt.type === 'dragon' && ne && pt.atkT <= 0 && ne.d < 18) {
-      pt.atkT = 2.4; pt.act = 0.6
-      const a = Math.atan2(ne.e.y - pt.y, ne.e.x - pt.x)
-      for (const e of RG.en) { if (e.dead || e.spawnT > 0) continue; const ex = e.x - pt.x, ey = e.y - pt.y, dist = Math.hypot(ex, ey); if (dist > 15 + e.def.r) continue; let da = Math.atan2(ey, ex) - a; da = Math.atan2(Math.sin(da), Math.cos(da)); if (Math.abs(da) < 0.55) hitEnemy(e, 9 + lv * 2.2, false, 0, 0, 0, o) }
-      for (let i = 0; i < 26; i++) { const aa = a + R(-0.45, 0.45), sp2 = R(20, 46); part(pt.x, pt.y, Math.cos(aa) * sp2, Math.sin(aa) * sp2, R(0.25, 0.6), col(['#ff6a3a', '#ffb04a', '#ffe84a'][(Math.random() * 3) | 0]), R(1.1, 2)) }
-      sfx('rgBoss')
+    const nearE = (r) => RG.en.filter((e) => !e.dead && e.spawnT <= 0 && Math.hypot(e.x - pt.x, e.y - pt.y) < r + e.def.r)
+    const bite = (e, mul, kb = 25) => hitEnemy(e, base * mul, false, kb, Math.cos(pt.face), Math.sin(pt.face), o)
+    if (pt.type === 'wolf') {
+      if (ne && pt.atkT <= 0) { const t = nearE(2.8)[0]; if (t) { pt.atkT = 0.7; pt.act = 0.25; bite(t, 1.2); if (st >= 1) t.burn = { t: 3, dps: 2 + lv * 0.3, by: o }; sfx('rgSwing') } }
+      if (st >= 2 && pt.cd2 <= 0 && RG.en.length) { pt.cd2 = 12; pt.act = 0.8; for (const q of RG.players) if (q.alive) q.buff = Math.max(q.buff, 4); ring(pt.x, pt.y, 40, 50, [col('#9aa4b8')]); sfx('rgBoss') }
+    } else if (pt.type === 'lion') {
+      if (ne && pt.atkT <= 0) { const t = nearE(5); if (t.length) { pt.atkT = 1.0; pt.act = 0.3; for (const e of t) { bite(e, 1.1, 40); e.frozen = Math.max(e.frozen || 0, 0.6) } sfx('rgSwing') } }
+      if (st >= 1 && pt.cd2 <= 0 && RG.en.length) { pt.cd2 = 10; pt.act = 0.9; ring(pt.x, pt.y, 40, 60, [col('#e0a040')]); shake(0.5); sfx('rgBoss'); for (const e of nearE(14)) { e.frozen = Math.max(e.frozen || 0, 1.0); hitEnemy(e, base * 0.8, false, 80, (e.x - pt.x) / 6, (e.y - pt.y) / 6, o) } }
+      if (st >= 2) { pt.p2 -= dt; if (pt.p2 <= 0) { pt.p2 = 0.5; for (const e of nearE(7)) hitEnemy(e, 2 + lv * 0.5, false, 0, 0, 0, o); part(pt.x, pt.y, R(-8, 8), R(4, 14), 0.4, col('#ffb02e'), 1.4) } }
+    } else if (pt.type === 'tiger') {
+      if (pt.atkT <= 0 && RG.en.length) {
+        let far = null; for (const e of RG.en) { if (e.dead || e.spawnT > 0) continue; const dd = Math.hypot(e.x - pt.x, e.y - pt.y); if (dd < 30 && (!far || dd > far.d)) far = { e, d: dd } }
+        if (far) { pt.atkT = 2.6 - st * 0.4; pt.act = 0.35; pt.x = far.e.x - Math.cos(pt.face) * 2; pt.y = far.e.y - Math.sin(pt.face) * 2; hitEnemy(far.e, base * 2.2, true, 60, Math.cos(pt.face), Math.sin(pt.face), o); if (st >= 2) far.e.burn = { t: 3, dps: 3 + lv * 0.4, by: o }; if (st >= 1) { const o2 = nearE(10).find((e) => e !== far.e); if (o2) { hitEnemy(o2, base * 1.6, true, 40, 0, 0, o) } } sfx('rgSwing'); ring(pt.x, pt.y, 14, 30, [col('#ff8a2a')]) }
+      }
+    } else if (pt.type === 'bear') {
+      if (!pt.armored) { pt.armored = true; o.armor = Math.min(0.5, o.armor + 0.05 * (st + 1)) }
+      if (pt.atkT <= 0) { const t = nearE(6).filter((e) => Math.hypot(e.x - o.x, e.y - o.y) < 9); if (t.length) { pt.atkT = 3.2 - st * 0.5; pt.act = 0.5; shake(0.4); ring(pt.x, pt.y, 24, 40, [col('#8a6a4a')]); sfx('rgBoss'); for (const e of t) hitEnemy(e, base * 1.5, false, 70, (e.x - pt.x) / 5, (e.y - pt.y) / 5, o) } }
+    } else if (pt.type === 'eagle') {
+      if (ne && pt.atkT <= 0) { pt.atkT = 1.3 - st * 0.2; pt.act = 0.25; const n = 1 + st; for (let i = 0; i < n; i++) { const a = Math.atan2(ne.e.y - pt.y, ne.e.x - pt.x) + (i - (n - 1) / 2) * 0.22; RG.pb.push({ x: pt.x, y: pt.y, vx: Math.cos(a) * 80, vy: Math.sin(a) * 80, dmg: base * (st >= 1 && Math.random() < 0.25 ? 2 : 1), crit: false, pierce: st, homing: true, life: 1.2, c: '#e8d29a', hit: new Set(), by: o }) } sfx('rgShot') }
+    } else if (pt.type === 'owl') {
+      if (ne && pt.atkT <= 0) { pt.atkT = 1.1; pt.act = 0.2; const a = Math.atan2(ne.e.y - pt.y, ne.e.x - pt.x); RG.pb.push({ x: pt.x, y: pt.y, vx: Math.cos(a) * 70, vy: Math.sin(a) * 70, dmg: base, crit: false, pierce: st, homing: true, life: 1.2, c: '#e8d29a', hit: new Set(), by: o }); sfx('rgShot') }
+    } else if (pt.type === 'dragon') {
+      if (ne && pt.atkT <= 0 && ne.d < 20) {
+        pt.atkT = 2.5 - st * 0.35; pt.act = 0.6
+        const a = Math.atan2(ne.e.y - pt.y, ne.e.x - pt.x), len = 15 + st * 3, wid = 0.55 + st * 0.18
+        for (const e of nearE(len)) { const ex = e.x - pt.x, ey = e.y - pt.y; let da = Math.atan2(ey, ex) - a; da = Math.atan2(Math.sin(da), Math.cos(da)); if (Math.abs(da) < wid) { hitEnemy(e, base * 1.7, false, 0, 0, 0, o); e.burn = { t: 3, dps: 2 + lv * 0.4, by: o } } }
+        for (let i = 0; i < 26 + st * 10; i++) { const aa = a + R(-wid, wid), sp2 = R(20, 46); part(pt.x, pt.y, Math.cos(aa) * sp2, Math.sin(aa) * sp2, R(0.25, 0.6), col(['#ff6a3a', '#ffb04a', '#ffe84a'][(Math.random() * 3) | 0]), R(1.1, 2)) }
+        sfx('rgBoss')
+      }
     } else if (pt.type === 'sprite') {
       pt.heal -= dt
-      if (pt.heal <= 0) { pt.heal = 9; if (o.hp < o.max) { o.hp = Math.min(o.max, o.hp + 1); pt.act = 0.5; ring(o.x, o.y, 14, 24, [col('#ff9ae8')]); sfx('rgPerk') } else if (o.shield < 1) { o.shield = 1; pt.act = 0.5; ring(o.x, o.y, 14, 24, [col('#6ac8ff')]) } }
+      if (pt.heal <= 0) {
+        pt.heal = 9 - st
+        const tg = st >= 1 ? RG.players.filter((q) => q.alive && q.hp < q.max) : (o.hp < o.max ? [o] : [])
+        if (tg.length) { for (const q of tg) q.hp = Math.min(q.max, q.hp + 1); pt.act = 0.5; ring(o.x, o.y, 14, 24, [col('#ff9ae8')]); sfx('rgPerk') }
+        else if (st >= 0 && o.shield < 1) { o.shield = 1; pt.act = 0.5; ring(o.x, o.y, 14, 24, [col('#6ac8ff')]) }
+      }
+    } else if (pt.type === 'phoenix') {
+      if (st >= 2) { pt.p2 -= dt; if (pt.p2 <= 0) { pt.p2 = 0.5; for (const e of nearE(8)) { hitEnemy(e, 3 + lv * 0.6, false, 0, 0, 0, o); e.burn = e.burn || { t: 2, dps: 3, by: o } } part(pt.x, pt.y, R(-8, 8), R(4, 14), 0.4, col('#ffb02e'), 1.5) } }
     }
   }
 }
@@ -363,16 +516,19 @@ function killEnemy(e) {
   if (Math.random() < 0.07 || e.def.boss) RG.loot.push({ k: 'heart', x: e.x, y: e.y, vx: 0, vy: 0, v: 1 })
   const by = e.by
   if (by && by.alive && by.vamp && Math.random() < by.vamp) { by.hp = Math.min(by.max, by.hp + 1) }
+  if (by && by.alive && by.orb === 'vampire') { by.vk++; if (by.vk >= 8) { by.vk = 0; by.hp = Math.min(by.max, by.hp + 1); part(by.x, by.y, 0, 14, 0.6, col('#ff4a6a'), 1.6) } }
   const xp = xpFor(e)
+  for (const q of RG.players) if (q.alive && q.pet) petGrow(q, Math.max(1, Math.round(xp * 0.5)))
   for (const q of RG.players) { gainXp(q, q === by ? xp : Math.round(xp * 0.6)); if (q.alive && q.race === 3 && q === by) { q.killHeal++; if (q.killHeal >= 6) { q.killHeal = 0; q.hp = Math.min(q.max, q.hp + 1); part(q.x, q.y, 0, 14, 0.6, col('#6aff9a'), 1.6) } } }
 }
 function hurtPlayer(p, d) {
   if (!p.alive || p.inv > 0 || p.dash > 0 || RG.mode !== 'play') return
   if (p.shield > 0) { p.shield--; p.inv = 0.6; sfx('deflect'); ring(p.x, p.y, 16, 30, [col('#6ac8ff')]); return }
   if (p.armor && Math.random() < p.armor) { p.inv = 0.5; sfx('deflect'); for (let i = 0; i < 6; i++) part(p.x, p.y, R(-20, 20), R(-20, 20), 0.3, col('#cfd6e8'), 1.1); return }
-  p.hp -= d; p.inv = 1.0; p.hurtT = 0.3
+  p.hp -= d; p.inv = 1.0; p.hurtT = 0.3; RG.hurtRoom = true
   if (p === lp()) { sfx('rgHurt'); shake(1); flash(0.2, [1, 0.2, 0.2]) }
   for (let i = 0; i < 10; i++) part(p.x, p.y, R(-30, 30), R(-30, 30), 0.4, col('#ff4a5a'), R(0.8, 1.4))
+  if (p.hp <= 0) { const ph = RG.pets.find((x) => x.owner === p && x.type === 'phoenix' && !x.used); if (ph) { ph.used = true; ph.act = 1; p.hp = Math.max(1, Math.ceil(p.max / 2)); p.inv = 2.5; ring(p.x, p.y, 50, 60, [col('#ffb02e')]); shake(1); sfx('rgBoss'); for (let i = 0; i < 30; i++) part(p.x, p.y, R(-40, 40), R(5, 50), R(0.5, 1.2), col(['#ff6a3a', '#ffb04a', '#ffe84a'][(Math.random() * 3) | 0]), R(1.2, 2.2)); if (ph.st >= 1) for (const q of RG.players) if (q.alive) q.hp = Math.min(q.max, q.hp + 2); RG.msg = { text: 'THE PHOENIX RISES!', sub: 'YOU ARE BACK ON YOUR FEET', color: '#ffb02e', t: 2.6 }; return } }
   if (p.hp <= 0 && p.rise > 0) { p.rise--; p.hp = Math.max(1, Math.ceil(p.max / 2)); p.inv = 2; RG.msg = { text: 'THE UNDEAD RISE AGAIN', sub: '', color: '#6aff9a', t: 2 }; ring(p.x, p.y, 40, 50, [col('#6aff9a')]); sfx('rgBoss'); return }
   if (p.hp <= 0) {
     p.hp = 0; p.alive = false; sfx('rgBoss')
@@ -386,16 +542,18 @@ function finish(win) {
   const ch = CHAPTERS[RG.chapter - 1]
   const roomsDone = RG.room + (win ? 1 : 0)
   const lore = (RG.found ? RG.found.lore.length : 0), sec = RG.found && RG.found.secret ? 1 : 0
-  const score = Math.round(RG.chapter * 1800 + roomsDone * 160 + RG.kills * 10 + RG.gold * 2 + lore * 250 + sec * 600 + (win ? 3500 + RG.chapter * 500 : 0))
+  const abyss = RG.abyss
+  const score = abyss ? Math.round(roomsDone * 230 + RG.kills * 10 + RG.gold * 2 + lore * 250 + (win ? 12000 : 0)) : Math.round(RG.chapter * 1800 + roomsDone * 160 + RG.kills * 10 + RG.gold * 2 + lore * 250 + sec * 600 + (win ? 3500 + RG.chapter * 500 : 0))
   const me = lp()
-  if (win) markCleared(RG.chapter)
-  RG.over = { win, chapter: RG.chapter, chName: ch.name, room: RG.room + 1, floor: RG.chapter, kills: RG.kills, gold: RG.gold, score, perks: me ? me.perks.length : 0, cls: CLASSES[me ? me.cls : 0].name, coop: RG.players.length > 1, epilogue: win ? ch.outro : '', lv: me ? me.lv : 1, race: me ? RACES[me.race].name : '', pet: me ? PETS[me.pet].name : '', lore, secret: !!sec, next: win && RG.chapter < CHAPTERS.length ? CHAPTERS[RG.chapter].name : '', complete: win && RG.chapter === CHAPTERS.length, weapon: me ? me.wid : '', power: me ? me.pw : '' }
+  if (win && !abyss) markCleared(RG.chapter)
+  if (abyss) markAbyss(roomsDone)
+  RG.over = { win, abyss, rooms: roomsDone, chapter: RG.chapter, chName: abyss ? 'THE ABYSS' : ch.name, room: RG.room + 1, floor: RG.chapter, kills: RG.kills, gold: RG.gold, score, perks: me ? me.perks.length : 0, cls: CLASSES[me ? me.cls : 0].name, coop: RG.players.length > 1, epilogue: win ? (abyss ? 'The fiftieth door opens onto a plain white room. A single save point glows in the middle of it. You press START. Somewhere above, five forests breathe out, and every deleted game remembers its name.' : ch.outro) : '', lv: me ? me.lv : 1, race: me ? RACES[me.race].name : '', pet: me ? PETS[me.pet].name : '', lore, secret: !!sec, next: win && !abyss && RG.chapter < CHAPTERS.length ? CHAPTERS[RG.chapter].name : '', complete: win && (abyss || RG.chapter === CHAPTERS.length), agendas: agendasDone().length, weapon: me ? me.wid : '', power: me ? me.pw : '' }
   profile.rogueRuns = (profile.rogueRuns || 0) + 1
-  if (win) { profile.rogueWins = (profile.rogueWins || 0) + 1; profile.chips = (profile.chips || 0) + 100 * RG.chapter }
+  if (win) { profile.rogueWins = (profile.rogueWins || 0) + 1; profile.chips = (profile.chips || 0) + (abyss ? 800 : 100 * RG.chapter) }
   profile.rogueKills = (profile.rogueKills || 0) + RG.kills
-  profile.rogueDeep = Math.max(profile.rogueDeep || 0, (RG.chapter - 1) * 5 + roomsDone)
+  if (!abyss) profile.rogueDeep = Math.max(profile.rogueDeep || 0, (RG.chapter - 1) * 5 + roomsDone)
   recordScore('rogue', score); saveProfile()
-  { const now = unlockSnapshot(), old = RG.unlocked || now; RG.over.unlocks = [...RACES.filter((r) => now.races.includes(r.id) && !old.races.includes(r.id)).map((r) => r.ico + ' ' + r.name + ' (race)'), ...PETS.filter((r) => now.pets.includes(r.id) && !old.pets.includes(r.id)).map((r) => r.ico + ' ' + r.name + ' (pet)'), ...(RG.unlockBefore ? diffUnlocks(RG.unlockBefore) : [])] }
+  { const now = unlockSnapshot(), old = RG.unlocked || now; RG.over.unlocks = [...RACES.filter((r) => now.races.includes(r.id) && !old.races.includes(r.id)).map((r) => r.ico + ' ' + r.name + ' (race)'), ...(RG.unlockBefore ? diffUnlocks(RG.unlockBefore) : [])] }
   sfx(win ? 'win' : 'over'); speak(win ? (RG.over.complete ? 'The Last Lantern burns' : 'Guardian defeated') : 'You died', 0.5, 1)
   emitR()
 }
@@ -404,11 +562,10 @@ function playerAttack(p, dt) {
   const cl = CLASSES[p.cls]
   p.atkT -= dt * (p.buff > 0 ? 1.35 : 1)
   if (p.atkT > 0) return
-  const ne = nearestEnemy(p.x, p.y, cl.id === 'knight' ? 11 : 60)
-  const manual = p.hold && p.aimPt
-  if (!ne && !manual) return
-  let a = ne ? Math.atan2(ne.e.y - p.y, ne.e.x - p.x) : 0
-  if (p.aimPt && (manual || G.time - p.aimT < 2)) a = Math.atan2(p.aimPt.y - p.y, p.aimPt.x - p.x)
+  if (!p.hold) return // you attack only when you click / press the attack button / hold J
+  const ne = nearestEnemy(p.x, p.y, 70)
+  let a = ne ? Math.atan2(ne.e.y - p.y, ne.e.x - p.x) : p.face
+  if (p.aimPt && G.time - p.aimT < 2.5) a = Math.atan2(p.aimPt.y - p.y, p.aimPt.x - p.x)
   const wm = p.wmod || {}
   p.face = a; p.atkT = p.rate * (wm.rate || 1)
   const crit = Math.random() < p.crit, d = p.dmg * (wm.dmg || 1) * (crit ? 2.2 : 1) * (p.buff > 0 ? 1.5 : 1)
@@ -416,6 +573,7 @@ function playerAttack(p, dt) {
     const arc = (1.3 + (p.multi - 1) * 0.45) * (wm.arc || 1), reach = 8 + (p.multi - 1) * 0.8 + (wm.reach || 0)
     p.swing = { a, arc, reach, t: 0.2, max: 0.2 }
     if (RG.secret && !RG.secret.found && RG.open) { const sx = RG.secret.x - p.x, sy = RG.secret.y - p.y; if (Math.hypot(sx, sy) < reach + 2) hitSecret() }
+    hitUrns(p.x + Math.cos(a) * reach * 0.6, p.y + Math.sin(a) * reach * 0.6, reach * 0.7)
     for (const e of RG.en) {
       if (e.dead) continue
       const dx = e.x - p.x, dy = e.y - p.y, dist = Math.hypot(dx, dy)
@@ -576,7 +734,7 @@ function update(dtRaw) {
   if (RG.tale) { stepParticles(dt); RG.emitT -= dt; if (RG.emitT <= 0) { RG.emitT = 0.1; emitR() } return }
   ambience(dt)
   if (RG.net && RG.net.role === 'guest') return guestStep(dt)
-  RG.bossT = Math.max(0, RG.bossT - dt)
+  RG.bossT = Math.max(0, RG.bossT - dt); RG.slowT = Math.max(0, RG.slowT - dt); RG.roomT += dt
   const me = lp()
   // local input
   if (me && me.alive) {
@@ -584,21 +742,25 @@ function update(dtRaw) {
     let my = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0) + RG.stick[1]
     const ml = Math.hypot(mx, my); if (ml > 1) { mx /= ml; my /= ml }
     me.inp.mx = mx; me.inp.my = my
+    me.tapT = Math.max(0, (me.tapT || 0) - dt); me.hold = !!(me.holdPtr || keys.KeyJ || me.tapT > 0)
     if (keys.KeyQ || keys.KeyK) skill(me, 0)
     if (keys.KeyE) skill(me, 1)
     if (keys.KeyR) skill(me, 2)
+    if (keys.KeyF) relicSkill(me)
   }
   for (const p of RG.players) {
-    p.inv = Math.max(0, p.inv - dt); p.dashT = Math.max(0, p.dashT - dt); p.spT = Math.max(0, p.spT - dt); p.sT2 = Math.max(0, p.sT2 - dt); p.sT3 = Math.max(0, p.sT3 - dt); p.hurtT = Math.max(0, p.hurtT - dt); p.buff = Math.max(0, p.buff - dt); p.lvT = Math.max(0, p.lvT - dt); p.bash = Math.max(0, (p.bash || 0) - dt)
+    p.inv = Math.max(0, p.inv - dt); p.dashT = Math.max(0, p.dashT - dt); p.spT = Math.max(0, p.spT - dt); p.sT2 = Math.max(0, p.sT2 - dt); p.sT3 = Math.max(0, p.sT3 - dt); p.rT = Math.max(0, p.rT - dt); p.hurtT = Math.max(0, p.hurtT - dt); p.buff = Math.max(0, p.buff - dt); p.lvT = Math.max(0, p.lvT - dt); p.bash = Math.max(0, (p.bash || 0) - dt)
     if (p.swing) { p.swing.t -= dt; if (p.swing.t <= 0) p.swing = null }
     if (!p.alive) continue
-    if (p.remote) { if (p.dashN !== p.seenDash) { p.seenDash = p.dashN; dash(p) } for (let k = 0; k < 3; k++) if (p.sn[k] !== p.seenSn[k]) { p.seenSn[k] = p.sn[k]; skill(p, k) } }
+    if (p.remote) { if (p.dashN !== p.seenDash) { p.seenDash = p.dashN; dash(p) } for (let k = 0; k < 4; k++) if (p.sn[k] !== p.seenSn[k]) { p.seenSn[k] = p.sn[k]; if (k === 3) relicSkill(p); else skill(p, k) } }
     const mx = p.inp.mx, my = p.inp.my
     p.mx = mx; p.my = my
     const ox = p.x, oy = p.y
     if (p.dash > 0) { p.dash -= dt; move(p, p.dx * 95 * dt, p.dy * 95 * dt, 1.4); part(p.x, p.y, 0, 0, 0.25, col(CLASSES[p.cls].color), 1.2); if (p.trail) { for (const e of RG.en) if (!e.dead && e.spawnT <= 0 && Math.hypot(e.x - p.x, e.y - p.y) < 4 + e.def.r && !e.burn) e.burn = { t: 3, dps: 4, by: p }; part(p.x, p.y, R(-4, 4), R(2, 10), 0.5, col('#ff9a3a'), 1.4) } if (p.bash > 0) { for (const e of RG.en) if (!e.dead && e.spawnT <= 0 && Math.hypot(e.x - p.x, e.y - p.y) < 3.6 + e.def.r && !(e.bashed === p.dash)) { e.bashed = p.dash; hitEnemy(e, p.dmg * 2.2, false, 70, p.dx, p.dy, p); e.frozen = 1.2 } } }
     else { move(p, mx * p.spd * dt, my * p.spd * dt, 1.4); if (mx || my) p.face = Math.atan2(my, mx) }
     p.walk += Math.hypot(p.x - ox, p.y - oy) * 0.5
+    trailStep(p, dt)
+    stepOrb(p, dt)
     playerAttack(p, dt)
   }
   tickWorld(dt); stepPets(dt)
@@ -620,7 +782,7 @@ function update(dtRaw) {
     e.flash = Math.max(0, e.flash - dt)
     if (e.spawnT > 0) { e.spawnT -= dt; continue }
     // the monsters move a little slower than the heroes: the dungeon is something to read, not just to survive
-    let edt = dt * PACE
+    let edt = dt * PACE * (RG.slowT > 0 ? 0.35 : 1)
     if (e.burn) { e.burn.t -= dt; e.hp -= e.burn.dps * dt; if (Math.random() < 0.3) part(e.x + R(-1, 1), e.y + R(-1, 1), 0, 14, 0.4, col('#ff9a3a'), 1.1); if (e.burn.t <= 0) e.burn = null; if (e.hp <= 0) { e.by = e.burn ? e.burn.by : e.by; killEnemy(e); continue } }
     for (const q of RG.players) if (q.aura && q.alive && Math.hypot(q.x - e.x, q.y - e.y) < 11) { edt *= 0.7; break }
     enemyAI(e, edt)
@@ -630,6 +792,7 @@ function update(dtRaw) {
     b.life -= dt
     if (b.homing) { const t = nearestEnemy(b.x, b.y, 40); if (t) { const a = Math.atan2(t.e.y - b.y, t.e.x - b.x), sp = Math.hypot(b.vx, b.vy), ca = Math.atan2(b.vy, b.vx); let da = a - ca; da = Math.atan2(Math.sin(da), Math.cos(da)); const na = ca + clamp(da, -4 * dt, 4 * dt); b.vx = Math.cos(na) * sp; b.vy = Math.sin(na) * sp } }
     b.x += b.vx * dt; b.y += b.vy * dt
+    if (RG.urns.length) hitUrns(b.x, b.y, 2.2)
     if (RG.secret && !RG.secret.found && RG.open && Math.hypot(b.x - RG.secret.x, b.y - RG.secret.y) < 3.2) { b.life = 0; hitSecret(); continue }
     if (!walkable(b.x, b.y, 0.1)) { b.life = 0; continue }
     for (const e of RG.en) {
@@ -657,27 +820,38 @@ function update(dtRaw) {
   RG.loot = RG.loot.filter((l) => !l.got)
   for (const f of RG.fx) f.l -= dt
   RG.fx = RG.fx.filter((f) => f.l > 0)
-  // puzzles, chests and the hidden passage
-  stepPuzzle(dt)
-  for (const c of RG.chests) if (!c.open && RG.players.some((p) => p.alive && Math.hypot(p.x - c.x, p.y - c.y) < 3)) openChest(c)
+  // puzzles, hazards, survival, chests and the hidden passage
+  stepPuzzle(dt); stepHazards(dt); stepSurvival(dt)
+  for (const c of RG.chests) {
+    if (c.open) continue
+    const near = RG.players.find((p) => p.alive && Math.hypot(p.x - c.x, p.y - c.y) < 3)
+    if (!near) { c.warned = false; continue }
+    if (c.kind === 'shop') { if (RG.gold >= c.price) { RG.gold -= c.price; buyItem(c, near) } else if (!c.warned) { c.warned = true; sfx('cBad'); RG.msg = { text: 'NEED ' + c.price + ' GOLD', sub: c.label + ': ' + c.sub, color: '#ff8a96', t: 1.8 } } }
+    else openChest(c)
+  }
   // room clear
-  const fightRoom = RG.rtype === 'combat' || RG.rtype === 'elite' || RG.rtype === 'boss' || RG.rtype === 'secret'
-  if (!RG.open && fightRoom && !RG.en.length && !RG.spawnQ.length) {
+  const fightRoom = ['combat', 'elite', 'boss', 'secret', 'ambush', 'gauntlet', 'survival', 'trap'].includes(RG.rtype)
+  if (!RG.open && fightRoom && !RG.en.length && !RG.spawnQ.length && !(RG.rtype === 'survival' && RG.surv > 0)) {
     RG.open = true
     for (const l of RG.loot) l.vx = l.vy = 0
-    const last = RG.rtype === 'boss'
-    RG.msg = { text: last ? 'GUARDIAN DEFEATED' : RG.rtype === 'secret' ? 'THE VAULT IS YOURS' : 'ROOM CLEARED', sub: last ? 'THE SHARD IS YOURS' : RG.rtype === 'secret' ? 'OPEN THE CHEST' : 'GO RIGHT ▶', color: '#6aff9a', t: 1.8 }
+    const final = RG.rtype === 'boss' && (!RG.abyss || RG.room >= ABYSS_ROOMS - 1)
+    RG.msg = { text: RG.rtype === 'boss' ? 'GUARDIAN DEFEATED' : RG.rtype === 'secret' ? 'THE VAULT IS YOURS' : 'ROOM CLEARED', sub: final ? 'THE SHARD IS YOURS' : RG.rtype === 'secret' ? 'OPEN THE CHEST' : 'GO RIGHT ▶', color: '#6aff9a', t: 1.8 }
     sfx('rgDoor'); sfx('ding', 5)
-    if (last) return finish(true)
+    if (RG.abyss) markAbyss(RG.room + 1)
+    // hidden agendas
+    if (RG.rtype !== 'boss' && RG.rtype !== 'secret' && RG.rtype !== 'survival') { if (!RG.hurtRoom) { RG.ag.streak++; if (RG.ag.streak >= 3) agenda('flawless') } else RG.ag.streak = 0; if (RG.roomT < 25 && RG.rtype !== 'gauntlet') agenda('speed') }
+    if (final) return finish(true)
     if (RG.rtype === 'secret') RG.chests.push({ x: AX * 0.25, y: 0, open: false, kind: 'vault' })
-    else { offerPerks(); const bt = CHAPTERS[RG.chapter - 1].beats && CHAPTERS[RG.chapter - 1].beats[RG.room]; if (bt) say(bt) }
+    else { offerPerks(); const bt = !RG.abyss && CHAPTERS[RG.chapter - 1].beats && CHAPTERS[RG.chapter - 1].beats[RG.room]; if (bt) say(bt) }
   }
   const secPortal = RG.secret && RG.secret.found
+  const required = (c) => c.kind === 'puzzle' || c.kind === 'vault'
   if (secPortal && RG.open && RG.players.every((p) => !p.choices) && RG.players.some((p) => p.alive && Math.hypot(p.x - RG.secret.x, p.y - (RG.secret.y - 2.5)) < 3.4)) {
     RG.sub = 'secret'; RG.msg = null; enterRoom(); say([['sys', 'A HIDDEN VAULT, SEALED SINCE BEFORE THE GRID. SOMETHING OLD STIRS INSIDE.']])
-  } else if (RG.open && RG.players.every((p) => !p.choices) && RG.chests.every((c) => c.open || c.kind === 'treasure') && RG.players.some((p) => p.alive && p.x > AX - 3 && Math.abs(p.y) < 7)) {
+  } else if (RG.open && RG.players.every((p) => !p.choices) && RG.chests.every((c) => c.open || !required(c)) && RG.players.some((p) => p.alive && p.x > AX - 3 && Math.abs(p.y) < 7)) {
     if (RG.sub === 'secret') RG.sub = null
     RG.room++
+    if (RG.abyss && RG.room >= ABYSS_ROOMS) return finish(true)
     for (const p of RG.players) if (p.alive) p.hp = Math.min(p.max, p.hp + 1)
     enterRoom()
   }
@@ -720,19 +894,23 @@ function onKey(code) {
   else if (code === 'KeyQ' || code === 'KeyK') rogueActions.special(0)
   else if (code === 'KeyE') rogueActions.special(1)
   else if (code === 'KeyR') rogueActions.special(2)
+  else if (code === 'KeyF') rogueActions.relic()
 }
 export const rogueActions = {
   start, stop, quit() { toMenu() },
   resume() { RG.paused = false; emitR() },
   pause() { if (RG.mode === 'play' && !RG.paused && !RG.net) { RG.paused = true; emitR(); return true } return false },
-  rematch() { if (RG.net) { RG.net.rematch(); return } { const q = lp(); start({ cls: q ? q.cls : 0, race: q ? q.race : 0, pet: q ? q.pet : 0, weapon: q ? q.wid : '', power: q ? q.pw : '', chapter: RG.over && RG.over.win && RG.over.next ? RG.chapter + 1 : RG.chapter }) } },
+  rematch() { if (RG.net) { RG.net.rematch(); return } { const q = lp(); start({ mode: RG.abyss ? 'abyss' : '', orb: q ? q.orb : '', relic: q ? q.relic : '', cls: q ? q.cls : 0, race: q ? q.race : 0, pet: q ? q.pet : 0, weapon: q ? q.wid : '', power: q ? q.pw : '', chapter: RG.over && RG.over.win && RG.over.next ? RG.chapter + 1 : RG.chapter }) } },
   pick(i) {
     if (RG.net && RG.net.role === 'guest') { RG.net.perk(i); const p = lp(); if (p) { p.choices = null; emitR() } return }
     pickPerk(RG.me, i)
   },
   dash() { const p = lp(); if (!p) return; if (RG.net && RG.net.role === 'guest') { p.dashN++; return } dash(p) },
+  relic() { const p = lp(); if (!p) return; if (RG.net && RG.net.role === 'guest') { p.sn[3]++; return } relicSkill(p) },
   special(slot = 0) { const p = lp(); if (!p) return; if (RG.net && RG.net.role === 'guest') { p.sn[slot]++; return } skill(p, slot) },
-  hold(on) { const p = lp(); if (p) p.hold = !!on },
+  hold(on) { const p = lp(); if (p) p.holdPtr = !!on },
+  // one tap on the attack button (phones): aim at the nearest enemy and swing once
+  attackTap() { const p = lp(); if (!p) return; p.aimPt = null; p.tapT = 0.2 },
   nextTale() { const t = RG.tale; if (!t) return; sfx('wdKey'); if (t.i < t.lines.length - 1) t.i++; else RG.tale = null; emitR() },
   skipTale() { RG.tale = null; emitR() },
   stick(x, y) { RG.stick = [x, y] },
@@ -755,7 +933,7 @@ export const rogueNet = {
     let p = RG.players.find((x) => x.pid === pid)
     if (!p) {
       if (RG.players.length >= 3) return
-      p = mkPlayer(m.cls, String(m.name || 'FRIEND').slice(0, 10), true, m.race, m.pet); p.pid = pid; applyGear(p, m.wid, m.pw); levelTo(p, 1 + 2 * (RG.chapter - 1)); RG.pets.push(mkPet(p))
+      p = mkPlayer(m.cls, String(m.name || 'FRIEND').slice(0, 10), true, m.race, m.pet); p.pid = pid; applyGear(p, m.wid, m.pw, m.orb, m.relic); levelTo(p, RG.abyss ? 6 : 1 + 2 * (RG.chapter - 1)); { const pp = mkPet(p); if (pp) RG.pets.push(pp) }
       p.x = -AX + 6; p.y = RG.players.length * 7 - 7
       RG.players.push(p); RG.msg = { text: p.name + ' JOINED', sub: '', color: '#6aff9a', t: 1.6 }
       if (RG.open) p.choices = null
@@ -790,7 +968,8 @@ export const rogueNet = {
     RG.floors = s.fs
     // puzzle, chests and the hidden passage mirror the host
     RG.puz = s.pz ? { runes: s.pz.r.map((q) => ({ x: q[0], y: q[1], c: RUNE_COL[q[2] % 5], lit: q[3] })), seq: [], step: s.pz.st, showing: !!s.pz.sh, solved: !!s.pz.sv } : null
-    RG.chests = (s.cx || []).map((c) => ({ x: c[0], y: c[1], open: !!c[2], kind: c[3] }))
+    RG.chests = (s.cx || []).map((c) => ({ x: c[0], y: c[1], open: !!c[2], kind: c[3], price: c[4], label: c[5] }))
+    RG.abyss = !!s.ab; RG.hz = (s.hzs || []).map((z) => ({ x: z[0], y: z[1], w: z[2], h: z[3], on: z[4] === 1, warn: z[4] === 2 })); RG.urns = (s.urs || []).map((u) => ({ x: u[0], y: u[1], hp: 2 })); RG.surv = s.sv || 0; RG.slowT = s.slw ? 1 : 0
     RG.secret = s.sx ? { x: s.sx[0], y: s.sx[1], hp: s.sx[2], found: !!s.sx[3] } : null
     // players
     while (RG.players.length < s.pl.length) RG.players.push(mkPlayer(0, '', true))
@@ -804,13 +983,13 @@ export const rogueNet = {
       if (mineNow && q[2] < p.hp) { sfx('rgHurt'); shake(1); flash(0.2, [1, 0.2, 0.2]); p.hurtT = 0.3 }
       p.hp = q[2]; p.max = q[3]; p.face = q[4]; p.cls = q[5]; p.inv = q[6]; p.dash = q[7]; p.alive = !!q[9]; p.shield = q[10]; p.name = q[11]; p.dashT = q[12]; p.spT = q[13]; p.dashCd = q[14]; p.spCd = q[15]
       p.swing = q[16] ? { a: q[16][0], arc: q[16][1], reach: q[16][2], t: q[16][3], max: 0.2 } : null
-      p.mx = q[17]; p.my = q[18]; p.race = q[19] | 0; p.lv = q[20] | 1; p.xp = q[21] | 0; p.buff = q[22] ? 1 : 0; p.pet = q[23] | 0; p.sT2 = q[24] || 0; p.sT3 = q[25] || 0
+      p.mx = q[17]; p.my = q[18]; p.race = q[19] | 0; p.lv = q[20] | 1; p.xp = q[21] | 0; p.buff = q[22] ? 1 : 0; p.pet = q[23] | 0; p.sT2 = q[24] || 0; p.sT3 = q[25] || 0; p.orb = (ORBS[q[26]] || ORBS[0]).id; p.relic = (RELICS[q[27]] || RELICS[0]).id; p.rT = q[28] || 0
       if (!mineNow) { p.walk += 0.5 * Math.hypot(q[17], q[18]) * 0.05 }
       p.hasState = true
     })
     // pets, traps, rain and meteors (visuals only; the host does the damage)
     const oldPets = RG.pets
-    RG.pets = (s.pt || []).map((q, i) => { const o = oldPets[i], owner = RG.players[q[0]]; const t = o && o.type === q[1] ? o : { type: q[1], x: q[2], y: q[3], t: Math.random() * 6, act: 0 }; if (q[5] && !(t.act > 0)) { t.act = q[1] === 'dragon' ? 0.6 : 0.25; if (q[1] === 'dragon') for (let k = 0; k < 20; k++) { const aa = q[4] + R(-0.45, 0.45), sp2 = R(20, 46); part(t.x, t.y, Math.cos(aa) * sp2, Math.sin(aa) * sp2, R(0.25, 0.6), col(['#ff6a3a', '#ffb04a', '#ffe84a'][(Math.random() * 3) | 0]), R(1.1, 2)) } } t.owner = owner; t.tx = q[2]; t.ty = q[3]; t.face = q[4]; return t })
+    RG.pets = (s.pt || []).map((q, i) => { const o = oldPets[i], owner = RG.players[q[0]]; const t = o && o.type === q[1] ? o : { type: q[1], x: q[2], y: q[3], t: Math.random() * 6, act: 0 }; t.st = q[6] | 0; t.lv = q[7] | 1; if (q[5] && !(t.act > 0)) { t.act = q[1] === 'dragon' ? 0.6 : 0.25; if (q[1] === 'dragon') for (let k = 0; k < 20; k++) { const aa = q[4] + R(-0.45, 0.45), sp2 = R(20, 46); part(t.x, t.y, Math.cos(aa) * sp2, Math.sin(aa) * sp2, R(0.25, 0.6), col(['#ff6a3a', '#ffb04a', '#ffe84a'][(Math.random() * 3) | 0]), R(1.1, 2)) } } t.owner = owner; t.tx = q[2]; t.ty = q[3]; t.face = q[4]; return t })
     RG.traps = (s.tr || []).map((t) => ({ x: t[0], y: t[1], r: t[2], l: t[3] })); RG.rains = (s.rn || []).map((t) => ({ x: t[0], y: t[1], r: t[2], l: t[3] })); RG.meteors = (s.mt || []).map((t) => ({ x: t[0], y: t[1], r: t[2], l: t[3] }))
     // enemies (match by id, lerp positions)
     const old = new Map(RG.en.map((e) => [e.id, e]))
@@ -856,9 +1035,10 @@ function netTick(dt) {
   const common = {
     n: ++nSeq, rk: RG.rk, fl: RG.floor, ro: RG.room, fs: RG.floors, ax: RG.ax, ay: RG.ay, rty: RG.rtype,
     pz: RG.puz ? { r: RG.puz.runes.map((r) => [r.x, r.y, RUNE_COL.indexOf(r.c), Math.round(r.lit * 10) / 10]), st: RG.puz.step, sh: RG.puz.showing ? 1 : 0, sv: RG.puz.solved ? 1 : 0 } : 0,
-    cx: RG.chests.map((c) => [r1(c.x), r1(c.y), c.open ? 1 : 0, c.kind]), sx: RG.secret ? [r1(RG.secret.x), r1(RG.secret.y), RG.secret.hp, RG.secret.found ? 1 : 0] : 0, ob: RG.obst.map((o) => [r1(o.x), r1(o.y), o.w, o.h, o.s]),
-    pl: RG.players.map((p) => [r1(p.x), r1(p.y), p.hp, p.max, Math.round(p.face * 100) / 100, p.cls, p.inv > 0 ? 1 : 0, p.dash > 0 ? 1 : 0, 0, p.alive ? 1 : 0, p.shield, p.name, Math.max(0, p.dashT), Math.max(0, p.spT), p.dashCd, p.spCd, p.swing ? [Math.round(p.swing.a * 100) / 100, p.swing.arc, p.swing.reach, p.swing.t] : 0, r1(p.mx), r1(p.my), p.race, p.lv, Math.round(p.xp), p.buff > 0 ? 1 : 0, p.pet, Math.max(0, p.sT2), Math.max(0, p.sT3)]),
-    pt: RG.pets.map((t) => [RG.players.indexOf(t.owner), t.type, r1(t.x), r1(t.y), Math.round(t.face * 100) / 100, t.act > 0 ? 1 : 0]),
+    cx: RG.chests.map((c) => [r1(c.x), r1(c.y), c.open ? 1 : 0, c.kind, c.price || 0, c.label || '']), sx: RG.secret ? [r1(RG.secret.x), r1(RG.secret.y), RG.secret.hp, RG.secret.found ? 1 : 0] : 0, ob: RG.obst.map((o) => [r1(o.x), r1(o.y), o.w, o.h, o.s]),
+    pl: RG.players.map((p) => [r1(p.x), r1(p.y), p.hp, p.max, Math.round(p.face * 100) / 100, p.cls, p.inv > 0 ? 1 : 0, p.dash > 0 ? 1 : 0, 0, p.alive ? 1 : 0, p.shield, p.name, Math.max(0, p.dashT), Math.max(0, p.spT), p.dashCd, p.spCd, p.swing ? [Math.round(p.swing.a * 100) / 100, p.swing.arc, p.swing.reach, p.swing.t] : 0, r1(p.mx), r1(p.my), p.race, p.lv, Math.round(p.xp), p.buff > 0 ? 1 : 0, p.pet, Math.max(0, p.sT2), Math.max(0, p.sT3), ORBS.findIndex((o) => o.id === p.orb), RELICS.findIndex((o) => o.id === p.relic), Math.max(0, p.rT)]),
+    ab: RG.abyss ? 1 : 0, rm: RG.room, hzs: RG.hz.map((z) => [r1(z.x), r1(z.y), z.w, z.h, z.on ? 1 : z.warn ? 2 : 0]), urs: RG.urns.map((u) => [r1(u.x), r1(u.y)]), sv: Math.round(RG.surv * 10) / 10, slw: RG.slowT > 0 ? 1 : 0,
+    pt: RG.pets.map((t) => [RG.players.indexOf(t.owner), t.type, r1(t.x), r1(t.y), Math.round(t.face * 100) / 100, t.act > 0 ? 1 : 0, t.st, t.lv]),
     tr: RG.traps.map((t) => [r1(t.x), r1(t.y), t.r, Math.round(t.l * 10) / 10]), rn: RG.rains.map((t) => [r1(t.x), r1(t.y), t.r, Math.round(t.l * 10) / 10]), mt: RG.meteors.map((t) => [r1(t.x), r1(t.y), t.r, Math.round(t.l * 100) / 100]),
     en: RG.en.map((e) => [e.id, e.type, r1(e.x), r1(e.y), Math.round((Math.max(0, e.hp) / e.max) * 1000) / 1000, Math.round((e.fa || 0) * 100) / 100, e.frozen > 0 ? 1 : 0, e.spawnT > 0 ? Math.round(e.spawnT * 100) / 100 : 0, e.wind > 0 ? 1 : 0, e.charge > 0 ? 1 : 0, e.cast > 0 ? 1 : 0, e.flash > 0 ? 1 : 0]),
     pb: RG.pb.map((b) => [r1(b.x), r1(b.y), r1(b.vx), r1(b.vy), b.big ? 1 : 0, b.c]),
@@ -878,6 +1058,7 @@ function guestStep(dt) {
   const p = lp()
   const k = 1 - Math.exp(-16 * dt)
   if (p && p.alive) {
+    p.tapT = Math.max(0, (p.tapT || 0) - dt); p.hold = !!(p.holdPtr || keys.KeyJ || p.tapT > 0)
     const mx = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0) + RG.stick[0]
     const my = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0) + RG.stick[1]
     const ml = Math.hypot(mx, my), nx = ml > 1 ? mx / ml : mx, ny = ml > 1 ? my / ml : my
@@ -885,12 +1066,12 @@ function guestStep(dt) {
     const ox = p.x, oy = p.y
     move(p, nx * p.spd * dt, ny * p.spd * dt, 1.4)
     if (nx || ny) p.face = Math.atan2(ny, nx)
-    p.walk += Math.hypot(p.x - ox, p.y - oy) * 0.5
-    RG.skLatch = RG.skLatch || [false, false, false]
-    ;[[keys.KeyQ || keys.KeyK, 0], [keys.KeyE, 1], [keys.KeyR, 2]].forEach(([on, k]) => { if (on) { if (!RG.skLatch[k]) { p.sn[k]++; RG.skLatch[k] = true } } else RG.skLatch[k] = false })
+    p.walk += Math.hypot(p.x - ox, p.y - oy) * 0.5; trailStep(p, dt)
+    RG.skLatch = RG.skLatch || [false, false, false, false]
+    ;[[keys.KeyQ || keys.KeyK, 0], [keys.KeyE, 1], [keys.KeyR, 2], [keys.KeyF, 3]].forEach(([on, k]) => { if (on) { if (!RG.skLatch[k]) { p.sn[k]++; RG.skLatch[k] = true } } else RG.skLatch[k] = false })
   }
   p.dashT = Math.max(0, p.dashT - dt); p.spT = Math.max(0, p.spT - dt); p.sT2 = Math.max(0, p.sT2 - dt); p.sT3 = Math.max(0, p.sT3 - dt); p.hurtT = Math.max(0, p.hurtT - dt)
-  for (const q of RG.players) { if (q !== p && q.tx !== undefined) { const ox = q.x, oy = q.y; q.x += (q.tx - q.x) * k; q.y += (q.ty - q.y) * k; q.walk += Math.hypot(q.x - ox, q.y - oy) * 0.5 } if (q.swing) q.swing.t -= dt }
+  for (const q of RG.players) { if (q !== p && q.tx !== undefined) { const ox = q.x, oy = q.y; q.x += (q.tx - q.x) * k; q.y += (q.ty - q.y) * k; q.walk += Math.hypot(q.x - ox, q.y - oy) * 0.5; trailStep(q, dt) } if (q.swing) q.swing.t -= dt }
   for (const t of RG.pets) { t.t += dt; t.act = Math.max(0, (t.act || 0) - dt); if (t.tx !== undefined) { t.x += (t.tx - t.x) * k; t.y += (t.ty - t.y) * k } }
   for (const e of RG.en) { e.t += dt; if (e.tx !== undefined) { e.x += (e.tx - e.x) * k; e.y += (e.ty - e.y) * k } }
   for (const b of RG.pb) { b.x += b.vx * dt; b.y += b.vy * dt }
@@ -901,14 +1082,14 @@ function guestStep(dt) {
   if (inT <= 0 && RG.net) {
     inT = RG.net.fast && RG.net.fast() ? 0.05 : 0.1
     const aim = p && p.aimPt && G.time - p.aimT < 2 ? p.aimPt : null
-    RG.net.input({ mx: r1(p ? p.mx : 0), my: r1(p ? p.my : 0), dn: p ? p.dashN : 0, sn: p ? p.sn : [0, 0, 0], hd: p && p.hold ? 1 : 0, race: RG.myRace | 0, pet: RG.myPet | 0, wid: RG.myWid || '', pw: RG.myPw || '', cls: RG.myCls | 0, name: profile.name || 'FRIEND', ax: aim ? r1(aim.x) : undefined, ay: aim ? r1(aim.y) : undefined, x: p ? r1(p.x) : undefined, y: p ? r1(p.y) : undefined })
+    RG.net.input({ mx: r1(p ? p.mx : 0), my: r1(p ? p.my : 0), dn: p ? p.dashN : 0, sn: p ? p.sn : [0, 0, 0, 0], hd: p && p.hold ? 1 : 0, race: RG.myRace | 0, pet: RG.myPet | 0, wid: RG.myWid || '', pw: RG.myPw || '', orb: RG.myOrb || '', relic: RG.myRelic || '', cls: RG.myCls | 0, name: profile.name || 'FRIEND', ax: aim ? r1(aim.x) : undefined, ay: aim ? r1(aim.y) : undefined, x: p ? r1(p.x) : undefined, y: p ? r1(p.y) : undefined })
   }
   RG.emitT -= dt
   if (RG.emitT <= 0) { RG.emitT = 0.1; emitR() }
 }
 // the guest joins the host's game as a fresh hero of the chosen class (the host creates it when the first input arrives)
-export function joinAsGuest(cls, race = 0, pet = 0, weapon = '', power = '') {
-  RG.myCls = cls | 0; RG.myRace = race | 0; RG.myPet = pet | 0; RG.myWid = weapon; RG.myPw = power
+export function joinAsGuest(cls, race = 0, pet = 0, weapon = '', power = '', orb = '', relic = '') {
+  RG.myCls = cls | 0; RG.myRace = race | 0; RG.myPet = pet | 0; RG.myWid = weapon; RG.myPw = power; RG.myOrb = orb; RG.myRelic = relic
   RG.players = [mkPlayer(cls, 'YOU', false, race, pet)]; RG.pets = []; RG.traps = []; RG.rains = []; RG.meteors = []; RG.me = 0; RG.p = RG.players[0]
   RG.floor = 0; RG.chapter = 1; RG.room = 0; RG.gold = 0; RG.kills = 0; RG.over = null; RG.paused = false; RG.t = 0; RG.fx = []; RG.rk = -1; RG.en = []; RG.eb = []; RG.pb = []; RG.loot = []; RG.obst = []; RG.open = false
   G.mode = 'rogue'; engineEmit(); G.parts = []; G.pops = []

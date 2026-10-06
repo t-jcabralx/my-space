@@ -1,5 +1,7 @@
 import { update, keys, onKey, G } from '../src/game/engine.js'
 import { RG, rogueActions, rogueNet, joinAsGuest, RACES, PETS, SKILLS, xpNeed } from '../src/game/rogue.js'
+import { profile } from '../src/game/engine.js'
+profile.rogueRuns = 5; profile.rogueKills = 900; profile.rogueU = { cleared: 5, secret: { 1: true, 2: true, 3: true, 4: true, 5: true }, lore: { L1a: 1, L1b: 1, L2a: 1 }, wins: {} }
 let fail = 0
 const ok = (c, m) => { if (!c) { fail++; console.log('FAIL', m) } }
 const rr = (n) => Math.floor(Math.random() * n)
@@ -9,6 +11,7 @@ function drive(f, cls) {
   if (RG.tale) { onKey('Enter', true); return }
   if (p.choices) { onKey('Digit' + (1 + rr(3)), true); return }
   const t = RG.en.find((e) => !e.dead)
+  p.holdPtr = !!t; if (t) { p.aimPt = { x: t.x, y: t.y }; p.aimT = performance.now() / 1000 }
   keys.KeyD = keys.KeyA = keys.KeyW = keys.KeyS = false
   if (RG.open) { keys.KeyD = true; keys.KeyW = p.y < -2; keys.KeyS = p.y > 2 }
   else if (t) { const dx = t.x - p.x, dy = t.y - p.y, d = Math.hypot(dx, dy), s = d < 14 && cls !== 0 ? -1 : 1; keys.KeyD = dx * s > 1; keys.KeyA = dx * s < -1; keys.KeyW = dy * s > 1; keys.KeyS = dy * s < -1 }
@@ -30,10 +33,10 @@ for (const cls of [0, 1, 2]) {
 for (let race = 0; race < RACES.length; race++) for (let pet = 0; pet < PETS.length; pet++) {
   rogueActions.start({ cls: (race + pet) % 3, race, pet }); rogueActions.skipTale()
   const p = RG.players[0]
-  ok(p.race === race && RG.pets.length === 1 && RG.pets[0].type === PETS[pet].id, 'race/pet applied ' + race + '/' + pet)
+  ok(p.race === race && RG.pets.length === (pet === 0 ? 0 : 1) && (pet === 0 || RG.pets[0].type === PETS[pet].id), 'race/pet applied ' + race + '/' + pet)
   // run a while with the pet doing its thing and give it enemies to fight
   let f = 0
-  while (RG.mode === 'play' && f < 60 * 25) { drive(f, p.cls); update(1 / 60); f++; ok(Number.isFinite(RG.pets[0].x) && Number.isFinite(p.hp), 'finite pets') }
+  while (RG.mode === 'play' && f < 60 * 25) { drive(f, p.cls); update(1 / 60); f++; ok((!RG.pets[0] || Number.isFinite(RG.pets[0].x)) && Number.isFinite(p.hp), 'finite pets') }
   keys.KeyD = keys.KeyA = keys.KeyW = keys.KeyS = keys.KeyQ = keys.KeyE = keys.KeyR = false
   rogueActions.stop()
 }
@@ -44,7 +47,7 @@ console.log('PASS rogue races x pets')
   p.xp = xpNeed(1) - 1; const hp0 = p.dmg
   // kill something to gain xp
   RG.spawnQ = []; RG.en.push({ id: 999, type: 'slime', def: { hp: 20, c: '#5aff7a', r: 1.6, dmg: 1, gold: 2, spd: 12 }, x: 5, y: 5, hp: 0.1, max: 20, t: 0, seed: 1, dir: 1, shoot: 1, tp: 1, cd: 2, wind: 0, charge: 0, rest: 0, sp: 0, sum: 4, spawnT: 0, flash: 0 })
-  p.x = 3; p.y = 5; p.face = 0
+  p.x = 3; p.y = 5; p.face = 0; p.holdPtr = true; p.aimPt = { x: 5, y: 5 }; p.aimT = 1e9
   for (let i = 0; i < 90; i++) update(1 / 60)
   ok(p.lv === 2 && p.dmg > hp0, 'killing enemies levels you up: lv ' + p.lv)
   ok(SKILLS.knight[1].lv === 3 && SKILLS.mage[2].lv === 6, 'skills unlock at 3 and 6')

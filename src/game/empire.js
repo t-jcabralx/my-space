@@ -169,7 +169,7 @@ export function doUpgrade(pi, bid) {
   if (!pl || !b || b.owner !== pi || b.type !== 'hall' || b.lv >= 4) return false
   const c = HALL_UP[b.lv]; if (!costOk(pl.res, c)) return false
   pay(pl.res, c); b.lv++; b.max += 350; b.hp = Math.min(b.max, b.hp + 350); pl.hallLv = b.lv
-  ring((b.x + 1.5) * T, (b.y + 1.5) * T, 40, 50, [col('#ffd23a')]); if (pi === EM.me) { sfx('mission'); EM.msg = { text: 'YOUR ' + HALL_NAME[b.lv - 1] + ' BECOMES A ' + HALL_NAME[b.lv], sub: b.lv === 4 ? 'THE WONDER CAN NOW BE BUILT' : 'NEW BUILDINGS AND UNITS UNLOCKED', color: '#ffd23a', t: 3.5 } }
+  ring((b.x + 1.5) * T, (b.y + 1.5) * T, 40, 50, [col('#ffd23a')]); if (pi === EM.me) { sfx('emUp'); EM.msg = { text: 'YOUR ' + HALL_NAME[b.lv - 1] + ' BECOMES A ' + HALL_NAME[b.lv], sub: b.lv === 4 ? 'THE WONDER CAN NOW BE BUILT' : 'NEW BUILDINGS AND UNITS UNLOCKED', color: '#ffd23a', t: 3.5 } }
   return true
 }
 export function doAttack(pi, x, y, tid) {
@@ -192,6 +192,7 @@ function localCmd(c) {
 
 // ---------- simulation ----------
 const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y)
+const nearCam = (x, y) => Math.abs(x - EM.cam.x) < 70 / EM.cam.z && Math.abs(y - EM.cam.y) < 45 / EM.cam.z
 const hostile = (a, b) => a !== b
 function bCenter(b) { return { x: (b.x + b.w / 2) * T, y: (b.y + b.w / 2) * T } }
 function nearestFoe(u, range, buildings) {
@@ -211,13 +212,13 @@ function hurtBuilding(b, d, by) {
   b.hp -= d; b.hit = 0.12
   if (b.owner === EM.me) alert((b.x + b.w / 2) * T, (b.y + b.w / 2) * T, 'under attack')
   if (b.hp <= 0) {
-    removeB(b); const c = bCenter(b); shake(0.4); sfx('tdBoom'); ring(c.x, c.y, 30, 40, [col('#ff9a3a')])
+    removeB(b); const c = bCenter(b); shake(0.4); if (nearCam(c.x, c.y) || b.owner === EM.me) sfx('emBoom'); ring(c.x, c.y, 30, 40, [col('#ff9a3a')])
     for (let i = 0; i < 18; i++) part(c.x, c.y, R(-30, 30), R(-30, 30), R(0.4, 1), col(['#ff6a3a', '#ffb04a', '#8a8a9a'][(Math.random() * 3) | 0]), R(1, 2))
     if (b.type === 'hall') eliminate(b.owner, by)
     if (by >= 0 && EM.P[by]) EM.P[by].kills += 2
   }
 }
-function alert(x, y, what) { if (EM.alerts.length && EM.t - EM.alerts[EM.alerts.length - 1].t < 6) return; EM.alerts.push({ x, y, t: EM.t, what }); if (EM.alerts.length > 4) EM.alerts.shift(); sfx('cBad'); EM.msg = { text: 'YOUR KINGDOM IS UNDER ATTACK!', sub: 'CLICK THE MINIMAP TO JUMP THERE', color: '#ff5a6a', t: 2.2 } }
+function alert(x, y, what) { if (EM.alerts.length && EM.t - EM.alerts[EM.alerts.length - 1].t < 6) return; EM.alerts.push({ x, y, t: EM.t, what }); if (EM.alerts.length > 4) EM.alerts.shift(); sfx('emAlarm'); EM.msg = { text: 'YOUR KINGDOM IS UNDER ATTACK!', sub: 'CLICK THE MINIMAP TO JUMP THERE', color: '#ff5a6a', t: 2.2 } }
 function eliminate(pi, by) {
   const pl = EM.P[pi]; if (!pl || !pl.alive) return
   pl.alive = false
@@ -227,7 +228,17 @@ function eliminate(pi, by) {
   EM.msg = { text: pl.name + ' HAS FALLEN', sub: by >= 0 && EM.P[by] ? 'DEFEATED BY ' + EM.P[by].name : 'RAIDERS DESTROYED THEM', color: '#ff5a6a', t: 3 }
   sfx('over')
 }
+// when enemies come near a kingdom's buildings, every idle soldier of that kingdom runs to meet them
+function computeThreats() {
+  EM.threat = {}
+  for (const b of EM.B) {
+    if (b.owner < 0) continue
+    const c = bCenter(b)
+    for (const u of EM.U) { if (u.owner === b.owner || u.hp <= 0) continue; const d = Math.hypot(u.x - c.x, u.y - c.y); if (d < 30 && (!EM.threat[b.owner] || d < EM.threat[b.owner].d)) EM.threat[b.owner] = { x: u.x, y: u.y, d } }
+  }
+}
 function stepUnits(dt) {
+  EM.thrT = (EM.thrT || 0) - dt; if (EM.thrT <= 0) { EM.thrT = 0.5; computeThreats() }
   // buckets for separation and targeting
   const bk = new Map(); const key = (x, y) => ((x / 4) | 0) * 1000 + ((y / 4) | 0)
   for (const u of EM.U) { const k = key(u.x, u.y); if (!bk.has(k)) bk.set(k, []); bk.get(k).push(u) }
@@ -239,7 +250,7 @@ function stepUnits(dt) {
     let tgt = null
     if (u.tgt) { const o = EM.U.find((x) => x.id === u.tgt); if (o && o.hp > 0 && dist(u, o) < 26) tgt = { u: o }; else u.tgt = 0 }
     if (!tgt && u.tb) { const b = bById(u.tb); if (b && b.hp > 0) tgt = { b }; else u.tb = 0 }
-    const aggro = u.order || u.owner < 0 ? 13 : 11
+    const aggro = u.order || u.owner < 0 ? 13 : (EM.threat && EM.threat[u.owner] ? 24 : 11)
     if (!tgt) { const f = nearestFoe(u, aggro, !!u.order || u.owner < 0); if (f) { tgt = f; if (f.u) u.tgt = f.u.id; else u.tb = f.b.id } }
     let goal = null
     if (tgt) {
@@ -249,7 +260,7 @@ function stepUnits(dt) {
         if (u.atkT <= 0) {
           u.atkT = d.rate
           const dmg = d.dmg * (d.siege && tgt.b ? 3 : 1)
-          if (d.range > 6) { EM.fx.push({ k: 'shot', x0: u.x, y0: u.y, x1: c.x, y1: c.y, l: 0.18, c: d.siege ? '#ff9a3a' : '#ffffff' }); sfx('tdShot') } else sfx('rgSwing')
+          if (d.range > 6) { EM.fx.push({ k: 'shot', x0: u.x, y0: u.y, x1: c.x, y1: c.y, l: 0.18, c: d.siege ? '#ff9a3a' : '#ffffff' }); if (nearCam(u.x, u.y)) sfx(d.siege ? 'emCata' : 'emBow') } else if (nearCam(u.x, u.y)) sfx('emSword')
           if (tgt.u) hurtUnit(tgt.u, dmg, u.owner); else hurtBuilding(tgt.b, dmg, u.owner)
         }
       } else goal = { x: c.x, y: c.y }
@@ -257,6 +268,7 @@ function stepUnits(dt) {
       const dx = u.order.x - u.x, dy = u.order.y - u.y
       if (Math.hypot(dx, dy) < 3) u.order = null; else goal = { x: u.order.x, y: u.order.y }
     } else if (u.home) { if (Math.hypot(u.hx - u.x, u.hy - u.y) < 2) u.home = false; else goal = { x: u.hx, y: u.hy } }
+    else if (u.owner >= 0 && EM.threat && EM.threat[u.owner]) { const th = EM.threat[u.owner]; goal = { x: th.x, y: th.y } } // auto-defend: run to the attackers
     else if (u.owner >= 0) { // idle soldiers gather near their hall
       const h = hall(u.owner); if (h) { const hx = (h.x + 1.5) * T, hy = (h.y + 5) * T; if (Math.hypot(hx - u.x, hy - u.y) > 16) goal = { x: hx + R(-5, 5), y: hy + R(-3, 3) } }
     }
@@ -288,10 +300,10 @@ function stepBuildings(dt) {
   for (const b of EM.B) {
     if (b.hit > 0) b.hit -= dt
     const pl = EM.P[b.owner]; if (!pl || !pl.alive) continue
-    if (!b.built) { b.bt -= dt; b.hp = Math.min(b.max, b.hp + b.max * 0.6 * dt / Math.max(1, (b.type === 'wonder' ? 40 : 4 + b.w * 2))); if (b.bt <= 0) { b.built = 1; b.hp = b.max; if (b.owner === EM.me) sfx('tdBuild'); ring((b.x + b.w / 2) * T, (b.y + b.w / 2) * T, 14, 24, [col(TEAM[b.owner][0])]) } continue }
+    if (!b.built) { b.bt -= dt; b.hp = Math.min(b.max, b.hp + b.max * 0.6 * dt / Math.max(1, (b.type === 'wonder' ? 40 : 4 + b.w * 2))); if (b.bt <= 0) { b.built = 1; b.hp = b.max; if (b.owner === EM.me) sfx('emDone'); ring((b.x + b.w / 2) * T, (b.y + b.w / 2) * T, 14, 24, [col(TEAM[b.owner][0])]) } continue }
     const d = BDEF[b.type]
     if (d.rate) { const m = d.res ? clamp(resNear(b, d.res) / 10, 0.3, 1.6) : 1; for (const k in d.rate) pl.res[k] += d.rate[k] * m * prodMul(b.owner) * dt }
-    if (b.type === 'barracks' && b.q.length) { b.qt += dt; const q = b.q[0], ud = UDEF[q.u]; if (b.qt >= ud.t) { b.qt = 0; b.q.shift(); const h = hall(b.owner); const sx = (b.x + 1.5) * T, sy = (b.y - 0.8) * T; spawnUnit(q.u, b.owner, sx + R(-2, 2), sy); if (h && b.owner === EM.me) sfx('ui') } }
+    if (b.type === 'barracks' && b.q.length) { b.qt += dt; const q = b.q[0], ud = UDEF[q.u]; if (b.qt >= ud.t) { b.qt = 0; b.q.shift(); const h = hall(b.owner); const sx = (b.x + 1.5) * T, sy = (b.y - 0.8) * T; spawnUnit(q.u, b.owner, sx + R(-2, 2), sy); if (h && b.owner === EM.me) sfx('emReady') } }
     if (b.type === 'tower' || b.type === 'hall') {
       b.atkT -= dt
       if (b.atkT <= 0) { const c = bCenter(b), rng2 = b.type === 'tower' ? 17 + (b.lv || 1) : 15; let best = null, bd = rng2; for (const u of EM.U) if (u.owner !== b.owner && u.hp > 0) { const dd = Math.hypot(u.x - c.x, u.y - c.y); if (dd < bd) { bd = dd; best = u } } if (best) { b.atkT = b.type === 'tower' ? 1.2 : 1.4; EM.fx.push({ k: 'shot', x0: c.x, y0: c.y + 1, x1: best.x, y1: best.y, l: 0.15, c: '#ffe84a' }); sfx('tdShot'); hurtUnit(best, b.type === 'tower' ? 12 : 9, b.owner) } else b.atkT = 0.3 }
@@ -303,7 +315,7 @@ function stepRaiders(dt) {
   EM.raidT -= dt
   if (EM.raidT <= 12 && !EM.raidWarn) {
     const side = ['NORTH', 'SOUTH', 'EAST', 'WEST'][(Math.random() * 4) | 0]; EM.raidDir = side; EM.raidWarn = 12
-    EM.msg = { text: 'RAIDERS FROM THE ' + side + '!', sub: 'WAVE ' + (EM.raidN + 1) + ' ARRIVES IN 12 SECONDS · BUILD TOWERS AND WALLS', color: '#ff9a3a', t: 4 }; sfx('rgBoss'); speak('Raiders approaching', 0.5, 1)
+    EM.msg = { text: 'RAIDERS FROM THE ' + side + '!', sub: 'WAVE ' + (EM.raidN + 1) + ' ARRIVES IN 12 SECONDS · BUILD TOWERS AND WALLS', color: '#ff9a3a', t: 4 }; sfx('emHorn'); speak('Raiders approaching', 0.5, 1)
   }
   if (EM.raidT <= 0) {
     EM.raidN++; EM.raidAt = EM.t; EM.raidWarn = 0; EM.raidT = EM.raidGap ? Math.max(40, EM.raidGap - EM.raidN * 2) : Math.max(42, 80 - EM.raidN * 4)
@@ -527,7 +539,7 @@ export const empireActions = {
 }
 function click(w, button) {
   const i = (w.x / T) | 0, j = (w.y / T) | 0
-  if (button === 2) { const p = pickAt(w.x, w.y); localCmd({ k: 'atk', x: w.x, y: w.y, t: p && p.b ? p.b.id : 0 }); sfx('ui'); EM.fx.push({ k: 'ping', x: w.x, y: w.y, l: 0.6 }); return }
+  if (button === 2) { const p = pickAt(w.x, w.y); localCmd({ k: 'atk', x: w.x, y: w.y, t: p && p.b ? p.b.id : 0 }); sfx('ui'); EM.fx.push({ k: 'ping', x: w.x, y: w.y, l: 0.6 }); sfx('emMarch'); return }
   if (EM.build) {
     const d = BDEF[EM.build], bi = i - (d.w >> 1), bj = j - (d.w >> 1)
     if (localCmd({ k: 'build', t: EM.build, i: bi, j: bj })) { sfx('tdBuild'); if (!keys.ShiftLeft) EM.build = null; emitE() } else { sfx('cBad'); EM.msg = { text: 'CANNOT BUILD HERE', sub: 'NEEDS FREE GRASS NEAR YOUR TOWN, AND ENOUGH RESOURCES', color: '#ff8a96', t: 1.4 } }

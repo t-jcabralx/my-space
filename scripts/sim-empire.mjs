@@ -48,7 +48,7 @@ for (let i = 0; i < EMCAMP.length; i++) {
   EM.P[0].auto = true; EM.P[0].ai = { t: 0, atkT: 80 }
   if (i === 2) EM.P[0].res = { food: 3000, wood: 3000, stone: 3000, gold: 3000 }
   let f = 0
-  const limit = i <= 2 ? 3600 : 700 // seconds of game time
+  const limit = i <= 1 ? 2400 : i === 2 ? 700 : 500 // seconds of game time
   while (EM.mode === 'play' && EM.t < limit && f++ < 40000) update(0.2)
   console.log('scenario', i + 1, EM.mode, 'time', Math.round(EM.t), 'done', EM.obj.filter((o) => o.done).length + '/' + EM.obj.length, 'raids', EM.raidN)
   ok(EM.obj.some((o) => o.done) || EM.mode === 'over', 'scenario ' + (i + 1) + ' makes progress')

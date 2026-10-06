@@ -60,3 +60,12 @@ Seven more games (Air Hockey, Billiards, Neon Defense, Neon Depths, Neon Beat, W
 - **Empire Rise** has a 5-scenario campaign "From Ember to Empire" with objectives, guided hints, story scenes and its own raid pacing; free skirmish and online remain.
 - **Story mode** now includes the Village of Embers and the new Depths and Defense chapters.
 - **Phones:** the layout follows rotation, asks for fullscreen + landscape on the first game, and shows a hint in portrait.
+
+## Update: companions, click-to-attack, the Abyss and hidden agendas
+- **Neon Depths** no longer attacks for you: click (or hold) to attack toward the mouse, press J, or use the on-screen button on phones.
+- **Rooms are about 60% wider.**
+- **9 companions** (wolf, eagle, owl, lion, tiger, bear, fairy, dragon, phoenix), all unlocked by playing. They gain XP, level up to 9 and evolve at levels 4 and 7 with new effects; their progress is saved.
+- **Your hero ascends** at levels 3, 6 and 9: a rune ring, a flowing river of light, then a halo.
+- **The Abyss**: 50 different room scenarios (ambushes, gauntlets, survival, trap floors, shrines, merchants, rune trials, elites, a guardian every 10 rooms).
+- **6 hidden agendas** (pots, untouched rooms, speed, shrines, depth, collecting) that reward an **orb** (floating effect) and a **relic skill** (key F).
+- **Empire Rise**: idle soldiers auto-defend when an enemy gets near any of your buildings; new sounds for fighting, building, training, alarms and raid horns.

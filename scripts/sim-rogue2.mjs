@@ -16,7 +16,7 @@ for (let ch = 1; ch <= 5; ch++) {
   ok(RG.chapter === ch && me().lv === 1 + 2 * (ch - 1), 'chapter ' + ch + ' starts at the right level ' + me().lv)
   // the rune trial: the pattern is shown, then walking it opens a chest
   const pi = C.plan.indexOf('puzzle'); rogueActions.jump(pi); rogueActions.skipTale()
-  ok(RG.puz && RG.rtype === 'puzzle' && RG.ax < 60, 'ch' + ch + ' puzzle room')
+  ok(RG.puz && RG.rtype === 'puzzle' && RG.ax < 90, 'ch' + ch + ' puzzle room')
   run(14)
   ok(RG.puz && !RG.puz.showing, 'ch' + ch + ' pattern finished showing')
   const z = RG.puz; const seq = z.seq.slice()
@@ -32,7 +32,7 @@ for (let ch = 1; ch <= 5; ch++) {
   ok(z2.step === 0 && z2.fails === 1 && z2.showing, 'ch' + ch + ' wrong rune replays the pattern')
   // treasure room if the chapter has one
   const ti = C.plan.indexOf('treasure')
-  if (ti >= 0) { rogueActions.jump(ti); rogueActions.skipTale(); ok(RG.open && RG.chests.length === 1 && RG.ax < 45, 'ch' + ch + ' treasure room is small and open'); me().x = RG.chests[0].x; me().y = 0; const g0 = RG.gold; run(0.5); ok(RG.gold > g0, 'treasure pays gold') }
+  if (ti >= 0) { rogueActions.jump(ti); rogueActions.skipTale(); ok(RG.open && RG.chests.length === 1 && RG.ax < 60, 'ch' + ch + ' treasure room is small and open'); me().x = RG.chests[0].x; me().y = 0; const g0 = RG.gold; run(0.5); ok(RG.gold > g0, 'treasure pays gold') }
   // the hidden passage: break the cracked wall, step in, clear the vault, open the chest
   rogueActions.jump(C.secretRoom - 1); rogueActions.skipTale()
   ok(RG.secret && !RG.secret.found, 'ch' + ch + ' has a hidden passage in room ' + C.secretRoom)
@@ -73,7 +73,7 @@ ok(RG.over.unlocks.some((u) => /EMBER BLADE/.test(u)) && RG.over.next, 'the end 
 rogueActions.start({ cls: 0, chapter: 1, weapon: 'ember', power: 'ironskin' }); rogueActions.skipTale()
 ok(me().wid === 'ember' && me().armor >= 0.15 && me().wmod.burn === 3, 'weapon and power are applied')
 RG.spawnQ.forEach((q) => { q.t = 0 }); run(1.5)
-const t = RG.en[0]; if (t) { me().x = t.x - 3; me().y = t.y; me().aimPt = { x: t.x, y: t.y }; me().hold = true; run(1.5); ok(!!t.burn || t.hp < t.max || t.dead, 'ember blade burns') }
+const t = RG.en[0]; if (t) { me().x = t.x - 3; me().y = t.y; me().aimPt = { x: t.x, y: t.y }; me().holdPtr = true; me().aimT = 1e9; run(1.5); ok(!!t.burn || t.hp < t.max || t.dead, 'ember blade burns') }
 rogueActions.stop()
 console.log(fail ? 'FAIL rogue2' : 'PASS rogue chapters, puzzles, secrets and unlocks')
 process.exit(fail ? 1 : 0)

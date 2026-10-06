@@ -676,3 +676,6 @@ li.bonus { border-color: var(--gr); color: var(--gr); } li.fail { border-color: 
 
 .em-obj { position: absolute; top: 4.4cqw; right: 1cqw; width: 22cqw; min-width: 150px; background: #070c26e6; border-left: 4px solid #ffd23a; padding: .5cqw .8cqw; z-index: 2; pointer-events: none; display: flex; flex-direction: column; gap: .25cqw; font-size: .6em; } .em-obj h4 { color: #ffd23a; font-size: 1.05em; } .em-obj div { color: #cfe0ff; line-height: 1.5; } .em-obj div.done { color: #6aff9a; text-decoration: line-through; opacity: .7; }
 .objl { margin-top: .5cqw; padding-left: 1.2cqw; list-style: none; display: flex; flex-direction: column; gap: .3cqw; font-size: .8em; }
+
+.mg-shops { position: absolute; left: 50%; bottom: 7cqw; transform: translateX(-50%); display: flex; gap: 1cqw; z-index: 3; pointer-events: none; } .mg-shops span { background: #070c26f2; border: 2px solid #ffd23a; color: #ffe84a; padding: .4cqw .9cqw; font-size: .6em; }
+.mg-ab.atk { border-color: #ff8a2a; background: #3a1608dd; }
