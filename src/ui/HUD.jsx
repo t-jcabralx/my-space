@@ -887,7 +887,7 @@ function CardRoomLobby({ s, onOnline }) {
   const [seven, setSeven] = useState(false)
   const [target, setTarget] = useState(200)
   const [stake, setStake] = useState(50)
-  const [bots, setBots] = useState(3)
+  const [bots, setBots] = useState(0)
   const p = s.profile
   const GAMES = [
     ['uno', '🟥', 'UNO', 'Match colours and numbers. Skip, reverse, +2, +4 and wilds. 2-4 players.'],
@@ -917,7 +917,7 @@ function CardRoomLobby({ s, onOnline }) {
           {game === 'tongits' && <div><h4>STAKE PER ROUND</h4><div className="chips">{[50, 100, 200].map((v) => <button key={v} className={'chip ' + (stake === v ? 'sel' : '')} onClick={() => setStake(v)}>🪙 {v}</button>)}</div></div>}
         </div>
         <div className="lobbyinfo"><b>{GAMES.find((g) => g[0] === game)[2]}</b> · {GAMES.find((g) => g[0] === game)[3]}<br /><small>{game === 'lucky9' || game === 'tongits' ? `Uses your chip bank: 🪙 ${Number(p.chips || 0).toLocaleString()}. Cash out to put your chips on the leaderboard.` : 'Click your cards to play. Glowing cards are playable.'}</small></div>
-        <div className="chips"><button className="big" onClick={() => start(false)}>▶ SIT DOWN & PLAY</button><button className="big sec" onClick={() => start(true)}>👁 WATCH BOTS</button><button className="big sec" onClick={onOnline}>🌐 PLAY WITH FRIENDS</button></div>
+        <div className="chips"><button className="big" onClick={() => start(false)}>▶ SIT DOWN & PLAY</button><button className="big sec" onClick={() => start(true)}>👁 WATCH BOTS</button><button className="big sec" onClick={() => onOnline(game)}>🌐 PLAY WITH FRIENDS</button></div>
       </div>
       <div className="lobbyR">
         <div className="panel"><h4>MY CARD ROOM</h4><div className="kv"><span>CHIP BANK</span><b>🪙 {Number(p.chips || 0).toLocaleString()}</b><span>GAMES WON</span><b>{p.cardWins || 0}</b><span>UNO WINS</span><b>{p.unoWins || 0}</b><span>PUSOY WINS</span><b>{p.pusoyWins || 0}</b><span>LUCKY 9s</span><b>{p.luckyNines || 0}</b><span>TONG-ITS</span><b>{p.tongitsWins || 0}</b></div></div>
@@ -951,7 +951,7 @@ function DailyPanel({ q }) {
   )
 }
 
-function GameCard({ cls, title, tag, hi, hiLabel, art, onPlay, label, sub }) {
+function GameCard({ cls, title, tag, hi, hiLabel, art, onPlay, label, sub, onInvite }) {
   return (
     <div className={'gcard ' + cls}>
       <h4>{title}</h4>
@@ -959,12 +959,15 @@ function GameCard({ cls, title, tag, hi, hiLabel, art, onPlay, label, sub }) {
       <div className="gart">{art}</div>
       <div className="kv"><span>{hiLabel}</span><b>{hi}</b>{sub}</div>
       <button className="big" onClick={onPlay}>{label}</button>
+      {onInvite && <button className="big sec" onClick={onInvite}>🌐 INVITE FRIEND</button>}
     </div>
   )
 }
 
 function Hub({ s }) {
   const [tab, setTab] = useState('home')
+  const [ogame, setOgame] = useState('tetris')
+  useEffect(() => { try { if (new URLSearchParams(location.search).get('join')) setTab('online') } catch { /* ignore */ } }, [])
   const [pmode, setPmode] = useState('bot')
   const [pdiff, setPdiff] = useState(2)
   const [ptarget, setPtarget] = useState(11)
@@ -1002,19 +1005,19 @@ function Hub({ s }) {
               art={<SpriteArt scene={[[SP.palm, 22, false, 3], [SP.vsv, 110, false, 3], [SP.heroS, 66, false, 4], [SP.solS, 178, true, 4], [SP.runS, 206, true, 4]]} />} label="▶ PLAY" onPlay={() => slugActions.start(0)}
               sub={<><span>WINS</span><b>{p.slugWins}</b></>} />
             <GameCard cls="pickle" title="🏓 PICKLEBALL" tag="Bots · 1v1 · 2v2 · real rules" hiLabel="WINS" hi={p.pickleWins || 0}
-              art={<div className="miniCourt"><i className="net" /><i className="ball" /><b className="pa">🧍</b><b className="pb">🤖</b></div>} label="SELECT MODE ▶" onPlay={() => setTab('pickle')}
+              art={<div className="miniCourt"><i className="net" /><i className="ball" /><b className="pa">🧍</b><b className="pb">🤖</b></div>} label="SELECT MODE ▶" onPlay={() => setTab('pickle')} onInvite={() => { setOgame('pickle'); setTab('online') }}
               sub={<><span>ACES</span><b>{p.aces || 0}</b></>} />
             <GameCard cls="bomber" title="💣 BOMBER BLAST" tag="Battle arena · bots · 1v1 · 2v2" hiLabel="WINS" hi={p.bomberWins || 0}
-              art={<MiniBomber />} label="SELECT MODE ▶" onPlay={() => setTab('bomber')}
+              art={<MiniBomber />} label="SELECT MODE ▶" onPlay={() => setTab('bomber')} onInvite={() => { setOgame('bomber'); setTab('online') }}
               sub={<><span>BLOCKS</span><b>{p.bricks || 0}</b></>} />
             <GameCard cls="tetris" title="🧱 TETRA BLAST" tag="Solo · 1v1 vs bot · 2P · T-spins" hiLabel="LINES" hi={p.tetrisLines || 0}
-              art={<MiniTetris />} label="SELECT MODE ▶" onPlay={() => setTab('tetris')}
+              art={<MiniTetris />} label="SELECT MODE ▶" onPlay={() => setTab('tetris')} onInvite={() => { setOgame('tetris'); setTab('online') }}
               sub={<><span>TETRISES</span><b>{p.tetrises || 0}</b></>} />
             <GameCard cls="chomp" title="🟡 MAZE CHOMP" tag="Ghosts · pellets · fruit · co-op" hiLabel="BEST" hi={(p.chompHi || 0).toLocaleString()}
               art={<MiniChomp />} label="SELECT MODE ▶" onPlay={() => setTab('chomp')}
               sub={<><span>GHOSTS</span><b>{p.chompGhosts || 0}</b></>} />
             <GameCard cls="cards" title="🃏 CARD ROOM" tag="UNO · Pusoy Dos · Lucky 9 · Tong-its" hiLabel="CHIPS" hi={'🪙 ' + Number(p.chips || 0).toLocaleString()}
-              art={<div className="miniCards"><i>♥</i><i>♠</i><i>9</i><i>+2</i></div>} label="SELECT GAME ▶" onPlay={() => setTab('cards')}
+              art={<div className="miniCards"><i>♥</i><i>♠</i><i>9</i><i>+2</i></div>} label="SELECT GAME ▶" onPlay={() => setTab('cards')} onInvite={() => { setOgame('uno'); setTab('online') }}
               sub={<><span>WON</span><b>{p.cardWins || 0}</b></>} />
           </div>
           <DailyPanel q={s.quests} />
@@ -1037,8 +1040,8 @@ function Hub({ s }) {
         </>
       )}
       {tab === 'pickle' && <PickleLobby s={s} mode={pmode} setMode={setPmode} diff={pdiff} setDiff={setPdiff} target={ptarget} setTarget={setPtarget} />}
-      {tab === 'cards' && <CardRoomLobby s={s} onOnline={() => setTab('online')} />}
-      {tab === 'online' && <OnlineLobby s={s} TopPlayers={TopPlayers} />}
+      {tab === 'cards' && <CardRoomLobby s={s} onOnline={(g) => { setOgame(g || 'uno'); setTab('online') }} />}
+      {tab === 'online' && <OnlineLobby s={s} TopPlayers={TopPlayers} initGame={ogame} />}
       {tab === 'chomp' && <ChompLobby s={s} mode={cmode} setMode={setCmode} level={clevel} setLevel={setClevel} />}
       {tab === 'tetris' && <TetrisLobby s={s} mode={tmode} setMode={setTmode} diff={tdiff} setDiff={setTdiff} level={tlevel} setLevel={setTlevel} />}
       {tab === 'bomber' && <BomberLobby s={s} mode={bmode} setMode={setBmode} diff={bdiff} setDiff={setBdiff} rounds={brounds} setRounds={setBrounds} />}

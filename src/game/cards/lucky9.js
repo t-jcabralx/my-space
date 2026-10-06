@@ -28,7 +28,7 @@ function start(opts) {
   L.opts = opts
   ACTOR = 0
   const hs = opts.humans || [{ name: 'YOU' }]
-  const total = Math.min(4, hs.length + (opts.bots === undefined ? 3 : opts.bots))
+  const total = Math.min(4, hs.length + (opts.bots === undefined ? 0 : opts.bots))
   const bn = BOTS.slice()
   L.players = []
   for (let i = 0; i < total; i++) {

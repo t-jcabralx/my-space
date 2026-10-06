@@ -3,11 +3,15 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { RT, subscribeRt, getRt, createRoom, joinRoom, leaveRoom, listRooms, roomAction, sendChat } from '../game/online/rt.js'
 import { hostCardGame, installCardsOnline } from '../game/online/cards-online.js'
 import { hostTetris, installTetrisOnline } from '../game/online/tetris-online.js'
+import { hostPickle, installPickleOnline } from '../game/online/pickle-online.js'
+import { hostBomber, installBomberOnline } from '../game/online/bomber-online.js'
 import { setName } from '../game/engine.js'
 
-if (typeof window !== 'undefined') { installCardsOnline(); installTetrisOnline() }
+if (typeof window !== 'undefined') { installCardsOnline(); installTetrisOnline(); installPickleOnline(); installBomberOnline() }
 
 const GAMES = [
+  ['pickle', '🏓', 'PICKLEBALL 1V1', 'Real rules, first to 11 win by 2. Host runs the match; WASD/arrows + F G H to hit.', 2],
+  ['bomber', '💣', 'BOMBER BLAST', '2-4 friends in the arena, bots fill empty slots. Move with WASD/arrows, Space drops a bomb.', 4],
   ['tetris', '🧱', 'TETRA BLAST 1V1', 'Race a real player. Clear lines to send garbage. Same piece order for both.', 2],
   ['uno', '🟥', 'UNO', '2-4 humans, bots fill empty seats. Private hands, host runs the table.', 4],
   ['pusoy', '👑', 'PUSOY DOS', '2-4 humans, bots fill empty seats. First to 40 points.', 4],
@@ -16,9 +20,9 @@ const GAMES = [
 ]
 const useRt = () => useSyncExternalStore(subscribeRt, getRt, getRt)
 
-export default function OnlineLobby({ s, TopPlayers }) {
+export default function OnlineLobby({ s, TopPlayers, initGame }) {
   const rt = useRt()
-  const [game, setGame] = useState('tetris')
+  const [game, setGame] = useState(initGame || 'tetris')
   const [name, setNm] = useState((s.profile && s.profile.name) || 'PLAYER')
   const [code, setCode] = useState('')
   const [msg, setMsg] = useState('')
@@ -26,7 +30,7 @@ export default function OnlineLobby({ s, TopPlayers }) {
   const [target, setTarget] = useState(200)
   const [stack, setStack] = useState(true)
   const [seven, setSeven] = useState(false)
-  const [lbots, setLbots] = useState(1)
+  const [lbots, setLbots] = useState(0)
   const logRef = useRef(null)
   const room = rt.room
   const cleanN = () => (name || 'PLAYER').replace(/[^\w ]/g, '').slice(0, 12).toUpperCase() || 'PLAYER'
@@ -37,6 +41,16 @@ export default function OnlineLobby({ s, TopPlayers }) {
     const t = setInterval(() => listRooms(game), 4000)
     return () => clearInterval(t)
   }, [game, room])
+  const autoJoined = useRef(false)
+  useEffect(() => {
+    if (autoJoined.current || room) return
+    let c = ''
+    try { c = (new URLSearchParams(location.search).get('join') || '').toUpperCase().slice(0, 5) } catch { /* ignore */ }
+    if (c.length >= 4) { autoJoined.current = true; join(c) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  const [copied, setCopied] = useState(false)
+  const copyLink = () => { try { navigator.clipboard.writeText(`${location.origin}/?join=${room.code}`); setCopied(true); setTimeout(() => setCopied(false), 1800) } catch { setMsg('Copy failed: share the code instead') } }
   useEffect(() => { if (logRef.current) logRef.current.scrollTop = 1e6 }, [rt.chat.length])
 
   const run = async (fn) => { setMsg(''); try { await fn() } catch (e) { setMsg(e.message || 'Something went wrong') } }
@@ -46,6 +60,8 @@ export default function OnlineLobby({ s, TopPlayers }) {
   const g = room ? GAMES.find((x) => x[0] === room.game) : null
   const start = () => run(async () => {
     if (room.game === 'tetris') await hostTetris()
+    else if (room.game === 'pickle') await hostPickle()
+    else if (room.game === 'bomber') await hostBomber()
     else await hostCardGame(room.game, { ...room.opts, auto: false, ...(room.game === 'pusoy' ? { target: 40 } : room.game === 'tongits' ? { stake: 50 } : room.game === 'lucky9' ? { bots: room.opts.bots || 0 } : {}) })
   })
   const share = room ? `${room.code}` : ''
@@ -94,12 +110,13 @@ export default function OnlineLobby({ s, TopPlayers }) {
         <div className="roomPlayers">
           {room.players.map((p) => <div key={p.id} className="chip sel" style={{ margin: 3 }}>{p.id === room.host ? '👑 ' : '🙂 '}{p.name}{p.id === rt.cid ? ' (you)' : ''}</div>)}
           {(room.game === 'uno' || room.game === 'pusoy' || room.game === 'tongits') && Array.from({ length: Math.max(0, room.max - room.players.length) }).map((_, i) => <div key={i} className="chip" style={{ margin: 3, opacity: 0.6 }}>🤖 BOT</div>)}
-          {room.game === 'tetris' && room.players.length < 2 && <div className="chip" style={{ margin: 3, opacity: 0.6 }}>… waiting for opponent</div>}
+          {(room.game === 'tetris' || room.game === 'pickle') && room.players.length < 2 && <div className="chip" style={{ margin: 3, opacity: 0.6 }}>… waiting for opponent</div>}
         </div>
         <div className="chips">
           {isHost
-            ? <button className="big" disabled={room.game === 'tetris' && room.players.length < 2} onClick={start}>▶ START GAME</button>
+            ? <button className="big" disabled={(room.game === 'tetris' || room.game === 'pickle' || room.game === 'bomber') && room.players.length < 2} onClick={start}>▶ START GAME</button>
             : <div className="lobbyinfo">Waiting for the host to start…</div>}
+          <button className="big sec" onClick={copyLink}>{copied ? '✔ LINK COPIED' : '🔗 COPY INVITE LINK'}</button>
           <button className="big sec" onClick={() => leaveRoom()}>LEAVE ROOM</button>
         </div>
         {(msg || rt.error) && <div className="lobbyinfo" style={{ color: '#ff8a96' }}>{msg || rt.error}</div>}
@@ -114,7 +131,7 @@ export default function OnlineLobby({ s, TopPlayers }) {
         </form>
       </div>
       <div className="lobbyR">
-        <div className="panel"><h4>HOW IT WORKS</h4><div className="lobbyinfo"><small>{room.game === 'tetris' ? 'Both of you get the same piece order. Your clears send garbage to the other board. Last one standing wins. Leaving or disconnecting forfeits.' : 'The host runs the table; you only see your own cards (chips are per-table). If someone disconnects a bot takes their seat. If the host leaves the game ends.'}</small></div></div>
+        <div className="panel"><h4>HOW IT WORKS</h4><div className="lobbyinfo"><small>{room.game === 'pickle' ? 'The host runs the match and the ball; you move your own player instantly and your hits are checked by the host, so a fast connection helps. First to 11, win by 2.' : room.game === 'bomber' ? 'The host runs the arena. Move and drop bombs; last one standing wins the round, best of 3. Bots fill empty slots; if a friend leaves a bot takes over.' : room.game === 'tetris' ? 'Both of you get the same piece order. Your clears send garbage to the other board. Last one standing wins. Leaving or disconnecting forfeits.' : 'The host runs the table; you only see your own cards (chips are per-table). If someone disconnects a bot takes their seat. If the host leaves the game ends.'}</small></div></div>
         <TopPlayers s={s} initial={room.game} compact fixed key={room.game} />
       </div>
     </div>

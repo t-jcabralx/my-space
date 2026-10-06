@@ -15,6 +15,7 @@ const DIFF = [
 export const MODES = {
   bot:   { name: 'VS BOT',        desc: '1v1: you against the AI',            a: 1, b: 1, humans: [[0, 0]] },
   local: { name: '1v1 LOCAL',     desc: 'Two players, one keyboard',          a: 1, b: 1, humans: [[0, 0], [1, 0]] },
+  online: { name: 'ONLINE 1V1', desc: 'Play a friend over the internet', a: 1, b: 1, humans: [[0, 0], [1, 0]], online: true },
   duo:   { name: '2v2 + BOT',     desc: 'You and a bot partner vs 2 bots',     a: 2, b: 2, humans: [[0, 0]] },
   coop:  { name: '2v2 CO-OP',     desc: 'Two humans vs 2 bots',                a: 2, b: 2, humans: [[0, 0], [0, 1]] },
   demo:  { name: 'BOTS vs BOTS',  desc: 'Watch 4 bots play (demo)',            a: 2, b: 2, humans: [] },
@@ -35,7 +36,7 @@ function emitP() {
     mode: P.mode, paused: P.paused, phase: P.phase, type: P.cfg.type, modeName: m.name, diff: DIFF[P.cfg.diff - 1].name, doubles: P.doubles,
     score: P.score.slice(), serveTeam: P.serveTeam, serverNum: P.serverNum, call: P.call, rally: P.rally, bestRally: P.bestRally,
     msg: P.msg, over: P.over, target: P.cfg.target,
-    names: P.cfg.type === 'local' ? ['PLAYER 1', 'PLAYER 2'] : P.cfg.type === 'bot' ? ['YOU', 'BOT'] : P.cfg.type === 'demo' ? ['BOTS A', 'BOTS B'] : ['TEAM YOU', 'TEAM BOTS'],
+    names: P.cfg.type === 'online' ? ['HOST', 'GUEST'] : P.cfg.type === 'local' ? ['PLAYER 1', 'PLAYER 2'] : P.cfg.type === 'bot' ? ['YOU', 'BOT'] : P.cfg.type === 'demo' ? ['BOTS A', 'BOTS B'] : ['TEAM YOU', 'TEAM BOTS'],
     serverHuman: srv ? srv.human : 0,
   }
   subs.forEach((f) => f())
@@ -86,6 +87,7 @@ function placeForServe() {
   P.call = P.doubles ? `${a}-${b}-${P.serverNum}` : `${a}-${b}`
 }
 function start(type = 'bot', diff = 2, target = 11) {
+  if (type !== 'online') P.net = null
   initState(type, diff, target)
   G.mode = 'pickle'; G.parts = []; G.pops = []
   profile.pickleGames = (profile.pickleGames || 0) + (type === 'demo' ? 0 : 0)
@@ -99,7 +101,7 @@ function initState(type, diff, target) {
   P.score = [0, 0]; P.serveTeam = 0; P.serverNum = P.doubles ? 2 : 1; P.firstIdx = [0, 0]; P.newTurn = true
   P.mode = 'play'; P.paused = false; P.over = null; P.rally = 0; P.bestRally = 0; P.pointT = 0; P.t = 0
 }
-function stop() { P.mode = 'idle'; P.paused = false; music.set('menu'); emitP() }
+function stop() { if (P.net) { const n = P.net; P.net = null; if (n.onStop) try { n.onStop() } catch { /* ignore */ } } P.mode = 'idle'; P.paused = false; music.set('menu'); emitP() }
 
 // ---------- rally logic ----------
 function endRally(winner, reason) {
@@ -133,15 +135,7 @@ function endRally(winner, reason) {
     const w = sa > sb ? 0 : 1
     P.over = { winner: w, a: sa, b: sb }
     P.pointT = 2.5
-    const human = P.pl.some((p) => p.human)
-    if (human && P.cfg.type !== 'demo') {
-      profile.pickleGames = (profile.pickleGames || 0) + 1
-      if (P.pl.some((p) => p.human && p.team === w) && (P.cfg.type !== 'local' || true)) profile.pickleWins = (profile.pickleWins || 0) + 1
-      const mine = P.pl.some((q) => q.human && q.team === 0) ? 0 : 1
-      const pts = P.score[mine], opp = P.score[1 - mine]
-      recordScore('pickle', Math.max(0, pts * 100 + (pts > opp ? 500 + (pts - opp) * 25 : 0)))
-      saveProfile()
-    }
+    bookResult(w)
     speak(`Game over. ${w === 0 ? 'Team A' : 'Team B'} wins ${Math.max(sa, sb)} to ${Math.min(sa, sb)}`)
     sfx('win')
   } else {
@@ -149,6 +143,16 @@ function endRally(winner, reason) {
     P.call = P.doubles ? `${a}-${b}-${P.serverNum}` : `${a}-${b}`
     speak(P.call.replaceAll('-', ', '), 0.7, 1.1)
   }
+}
+function bookResult(w) {
+  const human = P.pl.some((p) => p.human)
+  if (!human || P.cfg.type === 'demo') return
+  const mine = P.net ? (P.net.me === 1 ? 0 : 1) : P.pl.some((q) => q.human && q.team === 0) ? 0 : 1
+  profile.pickleGames = (profile.pickleGames || 0) + 1
+  if (P.net ? w === mine : P.pl.some((p) => p.human && p.team === w)) profile.pickleWins = (profile.pickleWins || 0) + 1
+  const pts = P.score[mine], opp = P.score[1 - mine]
+  recordScore('pickle', Math.max(0, pts * 100 + (pts > opp ? 500 + (pts - opp) * 25 : 0)))
+  saveProfile()
 }
 const fault = (team, reason) => endRally(1 - team, reason)
 
@@ -278,6 +282,12 @@ function stepBall(dt) {
 
 // ---------- humans ----------
 function inputFor(h) {
+  if (P.net && P.cfg.type === 'online') {
+    if (h !== P.net.me) return P.netIn || { mx: 0, my: 0 }
+    const k = keys
+    const lf = k.KeyA || k.ArrowLeft, rt = k.KeyD || k.ArrowRight, up = k.KeyW || k.ArrowUp, dn = k.KeyS || k.ArrowDown
+    return { mx: (rt ? 1 : 0) - (lf ? 1 : 0), my: (up ? 1 : 0) - (dn ? 1 : 0) }
+  }
   const two = P.pl.some((p) => p.human === 2)
   const arrows = h === 2 || !two
   const wasd = h === 1
@@ -299,17 +309,22 @@ const SHOT_KEYS = {
 }
 function onKey(code) {
   if (P.mode === 'idle') return
-  if (code === 'Escape' || code === 'KeyP') { if (P.mode === 'play') { P.paused = !P.paused; sfx('ui'); emitP() } return }
+  if (code === 'Escape' || code === 'KeyP') { if (P.mode === 'play' && !P.net) { P.paused = !P.paused; sfx('ui'); emitP() } return }
   if (P.paused) { if (code === 'Enter') { P.paused = false; emitP() } return }
-  if (P.mode === 'over' || P.over && P.phase === 'over') { if (code === 'Enter') start(P.cfg.type, P.cfg.diff, P.cfg.target); return }
+  if (P.mode === 'over' || P.over && P.phase === 'over') { if (code === 'Enter') pickleActions.rematch(); return }
   const sk = SHOT_KEYS[code]
   if (!sk) return
+  if (P.net && P.cfg.type === 'online') { shotBy(P.net.me, sk[1]); if (P.net.role === 'guest') P.net.shot(sk[1]); return }
   const two = P.pl.some((p) => p.human === 2)
   let [who, type] = sk
   if ((code === 'KeyJ' || code === 'KeyK' || code === 'KeyL') && two) return
   if ((code === 'Comma' || code === 'Period' || code === 'Slash') && !two) who = 1
+  shotBy(who, type)
+}
+function shotBy(who, type) {
   const group = P.pl.filter((p) => p.human === who)
   if (!group.length) return
+  if (P.net && P.net.role === 'guest') { const me = group[0]; me.swingT = Math.max(me.swingT, 0.22); me.swingK = type; return }
   if (P.phase === 'serve') {
     const srv = serverPlayer()
     if (srv.human === who && P.readyT <= 0.5) serve(srv, { ...aimFor(srv), err: type === 'dink' ? 0.6 : 1 })
@@ -389,11 +404,22 @@ function moveToward(p, tx, ty, spd, dt) {
 
 // ---------- main step ----------
 function play(dt) {
+  if (P.net && P.net.role === 'guest') { mirrorStep(dt); return }
   P.t += dt
   const B = P.B
   P.readyT -= dt
   for (const p of P.pl) {
     p.swingT = Math.max(0, p.swingT - dt)
+    if (p.human && P.net && p.human !== P.net.me) {
+      // the remote player owns their own position; we only ease toward what they report
+      const r = P.netPos
+      if (r && P.phase !== 'serve') { p.x += (r.x - p.x) * Math.min(1, dt * 12); p.y += (r.y - p.y) * Math.min(1, dt * 12) }
+      const i = inputFor(p.human); p.vx = i.mx * 30; p.vy = i.my * 30
+      if (P.phase === 'serve') { p.vx = p.vy = 0 }
+      if (p.req) { if (tryHit(p, p.req.type, aimFor(p))) p.req = null; else { p.req.t -= dt; if (p.req.t <= 0) p.req = null } }
+      p.moving = Math.hypot(p.vx, p.vy) > 6; p.anim += dt * Math.hypot(p.vx, p.vy) * 0.35
+      continue
+    }
     if (p.human) {
       const i = inputFor(p.human), len = Math.hypot(i.mx, i.my) || 1
       const sp = 30
@@ -436,13 +462,87 @@ function update(dtRaw) {
   if (P.mode === 'idle') return
   if (P.mode === 'play' && !P.paused) play(dt)
   else if (P.mode === 'over') stepParticles(dt)
+  if (P.net && P.mode !== 'idle') netTick(dt)
   P.emitT -= dt
   if (P.emitT <= 0) { P.emitT = 0.07; emitP() }
 }
 export const pickleActions = {
-  pause() { if (P.mode === 'play' && !P.paused) { P.paused = true; emitP(); return true } return false },
+  pause() { if (P.mode === 'play' && !P.paused && !P.net) { P.paused = true; emitP(); return true } return false },
   start, stop, quit() { toMenu() }, resume() { P.paused = false; emitP() },
-  rematch() { start(P.cfg.type, P.cfg.diff, P.cfg.target) },
+  rematch() { if (P.net) { P.net.rematch(); return } start(P.cfg.type, P.cfg.diff, P.cfg.target) },
+}
+
+// ---------- online (host simulates; the guest sends inputs and mirrors the state) ----------
+let netSeq = 0, netT = 0, inT = 0, lastN = -1
+function netTick(dt) {
+  const n = P.net
+  if (n.role === 'host') {
+    netT -= dt
+    if (netT <= 0 && P.B) { netT = 0.05; n.state(hostSnapshot()) }
+  } else {
+    inT -= dt
+    const me = P.pl.find((p) => p.human === n.me)
+    if (inT <= 0 && me) { inT = 0.066; const i = inputFor(n.me); n.input({ mx: i.mx, my: i.my, x: me.x, y: me.y }) }
+  }
+}
+const r2 = (v) => Math.round(v * 100) / 100
+function hostSnapshot() {
+  const B = P.B
+  return {
+    n: ++netSeq, pl: P.pl.map((p) => [r2(p.x), r2(p.y), r2(p.vx), r2(p.vy), r2(p.swingT), p.swingK, p.lane]),
+    B: { x: r2(B.x), y: r2(B.y), h: r2(B.h), vx: r2(B.vx), vy: r2(B.vy), vh: r2(B.vh), held: B.held, live: B.live, hc: B.hitCount, lh: B.lastHit, serve: B.serve },
+    sc: P.score, ph: P.phase, st: P.serveTeam, sn: P.serverNum, call: P.call, rally: P.rally, best: P.bestRally, msg: P.msg, over: P.over, rd: r2(P.readyT), pt: r2(P.pointT), fi: P.firstIdx,
+  }
+}
+function mirrorStep(dt) {
+  P.t += dt
+  const B = P.B
+  P.readyT -= dt
+  for (const p of P.pl) {
+    p.swingT = Math.max(0, p.swingT - dt)
+    if (p.human === P.net.me) {
+      const i = inputFor(p.human), len = Math.hypot(i.mx, i.my) || 1
+      if (P.phase !== 'serve') { p.vx += ((i.mx / len) * 30 - p.vx) * Math.min(1, dt * 14); p.vy += ((i.my / len) * 30 - p.vy) * Math.min(1, dt * 14) } else p.vx = p.vy = 0
+    }
+    p.x += p.vx * dt; p.y += p.vy * dt
+    p.moving = Math.hypot(p.vx, p.vy) > 6; p.anim += dt * Math.hypot(p.vx, p.vy) * 0.35
+    const lo = p.team === 0 ? -CX - 6 : 1.8, hi = p.team === 0 ? -1.8 : CX + 6
+    p.x = clamp(p.x, lo, hi); p.y = clamp(p.y, -CY - 5, CY + 5)
+  }
+  if (B && !B.held && P.phase !== 'point') { B.vh -= GR * dt; B.x += B.vx * dt; B.y += B.vy * dt; B.h = Math.max(0, B.h + B.vh * dt) }
+  if (B && B.held) { const s = serverPlayer(); if (s) { B.x = s.x + os(s.team) * 1.6; B.y = s.y; B.h = 3 + Math.sin(P.t * 4) * 0.3 } }
+  if (B) { P.trail.push({ x: B.x, y: B.y + B.h * 0.45 }); if (P.trail.length > 9) P.trail.shift() }
+  if (P.phase === 'point') P.pointT -= dt
+  stepParticles(dt)
+}
+export const pickleNet = {
+  attach(net) { P.net = net; P.netIn = { mx: 0, my: 0 }; P.netPos = null },
+  active: () => !!P.net && P.mode !== 'idle',
+  // host: the guest's controls
+  applyInput(d) { if (!d) return; P.netIn = { mx: clamp(d.mx | 0, -1, 1), my: clamp(d.my | 0, -1, 1) }; if (typeof d.x === 'number' && typeof d.y === 'number') P.netPos = { x: clamp(d.x, 1.8, CX + 6), y: clamp(d.y, -CY - 5, CY + 5) } },
+  applyShot(type) { if (P.net && P.net.role === 'host' && ['drive', 'dink', 'lob'].includes(type)) shotBy(2, type) },
+  // guest: mirror the host's state
+  applyState(d) {
+    if (!P.net || P.net.role !== 'guest' || !d || !d.pl || d.n <= lastN || P.mode === 'idle') return
+    lastN = d.n
+    const prevScore = P.score.slice(), prevHit = P.B ? P.B.hitCount : 0
+    d.pl.forEach((a, i) => {
+      const p = P.pl[i]; if (!p) return
+      if (p.human === P.net.me) { if (Math.hypot(a[0] - p.x, a[1] - p.y) > 9 || d.ph === 'serve') { p.x = a[0]; p.y = a[1] } }
+      else { p.x += (a[0] - p.x) * 0.6; p.y += (a[1] - p.y) * 0.6; p.vx = a[2]; p.vy = a[3] }
+      if (a[4] > p.swingT) { p.swingT = a[4]; p.swingK = a[5] }
+      p.lane = a[6]
+    })
+    const B = P.B, b = d.B
+    Object.assign(B, { x: b.x, y: b.y, h: b.h, vx: b.vx, vy: b.vy, vh: b.vh, held: b.held, live: b.live, hitCount: b.hc, lastHit: b.lh, serve: b.serve })
+    if (b.hc > prevHit && b.live && !b.held) sfx('hit')
+    P.score = d.sc; P.phase = d.ph; P.serveTeam = d.st; P.serverNum = d.sn; P.call = d.call; P.rally = d.rally; P.bestRally = d.best; P.msg = d.msg; P.readyT = d.rd; P.firstIdx = d.fi
+    if (d.sc[0] !== prevScore[0] || d.sc[1] !== prevScore[1]) { sfx(d.msg && d.msg.sub && /SIDE|POINT/.test(d.msg.sub) ? 'point' : 'fault'); if (P.msg) ring(B.x, B.y, 26, 40, P.msg.team === 0 ? COLS.cyan : COLS.purple) }
+    if (d.over && !P.over) { P.over = d.over; P.mode = 'over'; P.phase = 'over'; bookResult(d.over.winner); sfx('win'); music.stop() }
+    emitP()
+  },
+  oppGone() { if (P.mode === 'play' && P.net) { const w = P.net.me === 1 ? 0 : 1; P.over = { winner: w, a: P.score[0], b: P.score[1] }; P.mode = 'over'; P.phase = 'over'; P.msg = { text: 'OPPONENT LEFT', team: w, sub: 'YOU WIN' }; bookResult(w); music.stop(); emitP() } },
+  reset() { netSeq = 0; lastN = -1; netT = 0; inT = 0 },
 }
 
 // ---------- rendering ----------

@@ -22,6 +22,7 @@ export const MODES = {
   party: { name: 'PARTY (2P)', desc: '2 humans + 2 bots, free for all.', n: 4, humans: [0, 1] },
   team:  { name: '2v2 + BOT', desc: 'You and a bot partner vs 2 bots.', n: 4, humans: [0], teams: true },
   coop:  { name: '2v2 CO-OP', desc: '2 humans vs 2 bots.', n: 4, humans: [0, 1], teams: true },
+  online: { name: 'ONLINE', desc: 'Friends over the internet; bots fill the rest.', n: 4, humans: [0, 1], online: true },
   demo:  { name: 'BOTS ONLY', desc: 'Watch 4 bots battle (demo).', n: 4, humans: [] },
 }
 const PCOL = ['#3de8ff', '#ff4de1', '#ffe84a', '#3dff7a']
@@ -52,7 +53,7 @@ function names(type) {
   const m = MODES[type]
   return (i) => {
     const h = m.humans.indexOf(i)
-    if (h >= 0) return m.humans.length === 1 ? 'YOU' : 'P' + (h + 1)
+    if (h >= 0) return (type === 'online' && B.names && B.names[h]) ? String(B.names[h]).slice(0, 8).toUpperCase() : m.humans.length === 1 ? 'YOU' : 'P' + (h + 1)
     return 'BOT ' + (i + 1)
   }
 }
@@ -85,8 +86,10 @@ function makeSpiral() {
   }
   return out
 }
-function start(type = 'ffa', diff = 2, rounds = 3) {
+function start(type = 'ffa', diff = 2, rounds = 3, opts = {}) {
   const m = MODES[type]
+  if (type !== 'online') B.net = null
+  else { const nh = Math.max(2, Math.min(4, opts.humans || 2)); m.humans = Array.from({ length: nh }, (_, i) => i); m.n = nh > 2 ? 4 : 2; B.names = opts.names || [] }
   B.cfg = { type, diff, rounds }
   const corners = { TL: [1, 1], TR: [COLS_N - 2, 1], BL: [1, ROWS_N - 2], BR: [COLS_N - 2, ROWS_N - 2] }
   let order
@@ -130,7 +133,7 @@ function powerRain() {
   B.msg = { text: 'POWER-UP RAIN!', sub: 'ITEMS ARE FALLING · GRAB THEM FIRST', color: '#3dff7a', t: 2 }
   sfx('event'); speak('Power-up rain!', 0.7, 1.1)
 }
-function stop() { B.mode = 'idle'; B.paused = false; music.set('menu'); emitB() }
+function stop() { if (B.net) { const n = B.net; B.net = null; if (n.onStop) try { n.onStop() } catch { /* ignore */ } } B.mode = 'idle'; B.paused = false; music.set('menu'); emitB() }
 
 // ---------- grid helpers ----------
 const inb = (c, r) => c >= 0 && r >= 0 && c < COLS_N && r < ROWS_N
@@ -252,6 +255,11 @@ function moveAxis(p, dx, dy, dt) {
 
 // ---------- humans ----------
 function humanInput(h) {
+  if (B.net) {
+    if (h !== B.net.me) return (B.netIn && B.netIn[h]) || [0, 0]
+    const l = keys.KeyA || keys.ArrowLeft, r = keys.KeyD || keys.ArrowRight, u = keys.KeyW || keys.ArrowUp, d = keys.KeyS || keys.ArrowDown
+    return [(r ? 1 : 0) - (l ? 1 : 0), (d ? 1 : 0) - (u ? 1 : 0)]
+  }
   const two = B.pl.some((p) => p.human === 2)
   const wasd = h === 1, arrows = h === 2 || !two
   const l = (wasd && keys.KeyA) || (arrows && keys.ArrowLeft), r = (wasd && keys.KeyD) || (arrows && keys.ArrowRight)
@@ -260,9 +268,10 @@ function humanInput(h) {
 }
 function onKey(code) {
   if (B.mode === 'idle') return
-  if (code === 'Escape' || code === 'KeyP') { if (B.mode === 'play') { B.paused = !B.paused; sfx('ui'); emitB() } return }
+  if (code === 'Escape' || code === 'KeyP') { if (B.mode === 'play' && !B.net) { B.paused = !B.paused; sfx('ui'); emitB() } return }
   if (B.paused) { if (code === 'Enter') { B.paused = false; emitB() } return }
-  if (B.mode === 'over') { if (code === 'Enter') start(B.cfg.type, B.cfg.diff, B.cfg.rounds); return }
+  if (B.mode === 'over') { if (code === 'Enter') bomberActions.rematch(); return }
+  if (B.net) { if (code === 'Space' || code === 'KeyF' || code === 'KeyB' || code === 'Enter') dropBomb(B.net.me); return }
   const two = B.pl.some((p) => p.human === 2)
   let who = 0
   if (code === 'Space' || code === 'KeyF' || code === 'KeyB') who = 1
@@ -379,7 +388,7 @@ function finishMatch() {
   B.mode = 'over'; B.phase = 'over'; music.stop(); sfx('win')
   speak(`Match over. ${B.over.winName} wins!`)
   if (hum.length) {
-    const mine = hum[0]
+    const mine = B.net ? hum.find((q) => q.human === B.net.me) || hum[0] : hum[0]
     const won = mine.team === winner
     profile.bomberGames = (profile.bomberGames || 0) + 1
     if (won) profile.bomberWins = (profile.bomberWins || 0) + 1
@@ -389,7 +398,13 @@ function finishMatch() {
   }
   saveProfile()
 }
+function dropBomb(h) {
+  if (B.net && B.net.role === 'guest' && h === B.net.me) { B.net.bomb(); return }
+  const p = B.pl.find((q) => q.human === h)
+  if (p) placeBomb(p)
+}
 function play(dt) {
+  if (B.net && B.net.role === 'guest') { mirrorStep(dt); return }
   B.t += dt
   const danger = dangerMap()
   if (B.phase === 'ready') {
@@ -488,12 +503,101 @@ function update(dtRaw) {
   if (B.mode === 'idle') return
   if (B.mode === 'play' && !B.paused) play(dt)
   else if (B.mode === 'over') stepParticles(dt)
+  if (B.net && B.mode !== 'idle') netTick(dt)
   B.emitT -= dt
   if (B.emitT <= 0) { B.emitT = 0.07; emitB() }
 }
 export const bomberActions = {
-  start, stop, quit() { toMenu() }, resume() { B.paused = false; emitB() }, rematch() { start(B.cfg.type, B.cfg.diff, B.cfg.rounds) },
-  pause() { if (B.mode === 'play' && !B.paused) { B.paused = true; emitB(); return true } return false },
+  start, stop, quit() { toMenu() }, resume() { B.paused = false; emitB() }, rematch() { if (B.net) { B.net.rematch(); return } start(B.cfg.type, B.cfg.diff, B.cfg.rounds) },
+  pause() { if (B.mode === 'play' && !B.paused && !B.net) { B.paused = true; emitB(); return true } return false },
+}
+
+// ---------- online (host simulates; guests send inputs and mirror the state) ----------
+let seq = 0, lastSeq = -1, nT = 0, iT = 0
+function netTick(dt) {
+  const n = B.net
+  if (n.role === 'host') { nT -= dt; if (nT <= 0 && B.pl.length) { nT = 0.08; n.state(hostSnap()) } }
+  else { iT -= dt; if (iT <= 0) { iT = 0.07; const i = humanInput(n.me); n.input({ ix: i[0], iy: i[1] }) } }
+}
+const q2 = (v) => Math.round(v * 100) / 100
+function hostSnap() {
+  return {
+    n: ++seq, g: B.g.map((r) => r.join('')), ph: B.phase, rd: B.round, wins: B.wins, kills: B.kills, el: q2(B.elapsed), rt: q2(B.readyT), rs: q2(B.resultT), sud: B.sudden, msg: B.msg, over: B.over,
+    pl: B.pl.map((p) => [q2(p.x), q2(p.y), p.alive ? 1 : 0, q2(p.dying), p.cap, p.range, q2(p.speed), p.kick ? 1 : 0, q2(p.shield), q2(p.inv), p.face, p.move, p.active]),
+    bombs: B.bombs.map((b) => ({ c: b.c, r: b.r, o: b.owner, t: q2(b.t), fx: q2(b.fx), fy: q2(b.fy), vx: b.vx, vy: b.vy, range: b.range })),
+    flames: B.flames.map((f) => ({ c: f.c, r: f.r, t: q2(f.t), owner: f.owner, team: f.team })),
+    items: B.items.map((it) => ({ c: it.c, r: it.r, glyph: it.glyph, kind: it.kind, drop: q2(it.drop || 0) })),
+  }
+}
+function mirrorStep(dt) {
+  B.t += dt
+  if (B.phase === 'ready') B.readyT -= dt
+  if (B.phase === 'fight') B.elapsed += dt
+  for (const b of B.bombs) b.t -= dt
+  for (const f of B.flames) f.t -= dt
+  for (const it of B.items) if (it.drop > 0) it.drop = Math.max(0, it.drop - dt * 2.2)
+  for (const p of B.pl) {
+    p.inv = Math.max(0, p.inv - dt); p.shield = Math.max(0, p.shield - dt); p.anim += dt
+    if (p.dying > 0) p.dying = Math.max(0.01, p.dying - dt)
+    if (p.human === B.net.me && p.alive && !(p.dying > 0) && B.phase === 'fight') {
+      const [ix, iy] = humanInput(p.human)
+      let dx = 0, dy = 0
+      if (ix && iy) { if (p.lastAxis === 'x') dy = iy; else dx = ix } else { dx = ix; dy = iy }
+      p.lastAxis = ix && !iy ? 'x' : iy && !ix ? 'y' : p.lastAxis
+      p.move = [dx, dy]
+      if (dx || dy) moveAxis(p, dx, dy, dt)
+    } else if (p.tx !== undefined) { p.x += (p.tx - p.x) * Math.min(1, dt * 14); p.y += (p.ty - p.y) * Math.min(1, dt * 14) }
+    if (p.move && (p.move[0] || p.move[1])) p.face = [p.move[0], p.move[1]]
+  }
+  B.flames = B.flames.filter((f) => f.t > 0)
+  if (B.msg && B.msg.t !== undefined) { B.msg.t -= dt; if (B.msg.t <= 0) B.msg = null }
+  stepParticles(dt)
+}
+export const bomberNet = {
+  attach(net) { B.net = net; B.netIn = {} },
+  active: () => !!B.net && B.mode !== 'idle',
+  reset() { seq = 0; lastSeq = -1; nT = 0; iT = 0 },
+  applyInput(h, d) { if (B.net && B.net.role === 'host' && d) B.netIn[h] = [Math.max(-1, Math.min(1, d.ix | 0)), Math.max(-1, Math.min(1, d.iy | 0))] },
+  applyBomb(h) { if (B.net && B.net.role === 'host') { const p = B.pl.find((q) => q.human === h); if (p) placeBomb(p) } },
+  playerLeft(h) { const p = B.pl.find((q) => q.human === h); if (p) { p.human = 0; p.name = 'BOT ' + (p.id + 1); if (B.netIn) delete B.netIn[h] } },
+  applyState(d) {
+    if (!B.net || B.net.role !== 'guest' || !d || !d.pl || d.n <= lastSeq || B.mode === 'idle') return
+    lastSeq = d.n
+    const prevBombs = B.bombs.length, prevItems = B.items.length, prevPhase = B.phase
+    B.g = d.g.map((r) => r.split('').map(Number))
+    d.pl.forEach((a, i) => {
+      const p = B.pl[i]; if (!p) return
+      const wasAlive = p.alive && !(p.dying > 0)
+      p.tx = a[0]; p.ty = a[1]; p.alive = !!a[2]; p.dying = a[3]; p.cap = a[4]; p.range = a[5]; p.speed = a[6]; p.kick = !!a[7]; p.shield = a[8]; p.inv = a[9]; p.active = a[12]
+      if (p.human === B.net.me) { if (Math.hypot(p.tx - p.x, p.ty - p.y) > 1.1 || d.ph !== 'fight') { p.x = p.tx; p.y = p.ty } else { p.x += (p.tx - p.x) * 0.2; p.y += (p.ty - p.y) * 0.2 } }
+      else { p.face = a[10]; p.move = a[11]; if (d.ph !== 'fight' || Math.hypot(p.tx - p.x, p.ty - p.y) > 3) { p.x = p.tx; p.y = p.ty } }
+      if (wasAlive && p.dying > 0) { sfx('die'); shake(1.2) }
+    })
+    B.bombs = d.bombs.map((b) => ({ c: b.c, r: b.r, owner: b.o, t: b.t, fx: b.fx, fy: b.fy, vx: b.vx, vy: b.vy, range: b.range, pass: new Set(B.pl.filter((q) => q.alive && Math.floor(q.x) === b.c && Math.floor(q.y) === b.r).map((q) => q.id)) }))
+    B.flames = d.flames
+    B.items = d.items
+    if (B.bombs.length > prevBombs) sfx('bombPlace')
+    if (d.flames.length && !B.hadFlames) { sfx('bombBoom'); shake(1) }
+    B.hadFlames = d.flames.length > 0
+    if (B.items.length < prevItems) sfx('pickup')
+    B.round = d.rd; B.wins = d.wins; B.kills = d.kills; B.elapsed = d.el; B.readyT = d.rt; B.resultT = d.rs; B.sudden = d.sud; B.msg = d.msg
+    if (d.ph !== prevPhase) { B.phase = d.ph; if (d.ph === 'fight') sfx('go'); else if (d.ph === 'result') sfx('point') }
+    if (d.over && !B.over) {
+      B.over = d.over; B.mode = 'over'; B.phase = 'over'; music.stop(); sfx('win')
+      const mine = B.pl.find((q) => q.human === B.net.me)
+      if (mine) {
+        const won = mine.team === d.over.winner
+        profile.bomberGames = (profile.bomberGames || 0) + 1
+        if (won) profile.bomberWins = (profile.bomberWins || 0) + 1
+        const score = (d.over.wins[mine.id] || 0) * 1000 + (d.over.kills[mine.id] || 0) * 250 + (d.over.bricks || 0) * 5 + (won ? 1500 : 0)
+        B.over = { ...d.over, score }
+        recordScore('bomber', score)
+        saveProfile()
+      }
+    }
+    emitB()
+  },
+  matchAbort() { if (B.net && B.mode === 'play') { const me = B.pl.find((q) => q.human === B.net.me); B.over = { winner: me ? me.team : 0, names: null, winName: 'YOU', kills: B.kills.slice(0, B.pl.length), wins: B.wins.slice(0, B.pl.length), bricks: 0, score: 0 }; B.mode = 'over'; B.phase = 'over'; music.stop(); emitB() } },
 }
 
 // ---------- rendering ----------

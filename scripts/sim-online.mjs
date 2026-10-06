@@ -7,7 +7,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 if (!role) {
   const self = fileURLToPath(import.meta.url)
   let fail = 0
-  for (const g of (process.env.GAMES || 'tetris,uno,pusoy,tongits,lucky9').split(',')) {
+  for (const g of (process.env.GAMES || 'tetris,pickle,bomber,uno,pusoy,tongits,lucky9').split(',')) {
     const host = spawn('node', [self, 'host', g], { stdio: ['ignore', 'pipe', 'inherit'] })
     let hostOut = '', guestOut = '', guest
     host.stdout.on('data', (d) => {
@@ -29,6 +29,11 @@ await import('../src/game/cards/uno.js')
 const { T } = await import('../src/game/tetris.js')
 const { hostTetris, installTetrisOnline } = await import('../src/game/online/tetris-online.js')
 const { hostCardGame, installCardsOnline } = await import('../src/game/online/cards-online.js')
+const { P: PK, pickleActions } = await import('../src/game/pickle.js')
+const { B: BM } = await import('../src/game/bomber.js')
+const { hostPickle, installPickleOnline } = await import('../src/game/online/pickle-online.js')
+const { hostBomber, installBomberOnline } = await import('../src/game/online/bomber-online.js')
+installPickleOnline(); installBomberOnline()
 installTetrisOnline(); installCardsOnline()
 let bad = 0
 const check = (n, c, i) => { if (!c) bad++; console.log(c ? 'PASS' : 'FAIL', role, n, i || '') }
@@ -56,6 +61,44 @@ if (game === 'tetris') {
   clearInterval(drive)
   await sleep(2500)
   console.log('RESULT', role, T.over && T.over.title, JSON.stringify(T.bd.map((b) => [b.dead, b.lines, b.score])), 'time', T.elapsed.toFixed(1))
+} else if (game === 'pickle') {
+  if (role === 'host') {
+    const room = await rtm.createRoom('pickle', 'HOSTY'); console.log('CODE', room.code)
+    check('guest joins', await until(() => rtm.RT.room.players.length === 2))
+    await sleep(1500)
+    await hostPickle(3)
+  } else { await sleep(500); await rtm.joinRoom(code, 'GUESTY') }
+  check('match started', await until(() => PK.mode === 'play' && PK.cfg.type === 'online'), PK.mode)
+  const keysMod = (await import('../src/game/engine.js')).keys
+  const drive = setInterval(() => {
+    keysMod.KeyW = Math.random() < 0.5; keysMod.KeyS = !keysMod.KeyW; keysMod.KeyA = Math.random() < 0.3; keysMod.KeyD = Math.random() < 0.3
+    if (PK.phase !== 'point') onKey(['KeyF', 'KeyG', 'KeyH'][rr(3)], true)
+  }, 90)
+  let scoreSeen = false
+  const watch = setInterval(() => { if (PK.score[0] + PK.score[1] > 0) scoreSeen = true }, 200)
+  check('both sides see points scored', await until(() => scoreSeen, 90000), JSON.stringify(PK.score))
+  check('match ends on both sides', await until(() => PK.mode === 'over', 280000), JSON.stringify(PK.score))
+  clearInterval(drive); clearInterval(watch)
+  console.log('RESULT', role, JSON.stringify(PK.score), PK.over && PK.over.winner)
+  await sleep(2500)
+} else if (game === 'bomber') {
+  if (role === 'host') {
+    const room = await rtm.createRoom('bomber', 'HOSTY'); console.log('CODE', room.code)
+    check('guest joins', await until(() => rtm.RT.room.players.length === 2))
+    await sleep(1500)
+    await hostBomber(1)
+  } else { await sleep(500); await rtm.joinRoom(code, 'GUESTY') }
+  check('arena started', await until(() => BM.mode === 'play' && BM.cfg.type === 'online'), BM.mode)
+  const keysMod = (await import('../src/game/engine.js')).keys
+  const drive = setInterval(() => {
+    const d = rr(4); keysMod.KeyW = d === 0; keysMod.KeyS = d === 1; keysMod.KeyA = d === 2; keysMod.KeyD = d === 3
+    if (Math.random() < 0.25) onKey('Space', true)
+  }, 120)
+  check('same humans on both sides', await until(() => BM.pl.filter((p) => p.human).length === 2), BM.pl.filter((p) => p.human).length)
+  check('match ends on both sides', await until(() => BM.mode === 'over', 280000), BM.over && BM.over.winName)
+  clearInterval(drive)
+  console.log('RESULT', role, BM.over && BM.over.winName, JSON.stringify(BM.wins))
+  await sleep(2500)
 } else {
   await import('../src/game/cards/pusoy.js'); await import('../src/game/cards/lucky9.js'); await import('../src/game/cards/tongits.js')
   const OPTS = { uno: { target: 30, stack: true }, pusoy: { target: 8 }, tongits: { stake: 50 }, lucky9: { bots: 0 } }
