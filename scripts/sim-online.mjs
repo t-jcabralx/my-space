@@ -58,7 +58,7 @@ if (game === 'tetris') {
   console.log('RESULT', role, T.over && T.over.title, JSON.stringify(T.bd.map((b) => [b.dead, b.lines, b.score])), 'time', T.elapsed.toFixed(1))
 } else {
   await import('../src/game/cards/pusoy.js'); await import('../src/game/cards/lucky9.js'); await import('../src/game/cards/tongits.js')
-  const OPTS = { uno: { target: 50, stack: true }, pusoy: { target: 8 }, tongits: { stake: 50 }, lucky9: { bots: 0 } }
+  const OPTS = { uno: { target: 30, stack: true }, pusoy: { target: 8 }, tongits: { stake: 50 }, lucky9: { bots: 0 } }
   if (role === 'host') {
     const room = await rtm.createRoom(game, 'HOSTY', OPTS[game]); console.log('CODE', room.code)
     check('guest joins', await until(() => rtm.RT.room.players.length === 2))
@@ -67,7 +67,7 @@ if (game === 'tetris') {
   } else { await sleep(500); await rtm.joinRoom(code, 'GUESTY') }
   check('table started', await until(() => CS.mode === 'play' || CS.mode === 'over'), CS.mode)
   let moves = 0
-  if (process.env.DBG) setInterval(() => { const s = getCardsSnap(); console.log('DBG', role, CS.mode, s && s.phase, s && s.seats && s.seats.map((x) => (x.human ? 'ME' : x.name) + (x.turn ? '*' : '') + x.count).join(' '), 'btns', s && s.buttons && s.buttons.map((b) => b.name + (b.off ? '-' : '')).join(','), 'alive', Object.keys(rtm.RT.lastSeen).length) }, 3000)
+  if (process.env.DBG) setInterval(() => { const s = getCardsSnap(); console.log('DBG', role, CS.mode, s && s.phase, s && s.seats && s.seats.map((x) => (x.human ? 'ME' : x.name) + (x.turn ? '*' : '') + x.count).join(' '), 'btns', s && s.buttons && s.buttons.map((b) => b.name + (b.off ? '-' : '')).join(','), 'alive', Object.keys(rtm.RT.lastSeen).length, 'toasts', JSON.stringify((s && s.toasts || []).map((t) => t.text)), 'msg', s && s.msg) }, 3000)
   const roundOf = () => { const s = getCardsSnap(); const m = s && /ROUND (\d+)/.exec(s.info || ''); return m ? +m[1] : 0 }
   const play = setInterval(() => {
     const s = getCardsSnap(); if (!s || s.phase === undefined || CS.mode !== 'play') return
@@ -83,7 +83,7 @@ if (game === 'tetris') {
     } else if (game === 'pusoy') {
       if (s.phase === 'roundOver' && B('next')) { cardsActions.button('next'); return }
       if (!me || !me.turn) return
-      if (B('play')) { cardsActions.button('play'); moves++ } else if (B('hint') && !s.cards.some((c) => c.mine && c.sel)) cardsActions.button('hint'); else if (B('pass')) cardsActions.button('pass')
+      if (B('play')) { cardsActions.button('play'); moves++ } else if (B('hint') && !s.cards.some((c) => c.mine && c.sel) && Date.now() - (globalThis.__hintAt || 0) > 2500) { globalThis.__hintAt = Date.now(); cardsActions.button('hint') } else if (B('pass') && Date.now() - (globalThis.__hintAt || 0) > 1200) cardsActions.button('pass')
     } else if (game === 'tongits') {
       if (s.phase === 'roundOver' && B('next')) { cardsActions.button('next'); return }
       if (B('fold')) { cardsActions.button('fold'); return }
