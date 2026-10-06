@@ -562,8 +562,8 @@ li.bonus { border-color: var(--gr); color: var(--gr); } li.fail { border-color: 
 .mg-score small { font-size: .6em; opacity: .9; } .mg-score b { font-size: 2.6em; line-height: 1; color: #fff; }
 .mg-score .mid { text-align: center; color: #9fb4e8; display: flex; flex-direction: column; font-size: .65em; } .mg-score .mid em { font-style: normal; color: #ffe84a; }
 .mg-big { position: absolute; left: 50%; top: 44%; transform: translate(-50%, -50%); font-size: 7em; color: #fff; text-shadow: 0 0 30px #3de8ff; animation: pulse .8s; pointer-events: none; }
-.mg-banner { position: absolute; left: 50%; top: 30%; transform: translateX(-50%); width: max-content; max-width: 92%; text-align: center; pointer-events: none; animation: slideIn .3s both; }
-.mg-banner h2 { font-size: 3.2em; color: var(--c, #ffe84a); text-shadow: 0 0 22px var(--c, #ffe84a); letter-spacing: .1em; } .mg-banner p { color: #fff; font-size: 1em; margin-top: .4cqw; }
+.mg-banner { position: absolute; left: 0; right: 0; margin: 0 auto; top: 26%; width: fit-content; max-width: 92%; text-align: center; pointer-events: none; animation: slideIn .3s both; }
+.mg-banner h2 { font-size: 1.8em; color: var(--c, #ffe84a); text-shadow: 0 0 22px var(--c, #ffe84a); letter-spacing: .1em; } .mg-banner p { color: #fff; font-size: 1em; margin-top: .4cqw; }
 .mg-hint { position: absolute; bottom: 1cqw; left: 50%; transform: translateX(-50%); font-size: .62em; color: #8fa4d8; background: #02030acc; padding: .5cqw 1.2cqw; white-space: nowrap; pointer-events: none; max-width: 96%; overflow: hidden; text-overflow: ellipsis; }
 .mg-pausebtn { position: absolute; top: 1.2cqw; right: 1.2cqw; width: 4cqw; height: 4cqw; min-width: 34px; min-height: 34px; font: inherit; font-size: 1.3em; background: #0b1230cc; color: #fff; border: 2px solid #3a4a90; cursor: pointer; }
 .mg-btn { font: inherit; font-size: .8em; color: #cdd8ff; background: #0b1230; border: 2px solid #2a3a78; padding: .6cqw 1.1cqw; cursor: pointer; min-height: 30px; } .mg-btn:hover:not(:disabled) { border-color: var(--cy); color: #fff; }
@@ -630,3 +630,10 @@ li.bonus { border-color: var(--gr); color: var(--gr); } li.fail { border-color: 
 .sbtns { display: flex; gap: 1.2cqw; } .sgoal { background: #ffe84a; color: #02030a; padding: .6cqw 1.6cqw; font-size: .9em; }
 .storychip { position: absolute; left: 50%; bottom: 3.4cqw; transform: translateX(-50%); z-index: 40; background: #070c26dd; border: 1px solid #ffe84a; color: #ffe84a; padding: .3cqw 1cqw; font-size: .55em; font-size: clamp(8px, .75cqw, 12px); pointer-events: none; white-space: nowrap; max-width: 90%; overflow: hidden; text-overflow: ellipsis; }
 .storyfull.credits { justify-content: center; align-items: center; overflow: hidden; } .roll { text-align: center; animation: creditroll 26s linear forwards; } .roll p { font-size: 1.6em; line-height: 2.2; color: #fff; } .roll p.big1 { font-size: 3.4em; color: #ffe84a; } @keyframes creditroll { from { transform: translateY(80vh); } to { transform: translateY(-80vh); } }
+
+/* neon depths: suspense vignette, team list, story box */
+.mg-vig { position: absolute; inset: 0; pointer-events: none; z-index: 1; background: radial-gradient(ellipse at center, transparent 38%, #00000099 75%, #000000dd 100%); transition: background .4s; }
+.mg-vig.boss { background: radial-gradient(ellipse at center, transparent 30%, #1a000a99 72%, #1a0008e6 100%); }
+.mg-vig.low { animation: vigpulse .85s infinite; } @keyframes vigpulse { 0%, 100% { background: radial-gradient(ellipse at center, transparent 30%, #50000099 70%, #300000e6 100%); } 40% { background: radial-gradient(ellipse at center, transparent 22%, #8a0000bb 62%, #400000f0 100%); } }
+.mg-team { position: absolute; top: 5cqw; left: 1.4cqw; display: flex; flex-direction: column; gap: .4cqw; pointer-events: none; z-index: 2; } .mate { background: #050a1ccc; border-left: 4px solid #6aff9a; padding: .3cqw .8cqw; font-size: .6em; display: flex; flex-direction: column; gap: 2px; } .mate.me { border-color: #3de8ff; } .mate.dead { border-color: #ff4a5a; opacity: .8; } .mate span { color: #ff4a6a; }
+.talebox { justify-content: flex-end; z-index: 70; background: linear-gradient(transparent 30%, #02030acc 80%); } .epilogue { max-width: 60cqw; color: #cfe6ff; font-size: 1em; line-height: 1.9; }

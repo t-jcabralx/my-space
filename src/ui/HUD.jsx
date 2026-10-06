@@ -323,7 +323,7 @@ const HELP = {
     name: '🗡 NEON DEPTHS',
     body: () => (
       <>
-        <p><b>Goal:</b> clear 3 floors of 4 rooms; the 4th room of every floor is a boss. After each room pick <b>1 of 3 perks</b>.</p>
+        <p><b>The tale:</b> beneath the Grid a haunted forest grew from deleted games. At its heart burns the <b>Last Lantern</b>, guarded by the Slime King, the Bone Lord and the Void Eye. <b>Goal:</b> clear 3 forests of 4 rooms (the 4th room of each is a boss). After each room pick <b>1 of 3 perks</b>. <b>Co-op:</b> press <b>INVITE FRIENDS</b> to bring up to 2 friends; everyone picks their own perks and fallen friends revive in the next room. Low on hearts? You will hear your heartbeat.</p>
         <h5>CONTROLS</h5>
         <p><K>WASD</K> / <K>ARROWS</K> move (touch: the stick). You <b>attack automatically</b> at the nearest enemy; move the mouse to aim yourself. <K>SPACE</K> dashes (you are invincible while dashing). <K>Q</K> uses your class special. <K>1</K> <K>2</K> <K>3</K> pick a perk.</p>
         <ul><li><b>KNIGHT:</b> sword arc, whirlwind. <b>RANGER:</b> piercing arrows, volley. <b>MAGE:</b> homing orbs, frost nova.</li><li>Collect gold and hearts. When the room is clear, the right door glows.</li></ul>
@@ -1503,6 +1503,9 @@ function Hub({ s }) {
               art={<ShipPreview ship={p.ship} />} label="▶ PLAY" onPlay={startGame} onInvite={() => { setOgame('space'); setTab('online') }}
               extra={<div className="squadsel"><div className="sqrow"><small>TEAM</small>{[[0, 'SOLO'], [1, 'DUO'], [2, 'TRIO']].map(([n, l]) => <button key={n} className={'chip ' + ((s.squadSize === n) ? 'sel' : '')} onClick={() => setSquad(n, s.squadHuman, s.squadBots)}>{l}</button>)}<button className={'chip ic ' + (s.squadHuman ? 'sel' : '')} disabled={s.squadSize < 1} onClick={() => setSquad(s.squadSize, !s.squadHuman, s.squadBots)} title="A friend flies a ship on this keyboard: arrows + Enter">👥</button><button className={'chip ic ' + (s.squadBots ? 'sel' : '')} disabled={s.squadSize < 1} onClick={() => setSquad(s.squadSize, s.squadHuman, !s.squadBots)} title="Fill empty team slots with AI wingmen">🤖</button></div><small className="dim">{s.squadSize === 0 ? 'Flying solo' : s.squadBots ? 'AI flies empty slots' : '👥 same keyboard · 🤖 AI · or invite friends'}</small></div>}
               sub={<><span>LEVELS</span><b>{s.unlocked + 1}/10</b></>} />}
+            {show('cards') && <GameCard cls="cards" title="🃏 CARD ROOM" tag="UNO · Pusoy Dos · Lucky 9 · Tong-its" hiLabel="CHIPS" hi={'🪙 ' + Number(p.chips || 0).toLocaleString()}
+              art={<div className="miniCards"><i>♥</i><i>♠</i><i>9</i><i>+2</i></div>} label="SELECT GAME ▶" onPlay={() => setTab('cards')} onInvite={() => { setOgame('uno'); setTab('online') }}
+              sub={<><span>WON</span><b>{p.cardWins || 0}</b></>} />}
             {show('action') && <GameCard cls="slug" title="🪖 OPERATION GROUND ZERO" tag="Run & gun · POWs · tank · 3 bosses" hiLabel="HI-SCORE" hi={p.slugHi.toLocaleString()}
               art={<SpriteArt scene={[[SP.palm, 22, false, 3], [SP.vsv, 110, false, 3], [SP.heroS, 66, false, 4], [SP.solS, 178, true, 4], [SP.runS, 206, true, 4]]} />} label="▶ PLAY" onPlay={() => slugActions.start(0)}
               sub={<><span>WINS</span><b>{p.slugWins}</b></>} />}
@@ -1536,8 +1539,8 @@ function Hub({ s }) {
             {show('strategy') && <GameCard cls="td" title="🛡 NEON DEFENSE" tag="3 maps · 6 towers · 25 waves" hiLabel="BEST WAVE" hi={(p.tdBest || 0) + '/25'}
               art={<div className="miniTd"><i /><i /><i /><b>🛡</b></div>} label="SELECT MAP ▶" onPlay={() => setTab('td')}
               sub={<><span>VICTORIES</span><b>{p.tdWins || 0}</b></>} />}
-            {show('strategy', 'action') && <GameCard cls="rogue" title="🗡 NEON DEPTHS" tag="Roguelike · 3 heroes · perks · bosses" hiLabel="DEEPEST" hi={(p.rogueDeep || 0) + '/12'}
-              art={<div className="miniRogue"><span>🗡</span><b>👾</b><span>💎</span></div>} label="CHOOSE HERO ▶" onPlay={() => setTab('rogue')}
+            {show('strategy', 'action') && <GameCard cls="rogue" title="🗡 NEON DEPTHS" tag="3D roguelike · co-op · story · bosses" hiLabel="DEEPEST" hi={(p.rogueDeep || 0) + '/12'}
+              art={<div className="miniRogue"><span>🗡</span><b>👾</b><span>💎</span></div>} label="CHOOSE HERO ▶" onPlay={() => setTab('rogue')} onInvite={() => { setOgame('rogue'); setTab('online') }}
               sub={<><span>RUNS</span><b>{p.rogueRuns || 0}</b></>} />}
             {show('music') && <GameCard cls="rhythm" title="🎵 NEON BEAT" tag="4 lanes · 5 songs · hold notes" hiLabel="PLAYED" hi={p.rhythmPlays || 0}
               art={<div className="miniBeat"><i /><i /><i /><i /></div>} label="PICK A SONG ▶" onPlay={() => setTab('rhythm')}
@@ -1548,9 +1551,6 @@ function Hub({ s }) {
             {show('puzzle') && <GameCard cls="merge" title="🔢 2048 MERGE" tag="Swipe · undo · hammer · 3 sizes" hiLabel="BIGGEST" hi={p.mergeMax || 0}
               art={<div className="miniMerge"><i>2</i><i>4</i><i>8</i><i>16</i></div>} label="PLAY ▶" onPlay={() => setTab('merge')}
               sub={<><span>GAMES</span><b>{p.mergeGames || 0}</b></>} />}
-            {show('cards') && <GameCard cls="cards" title="🃏 CARD ROOM" tag="UNO · Pusoy Dos · Lucky 9 · Tong-its" hiLabel="CHIPS" hi={'🪙 ' + Number(p.chips || 0).toLocaleString()}
-              art={<div className="miniCards"><i>♥</i><i>♠</i><i>9</i><i>+2</i></div>} label="SELECT GAME ▶" onPlay={() => setTab('cards')} onInvite={() => { setOgame('uno'); setTab('online') }}
-              sub={<><span>WON</span><b>{p.cardWins || 0}</b></>} />}
             {cat === 'all' && <GameCard cls="topcard" title="🏆 TOP PLAYERS" tag="Global leaderboards for every game" hiLabel="YOUR RANK" hi={RANKS[ri][1]}
               art={<div className="miniPodium"><i>🥈</i><i>🥇</i><i>🥉</i></div>} label="SEE LEADERBOARDS ▶" onPlay={() => setTab('top')}
               sub={<><span>XP</span><b>{xp.toLocaleString()}</b></>} />}
@@ -1582,7 +1582,7 @@ function Hub({ s }) {
       {tab === 'hockey' && <HockeyLobby s={s} TopPlayers={TopPlayers} onInvite={() => { setOgame('hockey'); setTab('online') }} />}
       {tab === 'pool' && <PoolLobby s={s} TopPlayers={TopPlayers} onInvite={() => { setOgame('pool'); setTab('online') }} />}
       {tab === 'td' && <TdLobby s={s} TopPlayers={TopPlayers} />}
-      {tab === 'rogue' && <RogueLobby s={s} TopPlayers={TopPlayers} />}
+      {tab === 'rogue' && <RogueLobby s={s} TopPlayers={TopPlayers} onInvite={() => { setOgame('rogue'); setTab('online') }} />}
       {tab === 'rhythm' && <RhythmLobby s={s} TopPlayers={TopPlayers} />}
       {tab === 'word' && <WordLobby s={s} TopPlayers={TopPlayers} />}
       {tab === 'merge' && <MergeLobby s={s} TopPlayers={TopPlayers} />}

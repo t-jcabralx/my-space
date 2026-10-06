@@ -194,10 +194,12 @@ export function Fighters3D() {
   useFrame(() => {
     const m = ref.current
     if (!m || !A3) return
-    const on = G.mode === 'fight' || G.mode === 'race'
+    const on = G.mode === 'fight' || G.mode === 'race' || G.mode === 'rogue'
     m.visible = on
     if (light.current) light.current.visible = on
-    if (glow.current) glow.current.visible = G.mode === 'fight'
+    if (glow.current) glow.current.visible = G.mode === 'fight' || G.mode === 'rogue'
+    if (light.current && G.mode !== 'rogue' && light.current.intensity !== 1.6) { light.current.intensity = 1.6; light.current.color.set('#ffffff'); light.current.position.set(-16, 46, 38) }
+    if (glow.current && G.mode !== 'rogue' && glow.current.distance !== 70) { glow.current.distance = 70; glow.current.decay = 1.4 }
     if (!on) { m.count = 0; return }
     n3 = 0
     try { const g3 = games[G.mode]; if (g3 && g3.draw3) g3.draw3(api3) } catch (e) { if (!api3.warned) { api3.warned = true; console.error('[lit3d]', e) } }
@@ -206,6 +208,11 @@ export function Fighters3D() {
     // colour the rim light after the element of whoever is attacking
     if (G.mode === 'race' && light.current && games.race && games.race.sun) { const p = games.race.sun(); light.current.position.set(p.x - 30, 90, p.z + 40); light.current.target.position.set(p.x, 0, p.z); light.current.target.updateMatrixWorld(); light.current.castShadow = false }
     if (G.mode === 'fight' && light.current) { light.current.castShadow = true }
+    if (G.mode === 'rogue' && games.rogue && games.rogue.lights) {
+      const L = games.rogue.lights()
+      if (light.current) { light.current.position.set(L.sun.x, L.sun.y, L.sun.z); light.current.color.set(L.sun.color); light.current.intensity = L.sun.intensity; light.current.castShadow = true; light.current.target.position.set(0, 0, 0); light.current.target.updateMatrixWorld() }
+      if (glow.current) { if (L.lantern) { glow.current.position.set(L.lantern.x, L.lantern.y, L.lantern.z); glow.current.color.set(L.lantern.color); glow.current.intensity = L.lantern.intensity; glow.current.distance = L.lantern.distance; glow.current.decay = 1.1 } else glow.current.intensity = 0 }
+    }
     if (glow.current && G.mode === 'fight' && games.fight && games.fight.rim) { const r = games.fight.rim(); glow.current.color.set(r.color); glow.current.intensity = r.intensity; glow.current.position.set(r.x, r.y, 14) }
   })
   return (
@@ -294,8 +301,22 @@ export function Planet() {
 let rigWasFight = false
 export function Rig() {
   useFrame((state, dt) => {
-    if (state.scene.background && state.scene.background.set) state.scene.background.set(G.mode === 'slug' && games.slug ? games.slug.sky(games.slug.stageIndex()) : G.mode === 'pickle' ? '#0a1a14' : G.mode === 'bomber' ? '#08101c' : G.mode === 'tetris' ? '#04060f' : G.mode === 'chomp' ? '#03030e' : G.mode === 'cards' ? '#06281c' : G.mode === 'flames' ? '#07040f' : G.mode === 'fight' ? '#06040e' : G.mode === 'race' && games.race ? games.race.sky() : '#04050d')
+    if (state.scene.background && state.scene.background.set) state.scene.background.set(G.mode === 'slug' && games.slug ? games.slug.sky(games.slug.stageIndex()) : G.mode === 'pickle' ? '#0a1a14' : G.mode === 'bomber' ? '#08101c' : G.mode === 'tetris' ? '#04060f' : G.mode === 'chomp' ? '#03030e' : G.mode === 'cards' ? '#06281c' : G.mode === 'flames' ? '#07040f' : G.mode === 'fight' ? '#06040e' : G.mode === 'race' && games.race ? games.race.sky() : G.mode === 'rogue' && games.rogue ? games.rogue.sky() : '#04050d')
     const s = G.shake
+    // the global lights are bright for the 2D games; the forest needs them low for suspense
+    const amb = state.scene.children.find((c) => c.isAmbientLight), dl = state.scene.children.find((c) => c.isDirectionalLight)
+    if (G.mode === 'rogue' && games.rogue && games.rogue.lights) { const L = games.rogue.lights(); if (amb) amb.intensity = L.ambient; if (dl) dl.intensity = L.dir } else { if (amb && amb.intensity !== 1.2) amb.intensity = 1.2; if (dl && dl.intensity !== 2.2) dl.intensity = 2.2 }
+    if (G.mode === 'rogue' && games.rogue && games.rogue.camera) {
+      const cam = games.rogue.camera(state.size.width / Math.max(1, state.size.height), dt)
+      state.camera.position.set(cam.x, cam.y, cam.z)
+      state.camera.lookAt(cam.tx, cam.ty, cam.tz)
+      if (Math.abs(state.camera.fov - cam.fov) > 0.05 || state.camera.far !== cam.far) { state.camera.fov = cam.fov; state.camera.far = cam.far; state.camera.updateProjectionMatrix() }
+      const th = games.rogue.fog()
+      if (!state.scene.fog) state.scene.fog = new THREE.Fog(th.fog, th.fogNear, th.fogFar)
+      state.scene.fog.color.set(th.fog); state.scene.fog.near = th.fogNear; state.scene.fog.far = th.fogFar
+      rigWasFight = true
+      return
+    }
     if (G.mode === 'fight' && games.fight && games.fight.camera ) {
       const cam = games.fight.camera(state.size.width / Math.max(1, state.size.height), dt)
       state.camera.position.set(cam.x + (Math.random() - 0.5) * s * 1.4, cam.y + (Math.random() - 0.5) * s * 1.4, cam.z)

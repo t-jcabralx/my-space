@@ -10,10 +10,11 @@ import { hostFightMatch, installFightOnline } from '../game/online/fight-online.
 import { hostRaceMatch, installRaceOnline } from '../game/online/race-online.js'
 import { hostHockey, installHockeyOnline } from '../game/online/hockey-online.js'
 import { hostPool, installPoolOnline } from '../game/online/pool-online.js'
+import { hostRogue, installRogueOnline } from '../game/online/rogue-online.js'
 import { setName, profile as profile0Obj } from '../game/engine.js'
 const profile0 = () => profile0Obj
 
-if (typeof window !== 'undefined') { installCardsOnline(); installTetrisOnline(); installPickleOnline(); installBomberOnline(); installSpaceOnline(); installFightOnline(); installRaceOnline(); installHockeyOnline(); installPoolOnline() }
+if (typeof window !== 'undefined') { installCardsOnline(); installTetrisOnline(); installPickleOnline(); installBomberOnline(); installSpaceOnline(); installFightOnline(); installRaceOnline(); installHockeyOnline(); installPoolOnline(); installRogueOnline() }
 
 const GAMES = [
   ['race', '🏁', 'TURBO RUSH RACE', 'Race up to 4 friends plus bots. Everyone drives their own car with instant response. Pick your car in the 🏁 RACE tab first.', 4],
@@ -24,6 +25,7 @@ const GAMES = [
   ['tetris', '🧱', 'TETRA BLAST 1V1', 'Race a real player. Clear lines to send garbage. Same piece order for both.', 2],
   ['hockey', '🏒', 'AIR HOCKEY 1V1', 'Fast neon air hockey, first to 7. Drag your mallet with the mouse or finger, or use WASD / arrows.', 2],
   ['pool', '🎱', 'BILLIARDS 1V1', '8-ball pool, turn by turn. Drag back and release to shoot; the host runs the table.', 2],
+  ['rogue', '🗡', 'NEON DEPTHS CO-OP', 'Fight through the haunted forest together: up to 3 heroes, shared dungeon, your own perks. Pick your hero in the 🗡 DEPTHS tab first.', 3],
   ['uno', '🟥', 'UNO', '2-4 humans, bots fill empty seats. Private hands, host runs the table.', 4],
   ['pusoy', '👑', 'PUSOY DOS', '2-4 humans, bots fill empty seats. First to 40 points.', 4],
   ['tongits', '🀄', 'TONG-ITS', '2-3 humans, bots fill the third seat. Everyone starts with 1000 table chips.', 3],
@@ -81,6 +83,7 @@ export default function OnlineLobby({ s, TopPlayers, initGame }) {
     else if (room.game === 'bomber') await hostBomber()
     else if (room.game === 'hockey') await hostHockey()
     else if (room.game === 'pool') await hostPool()
+    else if (room.game === 'rogue') await hostRogue()
     else await hostCardGame(room.game, { ...room.opts, auto: false, ...(room.game === 'pusoy' ? { target: 40 } : room.game === 'tongits' ? { stake: 50 } : room.game === 'lucky9' ? { bots: room.opts.bots || 0 } : {}) })
   })
   const share = room ? `${room.code}` : ''
@@ -130,11 +133,11 @@ export default function OnlineLobby({ s, TopPlayers, initGame }) {
         <div className="roomPlayers">
           {room.players.map((p) => <div key={p.id} className="chip sel" style={{ margin: 3 }}>{p.id === room.host ? '👑 ' : '🙂 '}{p.name}{p.id === rt.cid ? ' (you)' : ''}</div>)}
           {(room.game === 'uno' || room.game === 'pusoy' || room.game === 'tongits' || room.game === 'space') && Array.from({ length: Math.max(0, room.max - room.players.length) }).map((_, i) => <div key={i} className="chip" style={{ margin: 3, opacity: 0.6 }}>🤖 BOT</div>)}
-          {(room.game === 'tetris' || room.game === 'pickle' || room.game === 'fight' || room.game === 'hockey' || room.game === 'pool') && room.players.length < 2 && <div className="chip" style={{ margin: 3, opacity: 0.6 }}>… waiting for opponent</div>}
+          {(room.game === 'tetris' || room.game === 'pickle' || room.game === 'fight' || room.game === 'hockey' || room.game === 'pool' || room.game === 'rogue') && room.players.length < 2 && <div className="chip" style={{ margin: 3, opacity: 0.6 }}>… waiting for opponent</div>}
         </div>
         <div className="chips">
           {isHost
-            ? <button className="big" disabled={(room.game === 'tetris' || room.game === 'pickle' || room.game === 'bomber' || room.game === 'fight' || room.game === 'hockey' || room.game === 'pool') && room.players.length < 2} onClick={start}>▶ START GAME</button>
+            ? <button className="big" disabled={(room.game === 'tetris' || room.game === 'pickle' || room.game === 'bomber' || room.game === 'fight' || room.game === 'hockey' || room.game === 'pool' || room.game === 'rogue') && room.players.length < 2} onClick={start}>▶ START GAME</button>
             : <div className="lobbyinfo">Waiting for the host to start…</div>}
           <button className="big sec" onClick={copyLink}>{copied ? '✔ LINK COPIED' : '🔗 COPY INVITE LINK'}</button>
           <button className="big sec" onClick={() => leaveRoom()}>LEAVE ROOM</button>
@@ -151,7 +154,7 @@ export default function OnlineLobby({ s, TopPlayers, initGame }) {
         </form>
       </div>
       <div className="lobbyR">
-        <div className="panel"><h4>HOW IT WORKS</h4><div className="lobbyinfo"><small>{room.game === 'race' ? 'The host picks the track in the 🏁 RACE tab; bots fill the rest of the grid. Your own car reacts instantly; other drivers appear slightly behind real time. 3 laps.' : room.game === 'fight' ? 'Best of 3 rounds. The host runs the fight; your controls and moves are sent instantly over the direct link (⚡). WASD or arrows to move, J K U I to punch and kick, L special, O super. Choose your fighter in the 🥊 FIGHT tab before the host presses START.' : room.game === 'space' ? 'The host flies ship #1 and runs the missions, upgrades and bosses. Friends fly the other ships (WASD/arrows + Space) and share the score and lives. Free ships are flown by AI teammates. Best with the direct link (⚡).' : room.game === 'hockey' ? 'The host runs the puck; you move your own mallet instantly (mouse, finger or WASD). First to 7. A second puck sometimes drops in!' : room.game === 'pool' ? 'Classic 8-ball. Players alternate turns; drag back from anywhere and release to shoot, or aim with the arrow keys and hold Space. The host runs the physics.' : room.game === 'pickle' ? 'The host runs the match and the ball; you move your own player instantly and your hits are checked by the host, so a fast connection helps. First to 11, win by 2.' : room.game === 'bomber' ? 'The host runs the arena. Move and drop bombs; last one standing wins the round, best of 3. Bots fill empty slots; if a friend leaves a bot takes over.' : room.game === 'tetris' ? 'Both of you get the same piece order. Your clears send garbage to the other board. Last one standing wins. Leaving or disconnecting forfeits.' : 'The host runs the table; you only see your own cards (chips are per-table). If someone disconnects a bot takes their seat. If the host leaves the game ends.'}</small></div></div>
+        <div className="panel"><h4>HOW IT WORKS</h4><div className="lobbyinfo"><small>{room.game === 'race' ? 'The host picks the track in the 🏁 RACE tab; bots fill the rest of the grid. Your own car reacts instantly; other drivers appear slightly behind real time. 3 laps.' : room.game === 'fight' ? 'Best of 3 rounds. The host runs the fight; your controls and moves are sent instantly over the direct link (⚡). WASD or arrows to move, J K U I to punch and kick, L special, O super. Choose your fighter in the 🥊 FIGHT tab before the host presses START.' : room.game === 'space' ? 'The host flies ship #1 and runs the missions, upgrades and bosses. Friends fly the other ships (WASD/arrows + Space) and share the score and lives. Free ships are flown by AI teammates. Best with the direct link (⚡).' : room.game === 'rogue' ? 'The host runs the dungeon. Move with WASD / arrows (or the stick on a phone), you attack on your own. SPACE dashes, Q is your special. You pick your own perk after every room, and fallen friends are revived in the next room.' : room.game === 'hockey' ? 'The host runs the puck; you move your own mallet instantly (mouse, finger or WASD). First to 7. A second puck sometimes drops in!' : room.game === 'pool' ? 'Classic 8-ball. Players alternate turns; drag back from anywhere and release to shoot, or aim with the arrow keys and hold Space. The host runs the physics.' : room.game === 'pickle' ? 'The host runs the match and the ball; you move your own player instantly and your hits are checked by the host, so a fast connection helps. First to 11, win by 2.' : room.game === 'bomber' ? 'The host runs the arena. Move and drop bombs; last one standing wins the round, best of 3. Bots fill empty slots; if a friend leaves a bot takes over.' : room.game === 'tetris' ? 'Both of you get the same piece order. Your clears send garbage to the other board. Last one standing wins. Leaving or disconnecting forfeits.' : 'The host runs the table; you only see your own cards (chips are per-table). If someone disconnects a bot takes their seat. If the host leaves the game ends.'}</small></div></div>
         <TopPlayers s={s} initial={room.game} compact fixed key={room.game} />
       </div>
     </div>

@@ -213,16 +213,17 @@ export function TdHUD({ openHelp }) {
 }
 
 // ---------- NEON DEPTHS (roguelike) ----------
-export function RogueLobby({ s, TopPlayers }) {
-  const [cls, setCls] = useState(0)
+export function RogueLobby({ s, TopPlayers, onInvite, profileRef }) {
+  const [cls, setCls] = useState(s.profile.roguePick || 0)
   const p = s.profile
+  const choose = (i) => { setCls(i); s.profile.roguePick = i; try { localStorage.setItem('si_profile', JSON.stringify(s.profile)) } catch { /* ignore */ } }
   return (
     <div className="lobby">
       <div className="lobbyL">
         <h4>1 · CHOOSE YOUR HERO</h4>
-        <div className="modegrid">{RCLS.map((c, i) => <button key={c.id} className={'modecard ' + (cls === i ? 'sel' : '')} onClick={() => setCls(i)}><div className="vs"><span>{c.ico}</span></div><strong>{c.name}</strong><small>{c.desc}</small></button>)}</div>
-        <div className="lobbyinfo"><b>NEON DEPTHS</b> · Fight through 3 floors of 4 rooms. The last room of each floor is a boss. Clear a room, pick a perk, walk through the right-hand door. You attack automatically. <small>WASD / arrows move · SPACE dash · Q special · mouse aims · 1-2-3 choose a perk</small></div>
-        <button className="big" onClick={() => rogueActions.start({ cls })}>▶ ENTER THE DEPTHS</button>
+        <div className="modegrid">{RCLS.map((c, i) => <button key={c.id} className={'modecard ' + (cls === i ? 'sel' : '')} onClick={() => choose(i)}><div className="vs"><span>{c.ico}</span></div><strong>{c.name}</strong><small>{c.desc}</small></button>)}</div>
+        <div className="lobbyinfo"><b>NEON DEPTHS</b> · A 3D roguelike in a haunted forest. Beneath the Grid a forest grew from deleted games, and at its heart burns the <b>Last Lantern</b>. Fight through 3 haunted woods of 4 rooms; every 4th room is a boss. Pick a perk after each room. <b>Play alone, or invite up to 2 friends for co-op.</b> <small>WASD / arrows move · SPACE dash · Q special · mouse aims · 1-2-3 choose a perk</small></div>
+        <div className="chips"><button className="big" onClick={() => { rogueActions.start({ cls }) }}>▶ ENTER THE DEPTHS</button><button className="big sec" onClick={onInvite}>🌐 INVITE FRIENDS (CO-OP)</button></div>
       </div>
       <div className="lobbyR">
         <div className="panel"><h4>MY DUNGEON STATS</h4><div className="kv"><Stat k="RUNS" v={p.rogueRuns || 0} /><Stat k="VICTORIES" v={p.rogueWins || 0} /><Stat k="DEEPEST ROOM" v={(p.rogueDeep || 0) + '/12'} /><Stat k="MONSTERS SLAIN" v={fmt(p.rogueKills || 0)} /></div></div>
@@ -246,19 +247,23 @@ export function RogueHUD({ openHelp }) {
   const touch = useTouchPrimary()
   if (!g || g.mode === 'idle') return null
   const cls = RCLS[g.cls]
+  const low = g.alive !== false && g.max > 0 && g.hp / g.max <= 0.34 && g.mode === 'play'
   return (
     <div className="hud mg-hud">
-      {g.mode === 'play' && <Surface onPtr={(t, x, y) => rogueActions.aim(x, y)} />}
+      {g.mode === 'play' && !g.tale && <Surface onPtr={(t, x, y) => rogueActions.aim(x, y)} />}
+      <div className={'mg-vig' + (low ? ' low' : '') + (g.boss ? ' boss' : '')} />
       <div className="mg-topbar rg">
         <span className="hearts">{Array.from({ length: g.max }).map((_, i) => <i key={i} className={i < g.hp ? 'on' : ''}>♥</i>)}{g.shield > 0 && <i className="on sh">🛡</i>}</span>
-        <span>🗺 <b>F{g.floor} · R{g.room}</b></span><span>🪙 <b>{g.gold}</b></span><span>☠ <b>{g.kills}</b></span>
+        <span>🌲 <b>F{g.floor} · R{g.room}</b></span><span>🪙 <b>{g.gold}</b></span><span>☠ <b>{g.kills}</b></span>
         <span className="perks">{g.perks.map((p, i) => <i key={i}>{p}</i>)}</span>
         <span className="grow" />
-        {g.mode === 'play' && <button className="mg-btn" onClick={() => rogueActions.pause()}>⏸</button>}
+        {g.mode === 'play' && !g.net && <button className="mg-btn" onClick={() => rogueActions.pause()}>⏸</button>}
+        {g.net && <button className="mg-btn" onClick={rogueActions.quit}>✕</button>}
       </div>
+      {g.coop && <div className="mg-team">{g.team.map((m, i) => <div key={i} className={'mate ' + (m.alive ? '' : 'dead ') + (m.me ? 'me' : '')}><small>{RCLS[m.cls].ico} {m.name || 'HERO'}</small><span>{m.alive ? '♥'.repeat(Math.max(0, m.hp)) : '☠ DOWN'}</span></div>)}</div>}
       {g.boss && <div className="mg-boss"><span>{g.boss.name}</span><div className="bar"><b style={{ width: g.boss.hp * 100 + '%' }} /></div></div>}
-      {g.msg && <div className="mg-banner" style={{ '--c': g.msg.color }} key={g.msg.text}><h2>{g.msg.text}</h2>{g.msg.sub && <p>{g.msg.sub}</p>}</div>}
-      {g.mode === 'play' && (
+      {g.msg && !g.tale && <div className="mg-banner" style={{ '--c': g.msg.color }} key={g.msg.text}><h2>{g.msg.text}</h2>{g.msg.sub && <p>{g.msg.sub}</p>}</div>}
+      {g.mode === 'play' && !g.tale && (
         <div className="mg-rgctl">
           {touch && <Stick onMove={rogueActions.stick} />}
           <div className="mg-abil">
@@ -267,16 +272,29 @@ export function RogueHUD({ openHelp }) {
           </div>
         </div>
       )}
-      {g.mode === 'perk' && g.choices && (
+      {g.dead && g.mode === 'play' && <div className="mg-hint">YOU ARE DOWN · YOUR FRIENDS CAN FINISH THE ROOM AND REVIVE YOU</div>}
+      {g.choices && !g.tale && (
         <div className="screen perk"><h1>CHOOSE A PERK</h1>
           <div className="perkrow">{g.choices.map((c, i) => <button key={c.id} className="perkcard" onClick={() => rogueActions.pick(i)}><b>{i + 1}</b><span>{c.ico}</span><strong>{c.name}</strong><small>{c.desc}</small></button>)}</div>
+          {g.coop && <small className="dim">EVERYONE PICKS THEIR OWN PERK. THE DOOR OPENS WHEN ALL HAVE CHOSEN.</small>}
+        </div>
+      )}
+      {g.tale && (
+        <div className="storyfull talebox" onClick={rogueActions.nextTale}>
+          <div className="sbox" style={{ '--c': g.tale.who[1] }}>
+            <div className="sport">{g.tale.who[2]}</div>
+            <div className="stext"><b>{g.tale.who[0]}</b><p>{g.tale.text}</p></div>
+            <div className="snext">{g.tale.i < g.tale.n - 1 ? 'NEXT ▶' : 'GO ▶'}</div>
+          </div>
+          <div className="sbtns"><button className="big sec" onClick={(e) => { e.stopPropagation(); rogueActions.skipTale() }}>SKIP ▶▶</button></div>
         </div>
       )}
       {g.paused && <PauseScreen resume={rogueActions.resume} quit={rogueActions.quit} help={() => openHelp('rogue')} />}
       {g.mode === 'over' && g.over && (
         <div className="screen victory">
-          <h1 className={g.over.win ? 'gold' : 'red'}>{g.over.win ? 'DUNGEON CONQUERED!' : 'YOU DIED'}</h1><h3>{g.over.cls} · FLOOR {g.over.floor} · ROOM {g.over.room}</h3>
-          <ul><li><span>MONSTERS SLAIN</span><b>{g.over.kills}</b></li><li><span>GOLD</span><b>{g.over.gold}</b></li><li><span>PERKS</span><b>{g.over.perks}</b></li><li className="bonus"><span>SCORE</span><b>{fmt(g.over.score)}</b></li></ul>
+          <h1 className={g.over.win ? 'gold' : 'red'}>{g.over.left ? 'THE HOST LEFT' : g.over.win ? 'THE LANTERN BURNS!' : 'THE FOREST CLAIMS YOU'}</h1>
+          {g.over.win ? <p className="epilogue">{g.over.epilogue}</p> : <h3>{g.over.cls} · FLOOR {g.over.floor} · ROOM {g.over.room}</h3>}
+          <ul><li><span>MONSTERS SLAIN</span><b>{g.over.kills}</b></li><li><span>GOLD</span><b>{g.over.gold}</b></li><li><span>PERKS</span><b>{g.over.perks}</b></li><li className="bonus"><span>SCORE{g.over.coop ? ' (CO-OP)' : ''}</span><b>{fmt(g.over.score)}</b></li></ul>
           <button className="big" onClick={rogueActions.rematch}>↻ NEW RUN</button><button className="big sec" onClick={rogueActions.quit}>DASHBOARD</button>
         </div>
       )}

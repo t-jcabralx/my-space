@@ -7,7 +7,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 if (!role) {
   const self = fileURLToPath(import.meta.url)
   let fail = 0
-  for (const g of (process.env.GAMES || 'tetris,pickle,bomber,space,fight,race,hockey,pool,uno,pusoy,tongits,lucky9').split(',')) {
+  for (const g of (process.env.GAMES || 'tetris,pickle,bomber,space,fight,race,hockey,pool,rogue,uno,pusoy,tongits,lucky9').split(',')) {
     const host = spawn('node', [self, 'host', g], { stdio: ['ignore', 'pipe', 'inherit'] })
     let hostOut = '', guestOut = '', guest
     host.stdout.on('data', (d) => {
@@ -42,7 +42,9 @@ const { HK, hockeyActions } = await import('../src/game/hockey.js')
 const { PL, poolActions } = await import('../src/game/pool.js')
 const { hostHockey, installHockeyOnline } = await import('../src/game/online/hockey-online.js')
 const { hostPool, installPoolOnline } = await import('../src/game/online/pool-online.js')
-installHockeyOnline(); installPoolOnline()
+const { RG, rogueActions } = await import('../src/game/rogue.js')
+const { hostRogue, installRogueOnline } = await import('../src/game/online/rogue-online.js')
+installHockeyOnline(); installPoolOnline(); installRogueOnline()
 installPickleOnline(); installBomberOnline(); installSpaceOnline(); installFightOnline(); installRaceOnline()
 installTetrisOnline(); installCardsOnline()
 let bad = 0
@@ -128,6 +130,28 @@ if (game === 'tetris') {
   clearInterval(drive)
   console.log('RESULT', role, 'shots', shots)
   await sleep(3000)
+} else if (game === 'rogue') {
+  if (role === 'host') {
+    const room = await rtm.createRoom('rogue', 'HOSTY'); console.log('CODE', room.code)
+    check('guest joins', await until(() => rtm.RT.room.players.length === 2))
+    await sleep(1500)
+    await hostRogue()
+  } else { await sleep(500); await rtm.joinRoom(code, 'GUESTY') }
+  check('dungeon started', await until(() => RG.mode === 'play' && RG.net), RG.mode)
+  check('both heroes are in the dungeon', await until(() => RG.players.length === 2, 20000), 'players ' + RG.players.length)
+  const kk = (await import('../src/game/engine.js')).keys
+  const drive = setInterval(() => {
+    if (RG.tale) { rogueActions.skipTale(); return }
+    const p = RG.players[RG.me]; if (!p) return
+    if (p.choices) { rogueActions.pick(0); return }
+    kk.KeyD = Math.random() < 0.5; kk.KeyA = Math.random() < 0.3; kk.KeyW = Math.random() < 0.4; kk.KeyS = Math.random() < 0.4
+    if (Math.random() < 0.1) rogueActions.dash()
+  }, 90)
+  check('enemies appear on both sides', await until(() => RG.en.length > 0, 30000), 'enemies ' + RG.en.length)
+  check('the run ends or a room is cleared on both sides', await until(() => RG.mode === 'over' || RG.room > 0 || RG.floor > 0, 180000), RG.mode + ' room ' + RG.room)
+  clearInterval(drive); kk.KeyD = kk.KeyA = kk.KeyW = kk.KeyS = false
+  console.log('RESULT', role, RG.mode, 'floor', RG.floor, 'room', RG.room)
+  await sleep(2500)
 } else if (game === 'race') {
   const eng = await import('../src/game/engine.js')
   if (role === 'host') {

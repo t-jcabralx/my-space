@@ -1,10 +1,12 @@
-// NEON DEPTHS: a roguelike dungeon crawler. 3 classes, 3 floors of 4 rooms (the last room of each floor is a boss), a perk after every room.
+// NEON DEPTHS: a 3D roguelike dungeon crawler you can play alone or with up to 2 friends online (co-op).
+// 3 classes, 3 floors of 4 rooms (the last room of every floor is a boss), a perk after every room.
 // Move with WASD / arrows (or the touch stick); you attack automatically. Space = dash, Q = class special, 1-3 = pick a perk.
-import { G, emit as engineEmit, keys, games, profile, saveProfile, recordScore, part, ring, shake, flash, popup, stepParticles, toMenu } from './engine.js'
+import { G, emit as engineEmit, keys, games, profile, saveProfile, recordScore, part, ring, shake, flash, stepParticles, toMenu } from './engine.js'
 import { sfx, music, speak } from './audio.js'
-import { col, disk, circle, rect, line, clamp, R } from './pxl.js'
+import { col, clamp, R } from './pxl.js'
+import { drawRogue3, rogueCamera, rogueLights, unprojectGround, THEMES } from './rogue3d.js'
 
-const AX = 44, AY = 23
+export const AX = 44, AY = 23
 export const CLASSES = [
   { id: 'knight', name: 'KNIGHT', ico: '⚔️', color: '#ffd23a', hp: 6, spd: 30, dmg: 15, rate: 0.38, desc: 'Sweeping sword. Tough. Special: WHIRLWIND.' },
   { id: 'ranger', name: 'RANGER', ico: '🏹', color: '#6aff9a', hp: 4, spd: 34, dmg: 9, rate: 0.26, desc: 'Fast arrows that pierce. Special: ARROW VOLLEY.' },
@@ -24,7 +26,7 @@ const PERKS = [
   { id: 'magnet', name: 'MAGNET', ico: '🧲', desc: 'Pull gold from far away', f: (p) => { p.magnet += 14 } },
   { id: 'special', name: 'OVERCHARGE', ico: '🌀', desc: 'Special recharges 35% faster', f: (p) => { p.spCd *= 0.65 } },
 ]
-const EN = {
+export const EN = {
   slime: { hp: 20, spd: 12, c: '#5aff7a', r: 1.6, dmg: 1, gold: 2 },
   bat: { hp: 10, spd: 22, c: '#c06aff', r: 1.1, dmg: 1, gold: 2 },
   archer: { hp: 16, spd: 10, c: '#ffb04a', r: 1.4, dmg: 1, gold: 3, shoot: 1.9 },
@@ -35,55 +37,94 @@ const EN = {
   eye: { hp: 820, spd: 10, c: '#ff4adf', r: 4, dmg: 2, gold: 90, boss: true, name: 'VOID EYE' },
 }
 const BOSS = ['king', 'lord', 'eye']
-export const RG = { mode: 'idle', paused: false, cls: 0, floor: 0, room: 0, p: null, en: [], eb: [], pb: [], loot: [], obst: [], open: false, choices: null, gold: 0, kills: 0, t: 0, emitT: 0, msg: null, over: null, stick: [0, 0], aimPt: null, aimT: 0, fx: [], swing: null, intro: 0, spawnQ: [], perks: [], hurtT: 0 }
+
+// the story of the Depths (told in cut-scenes when you play alone; shown as banners in co-op)
+const TALE = {
+  start: [['sys', 'BENEATH THE GRID, WHERE DELETED GAMES ROT, A FOREST GREW. THE OLD PLAYERS CALL IT THE DEPTHS.'], ['nova', 'At its heart burns the Last Lantern, the one light the OVERLORD could never erase.'], ['nova', 'Three guardians keep it from you: the SLIME KING, the BONE LORD and the VOID EYE.'], ['hero', 'Then I will take it back. Every deleted game, every lost score, all of it.'], ['nova', 'Keep your own lantern lit, hero. The woods do not like the light.']],
+  f1: [['sys', 'THE CURSED MARSH. THE TREES HAVE STOPPED WHISPERING.'], ['hero', 'Quiet. That is worse than the whispering.'], ['nova', 'Things in here remember being games. They are angry about being forgotten.']],
+  f2: [['sys', 'THE VOID GROVE. EVEN THE LIGHT IS AFRAID HERE.'], ['nova', 'The Lantern is close. I can feel its heat.'], ['hero', 'And something is watching us.'], ['ovl', 'I HAVE WATCHED YOU SINCE THE FIRST TREE.']],
+  boss: [
+    [['king', 'A little snack wandered into my kingdom! Bring it to me, my jellies!'], ['hero', 'I am not food. I am the one who is going to pop you.']],
+    [['lord', 'Another bright little soul. I collect those. Come, join my court.'], ['hero', 'I have a lantern and a sharp opinion about your court.']],
+    [['eye', 'THE LANTERN IS MINE. EVERY GAME IS MINE. YOU ARE A BUG.'], ['hero', 'Then I am the bug that fixes you.']],
+  ],
+  win: 'The Last Lantern blazes in your hands. Across the Grid, every deleted game flickers awake. The Depths bloom, and the forest finally sleeps.',
+  who: { sys: ['THE DEPTHS', '#6aff9a', '🌲'], nova: ['NOVA', '#ff4de1', '🤖'], hero: ['YOU', '#3de8ff', '🧑‍🚀'], ovl: ['OVERLORD', '#ff3a3a', '👁'], king: ['SLIME KING', '#3adf6a', '👑'], lord: ['BONE LORD', '#e8e8ff', '💀'], eye: ['VOID EYE', '#ff4adf', '👁️'] },
+}
+function say(lines) {
+  if (!lines || !lines.length) return
+  if (RG.net || RG.players.length > 1) { RG.msg = { text: TALE.who[lines[0][0]][0], sub: lines[0][1].slice(0, 90), color: TALE.who[lines[0][0]][1], t: 4 }; return }
+  RG.tale = { lines, i: 0 }
+}
+const mkPlayer = (cls, name, remote) => {
+  const c = CLASSES[clamp(cls | 0, 0, 2)]
+  return { cls: clamp(cls | 0, 0, 2), name, remote: !!remote, x: -AX + 6, y: 0, hp: c.hp, max: c.hp, spd: c.spd, dmg: c.dmg, rate: c.rate, multi: 1, crit: 0.05, vamp: 0, shield: 0, aegis: false, pierce: 0, magnet: 4, dashCd: 1.3, spCd: 9, dashT: 0, spT: 0, atkT: 0, inv: 0, dash: 0, dx: 1, dy: 0, face: 0, mx: 0, my: 0, walk: 0, alive: true, perks: [], choices: null, swing: null, aimPt: null, aimT: -9, dashN: 0, spN: 0, seenDash: 0, seenSp: 0, inp: { mx: 0, my: 0 }, hurtT: 0, vx: 0, vy: 0 }
+}
+export const RG = { mode: 'idle', paused: false, floors: 3, floor: 0, room: 0, players: [], me: 0, p: null, en: [], eb: [], pb: [], loot: [], obst: [], open: false, gold: 0, kills: 0, t: 0, emitT: 0, msg: null, over: null, stick: [0, 0], fx: [], spawnQ: [], net: null, eid: 1, tale: null, rk: 0, bossT: 0, ambT: 4, heartT: 0, cam: null, doorT: 0 }
 let snap = null
 const subs = new Set()
 export const subscribeRogue = (f) => { subs.add(f); return () => subs.delete(f) }
 export const getRogueSnap = () => snap
+const lp = () => RG.players[RG.me] || RG.players[0]
+const alive = () => RG.players.filter((p) => p.alive)
 function emitR() {
-  const p = RG.p
-  snap = { mode: RG.mode, paused: RG.paused, cls: RG.cls, floor: RG.floor + 1, room: RG.room + 1, hp: p ? p.hp : 0, max: p ? p.max : 0, shield: p ? p.shield : 0, gold: RG.gold, kills: RG.kills, dash: p ? Math.max(0, p.dashT) / p.dashCd : 0, special: p ? Math.max(0, p.spT) / p.spCd : 0, choices: RG.choices ? RG.choices.map((c) => ({ id: c.id, name: c.name, ico: c.ico, desc: c.desc })) : null, msg: RG.msg ? { ...RG.msg } : null, over: RG.over, boss: bossOf(), perks: RG.perks.slice(), open: RG.open, rooms: RG.floor * 4 + RG.room }
+  const p = lp()
+  const bossE = RG.en.find((e) => e.def && e.def.boss && !e.dead)
+  snap = {
+    mode: RG.mode, paused: RG.paused, cls: p ? p.cls : 0, floor: RG.floor + 1, room: RG.room + 1, hp: p ? p.hp : 0, max: p ? p.max : 0, shield: p ? p.shield : 0, gold: RG.gold, kills: RG.kills,
+    dash: p ? Math.max(0, p.dashT) / p.dashCd : 0, special: p ? Math.max(0, p.spT) / p.spCd : 0,
+    choices: p && p.choices ? p.choices.map((c) => ({ id: c.id, name: c.name, ico: c.ico, desc: c.desc })) : null, msg: RG.msg ? { ...RG.msg } : null, over: RG.over,
+    boss: bossE ? { name: bossE.def.name, hp: Math.max(0, bossE.hp) / bossE.max } : null, perks: p ? p.perks.slice() : [], open: RG.open, rooms: RG.floor * 4 + RG.room,
+    coop: RG.players.length > 1 || !!RG.net, net: RG.net ? RG.net.role : null, waiting: RG.players.filter((x) => x.choices).length,
+    team: RG.players.map((x, i) => ({ name: x.name, cls: x.cls, hp: x.hp, max: x.max, alive: x.alive, me: i === RG.me })), theme: THEMES[RG.floor % 3].name, dead: !!(p && !p.alive), tale: RG.tale ? { who: TALE.who[RG.tale.lines[RG.tale.i][0]], text: RG.tale.lines[RG.tale.i][1], i: RG.tale.i, n: RG.tale.lines.length } : null,
+  }
   subs.forEach((f) => f())
 }
-const bossOf = () => { const b = RG.en.find((e) => e.def.boss && !e.dead); return b ? { name: b.def.name, hp: Math.max(0, b.hp) / b.max } : null }
 function start(cfg = {}) {
-  const c = CLASSES[clamp(cfg.cls | 0, 0, 2)]
-  RG.cls = clamp(cfg.cls | 0, 0, 2); RG.floors = clamp(cfg.floors | 0 || 3, 1, 3)
-  RG.p = { x: -AX + 6, y: 0, hp: c.hp, max: c.hp, spd: c.spd, dmg: c.dmg, rate: c.rate, multi: 1, crit: 0.05, vamp: 0, shield: 0, aegis: false, pierce: 0, magnet: 4, dashCd: 1.3, spCd: 9, dashT: 0, spT: 0, atkT: 0, inv: 0, dash: 0, dx: 1, dy: 0, face: 0, vx: 0, vy: 0 }
-  RG.floor = 0; RG.room = 0; RG.gold = 0; RG.kills = 0; RG.perks = []; RG.over = null; RG.paused = false; RG.choices = null; RG.t = 0; RG.fx = []
+  const net = RG.net && cfg.type === 'online' ? RG.net : null
+  RG.net = net
+  RG.floors = clamp(cfg.floors | 0 || 3, 1, 3)
+  const me = mkPlayer(cfg.cls | 0, (profile.name || 'YOU').slice(0, 10), false)
+  RG.players = [me]; RG.me = 0; RG.p = me
+  RG.floor = 0; RG.room = 0; RG.gold = 0; RG.kills = 0; RG.over = null; RG.paused = false; RG.t = 0; RG.fx = []; RG.eid = 1; RG.rk = 0; RG.bossT = 0
   G.mode = 'rogue'; engineEmit(); G.parts = []; G.pops = []; G.shake = 0; G.flash = 0
-  RG.mode = 'play'
+  RG.mode = 'play'; RG.tale = null
   enterRoom()
+  say(TALE.start)
   music.set('slugboss', 0); sfx('mission'); emitR()
 }
-function stop() { RG.mode = 'idle'; RG.paused = false; music.set('menu'); emitR() }
+function stop() { RG.mode = 'idle'; RG.paused = false; if (RG.net) { const n = RG.net; RG.net = null; if (n.onStop) try { n.onStop() } catch { /* ignore */ } } music.set('menu'); emitR() }
 function enterRoom() {
-  const p = RG.p
-  p.x = -AX + 6; p.y = 0; p.inv = 1; if (p.aegis) p.shield = 1
-  RG.en = []; RG.eb = []; RG.pb = []; RG.loot = []; RG.open = false; RG.choices = null; RG.swing = null; RG.spawnQ = []
-  // obstacles
+  const n = RG.players.length
+  RG.players.forEach((p, i) => {
+    p.x = -AX + 6; p.y = (i - (n - 1) / 2) * 7; p.inv = 1; if (p.aegis) p.shield = 1
+    if (!p.alive) { p.alive = true; p.hp = Math.max(1, Math.ceil(p.max / 2)) }
+    p.choices = null; p.swing = null
+  })
+  RG.en = []; RG.eb = []; RG.pb = []; RG.loot = []; RG.open = false; RG.spawnQ = []; RG.rk++; RG.doorT = 0
   RG.obst = []
   const boss = RG.room === 3
-  const n = boss ? 2 : 3 + RG.floor + ((Math.random() * 3) | 0)
-  for (let i = 0; i < n; i++) {
+  const k = (boss ? 2 : 3 + RG.floor + ((Math.random() * 3) | 0))
+  for (let i = 0; i < k; i++) {
     const w = 4 + 2 * ((Math.random() * 2) | 0), h = 4 + 2 * ((Math.random() * 2) | 0)
     const x = R(-26, AX - 12), y = R(-AY + 6, AY - 6)
     if (boss && Math.abs(x) < 14 && Math.abs(y) < 14) continue
     if (x + w / 2 > 10 && Math.abs(y) < h / 2 + 6) continue // keep the lane to the door open
-    RG.obst.push({ x, y, w, h })
+    RG.obst.push({ x, y, w, h, s: (Math.random() * 1000) | 0 })
   }
-  RG.obst = RG.obst.filter((o) => !(Math.abs(o.x - p.x) < o.w / 2 + 8 && Math.abs(o.y - p.y) < o.h / 2 + 8))
-  // enemies
-  const budget = 5 + RG.floor * 3 + RG.room * 2
-  const sc = 1 + RG.floor * 0.3
+  RG.obst = RG.obst.filter((o) => !(Math.abs(o.x + AX - 6) < o.w / 2 + 8 && Math.abs(o.y) < o.h / 2 + 8 + n * 4))
+  const budget = (5 + RG.floor * 3 + RG.room * 2) * (1 + 0.4 * (n - 1))
+  const sc = (1 + RG.floor * 0.3) * (1 + 0.5 * (n - 1))
   const spawn = (type, x, y, delay) => RG.spawnQ.push({ type, x, y, t: delay, sc })
-  if (boss) { spawn(BOSS[RG.floor], AX - 14, 0, 1.2); sfx('rgBoss'); speak(EN[BOSS[RG.floor]].name, 0.4, 0.9) }
+  if (boss) { spawn(BOSS[RG.floor], AX - 14, 0, 1.6); RG.bossT = 3.2; sfx('rgBoss'); speak(EN[BOSS[RG.floor]].name, 0.4, 0.9) }
   else {
     let b = budget, i = 0
     const pool = ['slime', 'bat', 'archer'].concat(RG.floor >= 1 ? ['brute', 'caster'] : [], RG.room >= 2 ? ['brute'] : [])
     while (b > 0) { const t = pool[(Math.random() * pool.length) | 0], cost = t === 'brute' ? 4 : t === 'caster' ? 3 : t === 'archer' ? 2 : 1.5; b -= cost; spawn(t, R(-8, AX - 6), R(-AY + 4, AY - 4), 0.8 + i * 0.35); i++ }
   }
-  RG.msg = { text: boss ? 'BOSS: ' + EN[BOSS[RG.floor]].name : 'FLOOR ' + (RG.floor + 1) + ' · ROOM ' + (RG.room + 1), sub: '', color: boss ? '#ff4a5a' : '#ffe84a', t: 2 }
+  if (RG.room === 0 && RG.floor > 0 && RG.t > 0) say(TALE['f' + RG.floor])
+  if (boss) say(TALE.boss[RG.floor])
+  RG.msg = { text: boss ? 'BOSS: ' + EN[BOSS[RG.floor]].name : THEMES[RG.floor % 3].name, sub: boss ? 'SOMETHING STIRS IN THE DARK…' : 'ROOM ' + (RG.room + 1) + ' OF 4', color: boss ? '#ff4a5a' : '#ffe84a', t: 2.4 }
   sfx('rgDoor')
 }
 function walkable(x, y, r) {
@@ -97,14 +138,19 @@ function move(o, dx, dy, r) {
 }
 function nearestEnemy(x, y, maxd = 999) {
   let best = null
-  for (const e of RG.en) { if (e.dead) continue; const d = Math.hypot(e.x - x, e.y - y); if (d < maxd && (!best || d < best.d)) best = { e, d } }
+  for (const e of RG.en) { if (e.dead || e.spawnT > 0) continue; const d = Math.hypot(e.x - x, e.y - y); if (d < maxd && (!best || d < best.d)) best = { e, d } }
   return best
 }
-function hitEnemy(e, d, crit, kb = 0, ax = 0, ay = 0) {
+function nearestPlayer(x, y) {
+  let best = null
+  for (const p of RG.players) { if (!p.alive) continue; const d = Math.hypot(p.x - x, p.y - y); if (!best || d < best.d) best = { p, d } }
+  return best
+}
+function hitEnemy(e, d, crit, kb = 0, ax = 0, ay = 0, by = null) {
   if (e.dead || e.spawnT > 0) return
-  e.hp -= d; e.flash = 0.1
+  e.hp -= d; e.flash = 0.1; e.by = by || e.by
   if (kb && !e.def.boss) { e.kx = ax * kb; e.ky = ay * kb }
-  popup(e.x, e.y + e.def.r + 1, String(Math.round(d)), crit ? [1, 0.85, 0.2] : [1, 1, 1])
+  if (crit) for (let i = 0; i < 4; i++) part(e.x, e.y, R(-20, 20), R(-20, 20), 0.3, col('#ffe84a'), 1)
   if (e.hp <= 0) killEnemy(e)
 }
 function killEnemy(e) {
@@ -113,23 +159,28 @@ function killEnemy(e) {
   sfx('rgKill'); if (e.def.boss) { shake(2); flash(0.5, [1, 1, 1]) }
   const g = e.def.gold; for (let i = 0; i < g; i++) RG.loot.push({ k: 'gold', x: e.x + R(-2, 2), y: e.y + R(-2, 2), vx: R(-12, 12), vy: R(-12, 12), v: 1 })
   if (Math.random() < 0.07 || e.def.boss) RG.loot.push({ k: 'heart', x: e.x, y: e.y, vx: 0, vy: 0, v: 1 })
-  if (RG.p.vamp && Math.random() < RG.p.vamp) { RG.p.hp = Math.min(RG.p.max, RG.p.hp + 1); popup(RG.p.x, RG.p.y + 3, '+♥', [1, 0.4, 0.5]) }
-  if (e.def.id === 'king' || e.def.name === 'SLIME KING') { /* the king leaves nothing behind but a mess */ }
+  const by = e.by
+  if (by && by.alive && by.vamp && Math.random() < by.vamp) { by.hp = Math.min(by.max, by.hp + 1) }
 }
-function hurtPlayer(d) {
-  const p = RG.p
-  if (p.inv > 0 || p.dash > 0 || RG.mode !== 'play') return
+function hurtPlayer(p, d) {
+  if (!p.alive || p.inv > 0 || p.dash > 0 || RG.mode !== 'play') return
   if (p.shield > 0) { p.shield--; p.inv = 0.6; sfx('deflect'); ring(p.x, p.y, 16, 30, [col('#6ac8ff')]); return }
-  p.hp -= d; p.inv = 1.0; RG.hurtT = 0.3
-  sfx('rgHurt'); shake(1); flash(0.2, [1, 0.2, 0.2])
+  p.hp -= d; p.inv = 1.0; p.hurtT = 0.3
+  if (p === lp()) { sfx('rgHurt'); shake(1); flash(0.2, [1, 0.2, 0.2]) }
   for (let i = 0; i < 10; i++) part(p.x, p.y, R(-30, 30), R(-30, 30), 0.4, col('#ff4a5a'), R(0.8, 1.4))
-  if (p.hp <= 0) finish(false)
+  if (p.hp <= 0) {
+    p.hp = 0; p.alive = false; sfx('rgBoss')
+    ring(p.x, p.y, 30, 40, [col('#ff4a5a')])
+    RG.msg = { text: RG.players.length > 1 ? p.name + ' HAS FALLEN' : 'YOU FELL', sub: alive().length ? 'FINISH THE ROOM TO REVIVE THEM' : '', color: '#ff4a5a', t: 2 }
+    if (!alive().length) finish(false)
+  }
 }
 function finish(win) {
   RG.mode = 'over'; music.stop()
   const rooms = RG.floor * 4 + RG.room + (win ? 1 : 0)
-  const score = RG.floor * 1500 + rooms * 150 + RG.kills * 10 + RG.gold * 2 + (win ? 4000 : 0)
-  RG.over = { win, floor: RG.floor + 1, room: RG.room + 1, kills: RG.kills, gold: RG.gold, score, perks: RG.perks.length, cls: CLASSES[RG.cls].name }
+  const score = Math.round((RG.floor * 1500 + rooms * 150 + RG.kills * 10 + RG.gold * 2 + (win ? 4000 : 0)) * 1)
+  const me = lp()
+  RG.over = { win, floor: RG.floor + 1, room: RG.room + 1, kills: RG.kills, gold: RG.gold, score, perks: me ? me.perks.length : 0, cls: CLASSES[me ? me.cls : 0].name, coop: RG.players.length > 1, epilogue: win ? TALE.win : '' }
   profile.rogueRuns = (profile.rogueRuns || 0) + 1
   if (win) profile.rogueWins = (profile.rogueWins || 0) + 1
   profile.rogueKills = (profile.rogueKills || 0) + RG.kills
@@ -139,26 +190,25 @@ function finish(win) {
   emitR()
 }
 function ebullet(x, y, a, spd, dmg = 1, r = 0.9, c = '#ff8a5a') { RG.eb.push({ x, y, vx: Math.cos(a) * spd, vy: Math.sin(a) * spd, dmg, r, c, life: 6 }) }
-function playerAttack(dt) {
-  const p = RG.p, cl = CLASSES[RG.cls]
+function playerAttack(p, dt) {
+  const cl = CLASSES[p.cls]
   p.atkT -= dt
   if (p.atkT > 0) return
-  // direction: the pointer if it moved recently, otherwise the nearest enemy
   const ne = nearestEnemy(p.x, p.y, cl.id === 'knight' ? 11 : 60)
   if (!ne) return
   let a = Math.atan2(ne.e.y - p.y, ne.e.x - p.x)
-  if (RG.aimPt && G.time - RG.aimT < 2) a = Math.atan2(RG.aimPt.y - p.y, RG.aimPt.x - p.x)
+  if (p.aimPt && G.time - p.aimT < 2) a = Math.atan2(p.aimPt.y - p.y, p.aimPt.x - p.x)
   p.face = a; p.atkT = p.rate
   const crit = Math.random() < p.crit, d = p.dmg * (crit ? 2.2 : 1)
   if (cl.id === 'knight') {
     const arc = 1.3 + (p.multi - 1) * 0.45, reach = 8 + (p.multi - 1) * 0.8
-    RG.swing = { a, arc, reach, t: 0.18 }
+    p.swing = { a, arc, reach, t: 0.2, max: 0.2 }
     for (const e of RG.en) {
       if (e.dead) continue
       const dx = e.x - p.x, dy = e.y - p.y, dist = Math.hypot(dx, dy)
       if (dist > reach + e.def.r) continue
       let da = Math.atan2(dy, dx) - a; da = Math.atan2(Math.sin(da), Math.cos(da))
-      if (Math.abs(da) <= arc / 2) hitEnemy(e, d, crit, 40 + p.pierce * 25, dx / (dist || 1), dy / (dist || 1))
+      if (Math.abs(da) <= arc / 2) hitEnemy(e, d, crit, 40 + p.pierce * 25, dx / (dist || 1), dy / (dist || 1), p)
     }
     for (const b of RG.eb) { if (Math.hypot(b.x - p.x, b.y - p.y) < reach) b.life = 0 }
     sfx('rgSwing')
@@ -166,23 +216,22 @@ function playerAttack(dt) {
     const n = p.multi, spread = 0.2
     for (let i = 0; i < n; i++) {
       const aa = a + (i - (n - 1) / 2) * spread
-      RG.pb.push({ x: p.x + Math.cos(aa) * 2, y: p.y + Math.sin(aa) * 2, vx: Math.cos(aa) * (cl.id === 'ranger' ? 95 : 55), vy: Math.sin(aa) * (cl.id === 'ranger' ? 95 : 55), dmg: d, crit, pierce: cl.id === 'ranger' ? 1 + p.pierce : p.pierce, homing: cl.id === 'mage', life: 1.4, c: cl.color, hit: new Set(), big: cl.id === 'mage' })
+      RG.pb.push({ x: p.x + Math.cos(aa) * 2, y: p.y + Math.sin(aa) * 2, vx: Math.cos(aa) * (cl.id === 'ranger' ? 95 : 55), vy: Math.sin(aa) * (cl.id === 'ranger' ? 95 : 55), dmg: d, crit, pierce: cl.id === 'ranger' ? 1 + p.pierce : p.pierce, homing: cl.id === 'mage', life: 1.4, c: cl.color, hit: new Set(), big: cl.id === 'mage', by: p })
     }
     sfx(cl.id === 'ranger' ? 'rgShot' : 'rgMagic')
   }
 }
-function special() {
-  const p = RG.p, cl = CLASSES[RG.cls]
-  if (RG.mode !== 'play' || p.spT > 0) return
+function special(p) {
+  const cl = CLASSES[p.cls]
+  if (RG.mode !== 'play' || p.spT > 0 || !p.alive) return
   p.spT = p.spCd
-  if (cl.id === 'knight') { RG.fx.push({ k: 'whirl', l: 0.5 }); for (const e of RG.en) if (!e.dead && Math.hypot(e.x - p.x, e.y - p.y) < 13) hitEnemy(e, p.dmg * 3, false, 90, (e.x - p.x) / 5, (e.y - p.y) / 5); p.inv = Math.max(p.inv, 0.5); shake(0.8); sfx('rgBoss') }
-  else if (cl.id === 'ranger') { for (let i = 0; i < 18; i++) { const a = (i / 18) * Math.PI * 2; RG.pb.push({ x: p.x, y: p.y, vx: Math.cos(a) * 85, vy: Math.sin(a) * 85, dmg: p.dmg * 1.6, pierce: 3, life: 1.2, c: cl.color, hit: new Set() }) } sfx('rgShot') }
-  else { RG.fx.push({ k: 'nova', l: 0.6 }); for (const e of RG.en) if (!e.dead && Math.hypot(e.x - p.x, e.y - p.y) < 20) { hitEnemy(e, p.dmg * 2, false); e.frozen = 2.5 } RG.eb = RG.eb.filter((b) => Math.hypot(b.x - p.x, b.y - p.y) > 20); shake(0.6); sfx('tdIce') }
+  if (cl.id === 'knight') { RG.fx.push({ k: 'whirl', l: 0.5, p }); for (const e of RG.en) if (!e.dead && Math.hypot(e.x - p.x, e.y - p.y) < 13) hitEnemy(e, p.dmg * 3, false, 90, (e.x - p.x) / 5, (e.y - p.y) / 5, p); p.inv = Math.max(p.inv, 0.5); shake(0.8); sfx('rgBoss') }
+  else if (cl.id === 'ranger') { for (let i = 0; i < 18; i++) { const a = (i / 18) * Math.PI * 2; RG.pb.push({ x: p.x, y: p.y, vx: Math.cos(a) * 85, vy: Math.sin(a) * 85, dmg: p.dmg * 1.6, pierce: 3, life: 1.2, c: cl.color, hit: new Set(), by: p }) } sfx('rgShot') }
+  else { RG.fx.push({ k: 'nova', l: 0.6, p }); for (const e of RG.en) if (!e.dead && Math.hypot(e.x - p.x, e.y - p.y) < 20) { hitEnemy(e, p.dmg * 2, false, 0, 0, 0, p); e.frozen = 2.5 } RG.eb = RG.eb.filter((b) => Math.hypot(b.x - p.x, b.y - p.y) > 20); shake(0.6); sfx('tdIce') }
   ring(p.x, p.y, 30, 50, [col(cl.color)])
 }
-function dash() {
-  const p = RG.p
-  if (RG.mode !== 'play' || p.dashT > 0) return
+function dash(p) {
+  if (RG.mode !== 'play' || p.dashT > 0 || !p.alive) return
   let dx = p.mx || 0, dy = p.my || 0
   if (!dx && !dy) { dx = Math.cos(p.face); dy = Math.sin(p.face) }
   const l = Math.hypot(dx, dy) || 1
@@ -190,11 +239,14 @@ function dash() {
   sfx('rgDash')
 }
 function enemyAI(e, dt) {
-  const p = RG.p, d = e.def, dx = p.x - e.x, dy = p.y - e.y, dist = Math.hypot(dx, dy) || 1
+  const np = nearestPlayer(e.x, e.y)
+  if (!np) return
+  const p = np.p, d = e.def, dx = p.x - e.x, dy = p.y - e.y, dist = Math.hypot(dx, dy) || 1
+  e.fa = Math.atan2(dy, dx)
   const slow = e.frozen > 0 ? 0.25 : 1
   e.t += dt; e.frozen = Math.max(0, (e.frozen || 0) - dt)
   let vx = 0, vy = 0
-  if (d.boss) return boss(e, dt, dx, dy, dist, slow)
+  if (d.boss) return boss(e, dt, dx, dy, dist, slow, p)
   if (e.type === 'slime') { vx = dx / dist; vy = dy / dist; const hop = 0.5 + 0.5 * Math.sin(e.t * 4); vx *= hop * 1.6; vy *= hop * 1.6 }
   else if (e.type === 'bat') { const w = Math.sin(e.t * 6 + e.seed) * 0.9; vx = dx / dist + (-dy / dist) * w; vy = dy / dist + (dx / dist) * w }
   else if (e.type === 'archer' || e.type === 'caster') {
@@ -206,8 +258,9 @@ function enemyAI(e, dt) {
       const a = Math.atan2(dy, dx)
       if (e.type === 'archer') ebullet(e.x, e.y, a, 34)
       else for (let i = -1; i <= 1; i++) ebullet(e.x, e.y, a + i * 0.28, 28, 1, 1, '#4ad8ff')
-      sfx('tdShot')
+      e.cast = 0.3; sfx('tdShot')
     }
+    e.cast = Math.max(0, (e.cast || 0) - dt)
     if (e.type === 'caster') { e.tp -= dt; if (e.tp <= 0) { e.tp = 3.5; const a = R(0, 6.28); const nx = clamp(p.x + Math.cos(a) * 18, -AX + 3, AX - 3), ny = clamp(p.y + Math.sin(a) * 14, -AY + 3, AY - 3); if (walkable(nx, ny, 1.4)) { ring(e.x, e.y, 10, 24, [col(d.c)]); e.x = nx; e.y = ny; ring(e.x, e.y, 10, 24, [col(d.c)]) } } }
   } else if (e.type === 'brute') {
     if (e.charge > 0) { e.charge -= dt; vx = e.cdx * 5.2; vy = e.cdy * 5.2; if (e.charge <= 0) e.rest = 0.6 }
@@ -218,9 +271,9 @@ function enemyAI(e, dt) {
   const sp = d.spd * slow
   move(e, vx * sp * dt + (e.kx || 0) * dt, vy * sp * dt + (e.ky || 0) * dt, d.r * 0.8)
   e.kx = (e.kx || 0) * 0.86; e.ky = (e.ky || 0) * 0.86
-  if (dist < d.r + 1.3) hurtPlayer(d.dmg)
+  for (const q of RG.players) if (q.alive && Math.hypot(q.x - e.x, q.y - e.y) < d.r + 1.3) hurtPlayer(q, d.dmg)
 }
-function boss(e, dt, dx, dy, dist, slow) {
+function boss(e, dt, dx, dy, dist, slow, tp) {
   const d = e.def, a = Math.atan2(dy, dx), hpf = e.hp / e.max
   if (e.type === 'king') {
     e.cd -= dt
@@ -243,38 +296,53 @@ function boss(e, dt, dx, dy, dist, slow) {
       sfx('rgMagic')
     }
   }
-  if (dist < d.r + 1.3) hurtPlayer(d.dmg)
+  void tp
+  for (const q of RG.players) if (q.alive && Math.hypot(q.x - e.x, q.y - e.y) < d.r + 1.3) hurtPlayer(q, d.dmg)
 }
+// ---------- main loop (solo + host) ----------
 function update(dtRaw) {
   const dt = Math.min(dtRaw, 0.04)
   if (RG.mode === 'idle' || RG.paused) return
   if (RG.mode === 'over') { stepParticles(dt); return }
   RG.t += dt
   if (RG.msg) { RG.msg.t -= dt; if (RG.msg.t <= 0) RG.msg = null }
-  RG.hurtT = Math.max(0, RG.hurtT - dt)
-  if (RG.mode === 'perk') { stepParticles(dt); RG.emitT -= dt; if (RG.emitT <= 0) { RG.emitT = 0.1; emitR() } return }
-  const p = RG.p
-  p.inv = Math.max(0, p.inv - dt); p.dashT = Math.max(0, p.dashT - dt); p.spT = Math.max(0, p.spT - dt)
-  // movement
-  let mx = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0) + RG.stick[0]
-  let my = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0) + RG.stick[1]
-  const ml = Math.hypot(mx, my); if (ml > 1) { mx /= ml; my /= ml }
-  p.mx = mx; p.my = my
-  if (p.dash > 0) { p.dash -= dt; move(p, p.dx * 95 * dt, p.dy * 95 * dt, 1.4); part(p.x, p.y, 0, 0, 0.25, col(CLASSES[RG.cls].color), 1.2) }
-  else { move(p, mx * p.spd * dt, my * p.spd * dt, 1.4); if (mx || my) p.face = Math.atan2(my, mx) }
-  playerAttack(dt)
-  if (keys.KeyQ || keys.KeyK) special()
+  if (RG.tale) { stepParticles(dt); RG.emitT -= dt; if (RG.emitT <= 0) { RG.emitT = 0.1; emitR() } return }
+  ambience(dt)
+  if (RG.net && RG.net.role === 'guest') return guestStep(dt)
+  RG.bossT = Math.max(0, RG.bossT - dt)
+  const me = lp()
+  // local input
+  if (me && me.alive) {
+    let mx = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0) + RG.stick[0]
+    let my = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0) + RG.stick[1]
+    const ml = Math.hypot(mx, my); if (ml > 1) { mx /= ml; my /= ml }
+    me.inp.mx = mx; me.inp.my = my
+    if (keys.KeyQ || keys.KeyK) special(me)
+  }
+  for (const p of RG.players) {
+    p.inv = Math.max(0, p.inv - dt); p.dashT = Math.max(0, p.dashT - dt); p.spT = Math.max(0, p.spT - dt); p.hurtT = Math.max(0, p.hurtT - dt)
+    if (p.swing) { p.swing.t -= dt; if (p.swing.t <= 0) p.swing = null }
+    if (!p.alive) continue
+    if (p.remote) { if (p.dashN !== p.seenDash) { p.seenDash = p.dashN; dash(p) } if (p.spN !== p.seenSp) { p.seenSp = p.spN; special(p) } }
+    const mx = p.inp.mx, my = p.inp.my
+    p.mx = mx; p.my = my
+    const ox = p.x, oy = p.y
+    if (p.dash > 0) { p.dash -= dt; move(p, p.dx * 95 * dt, p.dy * 95 * dt, 1.4); part(p.x, p.y, 0, 0, 0.25, col(CLASSES[p.cls].color), 1.2) }
+    else { move(p, mx * p.spd * dt, my * p.spd * dt, 1.4); if (mx || my) p.face = Math.atan2(my, mx) }
+    p.walk += Math.hypot(p.x - ox, p.y - oy) * 0.5
+    playerAttack(p, dt)
+  }
   // spawn queue
+  const n = RG.players.length
   for (const s of RG.spawnQ) s.t -= dt
   for (const s of RG.spawnQ) if (s.t <= 0 && !s.done) {
     s.done = true
     const def = { ...EN[s.type], id: s.type }
-    const hp = def.hp * s.sc * (def.boss ? 1 : 1)
-    RG.en.push({ type: s.type, def, x: s.x, y: s.y, hp, max: hp, t: 0, seed: R(0, 6), dir: Math.random() < 0.5 ? -1 : 1, shoot: R(0.8, 1.8), tp: R(1, 3), cd: 2, wind: 0, charge: 0, rest: 0, sp: 0, sum: 4, spawnT: 0.5, flash: 0 })
+    const hp = def.hp * s.sc
+    RG.en.push({ id: RG.eid++, type: s.type, def, x: s.x, y: s.y, hp, max: hp, t: 0, seed: R(0, 6), dir: Math.random() < 0.5 ? -1 : 1, shoot: R(0.8, 1.8), tp: R(1, 3), cd: 2, wind: 0, charge: 0, rest: 0, sp: 0, sum: 4, spawnT: 0.5, flash: 0, fa: Math.PI, cast: 0 })
     ring(s.x, s.y, 8, 16, [col(def.c)])
   }
   RG.spawnQ = RG.spawnQ.filter((s) => !s.done)
-  // enemies
   for (const e of RG.en) {
     if (e.dead) continue
     e.flash = Math.max(0, e.flash - dt)
@@ -282,7 +350,6 @@ function update(dtRaw) {
     enemyAI(e, dt)
   }
   RG.en = RG.en.filter((e) => !e.dead)
-  // player bullets
   for (const b of RG.pb) {
     b.life -= dt
     if (b.homing) { const t = nearestEnemy(b.x, b.y, 40); if (t) { const a = Math.atan2(t.e.y - b.y, t.e.x - b.x), sp = Math.hypot(b.vx, b.vy), ca = Math.atan2(b.vy, b.vx); let da = a - ca; da = Math.atan2(Math.sin(da), Math.cos(da)); const na = ca + clamp(da, -4 * dt, 4 * dt); b.vx = Math.cos(na) * sp; b.vy = Math.sin(na) * sp } }
@@ -290,28 +357,29 @@ function update(dtRaw) {
     if (!walkable(b.x, b.y, 0.1)) { b.life = 0; continue }
     for (const e of RG.en) {
       if (e.dead || e.spawnT > 0 || b.hit.has(e)) continue
-      if (Math.hypot(e.x - b.x, e.y - b.y) < e.def.r + 0.8) { b.hit.add(e); hitEnemy(e, b.dmg, b.crit, b.big ? 15 : 0, Math.sign(b.vx), Math.sign(b.vy)); if (b.big) { RG.fx.push({ k: 'pop', x: b.x, y: b.y, l: 0.2 }) } if (b.hit.size > b.pierce) { b.life = 0; break } }
+      if (Math.hypot(e.x - b.x, e.y - b.y) < e.def.r + 0.8) { b.hit.add(e); hitEnemy(e, b.dmg, b.crit, b.big ? 15 : 0, Math.sign(b.vx), Math.sign(b.vy), b.by); if (b.hit.size > b.pierce) { b.life = 0; break } }
     }
   }
   RG.pb = RG.pb.filter((b) => b.life > 0)
   for (const b of RG.eb) {
     b.life -= dt; b.x += b.vx * dt; b.y += b.vy * dt
-    if (Math.abs(b.x) > AX || Math.abs(b.y) > AY) b.life = 0
-    else if (Math.hypot(b.x - p.x, b.y - p.y) < b.r + 1.0) { b.life = 0; hurtPlayer(b.dmg) }
-    else for (const o of RG.obst) if (Math.abs(b.x - o.x) < o.w / 2 && Math.abs(b.y - o.y) < o.h / 2) { b.life = 0; break }
+    if (Math.abs(b.x) > AX || Math.abs(b.y) > AY) { b.life = 0; continue }
+    let hit = false
+    for (const q of RG.players) if (q.alive && Math.hypot(b.x - q.x, b.y - q.y) < b.r + 1.0) { b.life = 0; hurtPlayer(q, b.dmg); hit = true; break }
+    if (!hit) for (const o of RG.obst) if (Math.abs(b.x - o.x) < o.w / 2 && Math.abs(b.y - o.y) < o.h / 2) { b.life = 0; break }
   }
   RG.eb = RG.eb.filter((b) => b.life > 0)
-  // loot
   for (const l of RG.loot) {
     l.x += l.vx * dt; l.y += l.vy * dt; l.vx *= 0.9; l.vy *= 0.9
-    const d = Math.hypot(p.x - l.x, p.y - l.y)
+    const np = nearestPlayer(l.x, l.y)
+    if (!np) continue
+    const p = np.p, d = np.d
     if (d < p.magnet && l.k === 'gold') { l.x += ((p.x - l.x) / d) * 50 * dt; l.y += ((p.y - l.y) / d) * 50 * dt }
-    if (d < 2.4) { l.got = true; if (l.k === 'gold') { RG.gold++; sfx('coin') } else { p.hp = Math.min(p.max, p.hp + 1); popup(p.x, p.y + 3, '+♥', [1, 0.4, 0.5]); sfx('rgPerk') } }
+    if (d < 2.4) { l.got = true; if (l.k === 'gold') { RG.gold++; if (p === lp()) sfx('coin') } else { p.hp = Math.min(p.max, p.hp + 1); if (p === lp()) sfx('rgPerk') } }
   }
   RG.loot = RG.loot.filter((l) => !l.got)
   for (const f of RG.fx) f.l -= dt
   RG.fx = RG.fx.filter((f) => f.l > 0)
-  if (RG.swing) { RG.swing.t -= dt; if (RG.swing.t <= 0) RG.swing = null }
   // room clear
   if (!RG.open && !RG.en.length && !RG.spawnQ.length) {
     RG.open = true
@@ -321,91 +389,228 @@ function update(dtRaw) {
     if (RG.room === 3 && RG.floor === RG.floors - 1) return finish(true)
     offerPerks()
   }
-  if (RG.open && RG.mode === 'play' && p.x > AX - 3 && Math.abs(p.y) < 7) {
-    if (RG.room === 3) { RG.floor++; RG.room = 0; RG.p.hp = Math.min(RG.p.max, RG.p.hp + 2) } else RG.room++
+  if (RG.open && RG.players.every((p) => !p.choices) && RG.players.some((p) => p.alive && p.x > AX - 3 && Math.abs(p.y) < 7)) {
+    if (RG.room === 3) { RG.floor++; RG.room = 0; for (const p of RG.players) if (p.alive) p.hp = Math.min(p.max, p.hp + 2) } else RG.room++
     enterRoom()
   }
   stepParticles(dt)
+  if (RG.net && RG.net.role === 'host') netTick(dt)
   RG.emitT -= dt
   if (RG.emitT <= 0) { RG.emitT = 0.1; emitR() }
 }
-function offerPerks() {
-  const have = new Set()
-  const pool = PERKS.filter((x) => !(x.id === 'shield' && RG.p.aegis)).sort(() => Math.random() - 0.5)
-  RG.choices = pool.slice(0, 3); RG.mode = 'perk'
-  void have; sfx('rgPerk'); emitR()
+// suspense: distant sounds and a heartbeat when you are nearly dead
+function ambience(dt) {
+  RG.ambT -= dt
+  if (RG.ambT <= 0) { RG.ambT = R(5, 11); sfx(['rgWind', 'rgOwl', 'rgCreak', 'rgWind'][(Math.random() * 4) | 0]) }
+  const p = lp()
+  if (p && p.alive && p.hp / p.max <= 0.34 && RG.mode === 'play') { RG.heartT -= dt; if (RG.heartT <= 0) { RG.heartT = 0.85; sfx('rgHeart') } }
 }
-function pickPerk(i) {
-  if (RG.mode !== 'perk' || !RG.choices || !RG.choices[i]) return
-  const c = RG.choices[i]; c.f(RG.p); RG.perks.push(c.ico)
-  RG.choices = null; RG.mode = 'play'; sfx('rgPerk')
-  RG.msg = { text: c.name, sub: c.desc, color: '#ffe84a', t: 1.6 }
-  ring(RG.p.x, RG.p.y, 24, 40, [col('#ffe84a')])
+function offerPerks() {
+  for (const p of RG.players) {
+    const pool = PERKS.filter((x) => !(x.id === 'shield' && p.aegis)).sort(() => Math.random() - 0.5)
+    p.choices = pool.slice(0, 3)
+  }
+  sfx('rgPerk'); emitR()
+}
+function pickPerk(pi, i) {
+  const p = RG.players[pi]
+  if (!p || !p.choices || !p.choices[i]) return
+  const c = p.choices[i]; c.f(p); p.perks.push(c.ico)
+  p.choices = null
+  if (pi === RG.me) { sfx('rgPerk'); RG.msg = { text: c.name, sub: c.desc, color: '#ffe84a', t: 1.6 }; ring(p.x, p.y, 24, 40, [col('#ffe84a')]) }
   emitR()
 }
 function onKey(code) {
   if (RG.mode === 'idle') return
-  if (code === 'Escape' || code === 'KeyP') { if (RG.mode === 'play') { RG.paused = !RG.paused; emitR() } else if (RG.paused) { RG.paused = false; emitR() } return }
+  const me = lp()
+  if (RG.tale) { if (code === 'Enter' || code === 'Space') rogueActions.nextTale(); else if (code === 'Escape') { RG.tale = null; emitR() } return }
+  if (code === 'Escape' || code === 'KeyP') { if (RG.mode === 'play' && !RG.net) { RG.paused = !RG.paused; emitR() } else if (RG.paused) { RG.paused = false; emitR() } return }
   if (RG.paused) return
-  if (RG.mode === 'perk') { const n = ['Digit1', 'Digit2', 'Digit3'].indexOf(code); if (n >= 0) pickPerk(n); return }
+  if (me && me.choices) { const n = ['Digit1', 'Digit2', 'Digit3'].indexOf(code); if (n >= 0) rogueActions.pick(n); return }
   if (RG.mode === 'over') { if (code === 'Enter') rogueActions.rematch(); return }
-  if (code === 'Space' || code === 'ShiftLeft' || code === 'ShiftRight') dash()
-  else if (code === 'KeyQ' || code === 'KeyK') special()
+  if (code === 'Space' || code === 'ShiftLeft' || code === 'ShiftRight') rogueActions.dash()
+  else if (code === 'KeyQ' || code === 'KeyK') rogueActions.special()
 }
 export const rogueActions = {
   start, stop, quit() { toMenu() },
   resume() { RG.paused = false; emitR() },
-  pause() { if (RG.mode === 'play' && !RG.paused) { RG.paused = true; emitR(); return true } return false },
-  rematch() { start({ cls: RG.cls, floors: RG.floors }) },
-  pick: pickPerk, dash, special,
+  pause() { if (RG.mode === 'play' && !RG.paused && !RG.net) { RG.paused = true; emitR(); return true } return false },
+  rematch() { if (RG.net) { RG.net.rematch(); return } start({ cls: lp() ? lp().cls : 0, floors: RG.floors }) },
+  pick(i) {
+    if (RG.net && RG.net.role === 'guest') { RG.net.perk(i); const p = lp(); if (p) { p.choices = null; emitR() } return }
+    pickPerk(RG.me, i)
+  },
+  dash() { const p = lp(); if (!p) return; if (RG.net && RG.net.role === 'guest') { p.dashN++; return } dash(p) },
+  special() { const p = lp(); if (!p) return; if (RG.net && RG.net.role === 'guest') { p.spN++; return } special(p) },
+  nextTale() { const t = RG.tale; if (!t) return; sfx('wdKey'); if (t.i < t.lines.length - 1) t.i++; else RG.tale = null; emitR() },
+  skipTale() { RG.tale = null; emitR() },
   stick(x, y) { RG.stick = [x, y] },
-  aim(x, y) { RG.aimPt = { x, y }; RG.aimT = G.time },
+  // pointer position in arena units (the stage is 100 x 56): unprojected onto the ground to aim
+  aim(x, y) { const p = lp(); if (!p || !RG.cam) return; const g = unprojectGround(RG.cam, x / 50, y / 28); if (g) { p.aimPt = g; p.aimT = G.time } },
 }
-function draw(api) {
-  const { put } = api, p = RG.p
-  rect(put, -AX - 2, -AY - 2, AX + 2, AY + 2, col('#050912'), 1, -3.4, 1.6)
-  for (let x = -AX; x <= AX; x += 4) for (let y = -AY; y <= AY; y += 4) if (((x + y) / 4) % 2 === 0) put(x, y, -3, 4, 4, 0.05, 0.075, 0.15)
-  // walls and door
-  for (let x = -AX - 2; x <= AX + 2; x += 1) { put(x, AY + 1.5, -1, 1.1, 1.1, 0.22, 0.2, 0.5); put(x, -AY - 1.5, -1, 1.1, 1.1, 0.22, 0.2, 0.5) }
-  for (let y = -AY; y <= AY; y += 1) { put(-AX - 1.5, y, -1, 1.1, 1.1, 0.22, 0.2, 0.5); const door = Math.abs(y) < 7; if (door) { if (RG.open) put(AX + 1.5, y, -1, 1.1, 1.1, 0.4 + Math.sin(G.time * 6) * 0.3, 2, 0.8); else put(AX + 1.5, y, -1, 1.1, 1.1, 1.6, 0.2, 0.2) } else put(AX + 1.5, y, -1, 1.1, 1.1, 0.22, 0.2, 0.5) }
-  for (const o of RG.obst) { rect(put, o.x - o.w / 2 + 0.5, o.y - o.h / 2 + 0.5, o.x + o.w / 2 - 0.5, o.y + o.h / 2 - 0.5, col('#3a4468'), 1, -1.2, 1); rect(put, o.x - o.w / 2 + 0.5, o.y + o.h / 2 - 1, o.x + o.w / 2 - 0.5, o.y + o.h / 2 - 0.5, col('#7a86b8'), 1, -1, 1) }
-  // spawn telegraphs
-  for (const s of RG.spawnQ) { const c = col(EN[s.type].c); circle(put, s.x, s.y, 2 + Math.sin(G.time * 12) * 0.6, c, 1.6, 0, 0.6) }
-  for (const l of RG.loot) { if (l.k === 'gold') disk(put, l.x, l.y, 0.8, col('#ffd23a'), 1.7, 0.2, 0.4); else { disk(put, l.x - 0.6, l.y + 0.3, 0.7, col('#ff4a6a'), 1.6, 0.2, 0.35); disk(put, l.x + 0.6, l.y + 0.3, 0.7, col('#ff4a6a'), 1.6, 0.2, 0.35); disk(put, l.x, l.y - 0.4, 0.8, col('#ff4a6a'), 1.6, 0.2, 0.35) } }
-  for (const e of RG.en) {
-    const c = col(e.def.c), f = e.flash > 0 ? 2.2 : 1, r = e.def.r
-    if (e.spawnT > 0) { circle(put, e.x, e.y, r * (1 - e.spawnT), c, 1.6, 0, 0.5); continue }
-    disk(put, e.x + 0.4, e.y - 0.4, r, col('#000000'), 0, -1.3, 0.5)
-    const bob = e.type === 'slime' ? Math.sin(e.t * 8) * 0.25 : 0
-    disk(put, e.x, e.y, r * (1 + bob * 0.3), c, (e.frozen > 0 ? 0.5 : 0.9) * f, 0, r > 3 ? 0.55 : 0.4)
-    if (e.type === 'brute' && e.wind > 0) circle(put, e.x, e.y, r + 1, col('#ff4a4a'), 2, 0.4, 0.5)
-    if (e.def.boss) circle(put, e.x, e.y, r + 0.7, col('#ffe84a'), 1.3, 0.3, 0.6)
-    const ex = Math.sign(RG.p.x - e.x) * 0.4
-    put(e.x - r * 0.35 + ex, e.y + r * 0.2, 0.6, 0.55, 0.55, 2, 2, 2); put(e.x + r * 0.35 + ex, e.y + r * 0.2, 0.6, 0.55, 0.55, 2, 2, 2)
-    if (e.frozen > 0) circle(put, e.x, e.y, r + 0.4, col('#9ad8ff'), 1.8, 0.4, 0.5)
-    if (!e.def.boss && e.hp < e.max) for (let u = 0; u < r * 2; u += 0.5) put(e.x - r + u, e.y + r + 1, 0.8, 0.5, 0.5, u / (r * 2) < e.hp / e.max ? 0.3 : 0.5, u / (r * 2) < e.hp / e.max ? 1.8 : 0.1, 0.3)
-  }
-  for (const b of RG.pb) { const c = col(b.c); disk(put, b.x, b.y, b.big ? 1.1 : 0.55, c, 2, 0.6, 0.35) }
-  for (const b of RG.eb) { const c = col(b.c); disk(put, b.x, b.y, b.r, c, 1.8, 0.6, 0.35) }
-  if (p && RG.mode !== 'over') {
-    const cl = CLASSES[RG.cls], c = col(cl.color), blink = p.inv > 0 && Math.floor(G.time * 20) % 2 === 0
-    disk(put, p.x + 0.4, p.y - 0.4, 1.5, col('#000000'), 0, -1.3, 0.5)
-    if (!blink) {
-      disk(put, p.x, p.y, 1.5, c, p.dash > 0 ? 1.8 : 1, 0, 0.4)
-      put(p.x + Math.cos(p.face) * 0.5 - 0.5, p.y + 0.4, 0.6, 0.45, 0.45, 0.1, 0.1, 0.2); put(p.x + Math.cos(p.face) * 0.5 + 0.5, p.y + 0.4, 0.6, 0.45, 0.45, 0.1, 0.1, 0.2)
-      const wl = cl.id === 'knight' ? 2.8 : 2.2
-      for (let u = 1.6; u < 1.6 + wl; u += 0.5) put(p.x + Math.cos(p.face) * u, p.y + Math.sin(p.face) * u, 0.4, 0.55, 0.55, 1.8, 1.8, 1.8)
+
+// ---------- online co-op (host simulates; guests send input and mirror the state) ----------
+const r1 = (v) => Math.round(v * 10) / 10
+let nT = 0, nSeq = 0, lastN = -1, inT = 0
+export const rogueNet = {
+  attach(net) { RG.net = net },
+  active: () => !!RG.net && RG.mode !== 'idle',
+  reset() { nSeq = 0; lastN = -1; nT = 0; inT = 0 },
+  // host: a friend's input arrives (the first message creates their hero)
+  applyInput(pid, m) {
+    if (!RG.net || RG.net.role !== 'host' || !m) return
+    let p = RG.players.find((x) => x.pid === pid)
+    if (!p) {
+      if (RG.players.length >= 3) return
+      p = mkPlayer(m.cls, String(m.name || 'FRIEND').slice(0, 10), true); p.pid = pid
+      p.x = -AX + 6; p.y = RG.players.length * 7 - 7
+      RG.players.push(p); RG.msg = { text: p.name + ' JOINED', sub: '', color: '#6aff9a', t: 1.6 }
+      if (RG.open) p.choices = null
     }
-    if (p.shield > 0) circle(put, p.x, p.y, 2.6, col('#6ac8ff'), 1.8, 0.5, 0.5)
+    p.inp.mx = clamp(+m.mx || 0, -1, 1); p.inp.my = clamp(+m.my || 0, -1, 1)
+    if (typeof m.dn === 'number') p.dashN = m.dn
+    if (typeof m.sn === 'number') p.spN = m.sn
+    if (m.ax !== undefined) { p.aimPt = { x: +m.ax, y: +m.ay }; p.aimT = G.time } else p.aimPt = null
+    p.guestPos = m.x !== undefined ? [m.x, m.y] : null
+    if (p.guestPos && p.alive && !p.dash && Math.hypot(p.guestPos[0] - p.x, p.guestPos[1] - p.y) < 4 && walkable(p.guestPos[0], p.guestPos[1], 1.4)) { p.x += (p.guestPos[0] - p.x) * 0.5; p.y += (p.guestPos[1] - p.y) * 0.5 }
+  },
+  applyPerk(pid, i) { const k = RG.players.findIndex((x) => x.pid === pid); if (k >= 0) pickPerk(k, i) },
+  playerLeft(pid) {
+    const k = RG.players.findIndex((x) => x.pid === pid)
+    if (k <= 0) return
+    const p = RG.players[k]; RG.players.splice(k, 1)
+    RG.msg = { text: p.name + ' LEFT', sub: '', color: '#ff8a96', t: 1.6 }
+    if (!alive().length && RG.mode === 'play') finish(false)
+    emitR()
+  },
+  hostLeft() { if (RG.net && RG.mode === 'play') { RG.msg = { text: 'HOST LEFT', sub: '', color: '#ff8a96', t: 2 }; RG.mode = 'over'; RG.over = { win: false, floor: RG.floor + 1, room: RG.room + 1, kills: RG.kills, gold: RG.gold, score: 0, perks: 0, cls: '', coop: true, left: true }; music.stop(); emitR() } },
+  applyState(s) {
+    if (!RG.net || RG.net.role !== 'guest' || !s || s.n <= lastN) return
+    lastN = s.n
+    const first = RG.mode === 'idle' || !RG.players.length
+    if (s.rk !== RG.rk) { // a new room
+      RG.rk = s.rk; RG.obst = s.ob.map((o) => ({ x: o[0], y: o[1], w: o[2], h: o[3], s: o[4] })); RG.floor = s.fl; RG.room = s.ro
+      RG.eb = []; RG.pb = []; RG.loot = []; if (!first) sfx('rgDoor')
+      for (const p of RG.players) { p.choices = null }
+    }
+    RG.floors = s.fs
+    // players
+    while (RG.players.length < s.pl.length) RG.players.push(mkPlayer(0, '', true))
+    RG.players.length = s.pl.length
+    s.pl.forEach((q, i) => {
+      const p = RG.players[i]
+      const mineNow = i === s.me
+      if (mineNow) RG.me = i
+      if (mineNow && p.alive && Math.hypot(q[0] - p.x, q[1] - p.y) < 8 && p.hasState) { p.x += (q[0] - p.x) * 0.2; p.y += (q[1] - p.y) * 0.2 } else { p.tx = q[0]; p.ty = q[1]; if (!p.hasState || mineNow) { p.x = q[0]; p.y = q[1] } }
+      if (!mineNow) { p.tx = q[0]; p.ty = q[1] }
+      if (mineNow && q[2] < p.hp) { sfx('rgHurt'); shake(1); flash(0.2, [1, 0.2, 0.2]); p.hurtT = 0.3 }
+      p.hp = q[2]; p.max = q[3]; p.face = q[4]; p.cls = q[5]; p.inv = q[6]; p.dash = q[7]; p.alive = !!q[9]; p.shield = q[10]; p.name = q[11]; p.dashT = q[12]; p.spT = q[13]; p.dashCd = q[14]; p.spCd = q[15]
+      p.swing = q[16] ? { a: q[16][0], arc: q[16][1], reach: q[16][2], t: q[16][3], max: 0.2 } : null
+      p.mx = q[17]; p.my = q[18]
+      if (!mineNow) { p.walk += 0.5 * Math.hypot(q[17], q[18]) * 0.05 }
+      p.hasState = true
+    })
+    // enemies (match by id, lerp positions)
+    const old = new Map(RG.en.map((e) => [e.id, e]))
+    const next = []
+    for (const q of s.en) {
+      let e = old.get(q[0])
+      const def = { ...EN[q[1]], id: q[1] }
+      if (!e) e = { id: q[0], type: q[1], def, x: q[2], y: q[3], t: 0, seed: q[0] % 7, hp: 1, max: 1, spawnT: 0, flash: 0 }
+      e.tx = q[2]; e.ty = q[3]; e.hp = q[4] * 1000; e.max = 1000; e.fa = q[5]; e.frozen = q[6]; e.spawnT = q[7]; e.wind = q[8]; e.charge = q[9]; e.cast = q[10]; e.flash = q[11]
+      next.push(e); old.delete(q[0])
+    }
+    for (const e of old.values()) { // gone: it died
+      const c = col(e.def.c); for (let i = 0; i < (e.def.boss ? 30 : 8); i++) part(e.x, e.y, R(-34, 34), R(-34, 34), R(0.25, 0.7), c, R(0.8, 1.7)); sfx('rgKill')
+    }
+    RG.en = next
+    RG.pb = s.pb.map((b) => ({ x: b[0], y: b[1], vx: b[2], vy: b[3], big: !!b[4], c: b[5] }))
+    RG.eb = s.eb.map((b) => ({ x: b[0], y: b[1], vx: b[2], vy: b[3], r: b[4], c: b[5] }))
+    RG.loot = s.lt.map((l) => ({ k: l[0] ? 'heart' : 'gold', x: l[1], y: l[2] }))
+    RG.fx = (s.fx || []).map((f) => ({ k: f[0], l: f[1], p: RG.players[f[2]] }))
+    RG.spawnQ = (s.sq || []).map((q) => ({ type: q[0], x: q[1], y: q[2], t: q[3] }))
+    const wasOpen = RG.open
+    RG.open = !!s.op; if (RG.open && !wasOpen) { sfx('rgDoor'); sfx('ding', 5) }
+    RG.gold = s.gold; RG.kills = s.kills; RG.bossT = s.bt
+    const me = lp()
+    if (me) { if (s.ch && !me.choices) { const pool = PERKS.filter((x) => s.ch.includes(x.id)); me.choices = s.ch.map((id) => pool.find((x) => x.id === id)).filter(Boolean); sfx('rgPerk') } else if (!s.ch) me.choices = null; me.perks = s.pk }
+    if (s.msg && (!RG.msg || RG.msg.text !== s.msg.text)) RG.msg = s.msg
+    if (s.over && !RG.over) {
+      RG.mode = 'over'; RG.over = s.over; music.stop()
+      profile.rogueRuns = (profile.rogueRuns || 0) + 1; if (s.over.win) profile.rogueWins = (profile.rogueWins || 0) + 1
+      profile.rogueDeep = Math.max(profile.rogueDeep || 0, RG.floor * 4 + RG.room + 1)
+      recordScore('rogue', s.over.score); saveProfile(); sfx(s.over.win ? 'win' : 'over')
+    }
+    if (first) { RG.mode = 'play'; G.mode = 'rogue'; engineEmit() }
+    emitR()
+  },
+}
+function netTick(dt) {
+  nT -= dt
+  if (nT > 0) return
+  nT = RG.net.fast && RG.net.fast() ? 0.05 : 0.1
+  const mk = (i) => RG.players.map((p, k) => [r1(p.x), r1(p.y), p.hp, p.max, Math.round(p.face * 100) / 100, p.cls, p.inv > 0 ? 1 : 0, p.dash > 0 ? 1 : 0, 0, p.alive ? 1 : 0, p.shield, p.name, Math.max(0, p.dashT), Math.max(0, p.spT), p.dashCd, p.spCd, p.swing ? [Math.round(p.swing.a * 100) / 100, p.swing.arc, p.swing.reach, p.swing.t] : 0, r1(p.mx), r1(p.my)])
+  void mk
+  const common = {
+    n: ++nSeq, rk: RG.rk, fl: RG.floor, ro: RG.room, fs: RG.floors, ob: RG.obst.map((o) => [r1(o.x), r1(o.y), o.w, o.h, o.s]),
+    pl: RG.players.map((p) => [r1(p.x), r1(p.y), p.hp, p.max, Math.round(p.face * 100) / 100, p.cls, p.inv > 0 ? 1 : 0, p.dash > 0 ? 1 : 0, 0, p.alive ? 1 : 0, p.shield, p.name, Math.max(0, p.dashT), Math.max(0, p.spT), p.dashCd, p.spCd, p.swing ? [Math.round(p.swing.a * 100) / 100, p.swing.arc, p.swing.reach, p.swing.t] : 0, r1(p.mx), r1(p.my)]),
+    en: RG.en.map((e) => [e.id, e.type, r1(e.x), r1(e.y), Math.round((Math.max(0, e.hp) / e.max) * 1000) / 1000, Math.round((e.fa || 0) * 100) / 100, e.frozen > 0 ? 1 : 0, e.spawnT > 0 ? Math.round(e.spawnT * 100) / 100 : 0, e.wind > 0 ? 1 : 0, e.charge > 0 ? 1 : 0, e.cast > 0 ? 1 : 0, e.flash > 0 ? 1 : 0]),
+    pb: RG.pb.map((b) => [r1(b.x), r1(b.y), r1(b.vx), r1(b.vy), b.big ? 1 : 0, b.c]),
+    eb: RG.eb.map((b) => [r1(b.x), r1(b.y), r1(b.vx), r1(b.vy), b.r, b.c]),
+    lt: RG.loot.map((l) => [l.k === 'heart' ? 1 : 0, r1(l.x), r1(l.y)]),
+    fx: RG.fx.map((f) => [f.k, Math.round(f.l * 100) / 100, RG.players.indexOf(f.p)]),
+    sq: RG.spawnQ.map((q) => [q.type, r1(q.x), r1(q.y), Math.round(q.t * 100) / 100]),
+    op: RG.open ? 1 : 0, gold: RG.gold, kills: RG.kills, bt: RG.bossT, msg: RG.msg, over: RG.over,
   }
-  if (RG.swing) { const s = RG.swing; for (let k = 0; k <= 14; k++) { const a = s.a - s.arc / 2 + (s.arc * k) / 14; for (let u = 3; u <= s.reach; u += 1.2) put(p.x + Math.cos(a) * u, p.y + Math.sin(a) * u, 0.7, 0.9, 0.9, 1.8 * (u / s.reach), 1.7 * (u / s.reach), 0.9 * (u / s.reach)) } }
-  for (const f of RG.fx) {
-    if (f.k === 'whirl') circle(put, p.x, p.y, 13 * (1 - f.l / 0.5) + 2, col('#ffd23a'), 2, 0.8, 0.7)
-    else if (f.k === 'nova') circle(put, p.x, p.y, 20 * (1 - f.l / 0.6) + 2, col('#9ad8ff'), 2, 0.8, 0.7)
+  // each friend gets their own perk choices and their own index
+  RG.players.forEach((p, i) => {
+    if (!p.remote) return
+    RG.net.state(p.pid, { ...common, me: i, ch: p.choices ? p.choices.map((c) => c.id) : 0, pk: p.perks })
+  })
+}
+function guestStep(dt) {
+  const p = lp()
+  const k = 1 - Math.exp(-16 * dt)
+  if (p && p.alive) {
+    const mx = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0) + RG.stick[0]
+    const my = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0) + RG.stick[1]
+    const ml = Math.hypot(mx, my), nx = ml > 1 ? mx / ml : mx, ny = ml > 1 ? my / ml : my
+    p.mx = nx; p.my = ny
+    const ox = p.x, oy = p.y
+    move(p, nx * p.spd * dt, ny * p.spd * dt, 1.4)
+    if (nx || ny) p.face = Math.atan2(ny, nx)
+    p.walk += Math.hypot(p.x - ox, p.y - oy) * 0.5
+    if (keys.KeyQ || keys.KeyK) { if (!RG.spLatch) { p.spN++; RG.spLatch = true } } else RG.spLatch = false
   }
-  for (const q of G.parts) { const f = q.life / q.max; put(q.x, q.y, 1, q.s * (0.35 + 0.65 * f) * 0.9, q.s * (0.35 + 0.65 * f) * 0.9, q.c[0] * 1.8, q.c[1] * 1.8, q.c[2] * 1.8) }
-  api.pops(G.pops, 0)
-  void line
+  p.dashT = Math.max(0, p.dashT - dt); p.spT = Math.max(0, p.spT - dt); p.hurtT = Math.max(0, p.hurtT - dt)
+  for (const q of RG.players) { if (q !== p && q.tx !== undefined) { const ox = q.x, oy = q.y; q.x += (q.tx - q.x) * k; q.y += (q.ty - q.y) * k; q.walk += Math.hypot(q.x - ox, q.y - oy) * 0.5 } if (q.swing) q.swing.t -= dt }
+  for (const e of RG.en) { e.t += dt; if (e.tx !== undefined) { e.x += (e.tx - e.x) * k; e.y += (e.ty - e.y) * k } }
+  for (const b of RG.pb) { b.x += b.vx * dt; b.y += b.vy * dt }
+  for (const b of RG.eb) { b.x += b.vx * dt; b.y += b.vy * dt }
+  for (const f of RG.fx) f.l -= dt
+  stepParticles(dt)
+  inT -= dt
+  if (inT <= 0 && RG.net) {
+    inT = RG.net.fast && RG.net.fast() ? 0.05 : 0.1
+    const aim = p && p.aimPt && G.time - p.aimT < 2 ? p.aimPt : null
+    RG.net.input({ mx: r1(p ? p.mx : 0), my: r1(p ? p.my : 0), dn: p ? p.dashN : 0, sn: p ? p.spN : 0, cls: RG.myCls | 0, name: profile.name || 'FRIEND', ax: aim ? r1(aim.x) : undefined, ay: aim ? r1(aim.y) : undefined, x: p ? r1(p.x) : undefined, y: p ? r1(p.y) : undefined })
+  }
+  RG.emitT -= dt
+  if (RG.emitT <= 0) { RG.emitT = 0.1; emitR() }
+}
+// the guest joins the host's game as a fresh hero of the chosen class (the host creates it when the first input arrives)
+export function joinAsGuest(cls) {
+  RG.myCls = cls | 0
+  RG.players = [mkPlayer(cls, 'YOU', false)]; RG.me = 0; RG.p = RG.players[0]
+  RG.floor = 0; RG.room = 0; RG.gold = 0; RG.kills = 0; RG.over = null; RG.paused = false; RG.t = 0; RG.fx = []; RG.rk = -1; RG.en = []; RG.eb = []; RG.pb = []; RG.loot = []; RG.obst = []; RG.open = false
+  G.mode = 'rogue'; engineEmit(); G.parts = []; G.pops = []
+  RG.mode = 'play'; music.set('slugboss', 0); sfx('mission'); emitR()
 }
 if (typeof window !== 'undefined') { window.__RG = RG; window.__rogue = rogueActions }
-games.rogue = { update, onKey, draw, stop, sky: () => '#05070f' }
+games.rogue = {
+  update, onKey, draw() {}, stop, sky: () => THEMES[RG.floor % 3].sky,
+  draw3: (api) => { RG.cam = rogueCamera(RG, 100 / 56, 0, true); drawRogue3(api, RG, CLASSES) },
+  camera: (aspect, dt) => { const c = rogueCamera(RG, aspect, dt); RG.cam = c; return c },
+  lights: () => rogueLights(RG),
+  fog: () => THEMES[RG.floor % 3],
+}

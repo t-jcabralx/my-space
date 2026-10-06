@@ -281,6 +281,10 @@ const SFX = {
   rgKill: () => { tone('square', 500, 150, 0.14, 0.1); noise(0.1, 0.08, 2500, 300) },
   rgDoor: () => arp([330, 392, 494], 'triangle', 0.14, 0.1, 0.1),
   rgPerk: () => arp([523, 659, 784, 1046], 'triangle', 0.15, 0.1, 0.12),
+  rgWind: () => { noise(2.2, 0.07, 400, 1400, 0, 'bandpass'); noise(2.2, 0.05, 900, 300, 0.3, 'bandpass') },
+  rgOwl: () => { tone('sine', 420, 380, 0.35, 0.07); tone('sine', 360, 320, 0.5, 0.07, 0.45) },
+  rgCreak: () => { tone('sawtooth', 90, 60, 0.7, 0.05); tone('square', 140, 110, 0.5, 0.025, 0.1) },
+  rgHeart: () => { tone('sine', 62, 40, 0.14, 0.3); tone('sine', 58, 38, 0.16, 0.26, 0.2) },
   rgBoss: () => { tone('sawtooth', 80, 50, 0.8, 0.25); noise(0.6, 0.2, 600, 60) },
   rtPerfect: (l = 0) => { const f = [262, 330, 392, 523][l] * 2; tone('triangle', f, f, 0.14, 0.14); tone('sine', f * 2, f * 2, 0.1, 0.06) },
   rtGood: (l = 0) => { const f = [262, 330, 392, 523][l]; tone('triangle', f, f, 0.1, 0.1) },
@@ -300,7 +304,7 @@ const SFX = {
   mgPow: () => tone('sine', 300, 900, 0.15, 0.12),
   test: () => { arp([523, 659, 784, 1046], 'square', 0.16, 0.12, 0.11); noise(0.3, 0.3, 2000, 100, 0.5) },
 }
-const MIN_GAP = { hkHit: 40, hkWall: 40, plClack: 25, plRail: 40, tdShot: 40, tdKill: 40, tdZap: 60, rgSwing: 60, rgShot: 50, rgKill: 40, rtPerfect: 20, rtGood: 20, rtHat: 30, wdKey: 30, mgSlide: 40, mgMerge: 40, rBump: 150, rBoost: 400, rDrift: 200, fVoice: 120, fStep: 160, fCrowd: 800, vulcan: 45, tankEngine: 150, grunt: 60, jeep: 200, plane: 300, crate: 60, shoot: 50, pistol: 60, hmg: 42, eshot: 90, rotor: 110, hit: 25, boom: 35, coin: 30, ding: 40, step: 80, whistle: 70, bossHit: 40, deflect: 50 }
+const MIN_GAP = { rgWind: 3000, rgOwl: 3000, rgCreak: 3000, rgHeart: 400, hkHit: 40, hkWall: 40, plClack: 25, plRail: 40, tdShot: 40, tdKill: 40, tdZap: 60, rgSwing: 60, rgShot: 50, rgKill: 40, rtPerfect: 20, rtGood: 20, rtHat: 30, wdKey: 30, mgSlide: 40, mgMerge: 40, rBump: 150, rBoost: 400, rDrift: 200, fVoice: 120, fStep: 160, fCrowd: 800, vulcan: 45, tankEngine: 150, grunt: 60, jeep: 200, plane: 300, crate: 60, shoot: 50, pistol: 60, hmg: 42, eshot: 90, rotor: 110, hit: 25, boom: 35, coin: 30, ding: 40, step: 80, whistle: 70, bossHit: 40, deflect: 50 }
 const lastAt = {}
 export function sfx(name, arg) {
   if (!ctx || muted || !SFX[name]) return
