@@ -131,6 +131,7 @@ if (game === 'tetris') {
   console.log('RESULT', role, 'shots', shots)
   await sleep(3000)
 } else if (game === 'rogue') {
+  if (process.env.ABYSS) { const eng = await import('../src/game/engine.js'); eng.profile.rogueU = { cleared: 1, secret: {}, lore: {}, wins: {}, agenda: {}, pets: {}, abyss: 0 }; eng.profile.rogueMode = 'abyss'; eng.profile.roguePet = 0 }
   if (role === 'host') {
     const room = await rtm.createRoom('rogue', 'HOSTY'); console.log('CODE', room.code)
     check('guest joins', await until(() => rtm.RT.room.players.length === 2))
@@ -144,6 +145,7 @@ if (game === 'tetris') {
     if (RG.tale) { rogueActions.skipTale(); return }
     const p = RG.players[RG.me]; if (!p) return
     if (p.choices) { rogueActions.pick(0); return }
+    p.holdPtr = true; { const t = RG.en.find((e) => !e.dead); if (t) { p.aimPt = { x: t.x, y: t.y }; p.aimT = 1e9 } }
     kk.KeyD = Math.random() < 0.5; kk.KeyA = Math.random() < 0.3; kk.KeyW = Math.random() < 0.4; kk.KeyS = Math.random() < 0.4
     if (Math.random() < 0.1) rogueActions.dash()
   }, 90)

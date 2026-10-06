@@ -145,10 +145,11 @@ function levelTo(p, lv) { while (p.lv < lv) { p.lv++; p.dmg *= 1.06; if (p.lv % 
 function start(cfg = {}) {
   const net = RG.net && cfg.type === 'online' ? RG.net : null
   RG.net = net
-  RG.abyss = cfg.mode === 'abyss' && abyssOk()
+  RG.abyss = cfg.mode === 'abyss' && abyssOk(); RG.diff = ['story', 'normal', 'heroic'].includes(cfg.diff) ? cfg.diff : 'normal'
   RG.chapter = RG.abyss ? 1 : clamp(cfg.chapter | 0 || 1, 1, CHAPTERS.length); RG.floor = RG.chapter - 1; RG.floors = 1
   const me = mkPlayer(cfg.cls | 0, (profile.name || 'YOU').slice(0, 10), false, cfg.race | 0, cfg.pet | 0)
   applyGear(me, cfg.weapon, cfg.power, cfg.orb, cfg.relic); levelTo(me, RG.abyss ? 6 : 1 + 2 * (RG.chapter - 1))
+  if (RG.diff === 'story') { me.max += 2; me.hp = me.max; me.armor = Math.max(me.armor, 0.15) } else if (RG.diff === 'heroic') { me.max = Math.max(2, me.max - 1); me.hp = me.max }
   RG.players = [me]; RG.me = 0; RG.p = me; RG.pets = mkPets([me]); RG.traps = []; RG.rains = []; RG.meteors = []; RG.unlocked = unlockSnapshot(); RG.unlockBefore = unlockSnap()
   RG.room = 0; RG.sub = null; RG.gold = 0; RG.kills = 0; RG.over = null; RG.paused = false; RG.t = 0; RG.fx = []; RG.eid = 1; RG.rk = 0; RG.bossT = 0; RG.found = { secret: false, lore: [] }
   RG.ag = { urns: 0, streak: 0, shrines: 0, vault: false, puzzle: false, done: [] }; RG.slowT = 0
@@ -191,7 +192,8 @@ function enterRoom() {
   }
   RG.obst = RG.obst.filter((o) => !(Math.abs(o.x + AX - 6) < o.w / 2 + 8 && Math.abs(o.y) < o.h / 2 + 8 + n * 4))
   const dif = RG.abyss ? 1 + RG.room * 0.035 : 1
-  const sc = (1 + RG.floor * 0.28) * (1 + 0.5 * (n - 1)) * dif
+  const dm = { story: 0.6, normal: 1, heroic: 1.3 }[RG.diff] || 1
+  const sc = (1 + RG.floor * 0.28) * (1 + 0.5 * (n - 1)) * dif * dm
   const areaK = clamp((AX * AY) / 2300, 0.7, 2.3)
   const spawn = (type, x, y, delay, elite) => RG.spawnQ.push({ type, x, y, t: delay, sc, elite: !!elite })
   const fight = (budget, eliteN, t0 = 0) => {
@@ -201,7 +203,7 @@ function enterRoom() {
     for (let q = 0; q < eliteN; q++) spawn(pool[(Math.random() * pool.length) | 0], R(6, AX - 8), R(-AY + 6, AY - 6), t0 + 1.2 + q * 0.6, true)
   }
   const idx = RG.abyss ? RG.room : RG.room
-  const budget = ((6 + (RG.abyss ? 4 + RG.floor * 3 : RG.chapter * 3) + idx * (RG.abyss ? 0.5 : 2)) * (1 + 0.4 * (n - 1))) * areaK * 0.75
+  const budget = ((6 + (RG.abyss ? 4 + RG.floor * 3 : RG.chapter * 3) + idx * (RG.abyss ? 0.5 : 2)) * (1 + 0.4 * (n - 1))) * areaK * 0.75 * ({ story: 0.75, normal: 1, heroic: 1.2 }[RG.diff] || 1)
   if (boss) { const bt = BOSS[Math.min(RG.floor, 4)]; spawn(bt, AX - 18, 0, 1.6); RG.bossT = 3.2; sfx('rgBoss'); speak(EN[bt].name, 0.4, 0.9) }
   else if (RG.rtype === 'combat') fight(budget, 0)
   else if (RG.rtype === 'elite') fight(budget * 1.0, 2 + (n > 1 ? 1 : 0) + (RG.abyss ? 1 : 0))
@@ -547,7 +549,7 @@ function finish(win) {
   const me = lp()
   if (win && !abyss) markCleared(RG.chapter)
   if (abyss) markAbyss(roomsDone)
-  RG.over = { win, abyss, rooms: roomsDone, chapter: RG.chapter, chName: abyss ? 'THE ABYSS' : ch.name, room: RG.room + 1, floor: RG.chapter, kills: RG.kills, gold: RG.gold, score, perks: me ? me.perks.length : 0, cls: CLASSES[me ? me.cls : 0].name, coop: RG.players.length > 1, epilogue: win ? (abyss ? 'The fiftieth door opens onto a plain white room. A single save point glows in the middle of it. You press START. Somewhere above, five forests breathe out, and every deleted game remembers its name.' : ch.outro) : '', lv: me ? me.lv : 1, race: me ? RACES[me.race].name : '', pet: me ? PETS[me.pet].name : '', lore, secret: !!sec, next: win && !abyss && RG.chapter < CHAPTERS.length ? CHAPTERS[RG.chapter].name : '', complete: win && (abyss || RG.chapter === CHAPTERS.length), agendas: agendasDone().length, weapon: me ? me.wid : '', power: me ? me.pw : '' }
+  RG.over = { win, diff: RG.diff, abyss, rooms: roomsDone, chapter: RG.chapter, chName: abyss ? 'THE ABYSS' : ch.name, room: RG.room + 1, floor: RG.chapter, kills: RG.kills, gold: RG.gold, score, perks: me ? me.perks.length : 0, cls: CLASSES[me ? me.cls : 0].name, coop: RG.players.length > 1, epilogue: win ? (abyss ? 'The fiftieth door opens onto a plain white room. A single save point glows in the middle of it. You press START. Somewhere above, five forests breathe out, and every deleted game remembers its name.' : ch.outro) : '', lv: me ? me.lv : 1, race: me ? RACES[me.race].name : '', pet: me ? PETS[me.pet].name : '', lore, secret: !!sec, next: win && !abyss && RG.chapter < CHAPTERS.length ? CHAPTERS[RG.chapter].name : '', complete: win && (abyss || RG.chapter === CHAPTERS.length), agendas: agendasDone().length, weapon: me ? me.wid : '', power: me ? me.pw : '' }
   profile.rogueRuns = (profile.rogueRuns || 0) + 1
   if (win) { profile.rogueWins = (profile.rogueWins || 0) + 1; profile.chips = (profile.chips || 0) + (abyss ? 800 : 100 * RG.chapter) }
   profile.rogueKills = (profile.rogueKills || 0) + RG.kills
@@ -566,6 +568,11 @@ function playerAttack(p, dt) {
   const ne = nearestEnemy(p.x, p.y, 70)
   let a = ne ? Math.atan2(ne.e.y - p.y, ne.e.x - p.x) : p.face
   if (p.aimPt && G.time - p.aimT < 2.5) a = Math.atan2(p.aimPt.y - p.y, p.aimPt.x - p.x)
+  { // aim assist: a click that lands close to an enemy snaps onto it
+    let best = null
+    for (const e of RG.en) { if (e.dead || e.spawnT > 0) continue; const ea = Math.atan2(e.y - p.y, e.x - p.x), dd = Math.hypot(e.x - p.x, e.y - p.y); let da = ea - a; da = Math.abs(Math.atan2(Math.sin(da), Math.cos(da))); const lim = RG.diff === 'story' ? 0.55 : 0.35; if (da < lim && dd < 70 && (!best || da < best.da)) best = { ea, da } }
+    if (best) a = best.ea
+  }
   const wm = p.wmod || {}
   p.face = a; p.atkT = p.rate * (wm.rate || 1)
   const crit = Math.random() < p.crit, d = p.dmg * (wm.dmg || 1) * (crit ? 2.2 : 1) * (p.buff > 0 ? 1.5 : 1)
