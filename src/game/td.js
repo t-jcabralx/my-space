@@ -3,6 +3,8 @@
 import { G, emit as engineEmit, games, profile, saveProfile, recordScore, part, ring, shake, flash, popup, stepParticles, toMenu } from './engine.js'
 import { sfx, music, speak } from './audio.js'
 import { col, disk, circle, rect, line, clamp, R } from './pxl.js'
+import { drawTd3, tdCamera, tdLights } from './td3d.js'
+import { unprojectGround } from './rogue3d.js'
 
 export const COLS = 20, ROWS = 11, CS = 4
 const cx = (i) => -38 + i * CS, cy = (j) => 20 - j * CS
@@ -72,7 +74,7 @@ function start(cfg = {}) {
   TD.plen = tot
   TD.cells = pathRaster(MAPS[m].path)
   TD.occ = {}; TD.towers = []; TD.enemies = []; TD.shots = []; TD.strikes = []; TD.wave = 0; TD.spawn = null; TD.gold = 170; TD.lives = 20; TD.kills = 0; TD.sel = null; TD.build = 'pulse'; TD.speed = 1; TD.auto = !!cfg.auto
-  TD.over = null; TD.strike = 10; TD.strikeArm = false; TD.paused = false; TD.msg = { text: 'BUILD YOUR DEFENCES', sub: 'THEN PRESS NEXT WAVE', color: '#3de8ff', t: 3 }; TD.nextT = 0; TD.leaked = 0
+  TD.gen = (TD.gen || 0) + 1; TD.leakT = 0; TD.over = null; TD.strike = 10; TD.strikeArm = false; TD.paused = false; TD.msg = { text: 'BUILD YOUR DEFENCES', sub: 'THEN PRESS NEXT WAVE', color: '#3de8ff', t: 3 }; TD.nextT = 0; TD.leaked = 0
   G.mode = 'td'; engineEmit(); G.parts = []; G.pops = []; G.shake = 0; G.flash = 0
   TD.mode = 'play'
   music.set('bomber', 0); sfx('mission'); emitT()
@@ -137,9 +139,9 @@ function fireTower(t) {
   t.ang = Math.atan2(e.y - t.y, e.x - t.x)
   t.cd = rateOf(t); t.recoil = 0.12
   const dmg = dmgOf(t)
-  if (def.id === 'pulse') { TD.shots.push({ x: t.x, y: t.y, tx: e, spd: 90, dmg, c: def.color, t }); sfx('tdShot') }
-  else if (def.id === 'cannon') { TD.shots.push({ x: t.x, y: t.y, tx: e, spd: 50, dmg, c: def.color, splash: def.splash + t.lvl * 0.4, big: true, t }); sfx('tdShot') }
-  else if (def.id === 'sniper') { TD.shots.push({ x: t.x, y: t.y, tx: e, spd: 220, dmg, c: def.color, t }); sfx('tdBoom') }
+  if (def.id === 'pulse') { TD.shots.push({ x: t.x, y: t.y, tx: e, spd: 90, dmg, c: def.color, t, d0: Math.hypot(e.x - t.x, e.y - t.y) }); sfx('tdShot') }
+  else if (def.id === 'cannon') { TD.shots.push({ x: t.x, y: t.y, tx: e, spd: 50, dmg, c: def.color, splash: def.splash + t.lvl * 0.4, big: true, t, d0: Math.hypot(e.x - t.x, e.y - t.y) }); sfx('tdShot') }
+  else if (def.id === 'sniper') { TD.shots.push({ x: t.x, y: t.y, tx: e, spd: 220, dmg, c: def.color, t, d0: 1 }); sfx('tdBoom') }
   else if (def.id === 'frost') { e.slow = def.slow + t.lvl * 0.05; e.slowT = 1.6; TD.shots.push({ x: t.x, y: t.y, tx: e, spd: 80, dmg, c: def.color, t }); sfx('tdIce') }
   else if (def.id === 'tesla') {
     const hit = [e]; let cur = e
@@ -160,7 +162,7 @@ function update(dtRaw) {
   if (TD.over) { stepParticles(dtRaw); return }
   const dt = Math.min(dtRaw, 0.04) * TD.speed
   TD.t += dt
-  TD.strike = Math.max(0, TD.strike - dt)
+  TD.strike = Math.max(0, TD.strike - dt); TD.leakT = Math.max(0, (TD.leakT || 0) - dt)
   if (TD.msg) { TD.msg.t -= dtRaw; if (TD.msg.t <= 0) TD.msg = null }
   // spawning
   if (TD.spawn) {
@@ -239,7 +241,7 @@ function update(dtRaw) {
   if (TD.emitT <= 0) { TD.emitT = 0.1; emitT() }
 }
 function leak(e) {
-  e.dead = true; e.gone = true
+  e.dead = true; e.gone = true; TD.leakT = 0.4
   const l = e.def.boss ? 5 : 1
   TD.lives = Math.max(0, TD.lives - l); TD.leaked += l
   sfx('tdLeak'); shake(0.6); flash(0.2, [1, 0.3, 0.3])
@@ -281,6 +283,8 @@ export const tdActions = {
   upgrade() { const t = TD.sel; if (!t || t.lvl >= 4) return; const c = upCost(t); if (TD.gold < c) { sfx('cBad'); return } TD.gold -= c; t.invested += c; t.lvl++; sfx('rgPerk'); ring(t.x, t.y, 14, 26, [col('#ffffff')]); emitT() },
   sell() { const t = TD.sel; if (!t) return; TD.gold += sellVal(t); TD.towers = TD.towers.filter((x) => x !== t); delete TD.occ[t.i + ',' + t.j]; TD.sel = null; sfx('tdSell'); emitT() },
   strike() { if (TD.strike > 0 || TD.mode !== 'play') { sfx('cBad'); return } TD.strikeArm = !TD.strikeArm; sfx('ui'); emitT() },
+  // the board is drawn in 3D: turn a screen position (arena units) into a point on the ground
+  pointerScreen(type, ax, ay) { if (!TD.cam) return; const g = unprojectGround(TD.cam, ax / 50, ay / 28); if (g) tdActions.pointer(type, g.x, g.y) },
   pointer(type, x, y) {
     if (TD.mode !== 'play' || TD.paused) return
     const c = cellAt(x, y); TD.hover = c
@@ -363,4 +367,9 @@ function draw(api) {
   void line
 }
 if (typeof window !== 'undefined') { window.__TD = TD; window.__td = tdActions }
-games.td = { update, onKey, draw, stop, sky: () => '#04080f' }
+games.td = {
+  update, onKey, draw() {}, stop, sky: () => '#0a1426',
+  draw3: (api) => { TD.cam = tdCamera(TD, 100 / 56, 0); drawTd3(api, TD, { TOWERS, MAPS, rangeOf, ENEMY }) },
+  camera: (aspect, dt) => { const c = tdCamera(TD, aspect, dt); TD.cam = c; return c },
+  lights: tdLights,
+}

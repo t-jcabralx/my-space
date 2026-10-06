@@ -2,6 +2,8 @@
 import { G, emit as engineEmit, keys, games, profile, saveProfile, recordScore, part, ring, shake, flash, stepParticles, toMenu } from './engine.js'
 import { sfx, music } from './audio.js'
 import { col, rect, disk, clamp, R } from './pxl.js'
+import { drawBreaker3, breakerCam, breakerLights } from './arcade3d.js'
+import { unprojectGround } from './rogue3d.js'
 
 const BW = 6.4, BH = 2.4, COLS = 12, TOP = 22
 const BCOL = ['#3de8ff', '#6aff9a', '#ffe84a', '#ff9a3a', '#ff4a8a', '#c58aff']
@@ -119,6 +121,7 @@ function onKey(code) {
 }
 export const breakerActions = {
   start, stop, quit() { toMenu() }, resume() { BK.paused = false; emitB() }, pause() { if (BK.mode === 'play' && !BK.paused) { BK.paused = true; emitB(); return true } return false }, rematch() { start() },
+  pointerScreen(type, ax, ay) { const g = unprojectGround(breakerCam(), ax / 50, ay / 28); if (g) breakerActions.pointer(type, g.x) },
   pointer(type, x) { if (BK.mode !== 'play') return; BK.ptr = x; if (type === 'down') launch() }, launch,
 }
 function draw(api) {
@@ -135,4 +138,4 @@ function draw(api) {
   for (const q of G.parts) { const f = q.life / q.max; put(q.x, q.y, 1, q.s * (0.35 + 0.65 * f) * 0.9, q.s * (0.35 + 0.65 * f) * 0.9, q.c[0] * 1.8, q.c[1] * 1.8, q.c[2] * 1.8) }
 }
 if (typeof window !== 'undefined') { window.__BK = BK; window.__breaker = breakerActions }
-games.breaker = { update, onKey, draw, stop, sky: () => '#03050c' }
+games.breaker = { update, onKey, draw() {}, draw3: (api) => drawBreaker3(api, BK, { BW, BH }), camera: () => breakerCam(), lights: breakerLights, stop, sky: () => '#03050c' }

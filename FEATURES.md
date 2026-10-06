@@ -47,3 +47,9 @@ Seven more games (Air Hockey, Billiards, Neon Defense, Neon Depths, Neon Beat, W
 | Dashboard | Category filter chips; per-game tabs hidden from the tab bar (only the game you opened shows) |
 | Story | 3 acts, 12 chapters, cut-scenes, objectives, retry, chip rewards, credits |
 | Windows parity | Touch pads only on touch-first devices, width-matched font fallback, themed scrollbars, `100dvh`, fullscreen button |
+
+## Update: more games, 3D and online (latest)
+- **🏰 EMPIRE RISE** (new): grow a village into a city and an empire on a 96x96 map. 9 building types, 4 hall ranks (Village, Town, City, Empire), soldiers, knights and catapults, walls and towers, raiders from the map edges, AI kingdoms, a Wonder victory, minimap. Up to 4 kingdoms online (friends + AI).
+- **🔴 CONNECT FOUR** (online 1v1), **🐍 NEON SNAKE**, **🧱 NEON BREAKER**, **💣 MINE SWEEP**.
+- **🗡 NEON DEPTHS** is now a 3D haunted forest with a story, 5 races (Half-blood, Elf, Dwarf, Undead, Fairy), 4 companions (Wolf, Owl, Fairy sprite, Dragon whelp), XP levels up to 10 with new skills at levels 3 and 6, and online co-op for up to 3 heroes.
+- **3D look** for Neon Defense, Air Hockey, Billiards, Neon Snake, Neon Breaker and Neon Beat (lit voxel pass plus real spheres, shadows, animated parts).

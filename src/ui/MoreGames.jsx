@@ -67,7 +67,7 @@ export function HockeyHUD({ openHelp }) {
   const touch = useTouchPrimary()
   if (!g || g.mode === 'idle') return null
   const online = g.type === 'online'
-  const ptr = (t, x, y) => { if (t === 'up') hockeyActions.pointer(null); else hockeyActions.pointer(x, y) }
+  const ptr = (t, x, y) => { if (t === 'up') hockeyActions.pointer(null); else hockeyActions.pointerScreen(x, y) }
   return (
     <div className="hud mg-hud">
       {g.mode !== 'over' && <Surface onPtr={ptr} cursor="none" />}
@@ -128,7 +128,7 @@ export function PoolHUD({ openHelp }) {
       {g.groups[i] ? <><b>{g.groups[i] === 'solid' ? 'SOLIDS' : 'STRIPES'}</b>{dots(g.groups[i] === 'solid' ? g.solids : g.stripes)}</> : <b>OPEN TABLE</b>}
     </div>
   )
-  const ptr = (t, x, y) => { poolActions.pointer(t, x, y) }
+  const ptr = (t, x, y) => { poolActions.pointerScreen(t, x, y) }
   const myTurn = g.my < 0 || g.turn === g.my
   return (
     <div className="hud mg-hud">
@@ -179,7 +179,7 @@ export function TdHUD({ openHelp }) {
   const sel = g.sel
   return (
     <div className="hud mg-hud">
-      {g.mode === 'play' && <Surface onPtr={(t, x, y) => tdActions.pointer(t === 'up' ? 'move' : t, x, y)} cursor="cell" />}
+      {g.mode === 'play' && <Surface onPtr={(t, x, y) => tdActions.pointerScreen(t === 'up' ? 'move' : t, x, y)} cursor="cell" />}
       <div className="mg-topbar">
         <span>💰 <b>{g.gold}</b></span><span>❤️ <b>{g.lives}</b></span><span>🌊 <b>{g.wave}/{g.waves}</b></span><span>☠ <b>{g.kills}</b></span><span className="dim">{g.map}</span>
         <span className="grow" />
@@ -346,6 +346,8 @@ export function RhythmHUD({ openHelp }) {
       )}
       <div className="mg-topbar rt"><span>🎵 <b>{g.name}</b></span><span>SCORE <b>{fmt(g.score)}</b></span><span>ACC <b>{(g.acc * 100).toFixed(1)}%</b></span><span>MAX COMBO <b>{g.maxCombo}</b></span><span className="grow" />{g.mode === 'play' && <button className="mg-btn" onClick={() => rhythmActions.pause()}>⏸</button>}</div>
       <div className="mg-life"><b style={{ width: g.life * 100 + '%', background: g.life < 0.3 ? '#ff4a5a' : '#6aff9a' }} /></div>
+      {g.mode === 'play' && g.combo >= 3 && <div className="rt-combo" key={Math.floor(g.combo / 5)}><b>{g.combo}</b><small>COMBO</small></div>}
+      {g.mode === 'play' && g.judge && <div className="rt-judge" style={{ color: g.judge.c }} key={g.judge.text + g.combo}>{g.judge.text}</div>}
       {g.lead > 0 && <div className="mg-big" key="lead">GET READY</div>}
       {g.paused && <PauseScreen resume={rhythmActions.resume} quit={rhythmActions.quit} help={() => openHelp('rhythm')} />}
       {g.mode === 'over' && g.over && (

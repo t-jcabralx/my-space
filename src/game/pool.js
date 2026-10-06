@@ -3,6 +3,8 @@
 import { G, emit as engineEmit, keys, games, profile, saveProfile, recordScore, part, ring, shake, flash, stepParticles, toMenu } from './engine.js'
 import { sfx, music, speak } from './audio.js'
 import { col, disk, circle, rect, line, clamp, R } from './pxl.js'
+import { drawPool3, poolCam, poolLights } from './arcade3d.js'
+import { unprojectGround } from './rogue3d.js'
 
 const TX = 38, TY = 20, BR = 1.15, PR = 2.7, VMAX = 120
 const POCKETS = [[-TX, -TY], [0, -TY - 0.6], [TX, -TY], [-TX, TY], [0, TY + 0.6], [TX, TY]]
@@ -332,6 +334,7 @@ export const poolActions = {
       if (d > 0.5) { PL.aim.a = Math.atan2(dy, dx); PL.aim.p = clamp(d / 24, 0, 1) }
     } else if (type === 'up' && PL.drag) { const was = PL.drag; PL.drag = null; if (PL.aim.p >= 0.08) fire(); else PL.aim.p = 0; void was; void c }
   },
+  pointerScreen(type, ax, ay) { const g = unprojectGround(poolCam(), ax / 50, ay / 28); if (g) poolActions.pointer(type, g.x, g.y) },
   aimAt(x, y) { if (PL.phase === 'aim' && isMyTurn() && !PL.drag && !isBot(PL.turn)) { const c = cue(); PL.aim.a = Math.atan2(y - c.y, x - c.x) } },
   fireNow(p) { if (typeof p === 'number') PL.aim.p = clamp(p, 0, 1); fire() },
 }
@@ -431,4 +434,4 @@ function draw(api) {
   void line; void flash; void speak
 }
 if (typeof window !== 'undefined') { window.__PL = PL; window.__pool = poolActions }
-games.pool = { update, onKey, draw, stop, sky: () => '#04100c' }
+games.pool = { update, onKey, draw() {}, draw3: (api) => drawPool3(api, PL, { TX, TY, BR, PR, POCKETS, ballColor }), camera: () => poolCam(), lights: poolLights, stop, sky: () => '#06100c' }

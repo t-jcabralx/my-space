@@ -15,6 +15,7 @@ import { ROSTER, ELEMENTS as ELS } from '../game/roster.js'
 import { subscribeChomp, getChompSnap, chompActions, MODES as CMODES } from '../game/chomp.js'
 import { subscribeFlames, getFlamesSnap, flamesActions, OUTCOMES as FOUT } from '../game/flames.js'
 import CardsHUD from './CardsUI.jsx'
+import { EmpireLobby, EmpireHUD } from './EmpireUI.jsx'
 import { More2HUD, MORE2_MODES, C4Lobby, SnakeLobby, BreakerLobby, MinesLobby } from './MoreGames2.jsx'
 import { MoreHUD, MORE_MODES, HockeyLobby, PoolLobby, TdLobby, RogueLobby, RhythmLobby, WordLobby, MergeLobby } from './MoreGames.jsx'
 import { StoryTab, StoryOverlay } from './StoryUI.jsx'
@@ -367,6 +368,7 @@ const HELP = {
   snake: { name: '🐍 NEON SNAKE', body: () => (<><p>Steer with <K>WASD</K> / <K>ARROWS</K> (swipe on a phone). Eat red apples to grow (+10) and golden apples (+50). Walls, rocks and snakes are deadly. Solo mode speeds up and adds rocks; 2P: P1 <K>WASD</K>, P2 <K>ARROWS</K>.</p></>) },
   breaker: { name: '🧱 NEON BREAKER', body: () => (<><p>Move the paddle with the mouse, finger or <K>←</K> <K>→</K>; <K>SPACE</K> / click launches. Break all bricks in 5 levels. Capsules: wide paddle, multi-ball, slow, extra life. Where the ball hits the paddle sets its angle.</p></>) },
   mines: { name: '💣 MINE SWEEP', body: () => (<><p>Open every safe square. A number shows how many mines touch it. <b>Right-click</b> or <b>long-press</b> flags a mine (or use FLAG MODE, <K>F</K>). Click a number with enough flags around it to open its neighbours. The first click is always safe.</p></>) },
+  empire: { name: '🏰 EMPIRE RISE', body: () => (<><p><b>Goal:</b> grow your village into a <b>city and an empire</b> and defeat the rival kingdoms (AI or friends). Raiders from the map edges attack everyone, so build towers and an army.</p><h5>BUILD</h5><ul><li>Pick a building (<K>1</K>-<K>9</K> or the bar) and click free grass near your town. Lumber camps, quarries and mines produce more when built <b>next to forest, rock and gold</b>.</li><li>Houses raise your population cap. Barracks train soldiers (<K>T</K> sword, <K>Y</K> archer). Click the Town Hall (or press <K>U</K>) to upgrade it: <b>Village → Town → City → Empire</b>, unlocking mines, knights, catapults and the Wonder.</li></ul><h5>FIGHT</h5><ul><li><b>Right-click</b> (or <K>G</K>, then click) sends your whole army to a point or target. <K>H</K> recalls it to defend. Idle soldiers guard your hall.</li><li>Walls block enemies until they break through. Towers shoot anything in range.</li></ul><h5>WIN</h5><ul><li>Destroy every rival Town Hall, <b>or</b> build the Wonder (Empire level) and keep it alive for 2.5 minutes. If your hall falls, you are out.</li></ul><p><K>WASD</K> / drag scroll · wheel zoom · <K>SPACE</K> jump home · <K>F</K> speed (solo).</p></>) },
   sound: {
     name: '🔊 SOUND',
     body: () => (
@@ -400,7 +402,7 @@ function HelpModal() {
     </div>
   )
 }
-const FIRST = { race: 'race', fight: 'fight', flames: 'flames', playing: 'space', slug: 'slug', pickle: 'pickle', bomber: 'bomber', tetris: 'tetris', chomp: 'chomp', cards: 'cards', hockey: 'hockey', pool: 'pool', td: 'td', rogue: 'rogue', rhythm: 'rhythm', word: 'word', merge: 'merge', c4: 'c4', snake: 'snake', breaker: 'breaker', mines: 'mines' }
+const FIRST = { race: 'race', fight: 'fight', flames: 'flames', playing: 'space', slug: 'slug', pickle: 'pickle', bomber: 'bomber', tetris: 'tetris', chomp: 'chomp', cards: 'cards', hockey: 'hockey', pool: 'pool', td: 'td', rogue: 'rogue', rhythm: 'rhythm', word: 'word', merge: 'merge', c4: 'c4', empire: 'empire', snake: 'snake', breaker: 'breaker', mines: 'mines' }
 function HelpLayer({ s }) {
   const g = FIRST[s.mode]
   useEffect(() => {
@@ -1490,7 +1492,7 @@ function Hub({ s }) {
   const next = RANKS[ri + 1]
   const pct = next ? ((xp - RANKS[ri][0]) / (next[0] - RANKS[ri][0])) * 100 : 100
   const doneAch = ACH.filter(([, , g, goal]) => g(p, s.unlocked) >= goal).length
-  const GAME_TABS = { pickle: '🏓 PICKLEBALL', bomber: '💣 BOMBER', tetris: '🧱 TETRIS', chomp: '🟡 CHOMP', cards: '🃏 CARDS', race: '🏁 RACE', fight: '🥊 FIGHT', flames: '🔥 FLAMES', hockey: '🏒 AIR HOCKEY', pool: '🎱 BILLIARDS', td: '🛡 DEFENSE', rogue: '🗡 DEPTHS', rhythm: '🎵 BEAT', word: '🔤 WORD HUNT', merge: '🔢 2048', c4: '🔴 CONNECT 4', snake: '🐍 SNAKE', breaker: '🧱 BREAKER', mines: '💣 SWEEP' }
+  const GAME_TABS = { pickle: '🏓 PICKLEBALL', bomber: '💣 BOMBER', tetris: '🧱 TETRIS', chomp: '🟡 CHOMP', cards: '🃏 CARDS', race: '🏁 RACE', fight: '🥊 FIGHT', flames: '🔥 FLAMES', hockey: '🏒 AIR HOCKEY', pool: '🎱 BILLIARDS', td: '🛡 DEFENSE', rogue: '🗡 DEPTHS', rhythm: '🎵 BEAT', word: '🔤 WORD HUNT', merge: '🔢 2048', c4: '🔴 CONNECT 4', snake: '🐍 SNAKE', breaker: '🧱 BREAKER', mines: '💣 SWEEP', empire: '🏰 EMPIRE' }
   // the tab bar stays short: dashboard, the game you opened (if any), and the utility tabs. Games are opened from the dashboard cards.
   const TABS = [['home', 'DASHBOARD'], ...(GAME_TABS[tab] ? [[tab, GAME_TABS[tab]]] : []), ['online', '🌐 ONLINE'], ['story', '📖 STORY'], ['top', '🏆 TOP PLAYERS'], ['ship', 'CUSTOMIZE SHIP'], ['levels', 'SPACE LEVELS'], ['skills', 'CONTROLS'], ['settings', '⚙ SETTINGS'], ['awards', `AWARDS ${doneAch}/${ACH.length}`]]
   const CATS = [['all', 'ALL GAMES'], ['action', '⚔ ACTION'], ['sports', '🏅 SPORTS'], ['strategy', '🧠 STRATEGY'], ['puzzle', '🧩 PUZZLE'], ['cards', '🃏 CARDS'], ['music', '🎵 MUSIC']]
@@ -1513,6 +1515,9 @@ function Hub({ s }) {
               art={<ShipPreview ship={p.ship} />} label="▶ PLAY" onPlay={startGame} onInvite={() => { setOgame('space'); setTab('online') }}
               extra={<div className="squadsel"><div className="sqrow"><small>TEAM</small>{[[0, 'SOLO'], [1, 'DUO'], [2, 'TRIO']].map(([n, l]) => <button key={n} className={'chip ' + ((s.squadSize === n) ? 'sel' : '')} onClick={() => setSquad(n, s.squadHuman, s.squadBots)}>{l}</button>)}<button className={'chip ic ' + (s.squadHuman ? 'sel' : '')} disabled={s.squadSize < 1} onClick={() => setSquad(s.squadSize, !s.squadHuman, s.squadBots)} title="A friend flies a ship on this keyboard: arrows + Enter">👥</button><button className={'chip ic ' + (s.squadBots ? 'sel' : '')} disabled={s.squadSize < 1} onClick={() => setSquad(s.squadSize, s.squadHuman, !s.squadBots)} title="Fill empty team slots with AI wingmen">🤖</button></div><small className="dim">{s.squadSize === 0 ? 'Flying solo' : s.squadBots ? 'AI flies empty slots' : '👥 same keyboard · 🤖 AI · or invite friends'}</small></div>}
               sub={<><span>LEVELS</span><b>{s.unlocked + 1}/10</b></>} />}
+            {show('strategy', 'action') && <GameCard cls="empire" title="🏰 EMPIRE RISE" tag="Village to empire · raiders · up to 4 kingdoms online" hiLabel="RANK" hi={['VILLAGE', 'VILLAGE', 'TOWN', 'CITY', 'EMPIRE'][p.empireHall || 1]}
+              art={<div className="miniEmpire"><span>🏠</span><span>🏰</span><span>🗽</span></div>} label="BUILD KINGDOM ▶" onPlay={() => setTab('empire')} onInvite={() => { setOgame('empire'); setTab('online') }}
+              sub={<><span>VICTORIES</span><b>{p.empireWins || 0}</b></>} />}
             {show('cards') && <GameCard cls="cards" title="🃏 CARD ROOM" tag="UNO · Pusoy Dos · Lucky 9 · Tong-its" hiLabel="CHIPS" hi={'🪙 ' + Number(p.chips || 0).toLocaleString()}
               art={<div className="miniCards"><i>♥</i><i>♠</i><i>9</i><i>+2</i></div>} label="SELECT GAME ▶" onPlay={() => setTab('cards')} onInvite={() => { setOgame('uno'); setTab('online') }}
               sub={<><span>WON</span><b>{p.cardWins || 0}</b></>} />}
@@ -1608,6 +1613,7 @@ function Hub({ s }) {
       {tab === 'rhythm' && <RhythmLobby s={s} TopPlayers={TopPlayers} />}
       {tab === 'word' && <WordLobby s={s} TopPlayers={TopPlayers} />}
       {tab === 'merge' && <MergeLobby s={s} TopPlayers={TopPlayers} />}
+      {tab === 'empire' && <EmpireLobby s={s} TopPlayers={TopPlayers} onInvite={() => { setOgame('empire'); setTab('online') }} />}
       {tab === 'c4' && <C4Lobby s={s} TopPlayers={TopPlayers} onInvite={() => { setOgame('c4'); setTab('online') }} />}
       {tab === 'snake' && <SnakeLobby s={s} TopPlayers={TopPlayers} />}
       {tab === 'breaker' && <BreakerLobby s={s} TopPlayers={TopPlayers} />}
@@ -1636,7 +1642,7 @@ function TopPlayers({ s, initial = 'space', compact = false, fixed = false }) {
   const lim = compact ? 5 : 10
   useEffect(() => { let on = true; setRows(null); fetchTop(game, lim).then((r) => on && setRows(r)); return () => { on = false } }, [game, lim])
   const me = (s.profile.name || '').toUpperCase()
-  const GAMES = [['space', 'SPACE IMPACT'], ['slug', 'GROUND ZERO'], ['pickle', 'PICKLEBALL'], ['bomber', 'BOMBER BLAST'], ['tetris', 'TETRA BLAST'], ['chomp', 'MAZE CHOMP'], ['uno', 'UNO'], ['pusoy', 'PUSOY DOS'], ['lucky9', 'LUCKY 9'], ['tongits', 'TONG-ITS'], ['race', 'TURBO RUSH'], ['hockey', 'AIR HOCKEY'], ['pool', 'BILLIARDS'], ['td', 'NEON DEFENSE'], ['rogue', 'NEON DEPTHS'], ['rhythm', 'NEON BEAT'], ['word', 'WORD HUNT'], ['merge', '2048 MERGE'], ['c4', 'CONNECT FOUR'], ['snake', 'NEON SNAKE'], ['breaker', 'NEON BREAKER'], ['mines', 'MINE SWEEP']]
+  const GAMES = [['space', 'SPACE IMPACT'], ['slug', 'GROUND ZERO'], ['pickle', 'PICKLEBALL'], ['bomber', 'BOMBER BLAST'], ['tetris', 'TETRA BLAST'], ['chomp', 'MAZE CHOMP'], ['uno', 'UNO'], ['pusoy', 'PUSOY DOS'], ['lucky9', 'LUCKY 9'], ['tongits', 'TONG-ITS'], ['race', 'TURBO RUSH'], ['hockey', 'AIR HOCKEY'], ['pool', 'BILLIARDS'], ['td', 'NEON DEFENSE'], ['rogue', 'NEON DEPTHS'], ['rhythm', 'NEON BEAT'], ['word', 'WORD HUNT'], ['merge', '2048 MERGE'], ['c4', 'CONNECT FOUR'], ['snake', 'NEON SNAKE'], ['breaker', 'NEON BREAKER'], ['mines', 'MINE SWEEP'], ['empire', 'EMPIRE RISE']]
   return (
     <div className="topboard">
       <h4>🏆 TOP PLAYERS{fixed ? ' · ' + (GAMES.find(([k]) => k === game) || [0, game])[1] : ''}</h4>
@@ -1960,6 +1966,7 @@ function HUDInner({ s }) {
   if (s.mode === 'race') return <RaceHUD />
   if (MORE_MODES.includes(s.mode)) return <MoreHUD mode={s.mode} openHelp={openHelp} />
   if (MORE2_MODES.includes(s.mode)) return <More2HUD mode={s.mode} openHelp={openHelp} />
+  if (s.mode === 'empire') return <EmpireHUD openHelp={openHelp} />
   if (s.mode === 'cards') return <CardsHUD SoundBtn={SoundBtn} openHelp={openHelp} TopPlayersMini={TopPlayersMini} />
   const playing = s.mode === 'playing' || s.mode === 'paused'
   return (

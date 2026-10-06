@@ -115,7 +115,7 @@ export function BreakerHUD({ openHelp }) {
   if (!g || g.mode === 'idle') return null
   return (
     <div className="hud mg-hud">
-      {g.mode === 'play' && <Surface onPtr={(t, x) => breakerActions.pointer(t, x)} cursor="none" />}
+      {g.mode === 'play' && <Surface onPtr={(t, x, y) => breakerActions.pointerScreen(t, x, y)} cursor="none" />}
       <div className="mg-topbar"><span>SCORE <b>{fmt(g.score)}</b></span><span>LEVEL <b>{g.level}/{g.levels}</b></span><span className="hearts">{Array.from({ length: g.lives }).map((_, i) => <i key={i} className="on">♥</i>)}</span><span className="dim">{g.wide ? 'WIDE ' : ''}{g.slow ? 'SLOW' : ''}</span><span className="grow" />{g.mode === 'play' && <button className="mg-btn" onClick={() => breakerActions.pause()}>⏸</button>}</div>
       {g.msg && <div className="mg-banner" style={{ '--c': '#3de8ff' }}><h2>{g.msg.text}</h2></div>}
       {g.stuck && g.mode === 'play' && <div className="mg-hint">{touch ? 'TAP TO LAUNCH' : 'MOVE THE MOUSE · SPACE OR CLICK TO LAUNCH'}</div>}

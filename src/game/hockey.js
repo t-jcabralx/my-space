@@ -3,6 +3,8 @@
 import { G, emit as engineEmit, keys, games, profile, saveProfile, recordScore, part, ring, shake, flash, popup, stepParticles, toMenu } from './engine.js'
 import { sfx, music, speak } from './audio.js'
 import { col, disk, circle, rect, line, clamp, R } from './pxl.js'
+import { drawHockey3, hockeyCam, hockeyLights } from './arcade3d.js'
+import { unprojectGround } from './rogue3d.js'
 
 const TX = 40, TY = 22, GOAL = 7.6, RM = 3.4, RP = 2.0, VMAX = 118
 const DIFF = [{ name: 'EASY', spd: 52, err: 5.5, lag: 0.22, atk: 0.35 }, { name: 'MEDIUM', spd: 82, err: 2.6, lag: 0.12, atk: 0.6 }, { name: 'HARD', spd: 118, err: 0.8, lag: 0.04, atk: 0.9 }]
@@ -212,6 +214,8 @@ export const hockeyActions = {
   pause() { if (HK.mode === 'play' && !HK.paused && !HK.net) { HK.paused = true; emitH(); return true } return false },
   rematch() { if (HK.net) { HK.net.rematch(); return } start(HK.cfg) },
   // pointer / finger in table coordinates (null when released)
+  // the table is drawn in 3D: a screen position (arena units) becomes a point on the table
+  pointerScreen(ax, ay) { const g = unprojectGround(hockeyCam(), ax / 50, ay / 28); if (g) hockeyActions.pointer(g.x, g.y) },
   pointer(x, y) { if (x === null) return; /* the mallet stays where the finger left it */ const side = HK.net && HK.net.role === 'guest' ? 1 : -1; HK.ptr = { x: clamp(x, side < 0 ? -TX + RM : 2, side < 0 ? -2 : TX - RM), y: clamp(y, -TY + RM, TY - RM), t: 1 } },
 }
 
@@ -306,4 +310,4 @@ function draw(api) {
   void t; void line
 }
 if (typeof window !== 'undefined') { window.__HK = HK; window.__hockey = hockeyActions }
-games.hockey = { update, onKey, draw, stop, sky: () => '#040a18' }
+games.hockey = { update, onKey, draw() {}, draw3: (api) => drawHockey3(api, HK, C1, C2, TX, TY, GOAL, RM, RP), camera: () => hockeyCam(), lights: hockeyLights, stop, sky: () => '#030712' }

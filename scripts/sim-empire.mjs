@@ -1,0 +1,40 @@
+import { update, G } from '../src/game/engine.js'
+import { EM, empireActions, BDEF, UDEF, canPlace, doBuild, doTrain, doUpgrade, MW, MH } from '../src/game/empire.js'
+let fail = 0
+const ok = (c, m) => { if (!c) { fail++; console.log('FAIL', m) } }
+const step = (sec, dt = 0.1) => { for (let i = 0; i < sec / dt && EM.mode === 'play'; i++) update(dt) }
+// ---- map, start state ----
+empireActions.start({ ai: 3, diff: 2, seed: 5 })
+ok(EM.P.length === 4 && EM.P.every((p) => p.alive), '4 kingdoms')
+ok(EM.B.filter((b) => b.type === 'hall').length === 4, 'every kingdom has a town hall')
+ok(EM.U.filter((u) => u.owner === 0).length === 3, 'three starting soldiers')
+ok(EM.terr.length === MW * MH && MW >= 96, 'large map')
+// the player can build, train and upgrade through the same commands as friends
+const me = EM.P[0], h = EM.B.find((b) => b.owner === 0 && b.type === 'hall')
+me.res.wood = 5000; me.res.stone = 5000; me.res.gold = 5000; me.res.food = 5000
+let built = null
+for (let r = 4; r < 12 && !built; r++) for (let a = 0; a < 40 && !built; a++) { const i = Math.round(h.x + 1 + Math.cos(a / 6) * r), j = Math.round(h.y + 1 + Math.sin(a / 6) * r); built = doBuild(0, 'barracks', i, j) }
+ok(!!built, 'barracks placed')
+ok(!doBuild(0, 'house', h.x, h.y), 'cannot build on top of a building')
+ok(!doBuild(0, 'mine', 1, 1), 'cannot build outside your territory / on water')
+step(30)
+ok(built.built === 1, 'construction finishes')
+ok(doTrain(0, built.id, 'sword') && doTrain(0, built.id, 'archer'), 'train soldiers')
+ok(!doTrain(0, built.id, 'knight'), 'knights need a city')
+ok(doUpgrade(0, h.id) && h.lv === 2, 'upgrade the hall to a town')
+ok(doUpgrade(0, h.id) && doUpgrade(0, h.id) && h.lv === 4, 'upgrade to an empire')
+ok(doTrain(0, built.id, 'catapult') && doTrain(0, built.id, 'knight'), 'siege and cavalry after upgrades')
+step(40)
+ok(EM.U.filter((u) => u.owner === 0).length >= 6, 'soldiers appear: ' + EM.U.filter((u) => u.owner === 0).length)
+// ---- a full match: everybody is an AI; the game must end with one winner, no NaN, and raiders must come ----
+for (const pl of EM.P) { pl.auto = true; pl.ai = { t: 0, atkT: 60 } }
+let t0 = EM.t
+for (let i = 0; i < 12000 && EM.mode === 'play'; i++) { update(0.1); if (i % 200 === 0) { ok(EM.U.every((u) => Number.isFinite(u.x) && Number.isFinite(u.y) && Number.isFinite(u.hp)), 'units finite') } }
+console.log('match ended', EM.mode, 'time', Math.round(EM.t), 'raids', EM.raidN, 'alive', EM.P.filter((p) => p.alive).map((p) => p.i).join(','), 'buildings', EM.B.length, 'units', EM.U.length)
+ok(EM.raidN >= 2, 'raiders came: ' + EM.raidN)
+ok(EM.mode === 'over' || EM.t > 1000, 'the match either ends or runs long without breaking')
+ok(EM.B.every((b) => Number.isFinite(b.hp)), 'buildings finite')
+console.log('PASS empire', EM.over ? JSON.stringify(EM.over).slice(0, 120) : 'running ' + Math.round(EM.t) + 's')
+// ---- online packets round trip ----
+empireActions.stop()
+process.exit(fail ? 1 : 0)

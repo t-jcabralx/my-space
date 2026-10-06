@@ -2,6 +2,7 @@
 import { G, emit as engineEmit, keys, games, profile, saveProfile, recordScore, part, ring, shake, flash, stepParticles, toMenu } from './engine.js'
 import { sfx, music } from './audio.js'
 import { col, disk, rect, clamp, R } from './pxl.js'
+import { drawSnake3, snakeCam, snakeLights } from './arcade3d.js'
 
 export const GW = 40, GH = 22
 const cx = (i) => -39 + i * 2, cy = (j) => 21 - j * 2
@@ -151,4 +152,4 @@ function draw(api) {
   void clamp
 }
 if (typeof window !== 'undefined') { window.__SN = SN; window.__snake = snakeActions }
-games.snake = { update, onKey, draw, stop, sky: () => '#03050c' }
+games.snake = { update, onKey, draw() {}, draw3: (api) => drawSnake3(api, SN, { GW, GH, cx, cy, DIRS }), camera: () => snakeCam(), lights: snakeLights, stop, sky: () => '#03050c' }

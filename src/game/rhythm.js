@@ -3,6 +3,7 @@
 import { G, emit as engineEmit, keys, games, profile, saveProfile, recordScore, part, ring, shake, flash, stepParticles, toMenu } from './engine.js'
 import { sfx, music } from './audio.js'
 import { col, disk, circle, rect, clamp, R, rng } from './pxl.js'
+import { drawRhythm3, rhythmCam, rhythmLights } from './arcade3d.js'
 
 export const SONGS = [
   { id: 0, name: 'NEON DAWN', bpm: 100, bars: 28, lvl: 1, color: '#3de8ff', seed: 11, dens: 0.45, root: 45 },
@@ -63,7 +64,7 @@ function emitR() {
 }
 function accuracy() { const c = RT.counts, n = c.perfect + c.great + c.good + c.miss || 1; return (c.perfect + c.great * 0.75 + c.good * 0.4) / n }
 // the arena is always 100 units wide (the stage keeps a 16:9 shape), so lanes are a fixed width
-export function laneGeom() { return { lw: 11, vis: 100 } }
+export function laneGeom() { return { lw: 14, vis: 100 } }
 function start(cfg = {}) {
   const s = SONGS[clamp(cfg.song | 0, 0, SONGS.length - 1)]
   RT.song = s.id; RT.notes = buildChart(s); RT.st = -2; RT.score = 0; RT.combo = 0; RT.maxCombo = 0; RT.counts = { perfect: 0, great: 0, good: 0, miss: 0 }; RT.life = 1; RT.over = null
@@ -237,4 +238,4 @@ function draw(api) {
   void disk; void circle
 }
 if (typeof window !== 'undefined') { window.__RT = RT; window.__rhythm = rhythmActions }
-games.rhythm = { update, onKey, draw, stop, sky: () => '#04050c' }
+games.rhythm = { update, onKey, draw() {}, draw3: (api) => drawRhythm3(api, RT, { SONGS, LANE_COL, LANE_Y, TOP_Y, FALL }), camera: () => rhythmCam(RT), lights: () => rhythmLights(RT, SONGS[RT.song].color), stop, sky: () => '#03040a' }

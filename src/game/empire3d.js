@@ -1,0 +1,132 @@
+// 3D look of EMPIRE RISE: a tiny medieval world. Lit cottages, keeps that grow into castles, farms, forests, soldiers with animated walks and swings.
+import { G } from './engine.js'
+import { col, clamp } from './pxl.js'
+const TAU = Math.PI * 2
+const hex = (h, k = 1) => { const c = col(h); return [c[0] * k, c[1] * k, c[2] * k] }
+const T = 2
+
+export function empireCamera(EM, aspect) {
+  const z = EM.cam.z, dist = 72 / z, s = G.shake || 0
+  const tx = EM.cam.x, tz = -EM.cam.y
+  return { x: tx + (Math.random() - 0.5) * s * 0.5, y: dist * 0.78, z: tz + dist * 0.62, tx, ty: 0, tz, fov: 40, far: 700, aspect }
+}
+export const empireLights = (EM) => ({ sun: { x: EM.cam.x - 40, y: 90, z: -EM.cam.y + 50, color: '#fff1d6', intensity: 1.15 }, target: { x: EM.cam.x, z: -EM.cam.y }, ambient: 0.8, dir: 0.1, lantern: null })
+
+// ---------- terrain ----------
+function tileDraw(api, EM, i, j, step, t) {
+  const { put3, putS } = api
+  const tt = EM.terr[j * 96 + i], x = (i + step / 2) * T, z = -((j + step / 2) * T), s = T * step + 0.05
+  const n = ((i * 7 + j * 13) % 7) * 0.012
+  if (tt === 0) { const g = (i + j) & 1 ? [0.08, 0.27, 0.09] : [0.1, 0.31, 0.11]; put3(x, 0, z, s, 0.6, s, 0, g[0] + n, g[1] + n, g[2] + n, 0); if (step === 1 && ((i * 31 + j * 17) % 11) === 0) { putS(x, 0.75, z, 0.35, 0.35, 0.35, 3, 0.8 + (i % 3) * 0.7, 0.6) } if (step === 1 && ((i * 19 + j * 23) % 9) === 0) put3(x, 0.6, z, 0.12, 0.8, 0.12, 0.2 * Math.sin(t * 2 + i), 0.12, 0.5, 0.14, 0) }
+  else if (tt === 4) { const w = 0.85 + Math.sin(t * 1.4 + i * 0.6 + j * 0.45) * 0.12; put3(x, -0.35, z, s, 0.5, s, 0, 0.03 * w, 0.14 * w, 0.4 * w, 0); if (step === 1 && ((i + j + (t * 0.8 | 0)) % 6) === 0) put3(x, -0.07, z, 0.9, 0.05, 0.12, 0, 0.7, 0.9, 1.4, 0) }
+  else if (tt === 1) {
+    put3(x, 0, z, s, 0.6, s, 0, 0.05, 0.16, 0.06, 0)
+    const sw = Math.sin(t * 1.3 + i * 0.7 + j) * 0.1
+    put3(x, 1.2, z, 0.4, 2.4, 0.4, 0, 0.22, 0.12, 0.06, 0)
+    if (step === 1) { put3(x + sw, 2.4, z, 1.9, 0.8, 1.9, 0, 0.04, 0.26, 0.09, i); put3(x + sw * 1.4, 3.1, z, 1.4, 0.8, 1.4, 0, 0.06, 0.32, 0.1, i + 1); put3(x + sw * 1.8, 3.8, z, 0.8, 0.8, 0.8, 0, 0.08, 0.4, 0.12, i) }
+    else put3(x, 2.6, z, 3.4, 2, 3.4, 0, 0.05, 0.27, 0.09, i)
+  } else if (tt === 2) { put3(x, 0.8, z, s * 0.95, 1.8 + ((i * 3 + j) % 4) * 0.4, s * 0.95, 0, 0.2, 0.2, 0.25, i); put3(x + 0.2, 2, z, s * 0.6, 1.2, s * 0.6, 0, 0.3, 0.3, 0.36, j) }
+  else { put3(x, 0.7, z, s * 0.95, 1.6, s * 0.95, 0, 0.18, 0.17, 0.2, i); const g = 0.8 + Math.sin(t * 3 + i * 2 + j) * 0.35; put3(x - 0.3, 1.9, z, 0.5, 1.3, 0.5, 0.3, 3 * g, 2.3 * g, 0.4, 0); put3(x + 0.4, 1.6, z + 0.3, 0.4, 0.9, 0.4, -0.3, 3 * g, 2.3 * g, 0.4, 0) }
+}
+
+// ---------- buildings ----------
+function flag(api, x, y, z, tc, t, h = 3) { const { put3 } = api; put3(x, y + h / 2, z, 0.18, h, 0.18, 0, 0.5, 0.45, 0.4, 0); const w = Math.sin(t * 5 + x) * 0.25; for (let k = 0; k < 3; k++) put3(x + 0.5 + k * 0.45, y + h - 0.5 - k * 0.04, z + w * (k + 1) * 0.5, 0.5, 0.9, 0.08, 0, tc[0] * 1.6, tc[1] * 1.6, tc[2] * 1.6, 0) }
+function drawBuilding(api, b, EM, t, TEAM) {
+  const { put3, putS } = api, tc = hex(TEAM[b.owner][0], 1), cx = (b.x + b.w / 2) * T, cz = -((b.y + b.w / 2) * T), W = b.w * T
+  const prog = b.built ? 1 : clamp(0.15 + (1 - (b.bt || 0) / (b.type === 'wonder' ? 40 : 4 + b.w * 2)) * 0.85, 0.15, 1)
+  const hit = b.hit > 0 ? 1.8 : 1, lowhp = b.hp / b.max < 0.4
+  const L = (y) => y * prog
+  const stone = [0.46 * hit, 0.44 * hit, 0.48 * hit], wood = [0.34 * hit, 0.2 * hit, 0.1 * hit], wall = [0.62 * hit, 0.55 * hit, 0.42 * hit]
+  put3(cx + 0.3, -0.1, cz - 0.3, W + 0.6, 0.2, W + 0.6, 0, 0.1, 0.1, 0.1, 0)                         // dirt under the building
+  if (!b.built) { for (const [ox, oz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) put3(cx + ox * W * 0.46, 2, cz + oz * W * 0.46, 0.25, 4, 0.25, 0, 0.5, 0.35, 0.18, 0); put3(cx, 4, cz - W * 0.46, W, 0.2, 0.2, 0, 0.5, 0.35, 0.18, 0) }
+  switch (b.type) {
+    case 'hall': {
+      const lv = b.lv, kh = 3.4 + lv * 1.4
+      put3(cx, L(kh / 2), cz, W * 0.62, L(kh), W * 0.62, 0, wall[0], wall[1], wall[2], 0)
+      put3(cx, L(kh + 0.3), cz, W * 0.72, L(0.6), W * 0.72, 0, stone[0], stone[1], stone[2], 0)
+      for (let k = 0; k < 4; k++) put3(cx + (k < 2 ? -1 : 1) * W * 0.34, L(kh + 0.9), cz + (k % 2 ? -1 : 1) * W * 0.34, 0.9, L(0.8), 0.9, 0, stone[0], stone[1], stone[2], 0)
+      for (let k = 0; k < 3; k++) put3(cx, L(kh + 1 + k * 1.1), cz, W * (0.5 - k * 0.15), L(1.2), W * (0.5 - k * 0.15), 0, tc[0] * (1 - k * 0.1), tc[1] * (1 - k * 0.1), tc[2] * (1 - k * 0.1), 0)
+      for (const [ox, oz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { if (lv >= 2 || (ox < 0 && oz < 0)) { const th = 2.4 + lv * 1.1; put3(cx + ox * W * 0.46, L(th / 2), cz + oz * W * 0.46, 1.4, L(th), 1.4, 0, stone[0], stone[1], stone[2], 0); put3(cx + ox * W * 0.46, L(th + 0.7), cz + oz * W * 0.46, 1.9, L(0.9), 1.9, 0, tc[0], tc[1], tc[2], 0); if (lv >= 3) flag(api, cx + ox * W * 0.46, L(th + 1), cz + oz * W * 0.46, tc, t, 2) } }
+      if (lv >= 3) { put3(cx, 1.2, cz + W * 0.5, W * 0.9, 2.4, 0.5, 0, stone[0], stone[1], stone[2], 0); put3(cx, 1.2, cz - W * 0.5, W * 0.9, 2.4, 0.5, 0, stone[0], stone[1], stone[2], 0); put3(cx + W * 0.5, 1.2, cz, 0.5, 2.4, W * 0.9, 0, stone[0], stone[1], stone[2], 0); put3(cx - W * 0.5, 1.2, cz, 0.5, 2.4, W * 0.9, 0, stone[0], stone[1], stone[2], 0) }
+      if (lv >= 4) { putS(cx, L(kh + 5), cz, 1.8, 1.8, 1.8, 3.2 * (0.8 + Math.sin(t * 3) * 0.2), 2.6, 0.5); for (let k = 0; k < 6; k++) { const a = t * 1.2 + k; putS(cx + Math.cos(a) * 2.2, L(kh + 5) + Math.sin(a * 2), cz + Math.sin(a) * 2.2, 0.3, 0.3, 0.3, 3, 2.6, 0.8) } }
+      flag(api, cx, L(kh + 3.8), cz, tc, t, 3.2)
+      put3(cx, 1.2, cz + W * 0.32, 1.2, 2, 0.15, 0, 0.1, 0.05, 0.03, 0)                                // gate
+      for (let k = 0; k < 3; k++) put3(cx - 1.2 + k * 1.2, kh * 0.7, cz + W * 0.32, 0.4, 0.6, 0.12, 0, 3, 2.4, 0.8, 0)  // lit windows
+      break
+    }
+    case 'house': put3(cx, L(1.2), cz, W * 0.78, L(2.4), W * 0.68, 0, wall[0], wall[1], wall[2], 0); put3(cx, L(2.9), cz, W * 0.98, L(1.0), W * 0.82, 0, tc[0], tc[1], tc[2], 0); put3(cx, L(3.5), cz, W * 0.7, L(0.9), W * 0.6, 0, tc[0] * 0.9, tc[1] * 0.9, tc[2] * 0.9, 0); put3(cx + 1, L(3.9), cz - 0.5, 0.5, L(1.4), 0.5, 0, 0.3, 0.28, 0.3, 0); put3(cx, L(0.9), cz + W * 0.34, 0.7, L(1.4), 0.1, 0, 0.14, 0.07, 0.04, 0); if (b.built) { putS(cx + 1 + Math.sin(t) * 0.2, 5 + (t * 1.5 % 2), cz - 0.5, 0.6, 0.5, 0.6, 0.7, 0.7, 0.75) } break
+    case 'farm': { put3(cx, 0.1, cz, W * 0.98, 0.3, W * 0.98, 0, 0.26, 0.17, 0.08, 0); for (let k = -1; k <= 1; k++) { const gr = 0.5 + 0.5 * Math.sin(t * 0.5 + k) * 0.1 + 0.5; put3(cx, 0.5 + L(0.4) * gr, cz + k * W * 0.28, W * 0.82, L(0.8), 0.45, 0, 0.5, 1.2 + gr * 0.3, 0.16, 0) } put3(cx + W * 0.34, L(0.8), cz - W * 0.34, 0.9, L(1.6), 0.9, 0, wood[0], wood[1], wood[2], 0); put3(cx + W * 0.34, L(1.9), cz - W * 0.34, 1.2, L(0.5), 1.2, 0, tc[0], tc[1], tc[2], 0); break }
+    case 'lumber': put3(cx - 0.3, L(1), cz, W * 0.6, L(2), W * 0.6, 0, wood[0], wood[1], wood[2], 0); put3(cx - 0.3, L(2.3), cz, W * 0.76, L(0.6), W * 0.76, 0, tc[0], tc[1], tc[2], 0); for (let k = 0; k < 4; k++) put3(cx + 1.3, 0.4 + (k % 2) * 0.5, cz + 0.7 - k * 0.4, 1.8, 0.45, 0.45, 0, 0.4, 0.24, 0.1, 0); if (b.built) put3(cx + 0.8, 1.6, cz + 1.2, 1.2, 0.1, 0.3, t * 6, 1.6, 1.6, 1.8, 0); break
+    case 'quarry': put3(cx, 0.2, cz, W * 0.92, 0.5, W * 0.92, 0, 0.1, 0.1, 0.12, 0); for (let k = 0; k < 4; k++) put3(cx - 1 + (k % 2) * 1.6, 0.8 + (k > 1 ? 0.7 : 0), cz - 0.8 + (k >> 1) * 1.5, 1.3, 1.2, 1.3, k * 0.4, 0.5, 0.5, 0.56, 0); put3(cx + 1.2, L(2), cz + 1.2, 0.3, L(4), 0.3, 0, wood[0], wood[1], wood[2], 0); put3(cx + 0.4, L(3.8), cz + 1.2, 1.9, 0.25, 0.25, Math.sin(t * 2) * 0.3, wood[0], wood[1], wood[2], 0); put3(cx - 1.4, L(1), cz + 1.2, 0.8, 0.5, 0.8, 0, tc[0], tc[1], tc[2], 0); break
+    case 'mine': put3(cx, L(1.4), cz, W * 0.9, L(2.8), W * 0.75, 0, 0.2, 0.19, 0.22, 0); put3(cx, L(1.0), cz + W * 0.36, 1.5, L(1.8), 0.4, 0, 0.02, 0.02, 0.03, 0); for (const sd of [-1, 1]) put3(cx + sd * 0.9, L(1.1), cz + W * 0.38, 0.3, L(2.2), 0.3, 0, wood[0], wood[1], wood[2], 0); put3(cx, L(2.3), cz + W * 0.38, 2.2, 0.3, 0.3, 0, wood[0], wood[1], wood[2], 0); { const g = 0.8 + Math.sin(t * 4 + b.id) * 0.4; putS(cx + 1.3, 1, cz + 1.4, 0.9, 0.7, 0.9, 3 * g, 2.3 * g, 0.4); putS(cx - 1.3, 1.6, cz - 0.8, 0.6, 0.5, 0.6, 3 * g, 2.3 * g, 0.4) } put3(cx - 1.3, 0.6, cz + 1.4, 1.2, 0.7, 0.8, 0, tc[0], tc[1], tc[2], 0); break
+    case 'barracks': { const busy = b.q.length > 0; put3(cx, L(1.6), cz, W * 0.9, L(3.2), W * 0.62, 0, wall[0], wall[1], wall[2], 0); put3(cx, L(3.6), cz, W * 1.0, L(0.8), W * 0.74, 0, tc[0], tc[1], tc[2], 0); put3(cx, L(4.5), cz, W * 0.7, L(1), W * 0.5, 0, tc[0] * 0.9, tc[1] * 0.9, tc[2] * 0.9, 0); put3(cx, L(1), cz + W * 0.32, 1.3, L(2), 0.12, 0, 0.12, 0.06, 0.03, 0); flag(api, cx - W * 0.4, L(3.8), cz + W * 0.3, tc, t, 3); for (const sd of [-1, 1]) { put3(cx + sd * W * 0.52, 0.6, cz - W * 0.2, 0.3, 1.2, 0.3, 0, wood[0], wood[1], wood[2], 0); put3(cx + sd * W * 0.52, 1.5, cz - W * 0.2, 0.9, 0.9, 0.5, 0, 0.5, 0.4, 0.2, Math.sin(t * 3 + sd) * 0.2) } if (busy) putS(cx, L(5.4), cz, 1.4, 1.4, 1.4, 3 * (0.7 + Math.sin(t * 8) * 0.3), 1.2, 0.3); break }
+    case 'tower': { put3(cx, L(3), cz, W * 0.6, L(6), W * 0.6, 0, stone[0], stone[1], stone[2], 0); put3(cx, L(6.3), cz, W * 0.86, L(0.8), W * 0.86, 0, tc[0], tc[1], tc[2], 0); for (let k = 0; k < 4; k++) put3(cx + (k < 2 ? -1 : 1) * W * 0.36, L(7), cz + (k % 2 ? -1 : 1) * W * 0.36, 0.6, L(0.8), 0.6, 0, stone[0], stone[1], stone[2], 0); put3(cx, L(7.2), cz, 0.5, L(1.8), 0.5, 0, 0.5, 0.35, 0.2, 0); putS(cx, L(8.3), cz, 0.9, 0.9, 0.9, 3 * (0.6 + Math.sin(t * 5 + b.id) * 0.4), 2.2, 0.5); for (let k = 0; k < 3; k++) put3(cx, L(3 + k * 1.4), cz + W * 0.31, 0.3, 0.5, 0.1, 0, 0.02, 0.02, 0.03, 0); break }
+    case 'wall': put3(cx, L(1.6), cz, W * 0.98, L(3.2), W * 0.98, 0, stone[0], stone[1], stone[2], 0); put3(cx, L(3.6), cz, W * 0.5, L(0.8), W * 0.5, 0, stone[0] * 1.2, stone[1] * 1.2, stone[2] * 1.2, 0); put3(cx, L(0.5), cz, W * 1.02, L(0.4), W * 1.02, 0, tc[0] * 0.7, tc[1] * 0.7, tc[2] * 0.7, 0); break
+    case 'wonder': { const g = 0.8 + Math.sin(t * 2.5) * 0.2; for (let k = 0; k < 5; k++) put3(cx, L(0.9 + k * 1.8), cz, W * (0.98 - k * 0.17), L(1.8), W * (0.98 - k * 0.17), 0, 0.7 * hit, 0.6 * hit, 0.34 * hit, k * 0.1); for (let k = 0; k < 4; k++) put3(cx + (k < 2 ? -1 : 1) * W * 0.42, L(2.4), cz + (k % 2 ? -1 : 1) * W * 0.42, 0.9, L(4.8), 0.9, 0, 0.8, 0.7, 0.4, 0); putS(cx, L(10.4) + Math.sin(t * 2) * 0.4, cz, 2.6, 2.6, 2.6, 3.4 * g, 2.8 * g, 0.6); for (let k = 0; k < 8; k++) { const a = t * 1.5 + (k / 8) * TAU; putS(cx + Math.cos(a) * 4, 7 + Math.sin(a * 2 + t) * 1.2, cz + Math.sin(a) * 4, 0.4, 0.4, 0.4, 3, 2.6, 0.8) } for (let k = 0; k < 9; k++) put3(cx, 12 + k * 1.2, cz, 0.5, 1, 0.5, 0, 1.4 * g, 1.2 * g, 0.4 * g, 0); break }
+    default: break
+  }
+  if (lowhp && b.built) for (let k = 0; k < 3; k++) putS(cx + Math.sin(t * 9 + k * 2 + b.id) * W * 0.3, 2.4 + ((t * 3 + k) % 1.5) * 1.6, cz + Math.cos(t * 7 + k) * W * 0.3, 0.9, 1.2, 0.9, 3, 1 + Math.sin(t * 20 + k) * 0.4, 0.2)
+  // health / build bars
+  const f = b.built ? clamp(b.hp / b.max, 0, 1) : prog, top = b.type === 'hall' ? 10 + b.lv : b.type === 'wonder' ? 14 : b.type === 'tower' ? 9 : 6
+  if (!b.built || b.hp < b.max) for (let u = 0; u < 10; u++) { const on = u / 10 < f; put3(cx - W * 0.4 + (u + 0.5) * (W * 0.8 / 10), top, cz, W * 0.8 / 10 * 0.92, 0.45, 0.4, 0, b.built ? (on ? (f > 0.5 ? 0.3 : 2) : 0.5) : (on ? 2.2 : 0.4), b.built ? (on ? (f > 0.5 ? 2.2 : 0.4) : 0.1) : (on ? 1.8 : 0.3), on ? 0.3 : 0.1, 0) }
+  if (EM.sel === b.id) for (let k = 0; k < 24; k++) { const a = (k / 24) * TAU + t; put3(cx + Math.cos(a) * W * 0.78, 0.25, cz + Math.sin(a) * W * 0.78, 0.5, 0.2, 0.5, 0, 3, 3, 3.2, 0) }
+}
+
+// ---------- units ----------
+function drawUnit(api, u, EM, t, TEAM, UDEF) {
+  const { put3, putS } = api, d = UDEF[u.type], raider = u.owner < 0
+  const tc = raider ? [1.1, 0.5, 0.2] : hex(TEAM[u.owner][0], 1), fl = u.flash > 0 ? 2.4 : 1
+  const X = u.x, Z = -u.y, ry = (u.face || 0) + Math.PI / 2, ca = Math.cos(ry), sa = Math.sin(ry)
+  const P = (lx, ly, lz, sx, sy, sz, r, g, b, rz = 0) => put3(X + lx * ca + lz * sa, ly, Z - lx * sa + lz * ca, sx, sy, sz, rz, r * fl, g * fl, b * fl, ry)
+  const moving = u._lx !== undefined && Math.hypot(u.x - u._lx, u.y - u._ly) > 0.01
+  u._lx = u.x; u._ly = u.y
+  const ph = t * 12 + u.id, sw = moving ? Math.sin(ph) * 0.45 : 0, bob = moving ? Math.abs(Math.sin(ph)) * 0.18 : Math.sin(t * 2 + u.id) * 0.05
+  const swing = u.atkT > 0 && u.atkT > d.rate - 0.25
+  putS(X + 0.2, 0.03, Z + 0.2, 1.6, 0.06, 1.6, 0.01, 0.01, 0.02)
+  if (u.type === 'catapult') {
+    P(0, 0.6, 0, 2.2, 0.5, 3.2, 0.4, 0.26, 0.12); for (const sd of [-1, 1]) { putS(X + sd * ca * 1.2, 0.55, Z - sd * sa * 1.2, 1, 1, 1, 0.2, 0.14, 0.08) } P(0, 1.2, -0.3, 0.4, 1.4, 0.4, 0.4, 0.26, 0.12)
+    const arm = swing ? -1.2 : -0.35; P(0, 1.9, -0.6 + (swing ? 0.9 : 0), 0.35, 0.35, 2.6, 0.4, 0.26, 0.12, arm * 0.0); putS(X + sa * (swing ? 1.2 : -1.0), 2.2, Z + ca * (swing ? 1.2 : -1.0), 0.8, 0.8, 0.8, 0.2, 0.2, 0.22); P(0, 1.1, 1.3, 0.8, 0.5, 0.5, tc[0], tc[1], tc[2])
+  } else if (u.type === 'knight') {
+    P(0, 1.1 + bob, 0, 1.2, 1.1, 2.8, 0.35, 0.25, 0.18); P(0, 1.9 + bob, 1.3, 0.7, 1.0, 0.8, 0.35, 0.25, 0.18); P(0, 1.2 + bob, -0.1, 1.3, 0.3, 1.4, tc[0] * 1.1, tc[1] * 1.1, tc[2] * 1.1)
+    for (const [lx, lz] of [[-0.4, 1], [0.4, 1], [-0.4, -1], [0.4, -1]]) P(lx, 0.45, lz + (lx > 0 ? sw : -sw), 0.3, 1, 0.3, 0.3, 0.2, 0.14)
+    P(0, 2.5 + bob, 0.1, 0.9, 1.5, 0.8, tc[0], tc[1], tc[2]); P(0, 3.5 + bob, 0.1, 0.8, 0.8, 0.8, 0.6, 0.6, 0.66); P(0, 4.1 + bob, 0.1, 0.2, 0.5, 0.7, tc[0] * 2, tc[1] * 2, tc[2] * 2)
+    P(0.7, 2.6, 1.2 + (swing ? 1 : 0), 0.15, 0.15, 3.2, 1.6, 1.6, 1.8)
+  } else {
+    const k = raider ? (u.type === 'rbrute' ? 1.45 : 1) : 1
+    P(-0.3 * k, 0.55 * k, sw * k, 0.4 * k, 1.1 * k, 0.45 * k, 0.25, 0.2, 0.18); P(0.3 * k, 0.55 * k, -sw * k, 0.4 * k, 1.1 * k, 0.45 * k, 0.25, 0.2, 0.18)
+    P(0, (1.6 + bob) * k, 0, 1.0 * k, 1.1 * k, 0.7 * k, tc[0], tc[1], tc[2]); P(0, (2.5 + bob) * k, 0, 0.75 * k, 0.75 * k, 0.75 * k, 0.8, 0.58, 0.45)
+    if (raider) { P(0, (2.95 + bob) * k, -0.05, 0.9 * k, 0.5 * k, 0.9 * k, 0.2, 0.12, 0.08); if (u.type === 'raider' || u.type === 'rbrute') P(0.55 * k, (1.9 + bob) * k, 0.7 + (swing ? 0.9 : 0), 0.18, 0.18, 1.4 * k, 1.6, 1.6, 1.8); if (u.type === 'rarcher') P(-0.6, 2, 0.5, 0.15, 1.5, 0.15, 0.4, 0.26, 0.12); if (t % 1 < 0.5 && u.type !== 'rarcher') putS(X + ca * 0.6 * 1 - sa * 0.0, 2.6 * k, Z - sa * 0.6, 0.35, 0.45, 0.35, 3, 1.4, 0.3) }
+    else if (u.type === 'sword') { P(0, 3.1 + bob, 0, 0.8, 0.4, 0.8, 0.6, 0.6, 0.68); P(-0.7, 1.7, 0.2, 0.2, 1.0, 0.8, tc[0] * 1.3, tc[1] * 1.3, tc[2] * 1.3); P(0.6, 1.9 + bob, 0.8 + (swing ? 1.0 : 0), 0.16, 0.16, 1.7, 1.8, 1.8, 2.0); if (swing) putS(X + sa * 1.6, 2, Z + ca * 1.6, 0.8, 0.5, 0.8, 3, 3, 2.4) }
+    else if (u.type === 'archer') { P(0, 3.0 + bob, -0.1, 0.9, 0.55, 0.9, tc[0] * 0.7, tc[1] * 0.7, tc[2] * 0.7); P(-0.6, 1.9, 0.7, 0.14, 1.7, 0.14, 0.45, 0.28, 0.12, 0.3); P(0.4, 1.7, -0.5, 0.35, 1, 0.35, 0.3, 0.2, 0.1) }
+  }
+  if (u.hp < u.max) { const f = clamp(u.hp / u.max, 0, 1), y = (u.type === 'catapult' ? 4 : u.type === 'knight' ? 5 : 4); for (let q = 0; q < 6; q++) { const on = q / 6 < f; put3(X - 0.9 + (q + 0.5) * 0.3, y, Z, 0.27, 0.3, 0.25, 0, on ? 0.3 : 0.5, on ? 2.2 : 0.1, on ? 0.4 : 0.1, 0) } }
+}
+
+export function drawEmpire3(api, EM, defs) {
+  const { put3, putS } = api, t = G.time, { TEAM, UDEF, MW, MH } = defs
+  const cx = EM.cam.x, cy = EM.cam.y, z = EM.cam.z
+  const rx = 64 / z + 8, ry2 = 40 / z + 8
+  const step = z < 0.78 ? 2 : 1
+  const i0 = Math.max(0, (((cx - rx) / T) | 0) & ~(step - 1)), i1 = Math.min(MW - 1, ((cx + rx) / T) | 0)
+  const j0 = Math.max(0, (((cy - ry2 - 14) / T) | 0) & ~(step - 1)), j1 = Math.min(MH - 1, ((cy + ry2 + 6) / T) | 0)
+  for (let j = j0; j <= j1; j += step) for (let i = i0; i <= i1; i += step) tileDraw(api, EM, i, j, step, t)
+  // the map edge: a dark frame so the world has an end
+  put3(MW * T / 2, -0.8, -MH * T / 2, MW * T + 16, 0.4, MH * T + 16, 0, 0.02, 0.03, 0.05, 0)
+  for (const b of EM.B) { const bx = (b.x + b.w / 2) * T, by = (b.y + b.w / 2) * T; if (Math.abs(bx - cx) > rx + 6 || by < cy - ry2 - 16 || by > cy + ry2 + 8) continue; drawBuilding(api, b, EM, t, TEAM) }
+  // placement ghost
+  if (EM.build && EM.hover) {
+    const d = defs.BDEF[EM.build], i = ((EM.hover.x / T) | 0) - (d.w >> 1), j = ((EM.hover.y / T) | 0) - (d.w >> 1), ok = defs.canPlace(EM.build, i, j, EM.me) && EM.P[EM.me] && defs.costOk(EM.P[EM.me].res, d.cost)
+    const gx = (i + d.w / 2) * T, gz = -((j + d.w / 2) * T), c = ok ? [0.4, 3, 0.9] : [3, 0.4, 0.4]
+    for (let a = 0; a < d.w * 4; a++) { const u = a / (d.w * 4); const px = gx + (u < 0.25 ? -1 + u * 8 : u < 0.5 ? 1 : u < 0.75 ? 1 - (u - 0.5) * 8 : -1) * d.w * T / 2, pz = gz + (u < 0.25 ? -1 : u < 0.5 ? -1 + (u - 0.25) * 8 : u < 0.75 ? 1 : 1 - (u - 0.75) * 8) * d.w * T / 2; putS(px, 0.5, pz, 0.5, 0.5, 0.5, c[0], c[1], c[2]) }
+    putS(gx, 2.2 + Math.sin(t * 4) * 0.3, gz, d.w * T * 0.5, d.w * T * 0.5, d.w * T * 0.5, c[0] * 0.4, c[1] * 0.4, c[2] * 0.4)
+    const h = EM.B.find((b) => b.owner === EM.me && b.type === 'hall'); if (h) { const R = (16 + h.lv * 3) * T / 2, hx = (h.x + 1.5) * T, hz = -((h.y + 1.5) * T); for (let k = 0; k < 90; k++) { const a = (k / 90) * TAU; put3(hx + Math.cos(a) * R, 0.2, hz + Math.sin(a) * R, 0.5, 0.2, 0.5, 0, 1.4, 1.6, 2) } }
+  }
+  for (const u of EM.U) { if (Math.abs(u.x - cx) > rx + 4 || u.y < cy - ry2 - 16 || u.y > cy + ry2 + 8) continue; drawUnit(api, u, EM, t, TEAM, UDEF) }
+  for (const f of EM.fx) {
+    if (f.k === 'shot') { const n = 7; for (let k = 0; k <= n; k++) { const u = k / n, arc = Math.sin(u * Math.PI) * (f.c === '#ff9a3a' ? 7 : 1.4); putS(f.x0 + (f.x1 - f.x0) * u, 2.4 + arc, -(f.y0 + (f.y1 - f.y0) * u), 0.55, 0.55, 0.55, 2.6, 2.2, 1.2) } }
+    else if (f.k === 'ping') { for (let k = 0; k < 16; k++) { const a = (k / 16) * TAU, r = 1 + (0.6 - f.l) * 7; putS(f.x + Math.cos(a) * r, 0.5, -f.y + Math.sin(a) * r, 0.5, 0.3, 0.5, 3, 2.6, 0.5) } }
+  }
+  for (const q of G.parts) { const f = q.life / q.max, s = q.s * (0.3 + 0.5 * f); putS(q.x, 1 + (1 - f) * 2.5, -q.y, s, s, s, q.c[0] * 2, q.c[1] * 2, q.c[2] * 2) }
+  // raid warning: a column of fire on the edge the raiders will come from
+  if (EM.raidWarn > 0) { const dir = EM.raidDir; for (let k = -14; k <= 14; k++) { const wx = dir === 'WEST' ? 3 : dir === 'EAST' ? MW * T - 3 : cx + k * 3, wy = dir === 'SOUTH' ? 3 : dir === 'NORTH' ? MH * T - 3 : cy + k * 2.4, a = 0.6 + 0.4 * Math.sin(t * 8 + k); putS(wx, 2 + Math.abs(Math.sin(t * 6 + k)) * 2, -wy, 1.4, 2.2, 1.4, 3 * a, 0.9 * a, 0.2 * a) } }
+}
