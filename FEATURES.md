@@ -38,3 +38,12 @@ Ten games, one dashboard. This is an honest audit of what each game had, what it
 - **Touch controls** for Ground Zero, Bomber and Tetris on phones.
 - **Replays / share cards** for big moments (Tetris, jackpot, boss kill).
 - **Accessibility**: colour-blind palettes (ghost colours, UNO colours), reduced-motion option (shake is already toggleable).
+
+## Arcade pack 2 and story mode
+Seven more games (Air Hockey, Billiards, Neon Defense, Neon Depths, Neon Beat, Word Hunt, 2048 Merge), all with sound, animation, phone support, help pages and leaderboards, plus **Story Mode: The Neon Uprising** (12 chapters across the whole arcade). Air Hockey and Billiards play **online 1v1**. See the README for the full list.
+
+| Area | What was done |
+|---|---|
+| Dashboard | Category filter chips; per-game tabs hidden from the tab bar (only the game you opened shows) |
+| Story | 3 acts, 12 chapters, cut-scenes, objectives, retry, chip rewards, credits |
+| Windows parity | Touch pads only on touch-first devices, width-matched font fallback, themed scrollbars, `100dvh`, fullscreen button |

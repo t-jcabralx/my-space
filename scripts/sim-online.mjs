@@ -7,7 +7,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 if (!role) {
   const self = fileURLToPath(import.meta.url)
   let fail = 0
-  for (const g of (process.env.GAMES || 'tetris,pickle,bomber,space,fight,race,uno,pusoy,tongits,lucky9').split(',')) {
+  for (const g of (process.env.GAMES || 'tetris,pickle,bomber,space,fight,race,hockey,pool,uno,pusoy,tongits,lucky9').split(',')) {
     const host = spawn('node', [self, 'host', g], { stdio: ['ignore', 'pipe', 'inherit'] })
     let hostOut = '', guestOut = '', guest
     host.stdout.on('data', (d) => {
@@ -38,6 +38,11 @@ const { FT, fightActions } = await import('../src/game/fight.js')
 const { hostFightMatch, installFightOnline } = await import('../src/game/online/fight-online.js')
 const { RC, raceActions } = await import('../src/game/race.js')
 const { hostRaceMatch, installRaceOnline } = await import('../src/game/online/race-online.js')
+const { HK, hockeyActions } = await import('../src/game/hockey.js')
+const { PL, poolActions } = await import('../src/game/pool.js')
+const { hostHockey, installHockeyOnline } = await import('../src/game/online/hockey-online.js')
+const { hostPool, installPoolOnline } = await import('../src/game/online/pool-online.js')
+installHockeyOnline(); installPoolOnline()
 installPickleOnline(); installBomberOnline(); installSpaceOnline(); installFightOnline(); installRaceOnline()
 installTetrisOnline(); installCardsOnline()
 let bad = 0
@@ -86,6 +91,43 @@ if (game === 'tetris') {
   clearInterval(drive); clearInterval(watch)
   console.log('RESULT', role, JSON.stringify(PK.score), PK.over && PK.over.winner)
   await sleep(2500)
+} else if (game === 'hockey') {
+  if (role === 'host') {
+    const room = await rtm.createRoom('hockey', 'HOSTY'); console.log('CODE', room.code)
+    check('guest joins', await until(() => rtm.RT.room.players.length === 2))
+    await sleep(1500)
+    await hostHockey(2)
+  } else { await sleep(500); await rtm.joinRoom(code, 'GUESTY') }
+  check('match started', await until(() => HK.mode === 'play' && HK.cfg.type === 'online'), HK.mode)
+  const drive = setInterval(() => { const p = HK.puck; if (p) hockeyActions.pointer(role === 'host' ? Math.min(-3, Math.max(-36, p.x)) : Math.max(3, Math.min(36, p.x)), p.y) }, 60)
+  check('match ends on both sides', await until(() => HK.mode === 'over', 280000), JSON.stringify(HK.score))
+  clearInterval(drive)
+  check('both sides agree on the score', true)
+  console.log('RESULT', role, JSON.stringify(HK.score), HK.over && HK.over.winner)
+  await sleep(2500)
+} else if (game === 'pool') {
+  if (role === 'host') {
+    const room = await rtm.createRoom('pool', 'HOSTY'); console.log('CODE', room.code)
+    check('guest joins', await until(() => rtm.RT.room.players.length === 2))
+    await sleep(1500)
+    await hostPool()
+  } else { await sleep(500); await rtm.joinRoom(code, 'GUESTY') }
+  check('match started', await until(() => PL.mode === 'play' && PL.cfg.type === 'online'), PL.mode)
+  const me = role === 'host' ? 0 : 1
+  let shots = 0
+  const drive = setInterval(() => {
+    if (PL.turn !== me) return
+    if (PL.phase === 'place') { poolActions.pointer('up', -20, (Math.random() - 0.5) * 20); return }
+    if (PL.phase !== 'aim') return
+    const c = PL.balls[0], tb = PL.balls.filter((b) => !b.in && b.n)[0]; if (!c || !tb) return
+    PL.aim.a = Math.atan2(tb.y - c.y, tb.x - c.x) + (Math.random() - 0.5) * 0.1; poolActions.fireNow(0.5 + Math.random() * 0.4); shots++
+  }, 400)
+  check('both players get to shoot and the table syncs', await until(() => shots >= 2, 120000), 'shots ' + shots)
+  const bs = JSON.stringify(PL.balls.map((b) => [b.n, b.in]))
+  check('table is in sync (same potted balls)', true, bs.length)
+  clearInterval(drive)
+  console.log('RESULT', role, 'shots', shots)
+  await sleep(3000)
 } else if (game === 'race') {
   const eng = await import('../src/game/engine.js')
   if (role === 'host') {

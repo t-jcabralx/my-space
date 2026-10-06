@@ -15,6 +15,14 @@ import { ROSTER, ELEMENTS as ELS } from '../game/roster.js'
 import { subscribeChomp, getChompSnap, chompActions, MODES as CMODES } from '../game/chomp.js'
 import { subscribeFlames, getFlamesSnap, flamesActions, OUTCOMES as FOUT } from '../game/flames.js'
 import CardsHUD from './CardsUI.jsx'
+import { MoreHUD, MORE_MODES, HockeyLobby, PoolLobby, TdLobby, RogueLobby, RhythmLobby, WordLobby, MergeLobby } from './MoreGames.jsx'
+import { StoryTab, StoryOverlay } from './StoryUI.jsx'
+import { isTouchPrimary } from './platform.js'
+import { hockeyActions } from '../game/hockey.js'
+import { poolActions } from '../game/pool.js'
+import { tdActions } from '../game/td.js'
+import { rogueActions } from '../game/rogue.js'
+import { rhythmActions } from '../game/rhythm.js'
 import { cardsActions } from '../game/cards/core.js'
 import { subscribeSettings, getSettings, setSetting, resetSettings } from '../game/settings.js'
 import { fetchTop } from '../game/online.js'
@@ -37,6 +45,11 @@ export function openHelp(tab) {
   else if (snap && snap.mode === 'tetris') resume = tetrisActions.pause() ? 'tetris' : null
   else if (snap && snap.mode === 'chomp') resume = chompActions.pause() ? 'chomp' : null
   else if (snap && snap.mode === 'cards') resume = cardsActions.pause() ? 'cards' : null
+  else if (snap && snap.mode === 'hockey') resume = hockeyActions.pause() ? 'hockey' : null
+  else if (snap && snap.mode === 'pool') resume = poolActions.pause() ? 'pool' : null
+  else if (snap && snap.mode === 'td') resume = tdActions.pause() ? 'td' : null
+  else if (snap && snap.mode === 'rogue') resume = rogueActions.pause() ? 'rogue' : null
+  else if (snap && snap.mode === 'rhythm') resume = rhythmActions.pause() ? 'rhythm' : null
   help = { open: true, tab: tab || help.tab, resume }
   helpEmit()
 }
@@ -44,7 +57,7 @@ export function closeHelp() {
   const r = help.resume
   help = { ...help, open: false, resume: null }
   helpEmit()
-  if (r === 'space') togglePause(); else if (r === 'slug') slugActions.resume(); else if (r === 'pickle') pickleActions.resume(); else if (r === 'bomber') bomberActions.resume(); else if (r === 'tetris') tetrisActions.resume(); else if (r === 'chomp') chompActions.resume(); else if (r === 'cards') cardsActions.resume()
+  if (r === 'space') togglePause(); else if (r === 'slug') slugActions.resume(); else if (r === 'pickle') pickleActions.resume(); else if (r === 'bomber') bomberActions.resume(); else if (r === 'tetris') tetrisActions.resume(); else if (r === 'chomp') chompActions.resume(); else if (r === 'cards') cardsActions.resume(); else if (r === 'hockey') hockeyActions.resume(); else if (r === 'pool') poolActions.resume(); else if (r === 'td') tdActions.resume(); else if (r === 'rogue') rogueActions.resume(); else if (r === 'rhythm') rhythmActions.resume()
 }
 const K = ({ children }) => <kbd>{children}</kbd>
 const HELP = {
@@ -270,6 +283,81 @@ const HELP = {
       </>
     ),
   },
+  hockey: {
+    name: '🏒 AIR HOCKEY',
+    body: () => (
+      <>
+        <p><b>Goal:</b> slam the puck into the other goal. First to the target score wins.</p>
+        <h5>CONTROLS</h5>
+        <p><b>Mouse or finger:</b> your mallet follows the pointer (it stays on your half). <b>Keyboard:</b> <K>WASD</K> or <K>ARROWS</K>. In 2-player mode P1 uses the mouse / <K>WASD</K> and P2 uses the <K>ARROWS</K>.</p>
+        <ul><li>A hard hit makes the puck faster. Walls bounce it, so bank shots work.</li><li><b>CHAOS PUCK:</b> now and then a second puck drops in. Both count.</li><li>Online: invite a friend from the dashboard. The host runs the puck.</li></ul>
+      </>
+    ),
+  },
+  pool: {
+    name: '🎱 BILLIARDS',
+    body: () => (
+      <>
+        <p><b>8-ball rules.</b> The first ball you pot after the break decides if you are <b>solids (1-7)</b> or <b>stripes (9-15)</b>. Pot all yours, then the black <b>8</b> to win.</p>
+        <h5>SHOOTING</h5>
+        <p><b>Mouse / finger:</b> press anywhere and drag <b>away</b> from where you want to shoot (like a slingshot): the longer the drag, the harder the shot. Release to fire. <b>Keyboard:</b> <K>←</K> <K>→</K> aim, <K>↑</K> <K>↓</K> power, hold <K>SPACE</K> to charge and release.</p>
+        <ul><li><b>Fouls:</b> scratching, hitting the wrong group first, missing every ball, or no ball reaching a rail. Your opponent then gets the cue ball <b>anywhere</b>.</li><li>Potting the 8 early, or while fouling, loses the game.</li></ul>
+      </>
+    ),
+  },
+  td: {
+    name: '🛡 NEON DEFENSE',
+    body: () => (
+      <>
+        <p><b>Goal:</b> survive 25 waves. Enemies follow the glowing road to your base. Every one that gets through costs a life (bosses cost 5).</p>
+        <ul>
+          <li>Pick a tower (<K>1</K>-<K>6</K> or the bar at the bottom) then click / tap a free cell to build it. Click a tower to <b>upgrade</b> (<K>U</K>) or <b>sell</b> (<K>S</K>).</li>
+          <li><b>PULSE</b> fast, <b>CANNON</b> splash (ground only), <b>FROST</b> slows, <b>SNIPER</b> long range, <b>TESLA</b> chain lightning, <b>BANK</b> earns gold each wave.</li>
+          <li>Flyers ignore the road. Cannons cannot hit them.</li>
+          <li><K>SPACE</K> calls the next wave (calling early gives a bonus). <K>F</K> speeds things up. <K>Q</K> then click = <b>airstrike</b>.</li>
+        </ul>
+      </>
+    ),
+  },
+  rogue: {
+    name: '🗡 NEON DEPTHS',
+    body: () => (
+      <>
+        <p><b>Goal:</b> clear 3 floors of 4 rooms; the 4th room of every floor is a boss. After each room pick <b>1 of 3 perks</b>.</p>
+        <h5>CONTROLS</h5>
+        <p><K>WASD</K> / <K>ARROWS</K> move (touch: the stick). You <b>attack automatically</b> at the nearest enemy; move the mouse to aim yourself. <K>SPACE</K> dashes (you are invincible while dashing). <K>Q</K> uses your class special. <K>1</K> <K>2</K> <K>3</K> pick a perk.</p>
+        <ul><li><b>KNIGHT:</b> sword arc, whirlwind. <b>RANGER:</b> piercing arrows, volley. <b>MAGE:</b> homing orbs, frost nova.</li><li>Collect gold and hearts. When the room is clear, the right door glows.</li></ul>
+      </>
+    ),
+  },
+  rhythm: {
+    name: '🎵 NEON BEAT',
+    body: () => (
+      <>
+        <p><b>Goal:</b> hit each note as it reaches the line at the bottom.</p>
+        <p>Keys <K>D</K> <K>F</K> <K>J</K> <K>K</K> (or the arrow keys). On a phone, tap the four lanes. <b>Long notes:</b> press and keep holding until the tail ends.</p>
+        <ul><li><b>PERFECT</b> / <b>GREAT</b> / <b>GOOD</b> depend on timing. Combos multiply your score.</li><li>The life bar drops when you miss. If it empties, the song fails.</li><li>Grades: S 95%+, A 88%+, B 75%+, C 60%+.</li></ul>
+      </>
+    ),
+  },
+  word: {
+    name: '🔤 WORD HUNT',
+    body: () => (
+      <>
+        <p>Guess the secret 5-letter word in 6 tries. Type with your keyboard or tap the on-screen keys, then <K>ENTER</K>.</p>
+        <ul><li><b>Green:</b> right letter, right place. <b>Yellow:</b> right letter, wrong place. <b>Grey:</b> not in the word.</li><li><b>Daily</b> gives everyone the same word each day. <b>Filipino</b> uses Tagalog words.</li><li><b>Hard mode:</b> green letters must stay in place.</li></ul>
+      </>
+    ),
+  },
+  merge: {
+    name: '🔢 2048 MERGE',
+    body: () => (
+      <>
+        <p>Slide all tiles with the arrow keys, <K>WASD</K> or by swiping. Two equal tiles that touch merge into one with double the number. Make <b>2048</b>.</p>
+        <ul><li><b>UNDO</b> (<K>Z</K>) takes back your last move. <b>HAMMER</b> deletes one tile. <b>SHUFFLE</b> rearranges the board.</li><li>3x3 is harder and scores x3; 5x5 is roomier.</li></ul>
+      </>
+    ),
+  },
   sound: {
     name: '🔊 SOUND',
     body: () => (
@@ -303,7 +391,7 @@ function HelpModal() {
     </div>
   )
 }
-const FIRST = { race: 'race', fight: 'fight', flames: 'flames', playing: 'space', slug: 'slug', pickle: 'pickle', bomber: 'bomber', tetris: 'tetris', chomp: 'chomp', cards: 'cards' }
+const FIRST = { race: 'race', fight: 'fight', flames: 'flames', playing: 'space', slug: 'slug', pickle: 'pickle', bomber: 'bomber', tetris: 'tetris', chomp: 'chomp', cards: 'cards', hockey: 'hockey', pool: 'pool', td: 'td', rogue: 'rogue', rhythm: 'rhythm', word: 'word', merge: 'merge' }
 function HelpLayer({ s }) {
   const g = FIRST[s.mode]
   useEffect(() => {
@@ -1079,7 +1167,7 @@ function TrackMap({ ti, cars }) {
 }
 function RaceTouch() {
   const [touch, setTouch] = useState(false)
-  useEffect(() => { try { setTouch('ontouchstart' in window || navigator.maxTouchPoints > 0 || window.matchMedia('(pointer: coarse)').matches) } catch { /* ignore */ } }, [])
+  useEffect(() => { try { setTouch(isTouchPrimary()) } catch { /* ignore */ } }, [])
   if (!touch) return null
   const hold = (code) => ({
     onPointerDown: (e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.setPointerCapture && e.currentTarget.setPointerCapture(e.pointerId); engineKey(code, true) },
@@ -1257,7 +1345,7 @@ function FightLobby({ s }) {
 }
 function FightTouch() {
   const [touch, setTouch] = useState(false)
-  useEffect(() => { try { setTouch('ontouchstart' in window || navigator.maxTouchPoints > 0 || window.matchMedia('(pointer: coarse)').matches) } catch { /* ignore */ } }, [])
+  useEffect(() => { try { setTouch(isTouchPrimary()) } catch { /* ignore */ } }, [])
   if (!touch) return null
   const hold = (code) => ({
     onPointerDown: (e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.setPointerCapture && e.currentTarget.setPointerCapture(e.pointerId); engineKey(code, true) },
@@ -1280,7 +1368,7 @@ function FightHUD() {
   const [portrait, setPortrait] = useState(false)
   const [dismissed, setDismissed] = useState(false)
   useEffect(() => {
-    const f = () => { try { setPortrait(window.innerHeight > window.innerWidth && ('ontouchstart' in window || navigator.maxTouchPoints > 0 || window.matchMedia('(pointer: coarse)').matches)) } catch { /* ignore */ } }
+    const f = () => { try { setPortrait(window.innerHeight > window.innerWidth && (isTouchPrimary())) } catch { /* ignore */ } }
     f(); window.addEventListener('resize', f); window.addEventListener('orientationchange', f)
     return () => { window.removeEventListener('resize', f); window.removeEventListener('orientationchange', f) }
   }, [])
@@ -1370,6 +1458,7 @@ function GameCard({ cls, title, tag, hi, hiLabel, art, onPlay, label, sub, onInv
 
 function Hub({ s }) {
   const [tab, setTab] = useState('home')
+  const [cat, setCat] = useState('all')
   const [ogame, setOgame] = useState('tetris')
   useEffect(() => { const h = (e) => { const [t, g] = String(e.detail || '').split(':'); if (g) setOgame(g); if (t) setTab(t) }; window.addEventListener('si-open-tab', h); return () => window.removeEventListener('si-open-tab', h) }, [])
   useEffect(() => { try { if (new URLSearchParams(location.search).get('join')) setTab('online') } catch { /* ignore */ } }, [])
@@ -1391,56 +1480,83 @@ function Hub({ s }) {
   const next = RANKS[ri + 1]
   const pct = next ? ((xp - RANKS[ri][0]) / (next[0] - RANKS[ri][0])) * 100 : 100
   const doneAch = ACH.filter(([, , g, goal]) => g(p, s.unlocked) >= goal).length
-  const TABS = [['home', 'DASHBOARD'], ['pickle', '🏓 PICKLEBALL'], ['bomber', '💣 BOMBER'], ['tetris', '🧱 TETRIS'], ['chomp', '🟡 CHOMP'], ['cards', '🃏 CARDS'], ['race', '🏁 RACE'], ['fight', '🥊 FIGHT'], ['flames', '🔥 FLAMES'], ['online', '🌐 ONLINE'], ['top', '🏆 TOP PLAYERS'], ['ship', 'CUSTOMIZE SHIP'], ['levels', 'SPACE LEVELS'], ['skills', 'CONTROLS'], ['settings', '⚙ SETTINGS'], ['awards', `AWARDS ${doneAch}/${ACH.length}`]]
+  const GAME_TABS = { pickle: '🏓 PICKLEBALL', bomber: '💣 BOMBER', tetris: '🧱 TETRIS', chomp: '🟡 CHOMP', cards: '🃏 CARDS', race: '🏁 RACE', fight: '🥊 FIGHT', flames: '🔥 FLAMES', hockey: '🏒 AIR HOCKEY', pool: '🎱 BILLIARDS', td: '🛡 DEFENSE', rogue: '🗡 DEPTHS', rhythm: '🎵 BEAT', word: '🔤 WORD HUNT', merge: '🔢 2048' }
+  // the tab bar stays short: dashboard, the game you opened (if any), and the utility tabs. Games are opened from the dashboard cards.
+  const TABS = [['home', 'DASHBOARD'], ...(GAME_TABS[tab] ? [[tab, GAME_TABS[tab]]] : []), ['online', '🌐 ONLINE'], ['story', '📖 STORY'], ['top', '🏆 TOP PLAYERS'], ['ship', 'CUSTOMIZE SHIP'], ['levels', 'SPACE LEVELS'], ['skills', 'CONTROLS'], ['settings', '⚙ SETTINGS'], ['awards', `AWARDS ${doneAch}/${ACH.length}`]]
+  const CATS = [['all', 'ALL GAMES'], ['action', '⚔ ACTION'], ['sports', '🏅 SPORTS'], ['strategy', '🧠 STRATEGY'], ['puzzle', '🧩 PUZZLE'], ['cards', '🃏 CARDS'], ['music', '🎵 MUSIC']]
+  const show = (...c) => cat === 'all' || c.includes(cat)
   return (
     <div className="screen hub">
       <div className="hubtop">
         <div className="logo2"><img className="logoimg" src="/logo.svg" alt="My Space Arcade" /></div>
         <div className="tabs">{TABS.map(([k, n]) => <button key={k} className={'tab ' + (tab === k ? 'sel' : '')} onClick={() => setTab(k)}>{n}</button>)}</div>
         <SoundBtn />
+        <button className="tab" title="Fullscreen" onClick={() => { try { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen() } catch { /* ignore */ } }}>⛶</button>
       </div>
       <AudioNotice />
       {tab === 'home' && (
         <>
           <JoinBar name={p.name} onJoined={() => setTab('online')} />
+          <div className="catchips">{CATS.map(([k, n]) => <button key={k} className={'chip ' + (cat === k ? 'sel' : '')} onClick={() => setCat(k)}>{n}</button>)}</div>
           <div className="cards4">
-            <GameCard cls="space" title="🚀 SPACE IMPACT: NEON" tag="10 levels · 10 bosses · squad of 3 ships" hiLabel="HI-SCORE" hi={p.spaceHi.toLocaleString()}
+            {show('action') && <GameCard cls="space" title="🚀 SPACE IMPACT: NEON" tag="10 levels · 10 bosses · squad of 3 ships" hiLabel="HI-SCORE" hi={p.spaceHi.toLocaleString()}
               art={<ShipPreview ship={p.ship} />} label="▶ PLAY" onPlay={startGame} onInvite={() => { setOgame('space'); setTab('online') }}
               extra={<div className="squadsel"><div className="sqrow"><small>TEAM</small>{[[0, 'SOLO'], [1, 'DUO'], [2, 'TRIO']].map(([n, l]) => <button key={n} className={'chip ' + ((s.squadSize === n) ? 'sel' : '')} onClick={() => setSquad(n, s.squadHuman, s.squadBots)}>{l}</button>)}<button className={'chip ic ' + (s.squadHuman ? 'sel' : '')} disabled={s.squadSize < 1} onClick={() => setSquad(s.squadSize, !s.squadHuman, s.squadBots)} title="A friend flies a ship on this keyboard: arrows + Enter">👥</button><button className={'chip ic ' + (s.squadBots ? 'sel' : '')} disabled={s.squadSize < 1} onClick={() => setSquad(s.squadSize, s.squadHuman, !s.squadBots)} title="Fill empty team slots with AI wingmen">🤖</button></div><small className="dim">{s.squadSize === 0 ? 'Flying solo' : s.squadBots ? 'AI flies empty slots' : '👥 same keyboard · 🤖 AI · or invite friends'}</small></div>}
-              sub={<><span>LEVELS</span><b>{s.unlocked + 1}/10</b></>} />
-            <GameCard cls="slug" title="🪖 OPERATION GROUND ZERO" tag="Run & gun · POWs · tank · 3 bosses" hiLabel="HI-SCORE" hi={p.slugHi.toLocaleString()}
+              sub={<><span>LEVELS</span><b>{s.unlocked + 1}/10</b></>} />}
+            {show('action') && <GameCard cls="slug" title="🪖 OPERATION GROUND ZERO" tag="Run & gun · POWs · tank · 3 bosses" hiLabel="HI-SCORE" hi={p.slugHi.toLocaleString()}
               art={<SpriteArt scene={[[SP.palm, 22, false, 3], [SP.vsv, 110, false, 3], [SP.heroS, 66, false, 4], [SP.solS, 178, true, 4], [SP.runS, 206, true, 4]]} />} label="▶ PLAY" onPlay={() => slugActions.start(0)}
-              sub={<><span>WINS</span><b>{p.slugWins}</b></>} />
-            <GameCard cls="pickle" title="🏓 PICKLEBALL" tag="Bots · 1v1 · 2v2 · real rules" hiLabel="WINS" hi={p.pickleWins || 0}
+              sub={<><span>WINS</span><b>{p.slugWins}</b></>} />}
+            {show('sports') && <GameCard cls="pickle" title="🏓 PICKLEBALL" tag="Bots · 1v1 · 2v2 · real rules" hiLabel="WINS" hi={p.pickleWins || 0}
               art={<div className="miniCourt"><i className="net" /><i className="ball" /><b className="pa">🧍</b><b className="pb">🤖</b></div>} label="SELECT MODE ▶" onPlay={() => setTab('pickle')} onInvite={() => { setOgame('pickle'); setTab('online') }}
-              sub={<><span>ACES</span><b>{p.aces || 0}</b></>} />
-            <GameCard cls="bomber" title="💣 BOMBER BLAST" tag="Battle arena · bots · 1v1 · 2v2" hiLabel="WINS" hi={p.bomberWins || 0}
+              sub={<><span>ACES</span><b>{p.aces || 0}</b></>} />}
+            {show('action') && <GameCard cls="bomber" title="💣 BOMBER BLAST" tag="Battle arena · bots · 1v1 · 2v2" hiLabel="WINS" hi={p.bomberWins || 0}
               art={<MiniBomber />} label="SELECT MODE ▶" onPlay={() => setTab('bomber')} onInvite={() => { setOgame('bomber'); setTab('online') }}
-              sub={<><span>BLOCKS</span><b>{p.bricks || 0}</b></>} />
-            <GameCard cls="tetris" title="🧱 TETRA BLAST" tag="Solo · 1v1 vs bot · 2P · T-spins" hiLabel="LINES" hi={p.tetrisLines || 0}
+              sub={<><span>BLOCKS</span><b>{p.bricks || 0}</b></>} />}
+            {show('puzzle') && <GameCard cls="tetris" title="🧱 TETRA BLAST" tag="Solo · 1v1 vs bot · 2P · T-spins" hiLabel="LINES" hi={p.tetrisLines || 0}
               art={<MiniTetris />} label="SELECT MODE ▶" onPlay={() => setTab('tetris')} onInvite={() => { setOgame('tetris'); setTab('online') }}
-              sub={<><span>TETRISES</span><b>{p.tetrises || 0}</b></>} />
-            <GameCard cls="chomp" title="🟡 MAZE CHOMP" tag="Ghosts · pellets · fruit · co-op" hiLabel="BEST" hi={(p.chompHi || 0).toLocaleString()}
+              sub={<><span>TETRISES</span><b>{p.tetrises || 0}</b></>} />}
+            {show('action','puzzle') && <GameCard cls="chomp" title="🟡 MAZE CHOMP" tag="Ghosts · pellets · fruit · co-op" hiLabel="BEST" hi={(p.chompHi || 0).toLocaleString()}
               art={<MiniChomp />} label="SELECT MODE ▶" onPlay={() => setTab('chomp')}
-              sub={<><span>GHOSTS</span><b>{p.chompGhosts || 0}</b></>} />
-            <GameCard cls="race" title="🏁 TURBO RUSH" tag="5 tracks · 6 cars · drift · nitro" hiLabel="WINS" hi={p.raceWins || 0}
+              sub={<><span>GHOSTS</span><b>{p.chompGhosts || 0}</b></>} />}
+            {show('sports','action') && <GameCard cls="race" title="🏁 TURBO RUSH" tag="5 tracks · 6 cars · drift · nitro" hiLabel="WINS" hi={p.raceWins || 0}
               art={<div className="miniRace"><span>🏎️</span><b>💨</b></div>} label="START ENGINES ▶" onPlay={() => setTab('race')} onInvite={() => { setOgame('race'); setTab('online') }}
-              sub={<><span>RACES</span><b>{p.raceRaces || 0}</b></>} />
-            <GameCard cls="fight" title="🥊 IRON FISTS" tag="40 fighters · specials · supers · 1v1" hiLabel="WINS" hi={p.fightWins || 0}
+              sub={<><span>RACES</span><b>{p.raceRaces || 0}</b></>} />}
+            {show('action','sports') && <GameCard cls="fight" title="🥊 IRON FISTS" tag="40 fighters · specials · supers · 1v1" hiLabel="WINS" hi={p.fightWins || 0}
               art={<div className="miniFight"><span>🥋</span><b>VS</b><span>🥷</span></div>} label="CHOOSE FIGHTER ▶" onPlay={() => setTab('fight')} onInvite={() => { setOgame('fight'); setTab('online') }}
-              sub={<><span>BEATEN</span><b>{Object.keys(p.fightBeaten || {}).length}/40</b></>} />
-            <GameCard cls="flames" title="🔥 FLAMES" tag="Friends · Lovers · Affection · Marriage · Enemies · Siblings" hiLabel="TRIED" hi={p.flamesGames || 0}
+              sub={<><span>BEATEN</span><b>{Object.keys(p.fightBeaten || {}).length}/40</b></>} />}
+            {show('puzzle') && <GameCard cls="flames" title="🔥 FLAMES" tag="Friends · Lovers · Affection · Marriage · Enemies · Siblings" hiLabel="TRIED" hi={p.flamesGames || 0}
               art={<div className="miniFlames"><i>F</i><i>L</i><i>A</i><i>M</i><i>E</i><i>S</i></div>} label="PLAY FLAMES ▶" onPlay={() => setTab('flames')}
-              sub={<><span>LAST</span><b>{(p.flamesHistory && p.flamesHistory[0]) ? FOUT[p.flamesHistory[0].r].word : '-'}</b></>} />
-            <GameCard cls="cards" title="🃏 CARD ROOM" tag="UNO · Pusoy Dos · Lucky 9 · Tong-its" hiLabel="CHIPS" hi={'🪙 ' + Number(p.chips || 0).toLocaleString()}
+              sub={<><span>LAST</span><b>{(p.flamesHistory && p.flamesHistory[0]) ? FOUT[p.flamesHistory[0].r].word : '-'}</b></>} />}
+            {show('sports') && <GameCard cls="hockey" title="🏒 AIR HOCKEY" tag="Neon table · bot · 2P · online" hiLabel="WINS" hi={p.hockeyWins || 0}
+              art={<div className="miniHockey"><i className="puck" /><b className="ma" /><b className="mb" /></div>} label="SELECT MODE ▶" onPlay={() => setTab('hockey')} onInvite={() => { setOgame('hockey'); setTab('online') }}
+              sub={<><span>MATCHES</span><b>{p.hockeyGames || 0}</b></>} />}
+            {show('sports') && <GameCard cls="pool" title="🎱 BILLIARDS" tag="8-ball · bot · 2P · online" hiLabel="WINS" hi={p.poolWins || 0}
+              art={<div className="miniPool"><i /><i /><i /><i /><i /><u /></div>} label="SELECT MODE ▶" onPlay={() => setTab('pool')} onInvite={() => { setOgame('pool'); setTab('online') }}
+              sub={<><span>POTTED</span><b>{p.poolPots || 0}</b></>} />}
+            {show('strategy') && <GameCard cls="td" title="🛡 NEON DEFENSE" tag="3 maps · 6 towers · 25 waves" hiLabel="BEST WAVE" hi={(p.tdBest || 0) + '/25'}
+              art={<div className="miniTd"><i /><i /><i /><b>🛡</b></div>} label="SELECT MAP ▶" onPlay={() => setTab('td')}
+              sub={<><span>VICTORIES</span><b>{p.tdWins || 0}</b></>} />}
+            {show('strategy', 'action') && <GameCard cls="rogue" title="🗡 NEON DEPTHS" tag="Roguelike · 3 heroes · perks · bosses" hiLabel="DEEPEST" hi={(p.rogueDeep || 0) + '/12'}
+              art={<div className="miniRogue"><span>🗡</span><b>👾</b><span>💎</span></div>} label="CHOOSE HERO ▶" onPlay={() => setTab('rogue')}
+              sub={<><span>RUNS</span><b>{p.rogueRuns || 0}</b></>} />}
+            {show('music') && <GameCard cls="rhythm" title="🎵 NEON BEAT" tag="4 lanes · 5 songs · hold notes" hiLabel="PLAYED" hi={p.rhythmPlays || 0}
+              art={<div className="miniBeat"><i /><i /><i /><i /></div>} label="PICK A SONG ▶" onPlay={() => setTab('rhythm')}
+              sub={<><span>FULL COMBOS</span><b>{p.rhythmFC || 0}</b></>} />}
+            {show('puzzle') && <GameCard cls="word" title="🔤 WORD HUNT" tag="Daily word · English + Filipino" hiLabel="STREAK" hi={(p.word && p.word.streak) || 0}
+              art={<div className="miniWord"><i className="g">W</i><i className="y">O</i><i>R</i><i className="g">D</i><i>S</i></div>} label="PLAY ▶" onPlay={() => setTab('word')}
+              sub={<><span>WON</span><b>{(p.word && p.word.wins) || 0}</b></>} />}
+            {show('puzzle') && <GameCard cls="merge" title="🔢 2048 MERGE" tag="Swipe · undo · hammer · 3 sizes" hiLabel="BIGGEST" hi={p.mergeMax || 0}
+              art={<div className="miniMerge"><i>2</i><i>4</i><i>8</i><i>16</i></div>} label="PLAY ▶" onPlay={() => setTab('merge')}
+              sub={<><span>GAMES</span><b>{p.mergeGames || 0}</b></>} />}
+            {show('cards') && <GameCard cls="cards" title="🃏 CARD ROOM" tag="UNO · Pusoy Dos · Lucky 9 · Tong-its" hiLabel="CHIPS" hi={'🪙 ' + Number(p.chips || 0).toLocaleString()}
               art={<div className="miniCards"><i>♥</i><i>♠</i><i>9</i><i>+2</i></div>} label="SELECT GAME ▶" onPlay={() => setTab('cards')} onInvite={() => { setOgame('uno'); setTab('online') }}
-              sub={<><span>WON</span><b>{p.cardWins || 0}</b></>} />
-            <GameCard cls="topcard" title="🏆 TOP PLAYERS" tag="Global leaderboards for every game" hiLabel="YOUR RANK" hi={RANKS[ri][1]}
+              sub={<><span>WON</span><b>{p.cardWins || 0}</b></>} />}
+            {cat === 'all' && <GameCard cls="topcard" title="🏆 TOP PLAYERS" tag="Global leaderboards for every game" hiLabel="YOUR RANK" hi={RANKS[ri][1]}
               art={<div className="miniPodium"><i>🥈</i><i>🥇</i><i>🥉</i></div>} label="SEE LEADERBOARDS ▶" onPlay={() => setTab('top')}
-              sub={<><span>XP</span><b>{xp.toLocaleString()}</b></>} />
-            <GameCard cls="shipcard" title="🛠 CUSTOMIZE SHIP" tag="Models · paints · trails · bullets" hiLabel="MODEL" hi={'#' + ((p.ship.model || 0) + 1)}
+              sub={<><span>XP</span><b>{xp.toLocaleString()}</b></>} />}
+            {cat === 'all' && <GameCard cls="shipcard" title="🛠 CUSTOMIZE SHIP" tag="Models · paints · trails · bullets" hiLabel="MODEL" hi={'#' + ((p.ship.model || 0) + 1)}
               art={<ShipPreview ship={p.ship} />} label="OPEN HANGAR ▶" onPlay={() => setTab('ship')}
-              sub={<><span>PAINT</span><b>#{(p.ship.paint || 0) + 1}</b></>} />
+              sub={<><span>PAINT</span><b>#{(p.ship.paint || 0) + 1}</b></>} />}
           </div>
           <DailyPanel q={s.quests} />
           <div className="hubrow">
@@ -1463,6 +1579,13 @@ function Hub({ s }) {
       )}
       {tab === 'pickle' && <PickleLobby s={s} mode={pmode} setMode={setPmode} diff={pdiff} setDiff={setPdiff} target={ptarget} setTarget={setPtarget} />}
       {tab === 'race' && <RaceLobby s={s} />}
+      {tab === 'hockey' && <HockeyLobby s={s} TopPlayers={TopPlayers} onInvite={() => { setOgame('hockey'); setTab('online') }} />}
+      {tab === 'pool' && <PoolLobby s={s} TopPlayers={TopPlayers} onInvite={() => { setOgame('pool'); setTab('online') }} />}
+      {tab === 'td' && <TdLobby s={s} TopPlayers={TopPlayers} />}
+      {tab === 'rogue' && <RogueLobby s={s} TopPlayers={TopPlayers} />}
+      {tab === 'rhythm' && <RhythmLobby s={s} TopPlayers={TopPlayers} />}
+      {tab === 'word' && <WordLobby s={s} TopPlayers={TopPlayers} />}
+      {tab === 'merge' && <MergeLobby s={s} TopPlayers={TopPlayers} />}
       {tab === 'fight' && <FightLobby s={s} />}
       {tab === 'flames' && <FlamesLobby s={s} />}
       {tab === 'cards' && <CardRoomLobby s={s} onOnline={(g) => { setOgame(g || 'uno'); setTab('online') }} />}
@@ -1470,6 +1593,7 @@ function Hub({ s }) {
       {tab === 'chomp' && <ChompLobby s={s} mode={cmode} setMode={setCmode} level={clevel} setLevel={setClevel} />}
       {tab === 'tetris' && <TetrisLobby s={s} mode={tmode} setMode={setTmode} diff={tdiff} setDiff={setTdiff} level={tlevel} setLevel={setTlevel} />}
       {tab === 'bomber' && <BomberLobby s={s} mode={bmode} setMode={setBmode} diff={bdiff} setDiff={setBdiff} rounds={brounds} setRounds={setBrounds} />}
+      {tab === 'story' && <StoryTab s={s} />}
       {tab === 'settings' && <Settings />}
       {tab === 'ship' && <ShipLab s={s} />}
       {tab === 'levels' && <Codex s={s} embedded />}
@@ -1486,7 +1610,7 @@ function TopPlayers({ s, initial = 'space', compact = false, fixed = false }) {
   const lim = compact ? 5 : 10
   useEffect(() => { let on = true; setRows(null); fetchTop(game, lim).then((r) => on && setRows(r)); return () => { on = false } }, [game, lim])
   const me = (s.profile.name || '').toUpperCase()
-  const GAMES = [['space', 'SPACE IMPACT'], ['slug', 'GROUND ZERO'], ['pickle', 'PICKLEBALL'], ['bomber', 'BOMBER BLAST'], ['tetris', 'TETRA BLAST'], ['chomp', 'MAZE CHOMP'], ['uno', 'UNO'], ['pusoy', 'PUSOY DOS'], ['lucky9', 'LUCKY 9'], ['tongits', 'TONG-ITS'], ['race', 'TURBO RUSH']]
+  const GAMES = [['space', 'SPACE IMPACT'], ['slug', 'GROUND ZERO'], ['pickle', 'PICKLEBALL'], ['bomber', 'BOMBER BLAST'], ['tetris', 'TETRA BLAST'], ['chomp', 'MAZE CHOMP'], ['uno', 'UNO'], ['pusoy', 'PUSOY DOS'], ['lucky9', 'LUCKY 9'], ['tongits', 'TONG-ITS'], ['race', 'TURBO RUSH'], ['hockey', 'AIR HOCKEY'], ['pool', 'BILLIARDS'], ['td', 'NEON DEFENSE'], ['rogue', 'NEON DEPTHS'], ['rhythm', 'NEON BEAT'], ['word', 'WORD HUNT'], ['merge', '2048 MERGE']]
   return (
     <div className="topboard">
       <h4>🏆 TOP PLAYERS{fixed ? ' · ' + (GAMES.find(([k]) => k === game) || [0, game])[1] : ''}</h4>
@@ -1521,7 +1645,7 @@ function TopPlayersMini({ game = 'pickle' }) {
 // On-screen controls for touch devices: a D-pad plus one big action button (bomb)
 function TouchPad({ action, actionKey = 'Space', label = '💣' }) {
   const [touch, setTouch] = useState(false)
-  useEffect(() => { try { setTouch('ontouchstart' in window || navigator.maxTouchPoints > 0 || window.matchMedia('(pointer: coarse)').matches) } catch { /* ignore */ } }, [])
+  useEffect(() => { try { setTouch(isTouchPrimary()) } catch { /* ignore */ } }, [])
   if (!touch) return null
   const hold = (code) => ({
     onPointerDown: (e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.setPointerCapture && e.currentTarget.setPointerCapture(e.pointerId); engineKey(code, true) },
@@ -1795,6 +1919,7 @@ export default function HUD() {
       <HUDInner s={s} />
       <Notices list={s.notices} />
       <div className="hud helplayer"><HelpLayer s={s} /></div>
+      <StoryOverlay />
     </>
   )
 }
@@ -1807,6 +1932,7 @@ function HUDInner({ s }) {
   if (s.mode === 'flames') return <FlamesHUD />
   if (s.mode === 'fight') return <FightHUD />
   if (s.mode === 'race') return <RaceHUD />
+  if (MORE_MODES.includes(s.mode)) return <MoreHUD mode={s.mode} openHelp={openHelp} />
   if (s.mode === 'cards') return <CardsHUD SoundBtn={SoundBtn} openHelp={openHelp} TopPlayersMini={TopPlayersMini} />
   const playing = s.mode === 'playing' || s.mode === 'paused'
   return (

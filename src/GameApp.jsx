@@ -15,6 +15,13 @@ import './game/chomp.js'
 import './game/flames.js'
 import './game/fight.js'
 import './game/race.js'
+import './game/hockey.js'
+import './game/pool.js'
+import './game/td.js'
+import './game/rogue.js'
+import './game/rhythm.js'
+import './game/word.js'
+import './game/merge.js'
 import './game/cards/uno.js'
 import './game/cards/pusoy.js'
 import './game/cards/lucky9.js'
@@ -24,7 +31,7 @@ import { subscribeSettings, getSettings } from './game/settings.js'
 export default function GameApp() {
   const stage = useRef()
   const snap = useSyncExternalStore(subscribe, getSnap)
-  const menu = snap && (snap.mode === 'menu' || snap.mode === 'cards')
+  const menu = snap && (snap.mode === 'menu' || snap.mode === 'cards' || snap.mode === 'word' || snap.mode === 'merge')
   const [autoLow, setLow] = useState(false)
   const set = useSyncExternalStore(subscribeSettings, getSettings)
   const low = set.quality === 'low' || (set.quality === 'auto' && autoLow)
