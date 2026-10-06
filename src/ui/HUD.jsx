@@ -691,7 +691,7 @@ function PickleLobby({ s, mode, setMode, diff, setDiff, target, setTarget }) {
       <div className="lobbyL">
         <h4>1 · CHOOSE A MODE</h4>
         <div className="modegrid">
-          {Object.entries(MODES).map(([k, md]) => (
+          {Object.entries(MODES).filter(([, md]) => !md.online).map(([k, md]) => (
             <button key={k} className={'modecard ' + (mode === k ? 'sel' : '')} onClick={() => setMode(k)}>
               <div className="vs"><span>{MODE_ICON[k][0]}</span><i>VS</i><span>{MODE_ICON[k][1]}</span></div>
               <strong>{md.name}</strong><small>{md.desc}</small>
@@ -723,7 +723,7 @@ function BomberLobby({ s, mode, setMode, diff, setDiff, rounds, setRounds }) {
       <div className="lobbyL">
         <h4>1 · CHOOSE A MODE</h4>
         <div className="modegrid">
-          {Object.entries(BMODES).map(([k, md]) => (
+          {Object.entries(BMODES).filter(([, md]) => !md.online).map(([k, md]) => (
             <button key={k} className={'modecard ' + (mode === k ? 'sel' : '')} onClick={() => setMode(k)}>
               <div className="vs"><span>{BMODE_ICON[k][0]}</span><i>VS</i><span>{BMODE_ICON[k][1]}</span></div>
               <strong>{md.name}</strong><small>{md.desc}</small>
