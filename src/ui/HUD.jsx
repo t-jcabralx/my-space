@@ -1080,7 +1080,7 @@ function Hub({ s }) {
           <div className="cards4">
             <GameCard cls="space" title="🚀 SPACE IMPACT: NEON" tag="10 levels · 10 bosses · squad of 3 ships" hiLabel="HI-SCORE" hi={p.spaceHi.toLocaleString()}
               art={<ShipPreview ship={p.ship} />} label="▶ PLAY" onPlay={startGame} onInvite={() => { setOgame('space'); setTab('online') }}
-              extra={<div className="squadsel"><small>TEAM: SOLO · DUO (1 friend) · TRIO (2 friends)</small><div className="chips">{[[0, 'SOLO'], [1, 'DUO'], [2, 'TRIO']].map(([n, l]) => <button key={n} className={'chip ' + ((s.squadSize === n) ? 'sel' : '')} onClick={() => setSquad(n, s.squadHuman, s.squadBots)}>{l}</button>)}<button className={'chip ' + (s.squadHuman ? 'sel' : '')} disabled={s.squadSize < 1} onClick={() => setSquad(s.squadSize, !s.squadHuman, s.squadBots)} title="A friend flies a ship on the same keyboard: arrows + Enter">👥 P2 ON THIS KEYBOARD</button><button className={'chip ' + (s.squadBots ? 'sel' : '')} disabled={s.squadSize < 1} onClick={() => setSquad(s.squadSize, s.squadHuman, !s.squadBots)} title="Fill empty team slots with AI wingmen">🤖 AI FILLS EMPTY SLOTS</button></div><small className="dim">{s.squadSize === 0 ? 'Flying solo.' : s.squadBots ? 'Empty slots are flown by AI.' : 'Teammates appear only when friends join: use INVITE FRIEND.'}</small></div>}
+              extra={<div className="squadsel"><div className="sqrow"><small>TEAM</small>{[[0, 'SOLO'], [1, 'DUO'], [2, 'TRIO']].map(([n, l]) => <button key={n} className={'chip ' + ((s.squadSize === n) ? 'sel' : '')} onClick={() => setSquad(n, s.squadHuman, s.squadBots)}>{l}</button>)}<button className={'chip ic ' + (s.squadHuman ? 'sel' : '')} disabled={s.squadSize < 1} onClick={() => setSquad(s.squadSize, !s.squadHuman, s.squadBots)} title="A friend flies a ship on this keyboard: arrows + Enter">👥</button><button className={'chip ic ' + (s.squadBots ? 'sel' : '')} disabled={s.squadSize < 1} onClick={() => setSquad(s.squadSize, s.squadHuman, !s.squadBots)} title="Fill empty team slots with AI wingmen">🤖</button></div><small className="dim">{s.squadSize === 0 ? 'Flying solo' : s.squadBots ? 'AI flies empty slots' : '👥 same keyboard · 🤖 AI · or invite friends'}</small></div>}
               sub={<><span>LEVELS</span><b>{s.unlocked + 1}/10</b></>} />
             <GameCard cls="slug" title="🪖 OPERATION GROUND ZERO" tag="Run & gun · POWs · tank · 3 bosses" hiLabel="HI-SCORE" hi={p.slugHi.toLocaleString()}
               art={<SpriteArt scene={[[SP.palm, 22, false, 3], [SP.vsv, 110, false, 3], [SP.heroS, 66, false, 4], [SP.solS, 178, true, 4], [SP.runS, 206, true, 4]]} />} label="▶ PLAY" onPlay={() => slugActions.start(0)}
@@ -1103,6 +1103,12 @@ function Hub({ s }) {
             <GameCard cls="cards" title="🃏 CARD ROOM" tag="UNO · Pusoy Dos · Lucky 9 · Tong-its" hiLabel="CHIPS" hi={'🪙 ' + Number(p.chips || 0).toLocaleString()}
               art={<div className="miniCards"><i>♥</i><i>♠</i><i>9</i><i>+2</i></div>} label="SELECT GAME ▶" onPlay={() => setTab('cards')} onInvite={() => { setOgame('uno'); setTab('online') }}
               sub={<><span>WON</span><b>{p.cardWins || 0}</b></>} />
+            <GameCard cls="topcard" title="🏆 TOP PLAYERS" tag="Global leaderboards for every game" hiLabel="YOUR RANK" hi={RANKS[ri][1]}
+              art={<div className="miniPodium"><i>🥈</i><i>🥇</i><i>🥉</i></div>} label="SEE LEADERBOARDS ▶" onPlay={() => setTab('top')}
+              sub={<><span>XP</span><b>{xp.toLocaleString()}</b></>} />
+            <GameCard cls="shipcard" title="🛠 CUSTOMIZE SHIP" tag="Models · paints · trails · bullets" hiLabel="MODEL" hi={'#' + ((p.ship.model || 0) + 1)}
+              art={<ShipPreview ship={p.ship} />} label="OPEN HANGAR ▶" onPlay={() => setTab('ship')}
+              sub={<><span>PAINT</span><b>#{(p.ship.paint || 0) + 1}</b></>} />
           </div>
           <DailyPanel q={s.quests} />
           <div className="hubrow">

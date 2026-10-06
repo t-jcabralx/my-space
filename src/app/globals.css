@@ -421,3 +421,19 @@ li.bonus { border-color: var(--gr); color: var(--gr); } li.fail { border-color: 
 .logoimg { display: block; height: 7cqw; width: auto; max-height: 92px; border-radius: 6px; image-rendering: pixelated; }
 
 .coopbadge { position: absolute; left: 50%; bottom: 1.2cqw; transform: translateX(-50%); background: #0a1230cc; border: 2px solid #3de8ff; color: #cdd8ff; font-size: .6em; padding: .5cqw 1.4cqw; pointer-events: none; } .coopbadge b { color: #ffe84a; }
+
+/* ---------- dashboard polish ---------- */
+.tabs { gap: .4cqw; } .tab { font-size: .62em; padding: .5cqw .8cqw; white-space: nowrap; }
+.tab.sel { background: var(--cy); color: #02030a; border-color: var(--cy); }
+.hubtop { align-items: flex-start; }
+.gcard { min-width: 0; } .gcard .gart { flex: 0 0 auto; } .gcard .kv { margin-top: auto; }
+.gcard > .big { margin-top: 0; } .gcard .big { width: 100%; }
+.squadsel { display: flex; flex-direction: column; gap: .3cqw; }
+.squadsel .sqrow { display: flex; align-items: center; gap: .35cqw; flex-wrap: wrap; } .squadsel .sqrow small { color: #8fa4d8; font-size: .55em; margin-right: .2cqw; }
+.squadsel .chip { font-size: .58em; padding: .4cqw .6cqw; } .squadsel .chip.ic { padding: .4cqw .5cqw; } .squadsel .chip:disabled { opacity: .35; cursor: not-allowed; }
+.squadsel .dim { color: #7f95c8; font-size: .52em; }
+
+.miniPodium { display: flex; gap: 1.2cqw; justify-content: center; align-items: flex-end; min-height: 11cqw; }
+.miniPodium i { font-style: normal; font-size: 3.4cqw; display: grid; place-items: end center; width: 4.6cqw; background: linear-gradient(#ffe84a55, #ffe84a11); border: 2px solid #ffe84a; padding-bottom: .4cqw; height: 6cqw; }
+.miniPodium i:nth-child(2) { height: 9cqw; } .miniPodium i:nth-child(3) { height: 4.6cqw; }
+.gcard.topcard { border-color: #ffe84a; } .gcard.shipcard { border-color: #b04dff; } .gcard.flames { border-color: #ff9a2e; }
