@@ -247,6 +247,7 @@ const HELP = {
           <li><b>Move:</b> A/D walk · W jump · S crouch · <b>hold back to block</b> (stand blocks high/mid, crouch blocks low/mid).</li>
           <li><b>Attacks:</b> J light punch · K heavy punch · U light kick · I heavy kick. Crouch (S) for low kicks and uppercuts, jump for air attacks.</li>
           <li><b>L = special</b> (cooldown). <b>O = super</b>: the meter fills when you hit or get hit.</li>
+          <li><b>FINISH HIM!</b> Win the deciding round by K.O. and the loser is left helpless: press <b>special</b> or <b>super</b> within 5 seconds for your element's finisher: <b>INFERNO</b> (fire), <b>ABSOLUTE ZERO</b> (ice), <b>THUNDER GOD</b> (thunder) or <b>SOUL EATER</b> (shadow). Bots finish you too!</li>
           <li><b>P2 (same keyboard):</b> arrows · N M punch · , . kick · / special · Right Shift super.</li>
           <li>Chain light attacks into combos, but damage shrinks with long combos. Grabs (wrestlers) cannot be blocked.</li>
           <li><b>Online:</b> use the INVITE FRIEND button; both players use WASD or the arrows.</li>

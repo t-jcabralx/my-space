@@ -74,7 +74,7 @@ function start(cfg = {}) {
   if (c.type !== 'online') FT.net = null
   FT.f = [mkFighter(0, c.p1, c.type === 'demo' ? 0 : 1), mkFighter(1, c.p2, c.type === '2p' ? 2 : 0)]
   if (c.type === 'online') { FT.f[0].human = FT.net && FT.net.role === 'host' ? 1 : 0; FT.f[1].human = 0; FT.f[1].remote = !!(FT.net && FT.net.role === 'host'); FT.f[0].remote = !!(FT.net && FT.net.role === 'guest') }
-  FT.wins = [0, 0]; FT.round = 1; FT.over = null; FT.paused = false; FT.say = null; FT.cine = null; FT.stats = { hits: 0, specials: 0, supers: 0, blocked: 0, maxCombo: 0 }
+  FT.wins = [0, 0]; FT.round = 1; FT.over = null; FT.paused = false; FT.say = null; FT.cine = null; FT.fin = null; FT.stats = { hits: 0, specials: 0, supers: 0, blocked: 0, maxCombo: 0 }
   G.mode = 'fight'; G.parts = []; G.pops = []; G.shake = 0; G.flash = 0
   FT.mode = 'play'
   music.set('fight', 0)
@@ -415,6 +415,7 @@ function controls(f, o, dt) {
   } else aiThink(f, o, dt)
 }
 function press(f, btn) {
+  if (FT.phase === 'finish') { if (FT.fin && FT.fin.state === 'wait' && (btn === 'su' || btn === 'sp') && f.id === FT.fin.win) startFinisher(); return }
   if (f.st === 'ko' || FT.phase !== 'fight' || FT.cine) return
   if (f.st === 'attack' && f.atk && f.atk.normal && f.atk.id && !f.atk.chained && ['lp', 'hp', 'lk', 'hk'].includes(btn)) {
     const c = f.ch.chain[`${f.atk.id}>${btn}`]
@@ -616,6 +617,8 @@ function update(dtRaw) {
   } else if (FT.phase === 'ko') {
     if (FT.phaseT > 1.4) FT.slow = 1
     if (FT.phaseT > 2.4) roundOver(a.hp <= 0 && b.hp <= 0 ? (a.hp >= b.hp ? 0 : 1) : a.hp <= 0 ? 1 : 0, 'K.O.')
+  } else if (FT.phase === 'finish') {
+    stepFinish(sdt)
   } else if (FT.phase === 'result') {
     if (FT.phaseT > 2.6) { if (FT.wins[0] >= FT.cfg.rounds || FT.wins[1] >= FT.cfg.rounds) endMatch(); else { FT.round++; newRound() } }
   }
@@ -654,6 +657,37 @@ function roundOver(winner, why) {
   FT.msg = { text: winner < 0 ? 'DRAW' : perfect ? 'PERFECT!' : `${nm} WINS`, sub: why === 'TIME UP' ? 'TIME UP' : `ROUND ${FT.round}`, color: winner < 0 ? '#fff' : ELEMENTS[FT.f[winner].ch.element].color, t: 2.4 }
   if (winner >= 0) { sfx('fWin'); sfx('fCrowd'); sfx('fVoice', { id: FT.f[winner].ch.id, f: FT.f[winner].ch.gender === 'f', kind: 'win' }); if (FT.f[winner].human) { speak(perfect ? 'Perfect!' : 'You win', 0.9, 1.1) } }
   void a; void b
+  // the match is decided by a K.O.: the winner gets a moment to finish the loser
+  if (winner >= 0 && why === 'K.O.' && FT.wins[winner] >= FT.cfg.rounds && FT.cfg.type !== 'demo' && FT.f[1 - winner].hp <= 0) {
+    const w = FT.f[winner], l = FT.f[1 - winner]
+    FT.phase = 'finish'; FT.phaseT = 0
+    FT.fin = { t: 0, state: 'wait', win: winner, vic: 1 - winner, kind: w.ch.element, dur: 4.4, hideAt: { fire: 1.9, ice: 1.5, thunder: 0.9, shadow: 1.5 }[w.ch.element] || 1.5, name: FINISHERS[w.ch.element] || 'FINISHER', ox: l.x, oy: l.y, ai: !w.human && !w.remote, aiAt: 1.1 + Math.random() * 1.3 }
+    FT.msg = { text: 'FINISH HIM!', sub: w.human || w.remote ? 'PRESS SPECIAL OR SUPER' : '', color: '#ff2a2a', t: 4.8 }
+    sfx('fRound'); speak('Finish him!', 0.5, 0.9)
+  }
+}
+const FINISHERS = { fire: 'INFERNO', ice: 'ABSOLUTE ZERO', thunder: 'THUNDER GOD', shadow: 'SOUL EATER' }
+function startFinisher() {
+  const F = FT.fin
+  if (!F || F.state !== 'wait') return
+  const l = FT.f[F.vic], w = FT.f[F.win], el = ELEMENTS[F.kind]
+  F.state = 'play'; F.t = 0; F.ox = l.x; F.oy = l.y; FT.slow = 0.7
+  FT.msg = { text: F.name, sub: 'FINISHER', color: el.color, t: 3.4 }
+  sfx('fSuper'); sfx('fSlam'); shake(1.4); flash(0.5, [1, 1, 1]); speak(F.name.toLowerCase(), 0.5, 0.9)
+  void w
+}
+function stepFinish(dt) {
+  const F = FT.fin
+  if (!F) { FT.phase = 'result'; FT.phaseT = 0; return }
+  F.t += dt
+  const l = FT.f[F.vic]
+  if (F.state === 'wait') {
+    if (F.ai && !F.aiDone && F.t > F.aiAt) { F.aiDone = true; if (Math.random() < 0.8) startFinisher() }
+    if (F.t > 5) { FT.fin = null; FT.phase = 'result'; FT.phaseT = 0 }
+  } else {
+    if (!F.hid && F.t >= F.hideAt) { F.hid = true; l.vis = 0; shake(1.8); flash(0.6, [1, 1, 1]); sfx(F.kind === 'ice' ? 'fBlock' : F.kind === 'thunder' ? 'fBeam' : 'fHeavy'); sfx('fKO') }
+    if (F.t > F.dur) { FT.slow = 1; FT.phase = 'result'; FT.phaseT = 0; F.done = true }
+  }
 }
 function endMatch() {
   FT.phase = 'over'; FT.mode = 'over'; music.stop()
@@ -707,6 +741,7 @@ function hostSnap() {
     ph: FT.phase, pt: r2(FT.phaseT), tm: r2(FT.timer), rd: FT.round, w: FT.wins, mode: FT.mode, st: r2(FT.stop), sl: FT.slow,
     ci: FT.cine ? { t: r2(FT.cine.t), dur: FT.cine.dur, o: FT.cine.owner, name: FT.cine.name, color: FT.cine.color } : null,
     say: FT.say, msg: FT.msg, over: FT.over, rounds: FT.cfg.rounds,
+    fin: FT.fin ? { t: r2(FT.fin.t), s: FT.fin.state, w: FT.fin.win, v: FT.fin.vic, k: FT.fin.kind, d: FT.fin.dur, h: FT.fin.hideAt, n: FT.fin.name, ox: r2(FT.fin.ox), oy: r2(FT.fin.oy) } : null,
   }
 }
 function netTick(dt) {
@@ -733,6 +768,7 @@ function guestStep(dt) {
   if (FT.say) { FT.say.t -= dt; if (FT.say.t <= 0) FT.say = null }
   if (FT.msg) { FT.msg.t -= dt; if (FT.msg.t <= 0) FT.msg = null }
   if (FT.cine) FT.cine.t += dt
+  if (FT.fin) FT.fin.t += dt * (FT.fin.state === 'play' ? 0.7 : 1)
   stepParticles(dt)
   FT.emitT -= dt
   if (FT.emitT <= 0) { FT.emitT = 0.06; emitFt() }
@@ -759,6 +795,7 @@ export const fightNet = {
     })
     FT.proj = (s.pr || []).map((p) => ({ kind: p.k, x: p.x, y: p.y, vx: p.vx, dir: p.d, color: p.c, glow: p.g, r: p.r, life: p.l, t: p.t }))
     FT.phase = s.ph; FT.phaseT = s.pt; FT.timer = s.tm; FT.round = s.rd; FT.wins = s.w; FT.cfg.rounds = s.rounds; FT.slow = s.sl
+    FT.fin = s.fin ? { t: s.fin.t, state: s.fin.s, win: s.fin.w, vic: s.fin.v, kind: s.fin.k, dur: s.fin.d, hideAt: s.fin.h, name: s.fin.n, ox: s.fin.ox, oy: s.fin.oy } : null
     FT.cine = s.ci ? { t: s.ci.t, dur: s.ci.dur, owner: s.ci.o, name: s.ci.name, color: s.ci.color } : null
     if (s.say && (!FT.say || FT.say.id !== s.say.id)) FT.say = s.say
     if (s.msg && (!FT.msg || FT.msg.text !== s.msg.text)) FT.msg = s.msg
@@ -1070,6 +1107,44 @@ function draw3(api) {
   put3(0, FLOOR + 0.02, 6, 150, 0.1, 0.5, 0, c[0] * 0.8, c[1] * 0.8, c[2] * 0.8)
   if (!FT.f.length) return
   for (const f of FT.f) drawFighter3(put3, f, t)
+  if (FT.fin && FT.fin.state === 'play') drawFinisher(put3, FT.fin)
+}
+const hsh = (i, k) => { const q = Math.sin(i * 12.9898 + k * 78.233) * 43758.5453; return q - Math.floor(q) }
+function drawFinisher(put3, F) {
+  const tt = F.t, ox = F.ox, by = FLOOR + 2, w = FT.f[F.win], vx = F.ox
+  const el = ELEMENTS[F.kind], c = lc(el.color), g = lc(el.glow)
+  const shatter = tt - F.hideAt
+  if (F.kind === 'ice') {
+    if (shatter < 0) {
+      const u = Math.min(1, tt / 0.8)
+      put3(vx, by + 4.5, 0, 15 * u, 9 * u, 9, 0, 0.5, 1.4, 2.0)
+      put3(vx, by + 4.5, 0, 12 * u, 6.5 * u, 6.5, 0, 1.2, 2.2, 2.6)
+      for (let i = 0; i < 6; i++) put3(vx - 6 + i * 2.4, by + 9.5 * u, 0, 0.8, 3 * u, 0.8, 0, 2, 2.4, 2.8, i)
+    } else for (let i = 0; i < 70; i++) { const a = hsh(i, 1) * 6.283, sp = 6 + hsh(i, 2) * 26, u = shatter; put3(vx + Math.cos(a) * sp * u, by + 4 + Math.abs(Math.sin(a)) * sp * u * 0.8 - 22 * u * u, (hsh(i, 3) - 0.5) * 10 * u, 1.2 + hsh(i, 4) * 1.6, 1.2 + hsh(i, 5) * 1.6, 1.2, 0, 0.8 * (1 - u * 0.3), 1.8, 2.4, a + u * 6) }
+  } else if (F.kind === 'fire') {
+    if (shatter < 0) for (let i = 0; i < 16; i++) { const a = hsh(i, 1) * 6.283, hgt = (4 + hsh(i, 2) * 12) * (0.6 + 0.4 * Math.sin(tt * 14 + i)) * Math.min(1, tt / 0.6), r = 1 + hsh(i, 3) * 5; put3(vx + Math.cos(a) * r, by + hgt / 2, Math.sin(a) * 2.5, 2.2, hgt, 2.2, 0, 2.6, 1.0 + hsh(i, 4) * 1.2, 0.1, tt * 3 + i) }
+    else { for (let i = 0; i < 70; i++) { const u = shatter, a = hsh(i, 1) * 6.283; put3(vx + Math.cos(a) * 14 * u * hsh(i, 6), by + 2 + u * (8 + hsh(i, 2) * 26) - 4 * u * u, Math.sin(a) * 4 * u, 0.9, 0.9, 0.9, 0, 2.6 * (1 - u * 0.35), 1.2, 0.15, a) } put3(vx, by + 0.4, 0, 9, 0.8, 5, 0, 0.12, 0.1, 0.1); put3(vx + 1, by + 1.1, 0, 5, 0.9, 3.5, 0, 0.2, 0.16, 0.14) }
+  } else if (F.kind === 'thunder') {
+    if (tt < 0.9) {
+      const fl = Math.sin(tt * 60) > 0 ? 3 : 1.2, top = FLOOR + 80
+      let px = vx + (hsh(Math.floor(tt * 30), 1) - 0.5) * 6
+      for (let y = top; y > by; y -= 5) { const nx = vx + (hsh(Math.floor(tt * 30), y) - 0.5) * 7 * (y - by) / 80; put3((px + nx) / 2, y - 2.5, 0, 1.6, 5.4, 1.6, Math.atan2(nx - px, 5) * 0.5, 2.8 * fl, 2.8 * fl, 1.2 * fl); px = nx }
+      put3(vx, by + 1, 0, 16 * Math.min(1, tt * 3), 0.6, 8, 0, 2.6, 2.4, 0.6)
+    } else {
+      // the X-ray silhouette is blasted into the sky
+      const u = tt - 0.9, hy = by + 6 + u * u * 38, spin = u * 7, fl = Math.sin(u * 40) > 0 ? 2.6 : 0.6
+      put3(vx + u * 6, hy, 0, 1.6, 7, 1.2, spin, fl, fl, 2.8); put3(vx + u * 6, hy + 4.4, 0, 2.2, 2.2, 1.2, spin, fl, fl, 2.8)
+      put3(vx + u * 6 - 2.4, hy + 1, 0, 4, 0.7, 0.7, spin + 0.6, fl, fl, 2.8); put3(vx + u * 6 + 2.4, hy + 1, 0, 4, 0.7, 0.7, spin - 0.6, fl, fl, 2.8)
+      put3(vx + u * 6 - 1, hy - 4.5, 0, 0.8, 4.4, 0.8, spin + 0.3, fl, fl, 2.8); put3(vx + u * 6 + 1, hy - 4.5, 0, 0.8, 4.4, 0.8, spin - 0.3, fl, fl, 2.8)
+      if (shatter > 0) for (let i = 0; i < 50; i++) { const a = hsh(i, 1) * 6.283, sp = 8 + hsh(i, 2) * 24, q = shatter; put3(vx + 6 * u + Math.cos(a) * sp * q, hy + Math.sin(a) * sp * q, 0, 0.9, 0.9, 0.9, 0, 3, 2.8 * (1 - q * 0.3), 0.6, a) }
+    }
+  } else { // shadow: the soul is drawn out and absorbed by the winner
+    const wx = w ? w.x : vx
+    if (shatter < 0) for (let i = 0; i < 14; i++) { const u = (tt * 0.9 + hsh(i, 1)) % 1, a = hsh(i, 2) * 6.283 + tt * 3; put3(vx + Math.cos(a) * 3 * (1 - u), by + u * 14, Math.sin(a) * 3 * (1 - u), 1.3, 1.3, 1.3, 0, 1.6, 0.3, 2.2, a) }
+    else for (let i = 0; i < 40; i++) { const u = clamp(shatter / 1.8 - hsh(i, 1) * 0.5, 0, 1), px = vx + (wx - vx) * u, py = by + 4 + Math.sin(u * 3.14) * (8 + hsh(i, 2) * 12) * (hsh(i, 3) > 0.5 ? 1 : -0.3), pz = Math.sin(u * 9 + i) * 3 * (1 - u); if (u < 1) put3(px, py + (1 - u) * 2, pz, 1.2 + (1 - u), 1.2 + (1 - u), 1.2, 0, 2.0, 0.4, 2.6, i + u * 5) }
+    if (shatter > 1.0 && w) put3(wx, FLOOR + 10, 0, 12, 22, 4, 0, 0.9 * (1 - Math.min(1, (shatter - 1) / 1.2)) + 0.1, 0.1, 1.3 * (1 - Math.min(1, (shatter - 1) / 1.2)) + 0.1)
+  }
+  void c; void g
 }
 export function fightRim() {
   let best = null
@@ -1086,6 +1161,7 @@ export function fightCamera(aspect, dt) {
   let halfW = Math.max(34, gap / 2 + 30)
   let tx = mid * 0.55, ty = -2, y = 4, z = clamp(halfW / (tan * aspect), 40, 150), x = tx * 0.85
   if (FT.cine) { const o = FT.f[FT.cine.owner], u = Math.min(1, FT.cine.t / 0.35); z = z + (34 - z) * u; tx = o.x + (mid - o.x) * (1 - u); ty = FLOOR + 8; y = ty + 3; x = o.x + o.face * -14 * u + Math.sin(FT.cine.t * 2) * 3 }
+  else if (FT.phase === 'finish' && FT.fin && FT.f.length) { const v = FT.f[FT.fin.vic], u = FT.fin.state === 'play' ? 1 : Math.min(1, FT.fin.t / 0.8) * 0.6; z = z + (40 - z) * u; tx = tx + (v.x - tx) * u; x = tx; ty = ty + (FLOOR + 4 - ty) * u * 0.6 }
   else if (FT.phase === 'ko' && FT.f.length) { const l = a.hp <= 0 ? a : b; const u = Math.min(1, FT.phaseT / 0.6); z = z + (46 - z) * u * 0.6; tx = tx + (l.x - tx) * u * 0.7; x = tx; ty = ty + 4 * u }
   const k = Math.min(1, (dt || 0.016) * 5)
   CAM.x += (x - CAM.x) * k; CAM.y += (y - CAM.y) * k; CAM.z += (z - CAM.z) * k; CAM.tx += (tx - CAM.tx) * k; CAM.ty += (ty - CAM.ty) * k

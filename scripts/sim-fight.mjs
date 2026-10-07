@@ -98,4 +98,26 @@ check('all 13 move mechanics exercised', ['rise', 'ball', 'beam', 'fist', 'lunge
   }
   check('AI vs AI matches finish (best of 3)', finished === 12 && nonsane === 0, `finished ${finished}/12, longest ${longest | 0}s`)
 }
+// ---- finishers: win the last round by K.O. and finish the loser (one per element) ----
+{
+  for (const el of ['fire', 'ice', 'thunder', 'shadow']) {
+    const p1 = ROSTER.find((c) => c.element === el).id
+    fightActions.start({ type: '2p', p1, p2: (p1 + 7) % 40, rounds: 1, diff: 1 }); step(60 * 2.2)
+    const [a, b] = FT.f; calm()
+    b.x = a.x + 6; b.hp = 1; b.inv = 0; a.st = 'idle'
+    let f = 0
+    while (FT.phase !== 'finish' && f < 60 * 14) { if (FT.phase === 'fight' && f % 45 === 0) { a.st = 'idle'; a.atk = null; a.stun = 0; b.x = a.x + 6; b.hp = 1; b.inv = 0; b.st = 'idle'; b.block = false; b.inp = { dx: 0, up: false, down: false }; b.aiT = 99; fightActions.press(0, 'hp') } step(1); f++ }
+    check(`${el}: a deciding K.O. opens the FINISH HIM window`, FT.phase === 'finish' && FT.fin && FT.fin.state === 'wait', 'phase ' + FT.phase)
+    fightActions.press(0, 'su'); step(2)
+    check(`${el}: pressing super starts the finisher`, FT.fin && FT.fin.state === 'play')
+    let n = 0, hid = false
+    while (FT.phase === 'finish' && n < 60 * 10) { step(1, 1 / 60, true); n++; if (FT.f[1].vis === 0) hid = true; if (!sane()) break }
+    check(`${el}: the finisher plays out, hides the loser and moves on`, FT.phase !== 'finish' && hid, 'phase ' + FT.phase)
+  }
+  // a bot winner finishes on its own, and ignoring the window moves on after 5 seconds
+  fightActions.start({ type: 'cpu', p1: 0, p2: 1, rounds: 1, diff: 3 }); step(60 * 2.2)
+  { const [a, b] = FT.f; calm(); a.hp = 1; a.x = b.x - 6; b.hp = b.maxHp; let n = 0
+    while (!FT.fin && n < 60 * 30) { a.hp = Math.min(a.hp, 1); b.aiT = 0; step(1); n++; if (FT.phase === 'fight' && a.hp > 0) { b.x = a.x + 6; fightActions.press(1, 'hp') } }
+    check('a bot that wins the match gets the finish window', !!FT.fin || FT.phase === 'result' || FT.mode === 'over', 'phase ' + FT.phase) }
+}
 process.exit(failures ? 1 : 0)
