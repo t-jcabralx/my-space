@@ -221,7 +221,7 @@ function update(dtRaw) {
   const ref = live.length ? live.reduce((a, p) => (p.i === KG.me ? p : a), live[0]) : KG.players[0]
   // the camera follows the local climber
   KG.camX += (clamp(ref.x, -KG.W / 2 + 30, KG.W / 2 - 30) - KG.camX) * Math.min(1, dt * 5)
-  KG.camY += (ref.y + 5 - KG.camY) * Math.min(1, dt * 4)
+  KG.camY += (ref.y + 3.5 - KG.camY) * Math.min(1, dt * 4)
   if (KG.net && KG.net.role === 'guest') { guestStep(dt); emitTick(dt); return }
   KG.t += dt
   readLocal()
@@ -314,8 +314,8 @@ registerNet('kong', {
   onLeave(cid) { if (!KG.net) return; const i = KG.net.players.findIndex((p) => p.id === cid); if (KG.net.role === 'host' && KG.players[i]) { KG.players[i].gone = true; KG.players[i].out = true } else if (KG.net.role === 'guest' && KG.mode === 'play' && cid === null) finish(false) },
 })
 // ---------- drawing ----------
-function lights() { return { sun: { x: KG.camX - 30, y: KG.camY + 50, z: 40, color: '#ffe2b0', intensity: 0.9 }, ambient: 0.62, dir: 0.1, shadow: false, lantern: { x: KG.camX, y: KG.camY + 4, z: 18, color: '#ffcf8a', intensity: 2.1, distance: 120 } } }
-function camera(aspect) { const sk = (G.shake || 0) * 0.5; return { x: KG.camX + (Math.random() - 0.5) * sk, y: KG.camY + 8, z: 78, tx: KG.camX, ty: KG.camY, tz: 0, fov: 42, far: 600, aspect } }
+function lights() { return { sun: { x: KG.camX - 30, y: KG.camY + 50, z: 40, color: '#ffe2b0', intensity: 0.9 }, ambient: 0.9, dir: 0.18, shadow: false, lantern: { x: KG.camX, y: KG.camY + 4, z: 18, color: '#ffcf8a', intensity: 2.8, distance: 140 } } }
+function camera(aspect) { const sk = (G.shake || 0) * 0.5; return { x: KG.camX + (Math.random() - 0.5) * sk, y: KG.camY + 9, z: 62, tx: KG.camX, ty: KG.camY, tz: 0, fov: 42, far: 600, aspect } }
 function drawHero(api, p, t) {
   const { put3 } = api
   if (p.out || p.gone) return
@@ -346,6 +346,10 @@ function draw3(api) {
   for (let k = -8; k <= 8; k++) { const x = Math.floor(cx / 30) * 30 + k * 30, h = 40 + ((Math.abs(Math.floor(x / 30)) * 37) % 60), yb = cy * 0.7 - 10; put3(x, yb + h / 2, -70 - (Math.abs(k) % 3) * 10, 22, h, 18, 0, 0.12, 0.14, 0.3, 0); for (let w = 0; w < h; w += 7) if (((w + Math.floor(x)) * 7) % 3) put3(x, yb + w + 4, -60.5 - (Math.abs(k) % 3) * 10, 16, 1.4, 0.4, 0, 1.8, 1.5, 0.5, 0) }
   // girders
   const x0 = Math.floor((cx - 80) / 4) * 4, x1 = cx + 80
+  // the concrete foundation the site stands on, with hazard stripes along its edge
+  { const gx0 = Math.max(cx - 80, -KG.W / 2 - 6), gx1 = Math.min(cx + 80, KG.W / 2 + 6), gw = gx1 - gx0
+    if (gw > 0) { put3((gx0 + gx1) / 2, -9, 0, gw, 14, 12, 0, 0.32, 0.32, 0.38, 0); put3((gx0 + gx1) / 2, -2.2, 5.5, gw, 0.6, 1.2, 0, 0.5, 0.5, 0.58, 0)
+      for (let x = Math.ceil(gx0 / 6) * 6; x < gx1; x += 6) put3(x, -3.6, 6.2, 2.6, 1.2, 0.3, 0.5, 2.2, 1.8, 0.2, 0) } }
   for (let i = 0; i < KG.floors; i++) {
     if (base(i) < lo - 8 || base(i) > hi + 8) continue
     for (let x = x0; x <= x1; x += 4) {

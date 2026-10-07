@@ -23,7 +23,7 @@ import { DuelOverlay } from './Duel.jsx'
 import { GAMES as GAMES_SEO } from '../lib/seo.js'
 import { HuntLobby, HuntHUD } from './Hunt.jsx'
 import { ClimbLobby, ClimbHUD } from './Climb.jsx'
-import { KongLobby, KongHUD } from './Kong.jsx'
+import { KongLobby, KongHUD, KongLogo } from './Kong.jsx'
 import { climbActions } from '../game/climb.js'
 import { kongActions } from '../game/kong.js'
 import { huntActions } from '../game/hunt.js'
@@ -1617,7 +1617,7 @@ function Hub({ s }) {
               art={<div className="miniClimb"><b>🧗</b><i /><i /><i /></div>} label="CLIMB ▶" onPlay={() => setTab('climb')} onInvite={() => { setOgame('climb'); setTab('online') }}
               sub={<><span>MOUNTAIN</span><b>{Math.min(8, (p.climbLevel || 0) + 1)}/8</b></>} />}
             {show('action', 'puzzle') && <GameCard cls="kong" title="🦍 GIRDER GORILLA" tag="3D barrel climb · up to x20 wider · co-op" hiLabel="BEST" hi={fmtN(p.kongBest || 0)}
-              art={<div className="miniKong"><b>🦍</b><i /><i /><i /></div>} label="CLIMB ▶" onPlay={() => setTab('kong')} onInvite={() => { setOgame('kong'); setTab('online') }}
+              art={<KongLogo className="klogo card" />} label="CLIMB ▶" onPlay={() => setTab('kong')} onInvite={() => { setOgame('kong'); setTab('online') }}
               sub={<><span>SITE</span><b>{Math.min(8, (p.kongLevel || 0) + 1)}/8</b></>} />}
             {show('action', 'strategy') && <GameCard cls="hunt" title="🌙 13 DAYS OF HELL" tag="Horror survival · co-op · watch your back" hiLabel="BEST" hi={fmtN(p.huntBest || 0)}
               art={<div className="miniHunt"><b>🔦</b><b>👁</b></div>} label="SURVIVE ▶" onPlay={() => setTab('hunt')} onInvite={() => { setOgame('hunt'); setTab('online') }}
