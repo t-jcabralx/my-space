@@ -198,7 +198,7 @@ function putS(x, y, z, sx, sy, sz, r, g, b) {
   const c = nS * 3; CS[c] = r; CS[c + 1] = g; CS[c + 2] = b
   nS++
 }
-export const LIT3 = new Set(['rogue', 'td', 'hockey', 'pool', 'snake', 'breaker', 'rhythm', 'empire', 'ssx'])
+export const LIT3 = new Set(['rogue', 'td', 'hockey', 'pool', 'snake', 'breaker', 'rhythm', 'empire', 'ssx', 'orb', 'garden'])
 const api3 = { put3, putM, putS, bulk(A, C, count) { if (!A3) return; A3.set(A.subarray(0, count * 16)); C3.set(C.subarray(0, count * 3)); n3 = count } }
 export function Fighters3D() {
   const ref = useRef()

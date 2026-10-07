@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { RT, subscribeRt, getRt, createRoom, joinRoom, leaveRoom, listRooms, roomAction, sendChat } from '../game/online/rt.js'
+import { hostGame, installGameNet } from '../game/online/gnet.js'
 import { hostCardGame, installCardsOnline } from '../game/online/cards-online.js'
 import { hostTetris, installTetrisOnline } from '../game/online/tetris-online.js'
 import { hostPickle, installPickleOnline } from '../game/online/pickle-online.js'
@@ -16,9 +17,10 @@ import { hostRogue, installRogueOnline } from '../game/online/rogue-online.js'
 import { setName, profile as profile0Obj } from '../game/engine.js'
 const profile0 = () => profile0Obj
 
-if (typeof window !== 'undefined') { installCardsOnline(); installTetrisOnline(); installPickleOnline(); installBomberOnline(); installSpaceOnline(); installFightOnline(); installRaceOnline(); installHockeyOnline(); installPoolOnline(); installRogueOnline(); installC4Online(); installEmpireOnline() }
+if (typeof window !== 'undefined') { installGameNet(); installCardsOnline(); installTetrisOnline(); installPickleOnline(); installBomberOnline(); installSpaceOnline(); installFightOnline(); installRaceOnline(); installHockeyOnline(); installPoolOnline(); installRogueOnline(); installC4Online(); installEmpireOnline() }
 
 const GAMES = [
+  ['orb', '🔮', 'ORB RUSH VERSUS', 'Race a friend through the same chain of orbs. Big combos send extra orbs to your rival; clear the board or make them fall in the hole.', 2],
   ['kart', '🍌', 'KART CLASH', 'Item-packed kart racing with up to 4 friends plus bots: bananas, homing shells, stars, lightning and boosts. Pick your car in the 🏁 RACE tab first.', 4],
   ['race', '🏁', 'TURBO RUSH RACE', 'Race up to 4 friends plus bots. Everyone drives their own car with instant response. Pick your car in the 🏁 RACE tab first.', 4],
   ['fight', '🥊', 'IRON FISTS 1V1', '40 fighters, specials and supers. Pick your fighter in the 🥊 FIGHT tab first.', 2],
@@ -83,6 +85,7 @@ export default function OnlineLobby({ s, TopPlayers, initGame }) {
   const g = room ? GAMES.find((x) => x[0] === room.game) : null
   const start = () => run(async () => {
     if (room.game === 'race' || room.game === 'kart') await hostRaceMatch({ track: typeof profile0().raceTrack === 'number' ? profile0().raceTrack : 0, laps: 3, diff: 2, ai: 3, kart: room.game === 'kart' })
+    else if (room.game === 'orb') await hostGame('orb', { level: 0 })
     else if (room.game === 'fight') await hostFightMatch()
     else if (room.game === 'tetris') await hostTetris()
     else if (room.game === 'space') await hostSpace()
@@ -142,11 +145,11 @@ export default function OnlineLobby({ s, TopPlayers, initGame }) {
         <div className="roomPlayers">
           {room.players.map((p) => <div key={p.id} className="chip sel" style={{ margin: 3 }}>{p.id === room.host ? '👑 ' : '🙂 '}{p.name}{p.id === rt.cid ? ' (you)' : ''}</div>)}
           {(room.game === 'uno' || room.game === 'pusoy' || room.game === 'tongits' || room.game === 'space') && Array.from({ length: Math.max(0, room.max - room.players.length) }).map((_, i) => <div key={i} className="chip" style={{ margin: 3, opacity: 0.6 }}>🤖 BOT</div>)}
-          {(room.game === 'tetris' || room.game === 'pickle' || room.game === 'fight' || room.game === 'hockey' || room.game === 'pool' || room.game === 'rogue' || room.game === 'c4' || room.game === 'empire') && room.players.length < 2 && <div className="chip" style={{ margin: 3, opacity: 0.6 }}>… waiting for opponent</div>}
+          {(room.game === 'tetris' || room.game === 'pickle' || room.game === 'fight' || room.game === 'hockey' || room.game === 'pool' || room.game === 'rogue' || room.game === 'c4' || room.game === 'empire' || room.game === 'orb') && room.players.length < 2 && <div className="chip" style={{ margin: 3, opacity: 0.6 }}>… waiting for opponent</div>}
         </div>
         <div className="chips">
           {isHost
-            ? <button className="big" disabled={(room.game === 'tetris' || room.game === 'pickle' || room.game === 'bomber' || room.game === 'fight' || room.game === 'hockey' || room.game === 'pool' || room.game === 'rogue' || room.game === 'c4' || room.game === 'empire') && room.players.length < 2} onClick={start}>▶ START GAME</button>
+            ? <button className="big" disabled={(room.game === 'tetris' || room.game === 'pickle' || room.game === 'bomber' || room.game === 'fight' || room.game === 'hockey' || room.game === 'pool' || room.game === 'rogue' || room.game === 'c4' || room.game === 'empire' || room.game === 'orb') && room.players.length < 2} onClick={start}>▶ START GAME</button>
             : <div className="lobbyinfo">Waiting for the host to start…</div>}
           <button className="big sec" onClick={copyLink}>{copied ? '✔ LINK COPIED' : '🔗 COPY INVITE LINK'}</button>
           <button className="big sec" onClick={() => leaveRoom()}>LEAVE ROOM</button>

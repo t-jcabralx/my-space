@@ -9,12 +9,12 @@ import { useTouchPrimary } from './platform.js'
 
 const fmt = (n) => Math.floor(n).toLocaleString()
 const Stat = ({ k, v }) => <><span>{k}</span><b>{v}</b></>
-function Surface({ onPtr, cursor }) {
+export function Surface({ onPtr, cursor }) {
   const ref = useRef()
   const w = (e) => { const r = ref.current.getBoundingClientRect(); return [((e.clientX - r.left) / r.width) * 100 - 50, 28 - ((e.clientY - r.top) / r.height) * 56] }
   return <div ref={ref} className="mg-surface" style={{ cursor: cursor || 'crosshair' }} onPointerDown={(e) => { e.stopPropagation(); try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* ignore */ } onPtr('down', ...w(e)) }} onPointerMove={(e) => onPtr('move', ...w(e))} onPointerUp={(e) => onPtr('up', ...w(e))} onPointerCancel={(e) => onPtr('up', ...w(e))} />
 }
-const PauseScreen = ({ resume, quit, help }) => <div className="screen pause"><h1>PAUSED</h1><button className="big" onClick={resume}>RESUME</button>{help && <button className="big sec" onClick={help}>❓ HOW TO PLAY</button>}<button className="big sec" onClick={quit}>QUIT TO DASHBOARD</button></div>
+export const PauseScreen = ({ resume, quit, help }) => <div className="screen pause"><h1>PAUSED</h1><button className="big" onClick={resume}>RESUME</button>{help && <button className="big sec" onClick={help}>❓ HOW TO PLAY</button>}<button className="big sec" onClick={quit}>QUIT TO DASHBOARD</button></div>
 
 // ---------- CONNECT FOUR ----------
 export function C4Lobby({ s, TopPlayers, onInvite }) {
