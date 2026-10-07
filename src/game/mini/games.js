@@ -2,6 +2,7 @@
 // runner, slicer, match-3, memory, whack-a-mole, idle miner, traffic dodger). Each game is a small object the shell drives:
 //   reset(), update(dt), draw(g), down(x, y), move(x, y), up(x, y), key(code)  +  score, over, label
 // Logical canvas is W x H; the shell scales it to the screen and maps touch/mouse into these coordinates.
+import { wrapR3 } from './r3.js'
 export const W = 360, H = 540
 const TAU = Math.PI * 2
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
@@ -50,6 +51,16 @@ function stackTower() {
     drawFx(g, fx)
     if (combo >= 2) txt(g, 'PERFECT x' + combo, W / 2, 80, 12, '#ffe84a')
   }
+
+  o.draw3 = (r, g) => {
+    const ty = 190 + cam
+    r.look(70, ty + 150, -560, 0, ty - 20, 0, 45); r.begin('#1b2a6b', '#0a1030')
+    r.floor(-700, -500, 700, 900, 0, '#101a44')
+    for (let i = 0; i < blocks.length; i++) { const b = blocks[i]; r.box(b.x + b.w / 2 - W / 2, i * BH + BH / 2, 0, b.w, BH - 2, b.w * 0.8 + 30, hsl(i * 14 + 190, 75, 52)) }
+    if (!o.over) r.box(cur.x + cur.w / 2 - W / 2, blocks.length * BH + BH / 2, 0, cur.w, BH - 2, cur.w * 0.8 + 30, hsl(blocks.length * 14 + 190, 85, 62), { glow: 1.15 })
+    r.fx(fx, (p) => [p.x - W / 2, H - 100 - p.y + cam, -10]); r.flush()
+    if (combo >= 2) txt(g, 'PERFECT x' + combo, W / 2, 80, 12, '#ffe84a')
+  }
   return o
 }
 
@@ -81,6 +92,23 @@ function wingDash() {
     g.fillStyle = '#d9b36a'; g.fillRect(0, GR, W, 50); g.fillStyle = '#7ac74f'; g.fillRect(0, GR, W, 8)
     g.save(); g.translate(90, b.y); g.rotate(clamp(b.vy / 600, -0.5, 0.9)); disc(g, 0, 0, 13, '#ffd23a'); disc(g, 5, -4, 4, '#fff'); disc(g, 6, -4, 2, '#222'); g.fillStyle = '#ff7a2a'; g.fillRect(10, 0, 9, 5); g.fillStyle = '#ffb02e'; g.fillRect(-12, 0, 11, 6); g.restore()
     drawFx(g, fx); txt(g, String(o.score), W / 2, 60, 34, '#fff')
+  }
+
+  o.draw3 = (r, g) => {
+    r.look(-30, 345, -580, 20, 270, 0, 45); r.begin('#5ec8ff', '#d7f3ff')
+    r.floor(-500, -300, 500, 600, H - GR, '#d9b36a')
+    for (let i = -8; i < 9; i++) { const x = ((i * 50 - t * 125) % 400 + 400) % 400 - 200; r.quad([[x, H - GR + 0.3, -120], [x + 22, H - GR + 0.3, -120], [x + 22, H - GR + 0.3, 40], [x, H - GR + 0.3, 40]], '#7ac74f') }
+    r.box(0, H - GR + 4, 40, 900, 8, 24, '#7ac74f', { edge: false })
+    for (const p of pipes) {
+      const cx = p.x + 26 - W / 2, top = H - (p.gap - p.open / 2), bot = H - (p.gap + p.open / 2)
+      r.cyl(cx, top, 0, 26, 500, '#3cb043', { top: '#6fe05a' }); r.cyl(cx, top, 0, 31, 16, '#2a8a33', { top: '#5acd48' })
+      r.cyl(cx, H - GR, 0, 26, bot - (H - GR), '#3cb043', { top: '#6fe05a' }); r.cyl(cx, bot - 16, 0, 31, 16, '#2a8a33', { top: '#5acd48' })
+    }
+    const bx = 90 - W / 2, by = H - b.y, fl = Math.sin(t * 22) * 8
+    r.shadow(bx, 0, 13, 0.25, H - GR + 0.3)
+    r.sphere(bx, by, 0, 13, '#ffd23a'); r.box(bx + 14, by - 2, 0, 12, 6, 6, '#ff7a2a'); r.box(bx - 4, by + fl * 0.4, -12, 14, 5, 10, '#ffb02e', { rz: fl * 0.05 }); r.box(bx - 4, by + fl * 0.4, 12, 14, 5, 10, '#ffb02e', { rz: fl * 0.05 })
+    r.sphere(bx + 6, by + 4, -9, 3.5, '#fff', { shine: false }); r.sphere(bx + 7, by + 4, -12, 1.8, '#222', { shine: false })
+    r.fx(fx); r.flush(); txt(g, String(o.score), W / 2, 60, 34, '#fff')
   }
   return o
 }
@@ -160,6 +188,19 @@ function bubblePop() {
     if (shot) disc(g, shot.x, shot.y, R - 1.5, COLORS[shot.c])
     drawFx(g, fx)
   }
+
+  o.draw3 = (r, g) => {
+    r.look(0, 330, -660, 0, 262, 0, 45); r.begin('#10163a', '#07091f')
+    r.box(0, H / 2, 60, W + 80, H + 80, 20, '#0b1030', { edge: false })
+    r.box(-W / 2 - 9, H / 2, 0, 18, H, 60, '#2a3a78'); r.box(W / 2 + 9, H / 2, 0, 18, H, 60, '#2a3a78'); r.box(0, H - TOPY + 22, 0, W + 36, 14, 60, '#2a3a78')
+    rows.forEach((rw, ri2) => rw.forEach((v, c) => { if (v === null) return; const pp = pos(ri2, c); r.sphere(pp.x - W / 2, H - pp.y, 0, R - 1.5, COLORS[v]) }))
+    for (const f of fall) r.sphere(f.x - W / 2, H - f.y, 0, R - 2, f.c)
+    r.line([-W / 2, H - (TOPY + MAXROW * ROWH - 16), -20], [W / 2, H - (TOPY + MAXROW * ROWH - 16), -20], '#ff4d4d', 2)
+    if (!shot && !o.over) { let x = W / 2, y = H - 44, vx = Math.cos(aim), vy = Math.sin(aim); for (let i = 0; i < 70; i++) { x += vx * 6; y += vy * 6; if (x < R || x > W - R) vx *= -1; if (i % 4 === 0) r.sphere(x - W / 2, H - y, -4, 2.6, '#ffffff', { shine: false, alpha: 0.7 }); if (y < TOPY) break } }
+    r.sphere(0, 44, 0, R, COLORS[cur]); r.sphere(40 - W / 2, 30, 0, 12, COLORS[next])
+    if (shot) r.sphere(shot.x - W / 2, H - shot.y, 0, R - 1.5, COLORS[shot.c])
+    r.fx(fx); r.flush(); txt(g, 'NEXT', 40, H - 52, 8, '#9fb4e8')
+  }
   return o
 }
 
@@ -196,6 +237,21 @@ function neonRunner() {
     for (const c of coins) disc(g, c.x, c.y, 8, '#ffe84a')
     if (!o.over) { g.save(); g.translate(80, p.y); g.rotate(p.y < GY ? (p.vy / 1600) : 0); g.fillStyle = '#3de8ff'; rr(g, -14, -30, 28, 30, 6); g.fill(); g.fillStyle = '#fff'; g.fillRect(2, -22, 8, 8); g.restore() }
     drawFx(g, fx)
+  }
+
+  o.draw3 = (r, g) => {
+    r.look(-20, 330, -640, -20, 262, 0, 45); r.begin('#2a0a4a', '#0a0420')
+    for (let i = 0; i < 9; i++) { const x = ((i * 90 - dist * 0.15) % 720 + 720) % 720 - 360, h = 60 + (i * 37) % 110; r.box(x, 114 + h / 2, 150 + (i % 3) * 40, 44, h, 34, hsl(260 + i * 14, 60, 22), { edge: false }) }
+    r.box(0, 100, 0, 800, 28, 150, '#16093a'); r.box(0, 114, -75, 800, 4, 5, '#ff4de1', { glow: 1.3, edge: false })
+    for (let k = -6; k < 12; k++) { const x = k * 40 - (dist % 40) - 200; r.box(x, 114.5, 0, 3, 1, 148, '#ff4de1', { alpha: 0.3, edge: false }) }
+    for (const a of obs) {
+      const x = a.x + a.w / 2 - W / 2
+      if (a.k === 'block') r.box(x, 114 + a.h / 2, 0, a.w, a.h, 36, '#7a3cff')
+      else { const n = a.k === 'double' ? 2 : 1; for (let i = 0; i < n; i++) r.pyramid(a.x + 13 + i * 26 - W / 2, 114, 0, 26, a.h, 26, '#ff4d6d') }
+    }
+    for (const c of coins) r.sphere(c.x - W / 2, H - c.y, 0, 8, '#ffe84a', { glow: 1.1 })
+    if (!o.over) { const px = 80 - W / 2, py = H - p.y; r.shadow(px, 0, 15, 0.35, 114); r.box(px, py + 15, 0, 28, 30, 24, '#3de8ff', { rz: p.y < GY ? p.vy / 4000 : 0 }); r.box(px + 8, py + 22, -13, 9, 9, 4, '#ffffff'); r.box(px - 6, py + 2, 0, 8, 6, 20, '#1a8aa8') }
+    r.fx(fx); r.flush()
   }
   return o
 }
@@ -242,6 +298,23 @@ function sliceNinja() {
     for (let i = 0; i < 3; i++) txt(g, i < lives ? '♥' : '♡', 30 + i * 28, 24, 18, i < lives ? '#ff5a6a' : '#664')
     if (combo >= 2) txt(g, combo + ' COMBO', W / 2, 90, 14, '#ffe84a')
   }
+
+  o.draw3 = (r, g) => {
+    r.look(0, 320, -660, 0, 262, 0, 45); r.begin('#2b1a12', '#0d0705')
+    r.box(0, H / 2, 70, W + 100, H + 100, 24, '#3a2615', { edge: false }); for (let i = 0; i < 7; i++) r.box(0, 40 + i * 80, 54, W + 100, 3, 3, '#24150b', { edge: false })
+    for (const it of items) {
+      const x = it.x - W / 2, y = H - it.y
+      if (it.half) { r.sphere(x, y, 0, it.r * 0.8, it.c, { alpha: 0.9 }); continue }
+      if (it.cut) continue
+      r.sphere(x, y, 0, it.r, it.bomb ? '#2a2a33' : it.c, { glow: it.bomb ? 1 : 1.05 })
+      if (it.bomb) { r.box(x + Math.sin(it.a) * 3, y + it.r + 6, 0, 4, 12, 4, '#8a6a4a'); r.sphere(x + Math.sin(it.a) * 3, y + it.r + 13, 0, 4, '#ff9a3a', { glow: 1.4, shine: false }) }
+      else r.sphere(x - it.r * 0.3, y + it.r * 0.35, -it.r * 0.7, it.r * 0.18, '#ffffff', { alpha: 0.35, shine: false })
+    }
+    r.fx(fx); r.flush()
+    if (trail.length > 1) { g.strokeStyle = '#fff'; g.lineWidth = 4; g.lineCap = 'round'; g.beginPath(); trail.forEach((p, i) => (i ? g.lineTo(p.x, p.y) : g.moveTo(p.x, p.y))); g.stroke(); g.lineWidth = 1 }
+    for (let i = 0; i < 3; i++) txt(g, i < lives ? '♥' : '♡', 30 + i * 28, 24, 18, i < lives ? '#ff5a6a' : '#664')
+    if (combo >= 2) txt(g, combo + ' COMBO', W / 2, 90, 14, '#ffe84a')
+  }
   return o
 }
 
@@ -284,6 +357,15 @@ function gemCrush() {
     drawFx(g, fx)
     txt(g, 'MOVES ' + o.moves, W / 2, 80, 16, '#ffe84a'); if (chain > 1 && state === 'clear') txt(g, 'CHAIN x' + chain, W / 2, 105, 12, '#7dff6a')
   }
+
+  o.draw3 = (r, g) => {
+    r.look(0, 320, -650, 0, 262, 0, 45); r.begin('#1a1040', '#090522')
+    r.box(0, H - (OY + (N * CS) / 2), 18, N * CS + 22, N * CS + 22, 30, '#1c1250')
+    for (let rr2 = 0; rr2 < N; rr2++) for (let c = 0; c < N; c++) { r.box(OX + c * CS + CS / 2 - W / 2, H - (OY + rr2 * CS + CS / 2), 5, CS - 3, CS - 3, 6, (rr2 + c) % 2 ? '#241766' : '#2c1d78', { edge: false }) }
+    for (let rr2 = 0; rr2 < N; rr2++) for (let c = 0; c < N; c++) { const gm = grid[rr2][c]; if (!gm) continue; r.gem(OX + c * CS + CS / 2 - W / 2, H - (OY + rr2 * CS + CS / 2 + gm.oy), -4, CS - 10, COLORS[gm.t], { ry: 0.5 + ((rr2 * 3 + c) % 4) * 0.2, glow: 1.12 }) }
+    if (sel) r.box(OX + sel[1] * CS + CS / 2 - W / 2, H - (OY + sel[0] * CS + CS / 2), -24, CS - 2, CS - 2, 4, '#ffffff', { alpha: 0.4, edge: false })
+    r.fx(fx); r.flush(); txt(g, 'MOVES ' + o.moves, W / 2, 80, 16, '#ffe84a'); if (chain > 1 && state === 'clear') txt(g, 'CHAIN x' + chain, W / 2, 105, 12, '#7dff6a')
+  }
   return o
 }
 
@@ -305,6 +387,19 @@ function memoryFlip() {
     sky(g, '#0f2a2a', '#06120f')
     cards.forEach((k, i) => { const c = i % 4, r = Math.floor(i / 4), x = OX + c * (CW + 4), y = OY + r * (CH + 4); g.fillStyle = k.done ? '#1d5a3a' : k.up ? '#f4f1e6' : '#2a6adf'; rr(g, x, y, CW, CH, 10); g.fill(); if (k.up || k.done) { g.font = '36px serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#000'; g.fillText(k.f, x + CW / 2, y + CH / 2 + 2) } else txt(g, '?', x + CW / 2, y + CH / 2, 22, '#ffffff99') })
     txt(g, 'MOVES ' + o.moves + '  ·  ' + Math.floor(o.time) + 's', W / 2, 50, 12, '#9fe0c0')
+  }
+
+  o.draw3 = (r, g) => {
+    r.look(0, 320, -650, 0, 262, 0, 45); r.begin('#0f2a2a', '#06120f')
+    r.box(0, H / 2 - 10, 24, W + 40, H - 40, 20, '#0a1f1c', { edge: false })
+    cards.forEach((k, i) => {
+      const c = i % 4, rr2 = Math.floor(i / 4), x = OX + c * (CW + 4) + CW / 2 - W / 2, y = H - (OY + rr2 * (CH + 4) + CH / 2)
+      const target = k.up || k.done ? Math.PI : 0; k.fa = (k.fa || 0) + (target - (k.fa || 0)) * 0.25
+      const face = k.fa > Math.PI / 2
+      r.box(x, y, 0, CW, CH, 14, k.done ? '#1d5a3a' : face ? '#f4f1e6' : '#2a6adf', { ry: k.fa })
+      if (k.fa > 2.7) r.emoji(x, y, -10, k.f, 44); else if (k.fa < 0.4) r.text(x, y, -10, '?', 26, '#ffffffaa')
+    })
+    r.flush(); txt(g, 'MOVES ' + o.moves + '  ·  ' + Math.floor(o.time) + 's', W / 2, 50, 12, '#9fe0c0')
   }
   return o
 }
@@ -331,6 +426,24 @@ function moleSmash() {
     sky(g, '#2f7a2f', '#164416')
     for (let i = 0; i < 9; i++) { const hx = HX[i % 3], hy = HY[Math.floor(i / 3)], h = holes[i]; g.fillStyle = '#2a1608'; g.beginPath(); g.ellipse(hx, hy, 42, 16, 0, 0, TAU); g.fill(); if (h.k) { const up = Math.min(1, (h.t > 0.2 ? 1 : h.t / 0.2)) * 1; g.save(); g.beginPath(); g.rect(hx - 50, hy - 70, 100, 70 + 0); g.clip(); const c = h.k === 'gold' ? '#ffd23a' : h.k === 'bomb' ? '#2a2a2a' : '#a8703a'; disc(g, hx, hy - 20 * up, 30, c); if (h.k === 'bomb') { g.fillStyle = '#ff9a3a'; g.fillRect(hx - 2, hy - 56, 4, 10) } else { disc(g, hx - 10, hy - 28, 4, '#111'); disc(g, hx + 10, hy - 28, 4, '#111'); disc(g, hx, hy - 16, 6, '#e87a7a') } g.restore() } g.fillStyle = '#3a210d'; g.beginPath(); g.ellipse(hx, hy + 4, 42, 12, 0, 0, Math.PI); g.fill() }
     drawFx(g, fx); txt(g, 'TIME ' + o.time, 60, 40, 14, '#fff'); if (combo >= 3) txt(g, 'x' + combo, W - 50, 40, 16, '#ffe84a')
+  }
+
+  o.draw3 = (r, g) => {
+    r.look(0, 330, -660, 0, 262, 0, 45); r.begin('#7ec8ff', '#d6f0ff')
+    r.floor(-600, -300, 600, 600, 0, '#2f7a2f'); r.box(0, 215, 120, 900, 440, 20, '#2f7a2f', { edge: false })
+    for (let i = 0; i < 12; i++) { const x = -330 + i * 60; r.cyl(x, 0, 90 + (i % 3) * 20, 10, 60 + (i % 4) * 14, '#5a3a1a'); r.sphere(x, 90 + (i % 4) * 14, 90 + (i % 3) * 20, 34, hsl(110 + (i % 3) * 8, 55, 32)) }
+    for (let i = 0; i < 9; i++) {
+      const hx = HX[i % 3] - W / 2, hy = H - HY[Math.floor(i / 3)], h = holes[i]
+      r.cyl(hx, 0, 0, 52, 12, '#6a4a2a', { top: '#7a5632' }); r.cyl(hx, 0, 0, 38, 12.6, '#1a0e05', { top: '#120a03' })
+      if (h.k) {
+        const rise = Math.min(1, h.t > 0.2 ? 1 : h.t / 0.2), y = 10 + rise * 28, c = h.k === 'gold' ? '#ffd23a' : h.k === 'bomb' ? '#2a2a33' : '#a8703a'
+        r.sphere(hx, y, 0, 28, c, { glow: h.k === 'gold' ? 1.25 : 1 })
+        if (h.k === 'bomb') { r.box(hx, y + 32, 0, 4, 12, 4, '#8a6a4a'); r.sphere(hx, y + 40, 0, 5, '#ff9a3a', { glow: 1.5, shine: false }) }
+        else { r.sphere(hx - 10, y + 6, -22, 4.5, '#111', { shine: false }); r.sphere(hx + 10, y + 6, -22, 4.5, '#111', { shine: false }); r.sphere(hx, y - 6, -26, 7, '#e87a7a', { shine: false }) }
+      }
+      r.cyl(hx, 0, -8, 50, 7, '#3a210d', { top: '#4a2c12' })
+    }
+    r.fx(fx); r.flush(); txt(g, 'TIME ' + o.time, 60, 40, 14, '#fff'); if (combo >= 3) txt(g, 'x' + combo, W - 50, 40, 16, '#ffe84a')
   }
   return o
 }
@@ -363,6 +476,18 @@ function idleMiner() {
     txt(g, '⛏ ' + Math.floor(ore), W / 2, 40, 22, '#ffe84a'); txt(g, per() + ' per tap · ' + auto() + '/s', W / 2, 72, 10, '#d9c7a6')
     for (let i = 0; i < 4; i++) { const yy = 346 + i * 48, can = ore >= cost(i); g.fillStyle = can ? '#2a6a2a' : '#2b2118'; rr(g, 14, yy, W - 28, 42, 8); g.fill(); txt(g, UP[i].n + ' LV' + lv[i], 24, yy + 15, 10, '#fff', 'left'); txt(g, UP[i].d, 24, yy + 31, 8, '#cdbba0', 'left'); txt(g, '⛏ ' + cost(i), W - 24, yy + 21, 11, can ? '#ffe84a' : '#887', 'right') }
     drawFx(g, fx); for (const f of floats) { g.globalAlpha = clamp(f.l * 2, 0, 1); txt(g, '+' + f.v, f.x, f.y, f.c ? 18 : 12, f.c ? '#ffe84a' : '#fff'); g.globalAlpha = 1 }
+  }
+
+  o.draw3 = (r, g) => {
+    r.look(0, 300, -620, 0, 262, 0, 45); r.begin('#3a2a1a', '#150e08')
+    r.box(0, H - 150, 70, W + 80, 360, 20, '#24180e', { edge: false }); r.floor(-400, -200, 400, 300, H - 290, '#3a2a1a')
+    const s2 = 1 + shakeT * 1.2, base = H - 250
+    r.box(0, base + 30 * s2, 0, 170 * s2, 60 * s2, 110 * s2, '#6b5b4a', { ry: 0.2 }); r.box(-30, base + 80 * s2, 4, 110 * s2, 60 * s2, 90 * s2, '#7a6a56', { ry: -0.3 }); r.box(26, base + 110 * s2, 0, 70 * s2, 50 * s2, 60 * s2, '#85735e', { ry: 0.5 })
+    r.sphere(40, base + 70, -62, 12, '#ffd23a', { glow: 1.3 }); r.sphere(-46, base + 36, -58, 9, '#3de8ff', { glow: 1.3 }); r.sphere(60, base + 20, -58, 8, '#ff6a8a', { glow: 1.3 })
+    r.fx(fx); r.flush()
+    txt(g, '⛏ ' + Math.floor(ore), W / 2, 40, 22, '#ffe84a'); txt(g, per() + ' per tap · ' + auto() + '/s', W / 2, 72, 10, '#d9c7a6')
+    for (let i = 0; i < 4; i++) { const yy = 346 + i * 48, can = ore >= cost(i); g.fillStyle = can ? '#2a6a2a' : '#2b2118'; rr(g, 14, yy, W - 28, 42, 8); g.fill(); g.fillStyle = can ? '#4aa04a' : '#3d3226'; rr(g, 14, yy, W - 28, 6, 3); g.fill(); txt(g, UP[i].n + ' LV' + lv[i], 24, yy + 17, 10, '#fff', 'left'); txt(g, UP[i].d, 24, yy + 32, 8, '#cdbba0', 'left'); txt(g, '⛏ ' + cost(i), W - 24, yy + 22, 11, can ? '#ffe84a' : '#887', 'right') }
+    for (const f of floats) { g.globalAlpha = clamp(f.l * 2, 0, 1); txt(g, '+' + f.v, f.x, f.y, f.c ? 18 : 12, f.c ? '#ffe84a' : '#fff'); g.globalAlpha = 1 }
   }
   return o
 }
@@ -402,6 +527,19 @@ function trafficDodge() {
     for (const c of cars) car(g, LX[c.l], c.y, c.c)
     if (!o.over) car(g, px, H - 110, '#3de8ff')
     drawFx(g, fx)
+  }
+
+  o.draw3 = (r, g) => {
+    const lx = (l) => (LX[l] - W / 2) * 0.9, zOf = (y) => (H - 110 - y) * 2.2
+    r.look((px - W / 2) * 0.35, 150, -250, (px - W / 2) * 0.2, 30, 420, 60); r.begin('#10122a', '#2a2050')
+    r.floor(-900, -200, 900, 2600, 0, '#1a3a1a'); r.floor(-150, -200, 150, 2600, 0.2, '#2b2b33'); r.box(-152, 3, 1200, 6, 6, 3200, '#ffd23a', { edge: false }); r.box(152, 3, 1200, 6, 6, 3200, '#ffd23a', { edge: false })
+    for (let z = -((dist * 0.8 * 2.2 / 60) % 1) * 130 - 130; z < 2400; z += 130) for (const sx of [-50, 50]) r.box(sx, 0.6, z, 5, 1, 60, '#ffffffcc', { edge: false })
+    for (let k = 0; k < 14; k++) { const z = ((k * 190 - dist * 1.6) % 2660 + 2660) % 2660 - 200; for (const sx of [-260, 260]) { r.cyl(sx, 0, z, 6, 40, '#5a3a1a'); r.sphere(sx, 60, z, 28, hsl(118, 50, 28), { shine: false }) } }
+    const carBox = (x, z, c) => { r.box(x, 12, z, 38, 16, 70, c); r.box(x, 26, z - 4, 30, 14, 36, '#101018'); r.box(x, 12, z - 36, 34, 6, 3, '#ff4d4d', { glow: 1.3, edge: false }) }
+    for (const c of coins) r.sphere(lx(c.l), 14, zOf(c.y), 9, '#ffe84a', { glow: 1.2 })
+    for (const c of cars) carBox(lx(c.l), zOf(c.y), c.c)
+    if (!o.over) { r.shadow((px - W / 2) * 0.9, 0, 26, 0.35); carBox((px - W / 2) * 0.9, 0, '#3de8ff') }
+    r.fx(fx, (p) => [(px - W / 2) * 0.9 + (p.x - px) * 0.6, 14 + (H - 110 - p.y) * 0.5, 0]); r.flush()
   }
   return o
 }
@@ -459,6 +597,19 @@ function blobArena() {
     drawFx(g, fx); g.restore()
     txt(g, 'MASS ' + Math.floor(me.m), 70, 24, 11, '#fff', 'center')
   }
+
+  o.draw3 = (r, g) => {
+    const k = clamp(46 / rad(me.m) * 0.9 + 0.35, 0.45, 1.1), dist2 = 520 / k
+    r.look(me.x, dist2 * 0.85, me.y - dist2 * 0.55, me.x, 0, me.y + 40, 50); r.begin('#07102a', '#0b1230')
+    r.floor(0, 0, WW, WH, 0, '#0d1838')
+    for (let x = 0; x <= WW; x += 70) r.line([x, 0.5, 0], [x, 0.5, WH], '#ffffff22', 1)
+    for (let y = 0; y <= WH; y += 70) r.line([0, 0.5, y], [WW, 0.5, y], '#ffffff22', 1)
+    r.box(WW / 2, 12, -6, WW + 24, 24, 12, '#ff4de1', { glow: 1.1, edge: false }); r.box(WW / 2, 12, WH + 6, WW + 24, 24, 12, '#ff4de1', { glow: 1.1, edge: false }); r.box(-6, 12, WH / 2, 12, 24, WH + 24, '#ff4de1', { glow: 1.1, edge: false }); r.box(WW + 6, 12, WH / 2, 12, 24, WH + 24, '#ff4de1', { glow: 1.1, edge: false })
+    for (const q of pellets) { if (Math.abs(q.x - me.x) > 460 / k || Math.abs(q.y - me.y) > 600 / k) continue; r.sphere(q.x, 5, q.y, 5, q.c, { shine: false, glow: 1.2 }) }
+    const all = [...bots.map((b) => ({ ...b })), { ...me, c: '#3de8ff', me: 1 }]
+    for (const b of all) { const rd = rad(b.m); r.shadow(b.x, b.y, rd * 1.05, 0.3); r.sphere(b.x, rd, b.y, rd, b.c, { ring: b.me ? '#ffffff' : null }) }
+    r.fx(fx, (p) => [p.x, 20 + (p.y % 10), p.y]); r.flush(); txt(g, 'MASS ' + Math.floor(me.m), 70, 24, 11, '#fff', 'center')
+  }
   return o
 }
 
@@ -508,6 +659,20 @@ function blockPuzzle() {
     if (drag) { const p = tray[drag.i], cw = p.sh[0].length * CS, ch = p.sh.length * CS; piece(g, p.sh, p.c, drag.x - cw / 2, drag.y - 70 - ch / 2, CS) }
     drawFx(g, fx); txt(g, 'SCORE ' + Math.floor(o.score), W / 2, 32, 14, '#ffe84a'); if (combo > 1) txt(g, 'COMBO x' + combo, W / 2, 52, 10, '#7dff6a')
   }
+
+  o.draw3 = (r, g) => {
+    r.look(0, 330, -660, 0, 262, 0, 45); r.begin('#17224f', '#0a1030')
+    r.box(0, H - (OY + (N * CS) / 2), 14, N * CS + 18, N * CS + 18, 26, '#101a44')
+    for (let rr2 = 0; rr2 < N; rr2++) for (let c = 0; c < N; c++) {
+      const x = OX + c * CS + CS / 2 - W / 2, y = H - (OY + rr2 * CS + CS / 2)
+      if (grid[rr2][c]) r.box(x, y, -4, CS - 3, CS - 3, 20, COL[(grid[rr2][c] - 1) % 6], { glow: 1.08 }); else r.box(x, y, 4, CS - 4, CS - 4, 6, '#16215a', { edge: false })
+    }
+    const cube = (sh, c, x0, y0, cs, z, alpha = 1) => sh.forEach((row, yy) => row.forEach((v, xx) => { if (v) r.box(x0 + xx * cs + cs / 2 - W / 2, H - (y0 + yy * cs + cs / 2), z, cs - 3, cs - 3, cs * 0.55, COL[c % 6], { alpha, glow: 1.1 }) }))
+    if (drag) { const pc = tray[drag.i], tg = target(); if (fits(pc.sh, tg.r, tg.c)) cube(pc.sh, pc.c, OX + tg.c * CS, OY + tg.r * CS, CS, -4, 0.35) }
+    for (let i = 0; i < 3; i++) { const pc = tray[i], sl = slot(i); if (!pc || (drag && drag.i === i)) continue; const cs = 24, w = pc.sh[0].length * cs, h = pc.sh.length * cs; cube(pc.sh, pc.c, sl.x + (sl.w - w) / 2, sl.y + (sl.h - h) / 2, cs, -4) }
+    if (drag) { const pc = tray[drag.i], cw = pc.sh[0].length * CS, ch = pc.sh.length * CS; cube(pc.sh, pc.c, drag.x - cw / 2, drag.y - 70 - ch / 2, CS, -40) }
+    r.fx(fx); r.flush(); txt(g, 'SCORE ' + Math.floor(o.score), W / 2, 32, 14, '#ffe84a'); if (combo > 1) txt(g, 'COMBO x' + combo, W / 2, 52, 10, '#7dff6a')
+  }
   return o
 }
 
@@ -538,6 +703,13 @@ function colorMemory() {
     PADS.forEach(([c, x, y], i) => { g.globalAlpha = lit === i ? 1 : 0.35; g.fillStyle = c; rr(g, x, y, 130, 130, 24); g.fill(); g.globalAlpha = 1; if (lit === i) { g.strokeStyle = '#fff'; g.lineWidth = 4; rr(g, x, y, 130, 130, 24); g.stroke(); g.lineWidth = 1 } })
     txt(g, 'ROUND ' + (seq.length || 1), W / 2, 60, 18, '#fff'); txt(g, state === 'show' ? 'WATCH…' : state === 'wait' ? 'GET READY' : o.over ? 'WRONG!' : 'YOUR TURN', W / 2, 90, 11, '#ffe84a')
     txt(g, 'KEYS 1 2 3 4', W / 2, 460, 8, '#667')
+  }
+
+  o.draw3 = (r, g) => {
+    r.look(0, 330, -640, 0, 262, 0, 45); r.begin('#1a1a2e', '#0a0a14')
+    r.box(0, H - 270, 18, 300, 300, 24, '#14142a')
+    PADS.forEach(([c, x, y], i) => { const on = lit === i; r.box(x + 65 - W / 2, H - (y + 65) - (on ? 6 : 0), on ? 8 : -2, 124, 124, on ? 14 : 30, c, { glow: on ? 1.5 : 0.65 }); if (on) r.sphere(x + 65 - W / 2, H - (y + 65), -30, 50, c, { alpha: 0.25, glow: 1.6, shine: false }) })
+    r.flush(); txt(g, 'ROUND ' + (seq.length || 1), W / 2, 60, 18, '#fff'); txt(g, state === 'show' ? 'WATCH…' : state === 'wait' ? 'GET READY' : o.over ? 'WRONG!' : 'YOUR TURN', W / 2, 90, 11, '#ffe84a'); txt(g, 'KEYS 1 2 3 4', W / 2, 460, 8, '#667')
   }
   return o
 }
@@ -573,6 +745,18 @@ function lakeFishing() {
     g.strokeStyle = '#ffffffaa'; g.beginPath(); g.moveTo(hook.x, SURF - 10); g.lineTo(hook.x, hook.y); g.stroke(); g.fillStyle = '#ddd'; g.fillRect(hook.x - 4, hook.y, 8, 8)
     for (const f of fish) { g.font = f.k[3] * 1.6 + 'px serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.save(); g.translate(f.x, f.y); if (f.v < 0 && !f.hooked) g.scale(-1, 1); g.fillText(f.k[0], 0, 0); g.restore() }
     drawFx(g, fx); txt(g, 'TIME ' + o.time, 56, 24, 12, '#07304a'); txt(g, '$' + o.score, W - 50, 24, 14, '#07304a')
+  }
+
+  o.draw3 = (r, g) => {
+    r.look(0, 330, -650, 0, 262, 0, 45); r.begin('#bfe9ff', '#bfe9ff')
+    r.box(0, H - 40, 40, W + 100, 80, 10, '#9fd6f5', { edge: false }); r.sphere(110, H - 50, 36, 28, '#ffd98a', { glow: 1.3, shine: false })
+    r.box(0, (H - SURF) / 2 - 6, 60, W + 100, H - SURF, 20, '#0f4a8a', { edge: false })
+    r.box(0, (H - SURF) / 2 - 6, 0, W + 100, H - SURF, 30, '#3aa0e0', { alpha: 0.28, edge: false })
+    for (let i = 0; i < 8; i++) r.box(-W / 2 + 20 + i * 48, H - SURF - 2 + Math.sin(i + (t === undefined ? 0 : 0)) * 2, 0, 38, 4, 20, '#bfe9ff', { alpha: 0.6, edge: false })
+    r.box(hook.x - W / 2, H - SURF + 12, -10, 84, 14, 36, '#8a5a2a'); r.pyramid(hook.x - W / 2, H - SURF + 19, -10, 24, 38, 6, '#ffffff'); r.cyl(hook.x - W / 2 - 24, H - SURF + 19, -10, 4, 22, '#6a4a2a')
+    r.line([hook.x - W / 2, H - SURF - 4, -10], [hook.x - W / 2, H - hook.y, -10], '#ffffffcc', 2); r.box(hook.x - W / 2, H - hook.y - 4, -10, 9, 9, 6, '#dddddd')
+    for (const f of fish) { const x = f.x - W / 2, y = H - f.y, dir = f.hooked ? 1 : Math.sign(f.v) || 1, rr2 = f.k[3]; r.sphere(x, y, 0, rr2 * 0.9, f.k[2]); r.pyramid(x - dir * rr2 * 1.1, y - rr2 * 0.5, 0, rr2 * 0.8, rr2 * 1.1, rr2 * 0.3, f.k[2], { rz: dir > 0 ? 1.57 : -1.57 }); r.sphere(x + dir * rr2 * 0.5, y + rr2 * 0.2, -rr2 * 0.7, rr2 * 0.2, '#111', { shine: false }) }
+    r.fx(fx); r.flush(); txt(g, 'TIME ' + o.time, 56, 24, 12, '#07304a'); txt(g, '$' + o.score, W - 50, 24, 14, '#07304a')
   }
   return o
 }
@@ -615,6 +799,19 @@ function hoopShot() {
     disc(g, ball.x, ball.y, ball.r, '#ff8a2a'); g.strokeStyle = '#6a2a00'; g.lineWidth = 2; g.beginPath(); g.arc(ball.x, ball.y, ball.r, 0, TAU); g.moveTo(ball.x - ball.r, ball.y); g.lineTo(ball.x + ball.r, ball.y); g.moveTo(ball.x, ball.y - ball.r); g.lineTo(ball.x, ball.y + ball.r); g.stroke(); g.lineWidth = 1
     drawFx(g, fx); txt(g, 'TIME ' + o.time, 56, 24, 12, '#fff'); if (streak > 1) txt(g, 'STREAK x' + streak, W / 2, 30, 12, '#ffe84a')
   }
+
+  o.draw3 = (r, g) => {
+    r.look(0, 320, -660, 0, 262, 0, 45); r.begin('#2a1a3a', '#120a1c')
+    r.floor(-600, -400, 600, 900, 0, '#4a2a1a'); for (let i = -4; i < 5; i++) r.box(i * 70, 0.5, 100, 3, 1, 1400, '#3a2010', { alpha: 0.7, edge: false })
+    r.box(0, H / 2 + 40, 120, W + 160, H + 200, 20, '#1d1230', { edge: false })
+    const hx = hoop.x - W / 2, hy = H - hoop.y
+    r.box(hx, hy + 38, 30, 110, 76, 8, '#ffffff', { alpha: 0.35 }); r.box(hx, hy + 20, 26, 40, 30, 4, '#ff6a2a', { alpha: 0.5, edge: false })
+    for (let i = 0; i < 16; i++) { const a = (i / 16) * TAU, rx2 = hoop.w / 2; r.sphere(hx + Math.cos(a) * rx2, hy, 8 + Math.sin(a) * 14, 3.4, '#ff6a2a', { shine: false, glow: 1.2 }) }
+    for (let i = 0; i < 8; i++) { const a = (i / 8) * TAU; r.line([hx + Math.cos(a) * hoop.w / 2, hy, 8 + Math.sin(a) * 14], [hx + Math.cos(a) * hoop.w / 3.4, hy - 40, 8 + Math.sin(a) * 6], '#ffffffcc', 1.5) }
+    r.shadow(ball.x - W / 2, 0, ball.r, 0.35)
+    r.sphere(ball.x - W / 2, H - ball.y, 0, ball.r, '#ff8a2a', { glow: 1.1 })
+    r.fx(fx); r.flush(); txt(g, 'TIME ' + o.time, 56, 24, 12, '#fff'); if (streak > 1) txt(g, 'STREAK x' + streak, W / 2, 30, 12, '#ffe84a')
+  }
   return o
 }
 
@@ -646,6 +843,14 @@ function sumoPush() {
     disc(g, bot.x, bot.y, bot.r, '#ff5a6a'); disc(g, bot.x - 6, bot.y - 6, 6, '#ffffff66'); disc(g, me.x, me.y, me.r, '#3de8ff'); disc(g, me.x - 6, me.y - 6, 6, '#ffffff66')
     if (aim) { g.strokeStyle = '#ffffff88'; g.setLineDash([4, 6]); g.beginPath(); g.moveTo(me.x, me.y); g.lineTo(aim.x, aim.y); g.stroke(); g.setLineDash([]) }
     drawFx(g, fx); txt(g, 'WINS ' + (state === 'win' ? round + 1 : round), W / 2, 30, 14, '#fff'); if (state === 'win') txt(g, 'ROUND WON!', W / 2, 90, 16, '#7dff6a'); if (state === 'lose') txt(g, 'KNOCKED OUT', W / 2, 90, 16, '#ff6a6a')
+  }
+
+  o.draw3 = (r, g) => {
+    r.look(0, 330, -650, 0, 262, 0, 45); r.begin('#2a1408', '#120804')
+    r.disc(CX - W / 2, H - CY, 0, AR + 22, 22, '#8a5a2a', { top: '#a67a3a' }); r.disc(CX - W / 2, H - CY, -22, AR + 4, 6, '#e8d3a0', { top: '#f1dfb0' }); r.disc(CX - W / 2, H - CY, -28, AR - 6, 3, '#eadab0', { top: '#f4e6bd' })
+    for (const [b, c] of [[bot, '#ff5a6a'], [me, '#3de8ff']]) { r.shadow(b.x - W / 2, 0, b.r, 0.25); r.sphere(b.x - W / 2, H - b.y, -34 - b.r * 0.4, b.r, c, { ring: '#ffffff88' }) }
+    if (aim) r.line([me.x - W / 2, H - me.y, -60], [aim.x - W / 2, H - aim.y, -60], '#ffffffaa', 2)
+    r.fx(fx); r.flush(); txt(g, 'WINS ' + (state === 'win' ? round + 1 : round), W / 2, 30, 14, '#fff'); if (state === 'win') txt(g, 'ROUND WON!', W / 2, 90, 16, '#7dff6a'); if (state === 'lose') txt(g, 'KNOCKED OUT', W / 2, 90, 16, '#ff6a6a')
   }
   return o
 }
@@ -685,6 +890,19 @@ function knifeHit() {
     else if (!o.over) { g.fillStyle = '#ddd'; g.fillRect(CX - 3, H - 116, 6, 46); g.fillStyle = '#8a5a2a'; g.fillRect(CX - 5, H - 70, 10, 20) }
     for (let i = 0; i < need - thrown; i++) { g.fillStyle = '#fff'; g.fillRect(24, H - 40 - i * 14, 14, 6) }
     drawFx(g, fx); txt(g, 'STAGE ' + (lvl + 1), W / 2, 36, 12, '#ffe84a'); txt(g, String(o.score), W / 2, 60, 20, '#fff')
+  }
+
+  o.draw3 = (r, g) => {
+    r.look(0, 330, -650, 0, 262, 0, 45); r.begin('#1d1830', '#0b0914')
+    r.box(0, H / 2, 70, W + 80, H + 80, 16, '#150f24', { edge: false })
+    const lx = CX - W / 2 + (wob ? Math.sin(wob * 30) * 3 * wob : 0), ly = H - CY
+    r.disc(lx, ly, 0, LR, 34, '#a2753a', { top: '#c9955a' })
+    for (const a of stuck) { const wa = a + ang, kx = lx + Math.cos(wa) * (LR + 22), ky = ly - Math.sin(wa) * (LR + 22) * -1; void ky; const ex = lx + Math.cos(wa) * (LR + 24), ey = ly - Math.sin(wa) * (LR + 24); r.box(ex, ey, -8, 6, 48, 6, '#e6e6ee', { rz: -(wa + Math.PI / 2) + Math.PI }); void kx }
+    r.disc(lx, ly, -2, 14, 6, '#8a5a2a')
+    const kn = (y) => { r.box(CX - W / 2, H - y + 24, -8, 6, 50, 6, '#e6e6ee'); r.box(CX - W / 2, H - y - 8, -8, 10, 22, 8, '#8a5a2a') }
+    if (flying) kn(flying.y + 50); else if (!o.over) kn(H - 70 + 50)
+    for (let i = 0; i < need - thrown; i++) r.box(-W / 2 + 31, 40 + i * 14, -6, 14, 6, 4, '#ffffff', { edge: false })
+    r.fx(fx); r.flush(); txt(g, 'STAGE ' + (lvl + 1), W / 2, 36, 12, '#ffe84a'); txt(g, String(o.score), W / 2, 60, 20, '#fff')
   }
   return o
 }
@@ -727,6 +945,17 @@ function fruitMerge() {
     if (!o.over) { const r = SZ[cur], px = clamp(x, L + r, R - r); g.globalAlpha = cool > 0 ? 0.4 : 1; disc(g, px, TOP - 40, r, COLS[cur]); g.font = r * 1.3 + 'px serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#000'; g.fillText(EM[cur], px, TOP - 38); g.globalAlpha = 1; g.strokeStyle = '#ffffff22'; g.beginPath(); g.moveTo(px, TOP - 40 + r); g.lineTo(px, B); g.stroke() }
     drawFx(g, fx); txt(g, String(o.score), W / 2, 30, 24, '#fff')
   }
+
+  o.draw3 = (r, g) => {
+    r.look(0, 320, -660, 0, 262, 0, 45); r.begin('#3a2a1a', '#150e08')
+    r.box(0, H / 2, 60, W + 100, H + 100, 16, '#24160a', { edge: false })
+    r.box(L - W / 2 - 6, (H - B + H - TOP) / 2, 0, 12, B - TOP + 12, 70, '#8a6a4a'); r.box(R - W / 2 + 6, (H - B + H - TOP) / 2, 0, 12, B - TOP + 12, 70, '#8a6a4a'); r.box(0, H - B - 6, 0, R - L + 24, 12, 70, '#8a6a4a')
+    r.box(0, H / 2 - 10, 34, R - L, B - TOP, 4, '#ffffff', { alpha: 0.06, edge: false })
+    for (const b of balls) { r.shadow(b.x - W / 2, 0, 1, 0); r.sphere(b.x - W / 2, H - b.y, 0, SZ[b.k], COLS[b.k]); r.emoji(b.x - W / 2, H - b.y, -SZ[b.k] * 0.9, EM[b.k], SZ[b.k] * 1.5) }
+    if (!o.over) { const rd = SZ[cur], px = clamp(x, L + rd, R - rd) - W / 2; r.sphere(px, H - (TOP - 40), 0, rd, COLS[cur], { alpha: cool > 0 ? 0.4 : 1 }); r.emoji(px, H - (TOP - 40), -rd * 0.9, EM[cur], rd * 1.5); r.line([px, H - (TOP - 40) - rd, 0], [px, H - B, 0], '#ffffff44', 1) }
+    r.line([L - W / 2, H - TOP, -20], [R - W / 2, H - TOP, -20], overT > 0 ? '#ff4d4d' : '#ff4d4d66', 2)
+    r.fx(fx); r.flush(); txt(g, String(o.score), W / 2, 30, 24, '#fff')
+  }
   return o
 }
 
@@ -760,6 +989,16 @@ function doodleHop() {
     g.restore(); drawFx(g, fx.map((f) => ({ ...f, y: f.y - camY })))
     txt(g, String(o.score), 40, 28, 20, '#0a3a6a', 'left')
   }
+
+  o.draw3 = (r, g) => {
+    r.look(0, 320 - camY, -650, 0, 262 - camY, 0, 45); r.begin('#bfe3ff', '#eaf6ff')
+    for (let i = 0; i < 7; i++) { const y = ((i * 190 - camY * 0.4) % 1330 + 1330) % 1330; r.sphere((i * 97) % 500 - 250, 1500 - y - camY - 800 + 600 + camY * 0.6, 160, 48, '#ffffff', { alpha: 0.8, shine: false }) }
+    for (const pl of plats) { if (pl.gone) continue; r.box(pl.x + pl.w / 2 - W / 2, H - pl.y - 6, 0, pl.w, 12, 30, pl.k === 'move' ? '#3de8ff' : pl.k === 'break' ? '#c9955a' : '#5ac44a') }
+    const px = p.x - W / 2, py = H - p.y
+    r.shadow(px, 0, 1, 0)
+    r.box(px, py, 0, 28, 34, 26, '#7a5aff'); r.sphere(px - 5, py + 6, -14, 4.5, '#fff', { shine: false }); r.sphere(px + 5, py + 6, -14, 4.5, '#fff', { shine: false }); r.sphere(px - 5, py + 6, -17, 2.2, '#111', { shine: false }); r.sphere(px + 5, py + 6, -17, 2.2, '#111', { shine: false }); r.box(px, py - 20, 0, 12, 6, 12, '#ffb02e')
+    r.fx(fx, (q) => [q.x - W / 2, H - q.y, -8]); r.flush(); txt(g, String(o.score), 40, 28, 20, '#0a3a6a', 'left')
+  }
   return o
 }
 
@@ -788,6 +1027,14 @@ function ticTacToe() {
     g.strokeStyle = '#3de8ff'; g.lineWidth = 6; g.lineCap = 'round'; for (let i = 1; i < 3; i++) { g.beginPath(); g.moveTo(30 + i * 100, 156); g.lineTo(30 + i * 100, 444); g.stroke(); g.beginPath(); g.moveTo(36, 150 + i * 100); g.lineTo(324, 150 + i * 100); g.stroke() }
     b.forEach((v, i) => { const cx = 80 + (i % 3) * 100, cy = 200 + Math.floor(i / 3) * 100; if (v === 'X') { g.strokeStyle = '#ff5a6a'; g.beginPath(); g.moveTo(cx - 28, cy - 28); g.lineTo(cx + 28, cy + 28); g.moveTo(cx + 28, cy - 28); g.lineTo(cx - 28, cy + 28); g.stroke() } else if (v === 'O') { g.strokeStyle = '#ffe84a'; g.beginPath(); g.arc(cx, cy, 30, 0, TAU); g.stroke() } })
     g.lineWidth = 1; txt(g, 'ROUND ' + (round + 1), W / 2, 50, 14, '#fff'); txt(g, turn === 'X' ? 'YOUR MOVE (X)' : turn === 'O' ? 'BOT THINKING…' : msg, W / 2, 90, 12, '#ffe84a'); if (msg) txt(g, msg, W / 2, 480, 18, '#7dff6a')
+  }
+
+  o.draw3 = (r, g) => {
+    r.look(0, 330, -650, 0, 262, 0, 45); r.begin('#12203a', '#08101e')
+    r.box(0, H - 300, 16, 330, 330, 24, '#0e1a30')
+    for (const i of [1, 2]) { r.box(30 + i * 100 - W / 2, H - 300, -4, 8, 300, 10, '#3de8ff', { glow: 1.1 }); r.box(0, H - (150 + i * 100), -4, 300, 8, 10, '#3de8ff', { glow: 1.1 }) }
+    b.forEach((v, i) => { const cx = 80 + (i % 3) * 100 - W / 2, cy = H - (200 + Math.floor(i / 3) * 100); if (v === 'X') { r.box(cx, cy, -16, 14, 70, 14, '#ff5a6a', { rz: 0.785 }); r.box(cx, cy, -16, 14, 70, 14, '#ff5a6a', { rz: -0.785 }) } else if (v === 'O') for (let k = 0; k < 14; k++) { const a = (k / 14) * TAU; r.sphere(cx + Math.cos(a) * 28, cy + Math.sin(a) * 28, -16, 7.5, '#ffe84a', { shine: false }) } })
+    r.flush(); txt(g, 'ROUND ' + (round + 1), W / 2, 50, 14, '#fff'); txt(g, turn === 'X' ? 'YOUR MOVE (X)' : turn === 'O' ? 'BOT THINKING…' : msg, W / 2, 90, 12, '#ffe84a'); if (msg) txt(g, msg, W / 2, 480, 18, '#7dff6a')
   }
   return o
 }
@@ -819,6 +1066,19 @@ function pongDuel() {
     sky(g, '#0a2a1a', '#04140c'); g.strokeStyle = '#ffffff22'; g.setLineDash([10, 10]); g.beginPath(); g.moveTo(0, H / 2); g.lineTo(W, H / 2); g.stroke(); g.setLineDash([])
     g.fillStyle = '#ff5a6a'; rr(g, bot - PW / 2, 36, PW, 12, 6); g.fill(); g.fillStyle = '#3de8ff'; rr(g, me - PW / 2, H - 48, PW, 12, 6); g.fill()
     disc(g, ball.x, ball.y, 8, '#fff'); drawFx(g, fx); txt(g, 'YOU ' + o.score, 50, H / 2 - 20, 12, '#3de8ff', 'center'); txt(g, 'BOT ' + bs + '/7', W - 50, H / 2 + 20, 12, '#ff5a6a', 'center')
+  }
+
+  o.draw3 = (r, g) => {
+    // near paddle sits ~one focal length from the camera so it follows the finger 1:1; the table recedes in perspective
+    const zOf = (y) => (H - y) * 1.0 - 40
+    r.look(0, 300, -560, 0, 20, 330, 56); r.begin('#0a2a1a', '#04140c')
+    r.box(0, -14, 330, W + 70, 28, 940, '#145a32'); r.box(0, 0.5, 330, W, 1, 860, '#1a6a3c', { edge: false })
+    r.box(0, 0.8, 330, W - 20, 1, 4, '#ffffff55', { edge: false })
+    r.box(-W / 2 - 8, 14, 330, 16, 28, 880, '#2a3a78'); r.box(W / 2 + 8, 14, 330, 16, 28, 880, '#2a3a78')
+    const bz = zOf(ball.y); r.shadow(ball.x - W / 2, bz, 8, 0.4, 1)
+    r.box(bot - W / 2, 8, zOf(42), PW, 14, 14, '#ff5a6a', { glow: 1.1 }); r.box(me - W / 2, 8, zOf(H - 42), PW, 14, 14, '#3de8ff', { glow: 1.1 })
+    r.sphere(ball.x - W / 2, 10, bz, 9, '#ffffff'); r.fx(fx, (p) => [p.x - W / 2, 10, zOf(p.y)]); r.flush()
+    txt(g, 'YOU ' + o.score, 50, H / 2 + 120, 12, '#3de8ff', 'center'); txt(g, 'BOT ' + bs + '/7', W - 56, 60, 12, '#ff5a6a', 'center')
   }
   return o
 }
@@ -858,30 +1118,45 @@ function archery() {
     if (arrow) { g.save(); g.translate(arrow.x, arrow.y); g.rotate(Math.atan2(arrow.vy, arrow.vx)); g.fillStyle = '#5a3a1a'; g.fillRect(-30, -1.5, 30, 3); g.fillStyle = '#999'; g.beginPath(); g.moveTo(0, -4); g.lineTo(10, 0); g.lineTo(0, 4); g.fill(); g.restore() }
     drawFx(g, fx); txt(g, 'SCORE ' + o.score, 70, 24, 12, '#07304a'); txt(g, 'ARROWS ' + o.arrows, W - 70, 24, 12, '#07304a'); txt(g, 'WIND ' + (wind > 0 ? '→ ' : '← ') + Math.abs(Math.round(wind / 6)), W / 2, 56, 10, '#07304a'); if (last) txt(g, last, W / 2, 90, 18, '#7a3a00')
   }
+
+  o.draw3 = (r, g) => {
+    r.look(0, 330, -660, 0, 262, 0, 45); r.begin('#9fd8ff', '#e8f6ff')
+    for (let i = 0; i < 5; i++) { const x = -320 + i * 170, z = 160 + (i % 2) * 40; r.cyl(x, 0, z, 9, 60, '#5a3a1a'); r.pyramid(x, 60, z, 80, 120, 80, '#2a8a3a') }
+    r.floor(-700, -300, 700, 500, H - 440, '#5ac44a')
+    r.box(0, (H - 440) / 2, 20, 900, H - 440, 20, '#4aa83a', { edge: false })
+    const tx = tgt.x - W / 2, ty = H - tgt.y
+    r.cyl(tx, H - 440, 0, 4, 440 - tgt.y - tgt.r + (H - 440) * 0 + 0, '#6a4a2a')
+    for (const [rd, c, z] of [[34, '#ffffff', 0], [26, '#222222', -3], [18, '#3de8ff', -6], [10, '#ff5a6a', -9], [4, '#ffe84a', -12]]) r.disc(tx, ty, z, rd, 6, c)
+    const bx = BX - W / 2, by = H - BY
+    for (let i = 0; i < 12; i++) { const a = -1.1 + (i / 11) * 2.2; r.sphere(bx + 4 + Math.cos(a) * 34, by - Math.sin(a) * 34, 0, 3.5, '#6a3a1a', { shine: false }) }
+    if (aim) { const dx = BX - aim.x, dy = BY - aim.y, pw = clamp(Math.hypot(dx, dy), 20, 140), a = Math.atan2(dy, dx); r.line([bx + 4 + Math.cos(-1.1) * 34, by + Math.sin(1.1) * 34, 0], [bx - Math.cos(a) * pw * 0.35, by + Math.sin(a) * pw * 0.35, 0], '#000', 2); for (let i = 1; i <= 14; i++) { const t2 = i * 0.07, vx = Math.cos(a) * pw * 7.2 + wind * t2 * 0.3, vy = Math.sin(a) * pw * 7.2; r.sphere(bx + vx * t2, by - (vy * t2 + 260 * t2 * t2), -2, 3, '#ffffff', { shine: false, alpha: 0.7 }) } }
+    if (arrow) { const ang2 = Math.atan2(arrow.vy, arrow.vx); r.box(arrow.x - W / 2, H - arrow.y, -4, 34, 3, 3, '#5a3a1a', { rz: -ang2 }); r.sphere(arrow.x - W / 2 + Math.cos(ang2) * 18, H - arrow.y - Math.sin(ang2) * 18, -4, 3.6, '#bbbbbb', { shine: false }) }
+    r.fx(fx); r.flush(); txt(g, 'SCORE ' + o.score, 70, 24, 12, '#07304a'); txt(g, 'ARROWS ' + o.arrows, W - 70, 24, 12, '#07304a'); txt(g, 'WIND ' + (wind > 0 ? '→ ' : '← ') + Math.abs(Math.round(wind / 6)), W / 2, 56, 10, '#07304a'); if (last) txt(g, last, W / 2, 90, 18, '#7a3a00')
+  }
   return o
 }
 
 export const MINI = [
-  { id: 'stack', icon: '🏗️', name: 'STACK TOWER', desc: 'Time your taps and build the tallest tower', make: stackTower },
-  { id: 'wing', icon: '🐤', name: 'WING DASH', desc: 'Flap through the pipes without a single touch', make: wingDash },
-  { id: 'bubble', icon: '🫧', name: 'BUBBLE POP', desc: 'Aim, bounce and pop colour clusters', make: bubblePop },
-  { id: 'runner', icon: '🏃', name: 'NEON RUNNER', desc: 'Run forever. Double jump over spikes', make: neonRunner },
-  { id: 'slice', icon: '🍉', name: 'SLICE NINJA', desc: 'Swipe the fruit, dodge the bombs', make: sliceNinja },
-  { id: 'gems', icon: '💎', name: 'GEM CRUSH', desc: 'Match-3 puzzle with chain reactions', make: gemCrush },
-  { id: 'memory', icon: '🧠', name: 'MEMORY FLIP', desc: 'Find every pair in the fewest moves', make: memoryFlip },
-  { id: 'mole', icon: '🔨', name: 'MOLE SMASH', desc: 'Whack moles, golden bonuses, avoid bombs', make: moleSmash },
-  { id: 'miner', icon: '⛏️', name: 'IDLE MINER', desc: 'Tap rocks, hire miners, never stop growing', make: idleMiner },
-  { id: 'traffic', icon: '🚗', name: 'TRAFFIC DODGE', desc: 'Weave through traffic and grab coins', make: trafficDodge },
-  { id: 'blob', icon: '🟣', name: 'BLOB ARENA', desc: 'Eat, grow and outsmart 14 hungry blobs', make: blobArena },
-  { id: 'blocks', icon: '🧩', name: 'BLOCK PUZZLE', desc: 'Drag pieces, clear lines, chain combos', make: blockPuzzle },
-  { id: 'simon', icon: '🎵', name: 'COLOR MEMORY', desc: 'Repeat the growing light pattern', make: colorMemory },
-  { id: 'fishing', icon: '🎣', name: 'LAKE FISHING', desc: 'Drop the hook, catch the big ones, avoid junk', make: lakeFishing },
-  { id: 'hoops', icon: '🏀', name: 'HOOP SHOT', desc: 'Flick the ball and sink streaks of baskets', make: hoopShot },
-  { id: 'sumo', icon: '🥋', name: 'SUMO PUSH', desc: 'Shove the bot out of the ring, round after round', make: sumoPush },
-  { id: 'knife', icon: '🔪', name: 'KNIFE HIT', desc: 'Throw knives into the spinning log, never hit another', make: knifeHit },
-  { id: 'fruit', icon: '🍉', name: 'FRUIT MERGE', desc: 'Drop and merge fruits up to the big watermelon', make: fruitMerge },
-  { id: 'hop', icon: '🦘', name: 'DOODLE HOP', desc: 'Bounce up endless platforms without falling', make: doodleHop },
-  { id: 'ttt', icon: '❌', name: 'TIC-TAC-TOE', desc: 'Beat a bot that gets smarter every round', make: ticTacToe },
-  { id: 'pong', icon: '🏓', name: 'PONG DUEL', desc: 'Classic paddle duel against a speeding bot', make: pongDuel },
-  { id: 'archery', icon: '🏹', name: 'ARCHERY', desc: 'Pull back, read the wind, hit the bullseye', make: archery },
+  { id: 'stack', icon: '🏗️', name: 'STACK TOWER', desc: 'Time your taps and build the tallest tower', make: wrapR3(stackTower) },
+  { id: 'wing', icon: '🐤', name: 'WING DASH', desc: 'Flap through the pipes without a single touch', make: wrapR3(wingDash) },
+  { id: 'bubble', icon: '🫧', name: 'BUBBLE POP', desc: 'Aim, bounce and pop colour clusters', make: wrapR3(bubblePop) },
+  { id: 'runner', icon: '🏃', name: 'NEON RUNNER', desc: 'Run forever. Double jump over spikes', make: wrapR3(neonRunner) },
+  { id: 'slice', icon: '🍉', name: 'SLICE NINJA', desc: 'Swipe the fruit, dodge the bombs', make: wrapR3(sliceNinja) },
+  { id: 'gems', icon: '💎', name: 'GEM CRUSH', desc: 'Match-3 puzzle with chain reactions', make: wrapR3(gemCrush) },
+  { id: 'memory', icon: '🧠', name: 'MEMORY FLIP', desc: 'Find every pair in the fewest moves', make: wrapR3(memoryFlip) },
+  { id: 'mole', icon: '🔨', name: 'MOLE SMASH', desc: 'Whack moles, golden bonuses, avoid bombs', make: wrapR3(moleSmash) },
+  { id: 'miner', icon: '⛏️', name: 'IDLE MINER', desc: 'Tap rocks, hire miners, never stop growing', make: wrapR3(idleMiner) },
+  { id: 'traffic', icon: '🚗', name: 'TRAFFIC DODGE', desc: 'Weave through traffic and grab coins', make: wrapR3(trafficDodge) },
+  { id: 'blob', icon: '🟣', name: 'BLOB ARENA', desc: 'Eat, grow and outsmart 14 hungry blobs', make: wrapR3(blobArena) },
+  { id: 'blocks', icon: '🧩', name: 'BLOCK PUZZLE', desc: 'Drag pieces, clear lines, chain combos', make: wrapR3(blockPuzzle) },
+  { id: 'simon', icon: '🎵', name: 'COLOR MEMORY', desc: 'Repeat the growing light pattern', make: wrapR3(colorMemory) },
+  { id: 'fishing', icon: '🎣', name: 'LAKE FISHING', desc: 'Drop the hook, catch the big ones, avoid junk', make: wrapR3(lakeFishing) },
+  { id: 'hoops', icon: '🏀', name: 'HOOP SHOT', desc: 'Flick the ball and sink streaks of baskets', make: wrapR3(hoopShot) },
+  { id: 'sumo', icon: '🥋', name: 'SUMO PUSH', desc: 'Shove the bot out of the ring, round after round', make: wrapR3(sumoPush) },
+  { id: 'knife', icon: '🔪', name: 'KNIFE HIT', desc: 'Throw knives into the spinning log, never hit another', make: wrapR3(knifeHit) },
+  { id: 'fruit', icon: '🍉', name: 'FRUIT MERGE', desc: 'Drop and merge fruits up to the big watermelon', make: wrapR3(fruitMerge) },
+  { id: 'hop', icon: '🦘', name: 'DOODLE HOP', desc: 'Bounce up endless platforms without falling', make: wrapR3(doodleHop) },
+  { id: 'ttt', icon: '❌', name: 'TIC-TAC-TOE', desc: 'Beat a bot that gets smarter every round', make: wrapR3(ticTacToe) },
+  { id: 'pong', icon: '🏓', name: 'PONG DUEL', desc: 'Classic paddle duel against a speeding bot', make: wrapR3(pongDuel) },
+  { id: 'archery', icon: '🏹', name: 'ARCHERY', desc: 'Pull back, read the wind, hit the bullseye', make: wrapR3(archery) },
 ]
