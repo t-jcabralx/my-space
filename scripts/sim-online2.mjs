@@ -7,7 +7,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 if (!role) {
   const self = fileURLToPath(import.meta.url)
   let fail = 0
-  for (const g of (process.env.GAMES || 'orb,garden,ssx,kart,hunt,slug,snake,word,mines').split(',')) {
+  for (const g of (process.env.GAMES || 'orb,garden,ssx,kart,hunt,climb,kong,slug,snake,word,mines').split(',')) {
     if (g === 'story') continue
     const host = spawn('node', [self, 'host', g], { stdio: ['ignore', 'pipe', 'inherit'] })
     let hostOut = '', guestOut = '', guest
@@ -32,6 +32,8 @@ const { SX, snowTest } = await import('../src/game/ssx.js')
 const { RC } = await import('../src/game/race.js')
 const { D, DUELS } = await import('../src/game/duel.js')
 const { HT, huntActions } = await import('../src/game/hunt.js')
+const { CL, climbActions } = await import('../src/game/climb.js')
+const { KG, kongActions } = await import('../src/game/kong.js')
 const { SN } = await import('../src/game/snake.js')
 const { WD } = await import('../src/game/word.js')
 const { MS } = await import('../src/game/mines.js')
@@ -126,6 +128,21 @@ if (game === 'orb') {
   clearInterval(drive); eng.keys.ArrowUp = eng.keys.ArrowLeft = eng.keys.ArrowRight = false
   console.log('RESULT', role, RC.results && RC.results.pos)
   await sleep(1500)
+}
+if (game === 'climb' || game === 'kong') {
+  const S = game === 'climb' ? CL : KG, A = game === 'climb' ? climbActions : kongActions
+  await join()
+  if (role === 'host') await hostGame(game, game === 'kong' ? { size: 2 } : {})
+  check('the climb starts on both sides with two climbers', await until(() => S.mode === 'play' && S.net && S.players.length === 2), S.mode)
+  check('seats are assigned', S.me === (role === 'host' ? 0 : 1))
+  const x0 = S.players[S.me].x, gx0 = S.players[1].x
+  if (role === 'guest') A.press('right', true)
+  check(role === 'host' ? 'the host sees the guest climber run' : 'the guest runs its own climber', await until(() => Math.abs(S.players[1].x - gx0) > 2, 20000), 'x ' + S.players[1].x.toFixed(1))
+  A.press('right', false)
+  check('both see the same level and score counters', await until(() => S.t > 3, 20000), 't ' + S.t + ' mode ' + S.mode + ' net ' + !!S.net)
+  if (role === 'host') { await sleep(1200); S.players.forEach((p) => { p.lives = 0; p.out = true }) }
+  check('the run ends on both sides', await until(() => S.mode === 'over', 40000), S.mode)
+  await sleep(1200)
 }
 if (game === 'hunt') {
   await join()

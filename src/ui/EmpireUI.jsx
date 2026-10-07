@@ -31,7 +31,7 @@ export function EmpireLobby({ s, TopPlayers, onInvite }) {
           <h4>HOW MANY RIVAL KINGDOMS?</h4>
           <div className="chips">{[[1, '1 RIVAL'], [2, '2 RIVALS'], [3, '3 RIVALS']].map(([v, n]) => <button key={v} className={'chip ' + (ai === v ? 'sel' : '')} onClick={() => setAi(v)}>{n}</button>)}</div>
           <h4>MAP SIZE <small className="dim">(x{size} each way = {96 * size} x {96 * size} tiles)</small></h4>
-          <div className="chips">{SIZES.map((v) => <button key={v} className={'chip ' + (size === v ? 'sel' : '')} onClick={() => { setSize(v); s.profile.empireSize = v }}>{v === 1 ? 'x1 CLASSIC' : v === 20 ? 'x20 CONTINENT' : 'x' + v}</button>)}</div>
+          <div className="chips">{SIZES.map((v) => <button key={v} className={'chip ' + (size === v ? 'sel' : '')} onClick={() => { setSize(v); s.profile.empireSize = v }}>{v === 1 ? 'x1 CLASSIC' : v === 30 ? 'x30 WORLD' : v === 20 ? 'x20 CONTINENT' : 'x' + v}</button>)}</div>
           <h4>RIVAL STRENGTH</h4>
           <div className="chips">{[[1, 'GENTLE'], [2, 'FIERCE'], [3, 'BRUTAL']].map(([v, n]) => <button key={v} className={'chip ' + (diff === v ? 'sel' : '')} onClick={() => setDiff(v)}>{n}</button>)}</div>
           <div className="chips"><button className="big" onClick={() => empireActions.start({ ai, diff, size })}>▶ BUILD MY KINGDOM</button><button className="big sec" onClick={onInvite}>🌐 INVITE FRIENDS (UP TO 4 KINGDOMS)</button></div>
@@ -52,9 +52,10 @@ function Minimap({ ver }) {
     const c = ref.current; if (!c) return
     const info = mapInfo(); if (!info.terr) return
     if (!base.current || base.current.seedKey !== EM.seed) {
-      const o = document.createElement('canvas'); o.width = MW; o.height = MH; const g = o.getContext('2d'), id = g.createImageData(MW, MH)
+      const MS = Math.min(MW, 512), stp = MW / MS // huge maps are sampled so the minimap stays quick
+      const o = document.createElement('canvas'); o.width = MS; o.height = MS; const g = o.getContext('2d'), id = g.createImageData(MS, MS)
       const C = [[28, 70, 32], [14, 50, 22], [80, 80, 96], [200, 160, 30], [18, 50, 120]]
-      for (let j = 0; j < MH; j++) for (let i = 0; i < MW; i++) { const t = info.terr[j * MW + i], k = ((MH - 1 - j) * MW + i) * 4, col = C[t]; id.data[k] = col[0]; id.data[k + 1] = col[1]; id.data[k + 2] = col[2]; id.data[k + 3] = 255 }
+      for (let j = 0; j < MS; j++) for (let i = 0; i < MS; i++) { const t = info.terr[((j * stp) | 0) * MW + ((i * stp) | 0)], k = ((MS - 1 - j) * MS + i) * 4, col = C[t]; id.data[k] = col[0]; id.data[k + 1] = col[1]; id.data[k + 2] = col[2]; id.data[k + 3] = 255 }
       g.putImageData(id, 0, 0); o.seedKey = EM.seed; base.current = o
     }
     const g = c.getContext('2d'); g.imageSmoothingEnabled = false

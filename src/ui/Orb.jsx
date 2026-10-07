@@ -32,22 +32,22 @@ export function OrbHUD({ openHelp }) {
   const g = useSyncExternalStore(subscribeOrb, getOrbSnap)
   const touch = useTouchPrimary()
   if (!g || g.mode === 'idle') return null
-  const ball = (c) => <i className="orbdot" style={{ background: COLORS[c], boxShadow: '0 0 10px ' + COLORS[c] }} />
+  const ball = (c) => <i className="orbdot" style={{ '--c': COLORS[c] }} />
   return (
     <div className="hud mg-hud orbhud">
       {g.mode === 'play' && !g.paused && <Surface onPtr={(t, x, y) => orbActions.pointerScreen(t, x, y)} cursor="crosshair" />}
       <div className="mg-topbar">
         <span>SCORE <b>{fmt(g.score)}</b></span>
         <span>{g.kind === 'versus' ? 'VERSUS' : 'LEVEL'} <b>{g.kind === 'versus' ? g.level : g.level + '/' + g.levels}</b></span>
-        {g.kind === 'solo' && <span className="hearts">{Array.from({ length: Math.max(0, g.lives) }).map((_, i) => <i key={i} className="on">♥</i>)}</span>}
+        {g.kind === 'solo' && <span>{Array.from({ length: Math.max(0, g.lives) }).map((_, i) => <span key={i}>🐸</span>)}</span>}
         <span>LEFT <b>{g.left}</b></span>
         <span className="dim">{g.slow ? 'SLOW ' : ''}{g.stop ? 'FREEZE ' : ''}{g.back ? 'REVERSE' : ''}</span>
         <span className="grow" />
         {g.mode === 'play' && !g.paused && g.kind === 'solo' && <button className="mg-btn" onClick={() => orbActions.pause()}>⏸</button>}
       </div>
-      <div className={'orbdanger' + (g.danger > 0.8 ? ' hot' : '')}><b style={{ width: Math.min(100, g.danger * 100) + '%' }} /></div>
+      <div className={'orbdanger' + (g.danger > 0.8 ? ' hot' : '')}><b style={{ width: Math.min(100, g.danger * 100) + '%' }} /><em style={{ left: Math.min(100, g.danger * 100) + '%' }}>●</em><u>💀</u></div>
       {g.foe && <div className="orbfoe"><b>{g.foe.name}</b><i><u style={{ width: Math.min(100, g.foe.p * 100) + '%' }} /></i><small>{g.foe.left} left · {fmt(g.foe.score)}</small></div>}
-      <div className="orbnext"><small>NEXT</small>{ball(g.cur)}{ball(g.next)}<button className="mg-btn" onPointerDown={(e) => { e.stopPropagation(); orbActions.swap() }}>⇄ Q</button></div>
+      <div className="orbnext"><small>LOADED</small>{ball(g.cur)}<small>NEXT</small>{ball(g.next)}<button className="mg-btn" onPointerDown={(e) => { e.stopPropagation(); orbActions.swap() }}>⇄ Q</button></div>
       {g.combo > 1 && <div className="orbcombo">COMBO x{g.combo}</div>}
       {g.msg && <div className="mg-banner" style={{ '--c': '#6aff9a' }}><h2>{g.msg.text}</h2>{g.msg.sub && <p>{g.msg.sub}</p>}</div>}
       {touch && g.mode === 'play' && <div className="mg-hint">TAP TO AIM AND SHOOT</div>}

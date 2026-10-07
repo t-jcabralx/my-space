@@ -11,7 +11,7 @@ import { EMCAMP, EMWHO } from './empirestory.js'
 export let MW = 96, MH = 96
 export const T = 2
 let WORLD = MW * T
-export const SIZES = [1, 2, 4, 8, 12, 20]
+export const SIZES = [1, 2, 4, 8, 12, 20, 30]
 const BASE_SPAWNS = [[22 / 96, 22 / 96], [74 / 96, 74 / 96], [74 / 96, 22 / 96], [22 / 96, 74 / 96]]
 // the map is 96 x 96 tiles times the chosen size (up to 20x each way = 1920 x 1920 tiles)
 export function setMapSize(k) { const K = SIZES.includes(k) ? k : 4; MW = MH = 96 * K; WORLD = MW * T; SPAWNS.length = 0; for (const [a, b] of BASE_SPAWNS) SPAWNS.push([Math.round(a * MW), Math.round(b * MH)]); return K }

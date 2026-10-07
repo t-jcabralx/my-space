@@ -2,6 +2,8 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { RT, subscribeRt, getRt, createRoom, joinRoom, leaveRoom, listRooms, roomAction, sendChat } from '../game/online/rt.js'
 import '../game/hunt.js'
+import '../game/climb.js'
+import '../game/kong.js'
 import { hostGame, installGameNet } from '../game/online/gnet.js'
 import '../game/duel.js'
 const DUEL_IDS = ['slug', 'snake', 'breaker', 'merge', 'rhythm', 'td', 'chomp', 'mines', 'word']
@@ -23,6 +25,8 @@ const profile0 = () => profile0Obj
 if (typeof window !== 'undefined') { installGameNet(); installCardsOnline(); installTetrisOnline(); installPickleOnline(); installBomberOnline(); installSpaceOnline(); installFightOnline(); installRaceOnline(); installHockeyOnline(); installPoolOnline(); installRogueOnline(); installC4Online(); installEmpireOnline() }
 
 const GAMES = [
+  ['climb', '🧗', 'FROST CLIMBERS CO-OP', 'Climb icy mountains together: two climbers, shared mountain, shared lives. The host runs the mountain.', 2],
+  ['kong', '🦍', 'GIRDER GORILLA CO-OP', 'Climb the girders together and rescue the captive. The host picks the girder width in the 🦍 tab.', 2],
   ['hunt', '🌙', '13 DAYS OF HELL CO-OP', 'Survive the haunted woods together: 1-3 hunters, shared shop at dawn, revive each other. Pick 13 Days or Watch Your Back in the 🌙 tab (host chooses).', 3],
   ['slug', '🪖', 'GROUND ZERO DUEL', 'Both play the first Ground Zero mission at once: highest score wins.', 2],
   ['snake', '🐍', 'SNAKE DUEL', 'Both play Neon Snake at the same time and watch each other\'s score live: the longer snake wins.', 2],
@@ -102,6 +106,8 @@ export default function OnlineLobby({ s, TopPlayers, initGame }) {
     if (room.game === 'race' || room.game === 'kart') await hostRaceMatch({ track: typeof profile0().raceTrack === 'number' ? profile0().raceTrack : 0, laps: 3, diff: 2, ai: 3, kart: room.game === 'kart', size: profile0().raceSize || 1, weather: profile0().raceWeather && profile0().raceWeather !== 'auto' ? profile0().raceWeather : undefined, tod: typeof profile0().raceTod === 'number' && profile0().raceTod >= 0 ? profile0().raceTod : undefined })
     else if (room.game === 'orb') await hostGame('orb', { level: 0 })
     else if (room.game === 'garden') await hostGame('garden', {})
+    else if (room.game === 'climb') await hostGame('climb', {})
+    else if (room.game === 'kong') await hostGame('kong', { size: profile0().kongSize | 0 })
     else if (room.game === 'hunt') await hostGame('hunt', { kind: profile0().huntKind || 'days' })
     else if (DUEL_IDS.includes(room.game)) await hostGame('duel:' + room.game, { song: 1 })
     else if (room.game === 'ssx') await hostGame('ssx', { width: profile0().ssxWidth | 0, course: profile0().ssxCourse | 0, kind: profile0().ssxKind || 'race' })

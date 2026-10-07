@@ -59,6 +59,8 @@ function buildPath(li) {
     need += seg - used; acc = 0
   }
   const path = { pts: out, len: (out.length - 1) * PS }
+  // a coarse mask of everything within reach of the track, so decorations stay off it
+  { const mk = new Set(); for (let i = 0; i < out.length; i += 2) { const gx = Math.round(out[i].x / 2), gy = Math.round(out[i].y / 2); for (let a = -3; a <= 3; a++) for (let b = -3; b <= 3; b++) mk.add((gx + a) + ',' + (gy + b)) } path.near = (x, y) => mk.has(Math.round(x / 2) + ',' + Math.round(y / 2)) }
   pathCache[li] = path
   return path
 }
@@ -298,7 +300,7 @@ function onKey(code) {
   if (OB.mode === 'over' && code === 'Enter') return orbActions.rematch()
   if (code === 'KeyQ' || code === 'KeyE' || code === 'ArrowUp' || code === 'ArrowDown') swap()
 }
-const camOrb = () => ({ x: 0, y: 66, z: 38, tx: 0, ty: 0, tz: -1, fov: 45, far: 400, aspect: 100 / 56 })
+const camOrb = () => ({ x: 0, y: 52, z: 31, tx: 0, ty: 0, tz: -1, fov: 45, far: 400, aspect: 100 / 56 })
 export const orbActions = {
   start, stop, quit() { toMenu() }, resume() { OB.paused = false; emitO() }, pause() { if (OB.mode === 'play' && !OB.paused && !OB.net) { OB.paused = true; emitO(); return true } return false },
   rematch() { if (OB.net) { if (OB.net.rematch) OB.net.rematch(); return } start({ level: OB.kind === 'solo' ? 0 : OB.lvl, kind: OB.kind }) },
@@ -340,59 +342,112 @@ registerNet('orb', {
 
 // ---------- drawing ----------
 const hex = (h, k = 1) => { const c = col(h); return [c[0] * k, c[1] * k, c[2] * k] }
-function lights() { return { sun: { x: -20, y: 70, z: 30, color: '#fff2dc', intensity: 1.0 }, ambient: 0.8, dir: 0.1, lantern: { x: 0, y: 30, z: 4, color: '#c8ffd8', intensity: 2.0, distance: 110 }, shadow: false } }
+const gh = (a, b) => { let h = Math.imul(a | 0, 374761393) ^ Math.imul(b | 0, 668265263); h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296 }
+function lights() { return { sun: { x: -20, y: 70, z: 30, color: '#fff2dc', intensity: 1.05 }, ambient: 0.78, dir: 0.1, lantern: { x: 0, y: 26, z: 4, color: '#d8ffe0', intensity: 2.2, distance: 110 }, shadow: false } }
 const YAW = (a) => { const c = Math.cos(a), s = Math.sin(a); return [c, 0, s, 0, 1, 0, -s, 0, c] }
+// what the next shot would hit: the first orb along the aim line
+function aimHit() {
+  const a = OB.aim, dx = Math.cos(a), dy = Math.sin(a)
+  for (let d = 5; d < 90; d += 1.2) {
+    const x = dx * d, y = dy * d
+    if (Math.abs(x) > 56 || Math.abs(y) > 34) return { d, x, y, hit: false }
+    for (const b of OB.balls) { if (b.s < LEAD - D) continue; const p = posAt(b.s); if (Math.hypot(p.x - x, p.y - y) < D * 0.9) return { d, x, y, hit: true } }
+  }
+  return { d: 90, x: dx * 90, y: dy * 90, hit: false }
+}
+function drawOrb(api, x, y, z, c, size, rot, pw, t, glow = 0) {
+  const { put3, putS } = api
+  putS(x + 0.3, 0.05, z + 0.3, size * 0.95, 0.08, size * 0.95, 0.01, 0.03, 0.02)         // shadow on the stone
+  putS(x, 0.12, z, size * 1.28, 0.1, size * 1.28, c[0] * 0.28 * (1 + glow), c[1] * 0.28 * (1 + glow), c[2] * 0.28 * (1 + glow)) // coloured glow on the ground
+  putS(x, size * 0.52, z, size, size, size, c[0], c[1], c[2])                              // the orb
+  putS(x, size * 0.5, z, size * 0.7, size * 0.7, size * 0.7, c[0] * 0.55, c[1] * 0.55, c[2] * 0.55) // darker core
+  putS(x - size * 0.17, size * 0.88, z - size * 0.17, size * 0.3, size * 0.2, size * 0.3, 2.6, 2.6, 2.6) // shine
+  putS(x + size * 0.2, size * 0.28, z + size * 0.2, size * 0.18, size * 0.1, size * 0.18, c[0] * 1.8 + 0.3, c[1] * 1.8 + 0.3, c[2] * 1.8 + 0.3)
+  // a band that rolls with the orb so you can see it moving along the track
+  const ca = Math.cos(rot), sa = Math.sin(rot)
+  putS(x + ca * size * 0.42, size * 0.52 + sa * size * 0.42, z, size * 0.22, size * 0.22, size * 0.22, c[0] * 0.35, c[1] * 0.35, c[2] * 0.35)
+  if (pw) {
+    const pc = pw === 'bomb' ? [3, 0.5, 0.2] : pw === 'slow' ? [0.4, 1.8, 3] : pw === 'stop' ? [2.4, 2.4, 3] : [0.6, 3, 1], pu = 0.7 + 0.3 * Math.sin(t * 6)
+    putS(x, size * 0.52, z, size * 1.2 * pu, size * 1.2 * pu, size * 1.2 * pu, pc[0] * 0.25, pc[1] * 0.25, pc[2] * 0.25)
+    if (pw === 'bomb') { putS(x, size * 0.62, z, size * 0.55, size * 0.55, size * 0.55, 0.05, 0.05, 0.06); put3(x + size * 0.25, size * 1.12, z, 0.25, 0.5, 0.25, 0, 0.5, 0.4, 0.2, 0); putS(x + size * 0.32, size * 1.4 + Math.sin(t * 20) * 0.1, z, 0.35, 0.35, 0.35, 3, 2, 0.4) }
+    else if (pw === 'slow') { for (let k = 0; k < 4; k++) put3(x + Math.cos(k * 1.57 + t * 2) * size * 0.45, size * 0.9, z + Math.sin(k * 1.57 + t * 2) * size * 0.45, 0.35, 0.35, 0.35, 0, pc[0], pc[1], pc[2], 0) }
+    else if (pw === 'stop') { put3(x, size * 1.05, z, size * 0.5, size * 0.5, size * 0.5, 0, pc[0], pc[1], pc[2], t * 2); put3(x, size * 1.05, z, size * 0.78, 0.18, 0.18, 0, pc[0], pc[1], pc[2], t * 2) }
+    else { for (let k = -1; k <= 1; k++) put3(x - k * 0.5, size * 1.0, z + 0.2, 0.5, 0.18, 0.18, 0.7 * (k % 2 ? 1 : -1), pc[0], pc[1], pc[2], 0) }
+  }
+}
 function draw3(api) {
   const { put3, putS, putM } = api, t = G.time
   if (!OB.path) return
-  const L = LEVELS[OB.lvl], tint = hex(L.tint), P = OB.path.pts
-  // ground
-  put3(0, -1.4, 0, 112, 1.6, 66, 0, 0.05, 0.14, 0.08, 0)
-  put3(0, -0.4, 0, 100, 0.5, 56, 0, 0.08, 0.22, 0.12, 0)
-  for (let i = 0; i < 40; i++) { const a = i * 2.399, r = 8 + (i * 7) % 40; put3(Math.cos(a) * r * 1.4, -0.1, Math.sin(a) * r * 0.8, 1.4 + (i % 3), 0.2, 1.2 + (i % 2), 0, 0.1, 0.28 + (i % 4) * 0.03, 0.12, a) }
-  // track groove
-  for (let i = 0; i < P.length; i += 3) { const p = P[i]; if (Math.abs(p.x) > 56 || Math.abs(p.y) > 33) continue; put3(p.x, 0.0, -p.y, 3.7, 0.3, 3.7, 0, 0.1, 0.07, 0.05, 0); if (i % 9 === 0) put3(p.x, 0.12, -p.y, 3.0, 0.1, 3.0, 0, tint[0] * 0.5, tint[1] * 0.5, tint[2] * 0.5, 0) }
-  // skull hole at the end of the track
-  const e = P[P.length - 1]
-  put3(e.x, 0.6, -e.y, 6.4, 1.4, 6.4, 0, 0.02, 0.01, 0.02, 0)
-  const pulse = 0.6 + 0.4 * Math.sin(t * 4)
-  put3(e.x, 1.4, -e.y, 5.2, 0.4, 5.2, 0, 1.6 * pulse + 0.4, 0.1, 0.1, t)
-  putS(e.x, 2.8, -e.y, 3.6, 3.0, 3.6, 0.9, 0.9, 0.8)
-  put3(e.x - 0.8, 3.2, -e.y + 1.3, 0.8, 0.9, 0.5, 0, 0.05, 0.02, 0.02, 0); put3(e.x + 0.8, 3.2, -e.y + 1.3, 0.8, 0.9, 0.5, 0, 0.05, 0.02, 0.02, 0)
-  // tunnel where the orbs come from
-  const s0 = P[0]
-  put3(s0.x, 2, -s0.y, 8, 4, 8, 0, 0.1, 0.1, 0.12, 0)
-  // chain
+  const L = LEVELS[OB.lvl], tint = hex(L.tint), P = OB.path.pts, path = OB.path
+  const danger = OB.balls.length ? clamp(OB.balls[OB.balls.length - 1].s / path.len, 0, 1) : 0
+  // ---- the arena: a mossy temple floor with a carved frame and a forest around it ----
+  put3(0, -1.6, 0, 130, 1.6, 80, 0, 0.03, 0.07, 0.04, 0)
+  for (let ix = -6; ix <= 6; ix++) for (let iy = -3; iy <= 3; iy++) {
+    const x = ix * 8.2, y = iy * 8.2; if (Math.abs(x) > 52 || Math.abs(y) > 30) continue
+    const k = (ix + iy) & 1 ? 1 : 0.82, v = 0.9 + gh(ix, iy) * 0.2
+    put3(x, -0.35, -y, 8.1, 0.7, 8.1, 0, (0.08 + tint[0] * 0.06) * k * v, (0.2 + tint[1] * 0.07) * k * v, (0.12 + tint[2] * 0.06) * k * v, 0)
+  }
+  // frame stones and trees at the edge
+  for (let i = -26; i <= 26; i++) for (const sy of [-1, 1]) { const x = i * 2.1, y = sy * 31.5; put3(x, 0.8 + (i & 1) * 0.3, -y, 2, 1.8 + (i & 1) * 0.5, 2, 0, 0.3, 0.33, 0.36, i); if (i % 5 === 0) { put3(x, 3.2, -y - sy * 2, 1.2, 4.4, 1.2, 0, 0.18, 0.1, 0.06, 0); put3(x, 6.2, -y - sy * 2, 5.2, 3.4, 5.2, 0, 0.04, 0.2 + tint[1] * 0.1, 0.08, i); put3(x, 8.6, -y - sy * 2, 3.2, 2.6, 3.2, 0, 0.05, 0.26 + tint[1] * 0.12, 0.1, i + 1) } }
+  for (let j = -15; j <= 15; j++) for (const sx of [-1, 1]) { const x = sx * 55, y = j * 2.1; put3(x, 0.8 + (j & 1) * 0.3, -y, 2, 1.8 + (j & 1) * 0.5, 2, 0, 0.3, 0.33, 0.36, j); if (j % 5 === 0) { put3(x + sx * 2, 3.2, -y, 1.2, 4.4, 1.2, 0, 0.18, 0.1, 0.06, 0); put3(x + sx * 2, 6.2, -y, 5.2, 3.4, 5.2, 0, 0.04, 0.2 + tint[1] * 0.1, 0.08, j); put3(x + sx * 2, 8.6, -y, 3.2, 2.6, 3.2, 0, 0.05, 0.26 + tint[1] * 0.12, 0.1, j + 1) } }
+  // flowers, tufts and glowing mushrooms scattered by cell, never on the track
+  for (let ix = -12; ix <= 12; ix++) for (let iy = -7; iy <= 7; iy++) {
+    const h1 = gh(ix + 11, iy + 3), h2 = gh(iy + 5, ix + 17), x = ix * 4.4 + h1 * 3, y = iy * 4.4 + h2 * 3
+    if (Math.abs(x) > 52 || Math.abs(y) > 29 || path.near(x, y) || Math.hypot(x, y) < 10) continue
+    if (h1 > 0.78) { const fc = [[2, 0.5, 0.9], [2.2, 1.9, 0.4], [0.6, 1.2, 2.2], [1.8, 0.8, 2]][(h2 * 4) | 0]; put3(x, 0.5, -y, 0.2, 1, 0.2, 0, 0.1, 0.5, 0.15, 0); putS(x, 1.2, -y, 0.9, 0.5, 0.9, fc[0], fc[1], fc[2]) }
+    else if (h1 > 0.5) put3(x, 0.4, -y, 1.4, 0.7, 1.0, 0, 0.05, 0.24 + h2 * 0.1, 0.07, h2 * 6)
+    else if (h1 < 0.07) { put3(x, 0.5, -y, 0.4, 1, 0.4, 0, 0.8, 0.75, 0.7, 0); putS(x, 1.2, -y, 1.6, 0.9, 1.6, tint[0] * 1.6 * (0.7 + 0.3 * Math.sin(t * 2 + ix)), tint[1] * 1.6, tint[2] * 1.6) }
+  }
+  // ---- the carved track: a dark channel between two rows of stones, with runes flowing toward the skull ----
+  for (let i = 3; i < P.length - 1; i += 3) {
+    const p = P[i]; if (Math.abs(p.x) > 58 || Math.abs(p.y) > 35) continue
+    const a = P[Math.max(0, i - 2)], b = P[Math.min(P.length - 1, i + 2)], tx = b.x - a.x, ty = b.y - a.y, tl = Math.hypot(tx, ty) || 1, nx = -ty / tl, ny = tx / tl
+    put3(p.x, -0.02, -p.y, 4.1, 0.34, 4.1, 0, 0.05 + tint[0] * 0.03, 0.06 + tint[1] * 0.04, 0.08 + tint[2] * 0.04, 0)
+    for (const sd of [-1, 1]) { const q = 2.55 * sd, k = 0.85 + ((i / 3) & 1) * 0.25; put3(p.x + nx * q, 0.55, -(p.y + ny * q), 1.45, 1.1 + ((i / 3) & 1) * 0.3, 1.45, 0, 0.3 * k, 0.33 * k, 0.37 * k, i * 0.37); if (((i / 3) | 0) % 4 === 0) put3(p.x + nx * q, 1.25, -(p.y + ny * q), 1.2, 0.2, 1.2, 0, 0.1, 0.4 + tint[1] * 0.15, 0.15, 0) }
+    // a pulse of light runs along the channel toward the hole
+    const wave = 0.5 + 0.5 * Math.sin(i * 0.13 - t * 3.2)
+    if (((i / 3) | 0) % 3 === 0) put3(p.x, 0.2, -p.y, 1.1, 0.15, 1.1, 0, tint[0] * (0.5 + 1.8 * wave), tint[1] * (0.5 + 1.8 * wave), tint[2] * (0.5 + 1.8 * wave), 0.78)
+  }
+  // ---- the skull gate where the chain must never arrive ----
+  const e = P[P.length - 1], ez = -e.y, pulse = 0.5 + 0.5 * Math.sin(t * (4 + danger * 14)), glowK = 0.5 + danger * 2 + pulse * (0.4 + danger)
+  put3(e.x, 0.8, ez, 8.6, 1.6, 8.6, 0, 0.12, 0.1, 0.11, 0); put3(e.x, 1.7, ez, 6.8, 0.5, 6.8, 0, 0.5 * glowK, 0.04, 0.04, t * 0.4)
+  putS(e.x, 3.6, ez, 6.2, 5.2, 5.2, 0.92, 0.9, 0.82); put3(e.x, 1.7, ez + 2.6, 4.2, 1.6, 2.2, 0, 0.88, 0.86, 0.78, 0)
+  for (let k = -2; k <= 2; k++) put3(e.x + k * 0.8, 1.45, ez + 3.6, 0.55, 0.9, 0.4, 0, 1.8, 1.8, 1.7, 0)
+  for (const sd of [-1, 1]) { putS(e.x + sd * 1.3, 4.1, ez + 2.4, 1.7, 1.7, 1.2, 0.04, 0.02, 0.02); putS(e.x + sd * 1.3, 4.1, ez + 2.9, 0.8 + pulse * 0.4, 0.8 + pulse * 0.4, 0.5, 3 * glowK, 0.2, 0.1) }
+  put3(e.x, 3.1, ez + 3, 0.7, 1.1, 0.6, 0, 0.04, 0.02, 0.02, 0)
+  // ---- the altar and the frog ----
+  const a = OB.aim, fy = 1.2
+  put3(0, 0.4, 0, 12, 0.8, 12, 0, 0.3, 0.32, 0.36, 0.4); put3(0, 0.9, 0, 10, 0.5, 10, 0, 0.42, 0.45, 0.5, 0.8); put3(0, 1.2, 0, 8, 0.3, 8, 0, 0.2, 0.22, 0.26, 0.2)
+  for (let k = 0; k < 8; k++) { const ang = k * 0.785 + t * 0.6; put3(Math.cos(ang) * 5.6, 1.4, Math.sin(ang) * 5.6, 0.8, 0.3, 0.8, 0, tint[0] * 2, tint[1] * 2, tint[2] * 2, ang) }
+  const M = YAW(a), W = (lx, ly, lz) => [Math.cos(a) * lx + Math.sin(a) * lz, ly, -Math.sin(a) * lx + Math.cos(a) * lz]
+  const part = (lx, ly, lz, sx, sy, sz, c) => { const w = W(lx, ly, lz); putM(w[0], w[1], w[2], sx, sy, sz, M, c[0], c[1], c[2]) }
+  const sph = (lx, ly, lz, sx, sy, sz, c) => { const w = W(lx, ly, lz); putS(w[0], w[1], w[2], sx, sy, sz, c[0], c[1], c[2]) }
+  const gr = [0.35, 1.5, 0.45], dg = [0.18, 0.9, 0.3], bl = [1.6, 1.7, 0.9], recoil = OB.cool > 0 ? OB.cool / 0.16 : 0, breathe = 1 + Math.sin(t * 3) * 0.04
+  sph(-0.6, fy + 2.1, 0, 7 * breathe, 4.6, 6.2, gr); sph(-0.4, fy + 1.7, 0, 5.8, 3, 5.2, bl) // body and belly
+  sph(1.9 - recoil * 0.4, fy + 3, 0, 4.6, 3.6, 4.6, gr)                                          // head
+  sph(3.6 - recoil * 0.4, fy + 2.5, 0, 3.4 + recoil * 1.2, 1.9 + recoil, 3.6, [1.8, 0.5, 0.55])    // mouth
+  for (const sd of [-1, 1]) { sph(1.6, fy + 5.1, sd * 1.7, 1.9, 1.9, 1.9, gr); sph(2.1, fy + 5.2, sd * 1.8, 1.4, 1.4, 1.4, [2.6, 2.6, 2.6]); sph(2.7, fy + 5.2, sd * 1.8, 0.7, 0.8, 0.7, [0.03, 0.03, 0.05]) } // eyes look where you aim
+  for (const sd of [-1, 1]) { part(-2.4, fy + 0.9, sd * 3.2, 3.4, 1.4, 1.6, dg); part(2.8, fy + 0.5, sd * 2.9, 2, 0.9, 1.4, dg); sph(-1.2, fy + 2.6, sd * 2.7, 1.4, 1.4, 1.4, [0.3, 1.9, 0.5]) } // legs and spots
+  sph(2.4, fy + 1.3, 0, 2.2 + Math.sin(t * 5) * 0.3, 1.6, 2.6, bl)                                // throat sac
+  const cc = hex(COLORS[OB.cur], 1.2), nn = hex(COLORS[OB.next], 1.1)
+  { const w = W(4.9 - recoil * 0.4, fy + 2.9, 0); drawOrb(api, w[0], 0, w[2], cc, D * 0.98, t * 2, null, t, 1); const w2 = w; putS(w2[0], fy + 3.4, w2[2], D * 0.98, D * 0.98, D * 0.98, cc[0], cc[1], cc[2]) }
+  { const w = W(-3.3, fy + 4.6, 0); putS(w[0], w[1], w[2], D * 0.62, D * 0.62, D * 0.62, nn[0], nn[1], nn[2]); putS(w[0] - 0.2, w[1] + 0.3, w[2] - 0.2, 0.5, 0.35, 0.5, 2.6, 2.6, 2.6) }
+  // ---- the chain ----
   for (const b of OB.balls) {
     if (b.s < LEAD - D * 1.4) continue
-    const p = posAt(b.s), c = hex(COLORS[b.c], 1.15)
-    putS(p.x + 0.35, 0.04, -p.y + 0.35, D, 0.1, D, 0.01, 0.03, 0.02)
-    putS(p.x, 1.3, -p.y, D, D, D, c[0], c[1], c[2])
-    putS(p.x - 0.5, 2.2, -p.y - 0.4, D * 0.3, D * 0.2, D * 0.3, 2.4, 2.4, 2.4)
-    if (b.pw) { const pc = b.pw === 'bomb' ? [3, 0.5, 0.2] : b.pw === 'slow' ? [0.4, 1.6, 3] : b.pw === 'stop' ? [2, 2, 3] : [0.6, 3, 1]; put3(p.x, 2.9 + Math.sin(t * 6 + b.s) * 0.2, -p.y, 1.1, 1.1, 1.1, 0, pc[0], pc[1], pc[2], t * 4) }
+    const p = posAt(b.s), c = hex(COLORS[b.c], 1.2)
+    drawOrb(api, p.x, 0, -p.y, c, D, b.s / (D / 2), b.pw, t, danger > 0.8 ? 1 : 0)
   }
-  // the shot
-  if (OB.shot) { const c = hex(COLORS[OB.shot.c], 1.2); putS(OB.shot.x, 1.5, -OB.shot.y, D, D, D, c[0], c[1], c[2]); for (let q = 1; q < 4; q++) putS(OB.shot.x - OB.shot.vx * 0.005 * q, 1.5, -(OB.shot.y - OB.shot.vy * 0.005 * q), D * (1 - q * 0.2), D * (1 - q * 0.2), D * (1 - q * 0.2), c[0] * 0.6, c[1] * 0.6, c[2] * 0.6) }
-  // the frog on its stone
-  const a = OB.aim, M = YAW(a), cx = (lx, ly, lz) => [Math.cos(a) * lx + Math.sin(a) * lz, ly, -(Math.sin(a) * lx - Math.cos(a) * lz)]
-  void cx
-  put3(0, 0.3, 0, 8.4, 0.9, 8.4, 0, 0.35, 0.36, 0.4, 0.4); put3(0, 0.9, 0, 6.6, 0.5, 6.6, 0, 0.5, 0.52, 0.56, 0.8)
-  const fc = hex('#4ade5a', 1.0), fd = hex('#2a9a3a'), cur = hex(COLORS[OB.cur], 1.3), nx = hex(COLORS[OB.next], 1.1)
-  const W = (lx, ly, lz) => [Math.cos(a) * lx + Math.sin(a) * lz, ly, -Math.sin(a) * lx + Math.cos(a) * lz]
-  const part = (lx, ly, lz, sx, sy, sz, c) => { const w = W(lx, ly, lz); putM(w[0], w[1], w[2], sx, sy, sz, M, c[0], c[1], c[2]) }
-  part(-0.4, 2.2, 0, 4.4, 2.6, 5.2, fc)            // body
-  part(-0.4, 3.9, 0, 3.4, 1.0, 4.0, fd)            // back
-  part(2.2, 2.5, 0, 2.6, 1.8, 3.4, fc)              // head
-  part(2.8, 3.7, 1.35, 1.0, 1.0, 1.0, [3, 3, 3]); part(2.8, 3.7, -1.35, 1.0, 1.0, 1.0, [3, 3, 3])
-  part(3.2, 3.7, 1.35, 0.5, 0.5, 0.5, [0.05, 0.05, 0.05]); part(3.2, 3.7, -1.35, 0.5, 0.5, 0.5, [0.05, 0.05, 0.05])
-  part(-1.6, 1.2, 2.8, 2.6, 1.0, 1.4, fd); part(-1.6, 1.2, -2.8, 2.6, 1.0, 1.4, fd)
-  part(3.6, 2.6, 0, 2.2, 1.0, 2.4, [1.8, 0.4, 0.5])   // mouth
-  { const w = W(4.6, 3.2, 0); putS(w[0], w[1], w[2], D * 0.95, D * 0.95, D * 0.95, cur[0], cur[1], cur[2]) }
-  { const w = W(-2.6, 4.6, 0); putS(w[0], w[1], w[2], D * 0.6, D * 0.6, D * 0.6, nx[0], nx[1], nx[2]) }
-  // aim guide
-  for (let i = 1; i <= 10; i++) { const d = 8 + i * 3.4; put3(Math.cos(a) * d, 0.4, -Math.sin(a) * d, 0.35, 0.2, 0.35, 0, 1.8 * (1 - i / 12), 1.8 * (1 - i / 12), 1.4 * (1 - i / 12), 0) }
-  // particles and score pops
-  for (const q of OB.fx) { const f = q.life / q.max, c = hex(COLORS[q.c], 1.8), s = q.s * (0.3 + 0.7 * f); putS(q.x, 1.5 + (1 - f) * 3, -q.y, s, s, s, c[0], c[1], c[2]) }
+  // ---- aiming: a trail of light and a ghost orb where the shot would stick ----
+  if (OB.mode === 'play' && !OB.shot) {
+    const h = aimHit(), ac = hex(COLORS[OB.cur], 1.5)
+    for (let d = 7; d < h.d - 1.5; d += 2.6) put3(Math.cos(a) * d, 1.9, -Math.sin(a) * d, 0.5, 0.3, 0.5, 0, ac[0] * 0.9, ac[1] * 0.9, ac[2] * 0.9, 0)
+    if (h.hit) putS(h.x, 1.4, -h.y, D * 1.1, D * 1.1, D * 1.1, ac[0] * 0.35, ac[1] * 0.35, ac[2] * 0.35)
+  }
+  if (OB.shot) { const c = hex(COLORS[OB.shot.c], 1.3); drawOrb(api, OB.shot.x, 0, -OB.shot.y, c, D, OB.shot.x * 0.6, null, t, 1); for (let q = 1; q < 5; q++) putS(OB.shot.x - OB.shot.vx * 0.006 * q, 1.4, -(OB.shot.y - OB.shot.vy * 0.006 * q), D * (1 - q * 0.18), D * (1 - q * 0.18), D * (1 - q * 0.18), c[0] * 0.5, c[1] * 0.5, c[2] * 0.5) }
+  // ---- sparkles and floating points ----
+  for (const q of OB.fx) { const f = q.life / q.max, cc2 = hex(COLORS[q.c], 2.2), s = q.s * (0.3 + 0.9 * f); putS(q.x, 1.6 + (1 - f) * 4.5, -q.y, s, s, s, cc2[0], cc2[1], cc2[2]) }
+  if (OB.text) { const f = OB.text.t; for (let k = 0; k < 6; k++) put3(OB.text.x + (k - 2.5) * 0.9, 3 + (1 - f) * 5, -OB.text.y, 0.6, 1.4 * f + 0.2, 0.3, 0, 3, 2.6, 0.5, 0) }
 }
 if (typeof window !== 'undefined') { window.__OB = OB; window.__orb = orbActions }
 games.orb = { update, onKey, draw() {}, draw3, camera: () => camOrb(), lights, stop, sky: () => '#04100a' }

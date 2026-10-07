@@ -22,6 +22,10 @@ import { GardenLobby, GardenHUD } from './Garden.jsx'
 import { DuelOverlay } from './Duel.jsx'
 import { GAMES as GAMES_SEO } from '../lib/seo.js'
 import { HuntLobby, HuntHUD } from './Hunt.jsx'
+import { ClimbLobby, ClimbHUD } from './Climb.jsx'
+import { KongLobby, KongHUD } from './Kong.jsx'
+import { climbActions } from '../game/climb.js'
+import { kongActions } from '../game/kong.js'
 import { huntActions } from '../game/hunt.js'
 import { gardenActions } from '../game/garden.js'
 import { orbActions } from '../game/orb.js'
@@ -69,6 +73,8 @@ export function openHelp(tab) {
   else if (snap && snap.mode === 'orb') resume = orbActions.pause() ? 'orb' : null
   else if (snap && snap.mode === 'garden') resume = gardenActions.pause() ? 'garden' : null
   else if (snap && snap.mode === 'hunt') resume = huntActions.pause() ? 'hunt' : null
+  else if (snap && snap.mode === 'climb') resume = climbActions.pause() ? 'climb' : null
+  else if (snap && snap.mode === 'kong') resume = kongActions.pause() ? 'kong' : null
   else if (snap && snap.mode === 'rhythm') resume = rhythmActions.pause() ? 'rhythm' : null
   help = { open: true, tab: tab || help.tab, resume }
   helpEmit()
@@ -77,7 +83,7 @@ export function closeHelp() {
   const r = help.resume
   help = { ...help, open: false, resume: null }
   helpEmit()
-  if (r === 'space') togglePause(); else if (r === 'slug') slugActions.resume(); else if (r === 'pickle') pickleActions.resume(); else if (r === 'bomber') bomberActions.resume(); else if (r === 'tetris') tetrisActions.resume(); else if (r === 'chomp') chompActions.resume(); else if (r === 'cards') cardsActions.resume(); else if (r === 'hockey') hockeyActions.resume(); else if (r === 'pool') poolActions.resume(); else if (r === 'td') tdActions.resume(); else if (r === 'rogue') rogueActions.resume(); else if (r === 'rhythm') rhythmActions.resume(); else if (r === 'snake') snakeActions.resume(); else if (r === 'breaker') breakerActions.resume(); else if (r === 'ssx') ssxActions.resume(); else if (r === 'orb') orbActions.resume(); else if (r === 'garden') gardenActions.resume(); else if (r === 'hunt') huntActions.resume()
+  if (r === 'space') togglePause(); else if (r === 'slug') slugActions.resume(); else if (r === 'pickle') pickleActions.resume(); else if (r === 'bomber') bomberActions.resume(); else if (r === 'tetris') tetrisActions.resume(); else if (r === 'chomp') chompActions.resume(); else if (r === 'cards') cardsActions.resume(); else if (r === 'hockey') hockeyActions.resume(); else if (r === 'pool') poolActions.resume(); else if (r === 'td') tdActions.resume(); else if (r === 'rogue') rogueActions.resume(); else if (r === 'rhythm') rhythmActions.resume(); else if (r === 'snake') snakeActions.resume(); else if (r === 'breaker') breakerActions.resume(); else if (r === 'ssx') ssxActions.resume(); else if (r === 'orb') orbActions.resume(); else if (r === 'garden') gardenActions.resume(); else if (r === 'hunt') huntActions.resume(); else if (r === 'climb') climbActions.resume(); else if (r === 'kong') kongActions.resume()
 }
 const K = ({ children }) => <kbd>{children}</kbd>
 const HELP = {
@@ -406,6 +412,8 @@ const HELP = {
   c4: { name: '🔴 CONNECT FOUR', body: () => (<><p>Drop discs into the 7x6 grid; the first to line up <b>four</b> (across, up or diagonal) wins. Click a column or press <K>1</K>-<K>7</K>. Online: invite a friend; the host keeps the board.</p></>) },
   snake: { name: '🐍 NEON SNAKE', body: () => (<><p>Steer with <K>WASD</K> / <K>ARROWS</K> (swipe on a phone). Eat red apples to grow (+10) and golden apples (+50). Walls, rocks and snakes are deadly. Solo mode speeds up and adds rocks; 2P: P1 <K>WASD</K>, P2 <K>ARROWS</K>.</p></>) },
   breaker: { name: '🧱 NEON BREAKER', body: () => (<><p>Move the paddle with the mouse, finger or <K>←</K> <K>→</K>; <K>SPACE</K> / click launches. Break all bricks in 5 levels. Capsules: wide paddle, multi-ball, slow, extra life. Where the ball hits the paddle sets its angle.</p></>) },
+  climb: { name: '🧗 FROST CLIMBERS', body: () => (<><p>Climb eight icy mountains. <K>A</K> <K>D</K> run (the ice is slippery!), <K>W</K> / <K>SPACE</K> jump. <b>Jump up into the ice above you</b> to smash it, then jump through the hole. <K>J</K> swings your hammer: it defeats yetis and birds and breaks icicles. High up, floors are drifting clouds. The screen only scrolls up, so do not fall off the bottom!</p><p>2 players on one keyboard (second player: arrows, <K>↑</K> jumps, <K>,</K> or <K>/</K> hammer) or online co-op.</p></>) },
+  kong: { name: '🦍 GIRDER GORILLA', body: () => (<><p>Run along the steel girders (<K>A</K> <K>D</K>), climb ladders with <K>W</K> / <K>S</K> and <b>jump the rolling barrels</b> with <K>SPACE</K> (+100 for each barrel you clear). Grab a <b>hammer</b> and press <K>J</K> to smash barrels and fireballs for 10 seconds (you cannot jump or climb meanwhile). Reach the captive at the top before the bonus counter runs out.</p><p>Pick the <b>girder width</b> in the lobby (x1 to x20): wider sites have more ladders, more gorillas and a minimap. 2 players on one keyboard, or online co-op.</p></>) },
   hunt: { name: '🌙 13 DAYS OF HELL', body: () => (<><p>You are a hunter in the haunted woods. <K>WASD</K> move, the <b>mouse</b> aims your rifle and flashlight, click shoots, <K>R</K> reloads, <K>SPACE</K> dashes, <K>F</K> plants a landmine.</p><p>You only see what your flashlight touches. <b>STALKERS</b> sneak up from <b>behind</b> (a red warning points at them), hit twice as hard from behind, and almost freeze when you shine your light on them. Turn around!</p><p><b>13 Days of Hell:</b> survive each night; at dawn spend scrap in the shop (damage, fire rate, health, light, boots, ammo, mines). Night 13 brings THE HOLLOW KING. <b>Watch Your Back:</b> one endless night; everything spawns behind you. <b>Online:</b> up to 3 hunters; stand near a downed friend for 3 seconds to revive them.</p></>) },
   garden: { name: '🧟 GARDEN SIEGE', body: () => (<><p>Zombies march down five lanes toward your house. <b>Collect the sun</b> (click it, or it is collected for you after a few seconds), pick a seed from the bar (keys <K>1</K>-<K>8</K>) and click a lawn square to plant. <K>X</K> is the shovel. Each lane has a lawn mower as a last defence.</p><p><b>Plants:</b> sunflower (sun), peashooter, snow pea (slows), repeater (double shot), wall-nut (blocker), cherry bomb (big blast), potato mine (arms, then explodes), chomper (swallows a zombie). New plants unlock as you beat levels.</p><p><b>Horde mode:</b> you lead the zombies: earn <b>brains</b> over time, pick a zombie and click a lane to send it. Break through the AI gardener's defences. <b>Online versus:</b> one friend plants, the other leads the horde; sides swap each rematch. The garden wins by surviving {200}s.</p></>) },
   orb: { name: '🔮 ORB RUSH', body: () => (<><p>A chain of coloured orbs rolls along the track toward the skull hole. Aim with the <b>mouse</b> (or <K>←</K> <K>→</K>) and click / <K>SPACE</K> to shoot the frog's orb. <K>Q</K> swaps your two orbs.</p><p>Make a group of <b>3 or more</b> of the same colour to pop them. When a gap closes and the colours meet, you get a <b>chain reaction</b> with a combo multiplier. Glowing orbs hide power-ups: <b>SLOW</b>, <b>FREEZE</b>, <b>REVERSE</b> and <b>BOMB</b>.</p><p><b>Versus (online):</b> you both face the same orbs. Pops of 4+ orbs and combos send extra orbs to your rival. Clear your board first, or watch your rival fall into the hole!</p></>) },
@@ -445,7 +453,7 @@ function HelpModal() {
     </div>
   )
 }
-const FIRST = { race: 'race', fight: 'fight', flames: 'flames', playing: 'space', slug: 'slug', pickle: 'pickle', bomber: 'bomber', tetris: 'tetris', chomp: 'chomp', cards: 'cards', hockey: 'hockey', pool: 'pool', td: 'td', rogue: 'rogue', rhythm: 'rhythm', word: 'word', merge: 'merge', c4: 'c4', empire: 'empire', snake: 'snake', breaker: 'breaker', mines: 'mines', ssx: 'ssx', orb: 'orb', garden: 'garden', hunt: 'hunt' }
+const FIRST = { race: 'race', fight: 'fight', flames: 'flames', playing: 'space', slug: 'slug', pickle: 'pickle', bomber: 'bomber', tetris: 'tetris', chomp: 'chomp', cards: 'cards', hockey: 'hockey', pool: 'pool', td: 'td', rogue: 'rogue', rhythm: 'rhythm', word: 'word', merge: 'merge', c4: 'c4', empire: 'empire', snake: 'snake', breaker: 'breaker', mines: 'mines', ssx: 'ssx', orb: 'orb', garden: 'garden', hunt: 'hunt', climb: 'climb', kong: 'kong' }
 function HelpLayer({ s }) {
   const g = FIRST[s.mode]
   useEffect(() => {
@@ -1546,7 +1554,7 @@ function Hub({ s }) {
   const next = RANKS[ri + 1]
   const pct = next ? ((xp - RANKS[ri][0]) / (next[0] - RANKS[ri][0])) * 100 : 100
   const doneAch = ACH.filter(([, , g, goal]) => g(p, s.unlocked) >= goal).length
-  const GAME_TABS = { pickle: '🏓 PICKLEBALL', bomber: '💣 BOMBER', tetris: '🧱 TETRIS', chomp: '🟡 CHOMP', cards: '🃏 CARDS', race: '🏁 RACE', fight: '🥊 FIGHT', flames: '🔥 FLAMES', hockey: '🏒 AIR HOCKEY', pool: '🎱 BILLIARDS', td: '🛡 DEFENSE', rogue: '🗡 DEPTHS', rhythm: '🎵 BEAT', word: '🔤 WORD HUNT', merge: '🔢 2048', c4: '🔴 CONNECT 4', snake: '🐍 SNAKE', breaker: '🧱 BREAKER', mines: '💣 SWEEP', empire: '🏰 EMPIRE', ssx: '🏂 SNOW RUSH', orb: '🔮 ORB RUSH', garden: '🧟 GARDEN', hunt: '🌙 13 DAYS' }
+  const GAME_TABS = { pickle: '🏓 PICKLEBALL', bomber: '💣 BOMBER', tetris: '🧱 TETRIS', chomp: '🟡 CHOMP', cards: '🃏 CARDS', race: '🏁 RACE', fight: '🥊 FIGHT', flames: '🔥 FLAMES', hockey: '🏒 AIR HOCKEY', pool: '🎱 BILLIARDS', td: '🛡 DEFENSE', rogue: '🗡 DEPTHS', rhythm: '🎵 BEAT', word: '🔤 WORD HUNT', merge: '🔢 2048', c4: '🔴 CONNECT 4', snake: '🐍 SNAKE', breaker: '🧱 BREAKER', mines: '💣 SWEEP', empire: '🏰 EMPIRE', ssx: '🏂 SNOW RUSH', orb: '🔮 ORB RUSH', garden: '🧟 GARDEN', hunt: '🌙 13 DAYS', climb: '🧗 CLIMBERS', kong: '🦍 GORILLA' }
   // the tab bar stays short: dashboard, the game you opened (if any), and the utility tabs. Games are opened from the dashboard cards.
   const TABS = [['home', 'DASHBOARD'], ...(GAME_TABS[tab] ? [[tab, GAME_TABS[tab]]] : []), ['online', '🌐 ONLINE'], ['story', '📖 STORY'], ['top', '🏆 TOP PLAYERS'], ['ship', 'CUSTOMIZE SHIP'], ['levels', 'SPACE LEVELS'], ['skills', 'CONTROLS'], ['settings', '⚙ SETTINGS'], ['awards', `AWARDS ${doneAch}/${ACH.length}`]]
   const CATS = [['all', 'ALL GAMES'], ['action', '⚔ ACTION'], ['sports', '🏅 SPORTS'], ['strategy', '🧠 STRATEGY'], ['puzzle', '🧩 PUZZLE'], ['cards', '🃏 CARDS'], ['music', '🎵 MUSIC']]
@@ -1605,6 +1613,12 @@ function Hub({ s }) {
             {show('action') && <GameCard cls="snake" title="🐍 NEON SNAKE" tag="Solo · vs bot · 2 players" hiLabel="BEST" hi={p.snakeBest || 0}
               art={<div className="miniSnake"><i /><i /><i /><i /><b>🍎</b></div>} label="SELECT MODE ▶" onPlay={() => setTab('snake')} onInvite={() => { setOgame('snake'); setTab('online') }}
               sub={<><span>GAMES</span><b>{p.snakeGames || 0}</b></>} />}
+            {show('action', 'puzzle') && <GameCard cls="climb" title="🧗 FROST CLIMBERS" tag="3D ice climbing · co-op · 8 mountains" hiLabel="BEST" hi={fmtN(p.climbBest || 0)}
+              art={<div className="miniClimb"><b>🧗</b><i /><i /><i /></div>} label="CLIMB ▶" onPlay={() => setTab('climb')} onInvite={() => { setOgame('climb'); setTab('online') }}
+              sub={<><span>MOUNTAIN</span><b>{Math.min(8, (p.climbLevel || 0) + 1)}/8</b></>} />}
+            {show('action', 'puzzle') && <GameCard cls="kong" title="🦍 GIRDER GORILLA" tag="3D barrel climb · up to x20 wider · co-op" hiLabel="BEST" hi={fmtN(p.kongBest || 0)}
+              art={<div className="miniKong"><b>🦍</b><i /><i /><i /></div>} label="CLIMB ▶" onPlay={() => setTab('kong')} onInvite={() => { setOgame('kong'); setTab('online') }}
+              sub={<><span>SITE</span><b>{Math.min(8, (p.kongLevel || 0) + 1)}/8</b></>} />}
             {show('action', 'strategy') && <GameCard cls="hunt" title="🌙 13 DAYS OF HELL" tag="Horror survival · co-op · watch your back" hiLabel="BEST" hi={fmtN(p.huntBest || 0)}
               art={<div className="miniHunt"><b>🔦</b><b>👁</b></div>} label="SURVIVE ▶" onPlay={() => setTab('hunt')} onInvite={() => { setOgame('hunt'); setTab('online') }}
               sub={<><span>DAY</span><b>{Math.min(13, p.huntDay || 0)}/13</b></>} />}
@@ -1682,6 +1696,8 @@ function Hub({ s }) {
       {tab === 'empire' && <EmpireLobby s={s} TopPlayers={TopPlayers} onInvite={() => { setOgame('empire'); setTab('online') }} />}
       {tab === 'c4' && <C4Lobby s={s} TopPlayers={TopPlayers} onInvite={() => { setOgame('c4'); setTab('online') }} />}
       {tab === 'snake' && <SnakeLobby s={s} TopPlayers={TopPlayers} />}
+      {tab === 'climb' && <ClimbLobby s={s} TopPlayers={TopPlayers} onInvite={() => { setOgame('climb'); setTab('online') }} />}
+      {tab === 'kong' && <KongLobby s={s} TopPlayers={TopPlayers} onInvite={() => { setOgame('kong'); setTab('online') }} />}
       {tab === 'hunt' && <HuntLobby s={s} TopPlayers={TopPlayers} onInvite={() => { setOgame('hunt'); setTab('online') }} />}
       {tab === 'garden' && <GardenLobby s={s} TopPlayers={TopPlayers} onInvite={() => { setOgame('garden'); setTab('online') }} />}
       {tab === 'orb' && <OrbLobby s={s} TopPlayers={TopPlayers} onInvite={() => { setOgame('orb'); setTab('online') }} />}
@@ -1712,7 +1728,7 @@ function TopPlayers({ s, initial = 'space', compact = false, fixed = false }) {
   const lim = compact ? 5 : 10
   useEffect(() => { let on = true; setRows(null); fetchTop(game, lim).then((r) => on && setRows(r)); return () => { on = false } }, [game, lim])
   const me = (s.profile.name || '').toUpperCase()
-  const GAMES = [['space', 'SPACE IMPACT'], ['slug', 'GROUND ZERO'], ['pickle', 'PICKLEBALL'], ['bomber', 'BOMBER BLAST'], ['tetris', 'TETRA BLAST'], ['chomp', 'MAZE CHOMP'], ['uno', 'UNO'], ['pusoy', 'PUSOY DOS'], ['lucky9', 'LUCKY 9'], ['tongits', 'TONG-ITS'], ['race', 'TURBO RUSH'], ['kart', 'KART CLASH'], ['hockey', 'AIR HOCKEY'], ['pool', 'BILLIARDS'], ['td', 'NEON DEFENSE'], ['rogue', 'NEON DEPTHS'], ['rhythm', 'NEON BEAT'], ['word', 'WORD HUNT'], ['merge', '2048 MERGE'], ['baccarat', 'BACCARAT'], ['poker', 'POKER'], ['c4', 'CONNECT FOUR'], ['snake', 'NEON SNAKE'], ['breaker', 'NEON BREAKER'], ['mines', 'MINE SWEEP'], ['empire', 'EMPIRE RISE'], ['ssx', 'SNOW RUSH'], ['orb', 'ORB RUSH'], ['garden', 'GARDEN SIEGE'], ['hunt', '13 DAYS OF HELL']]
+  const GAMES = [['space', 'SPACE IMPACT'], ['slug', 'GROUND ZERO'], ['pickle', 'PICKLEBALL'], ['bomber', 'BOMBER BLAST'], ['tetris', 'TETRA BLAST'], ['chomp', 'MAZE CHOMP'], ['uno', 'UNO'], ['pusoy', 'PUSOY DOS'], ['lucky9', 'LUCKY 9'], ['tongits', 'TONG-ITS'], ['race', 'TURBO RUSH'], ['kart', 'KART CLASH'], ['hockey', 'AIR HOCKEY'], ['pool', 'BILLIARDS'], ['td', 'NEON DEFENSE'], ['rogue', 'NEON DEPTHS'], ['rhythm', 'NEON BEAT'], ['word', 'WORD HUNT'], ['merge', '2048 MERGE'], ['baccarat', 'BACCARAT'], ['poker', 'POKER'], ['c4', 'CONNECT FOUR'], ['snake', 'NEON SNAKE'], ['breaker', 'NEON BREAKER'], ['mines', 'MINE SWEEP'], ['empire', 'EMPIRE RISE'], ['ssx', 'SNOW RUSH'], ['orb', 'ORB RUSH'], ['garden', 'GARDEN SIEGE'], ['hunt', '13 DAYS OF HELL'], ['climb', 'FROST CLIMBERS'], ['kong', 'GIRDER GORILLA']]
   return (
     <div className="topboard">
       <h4>🏆 TOP PLAYERS{fixed ? ' · ' + (GAMES.find(([k]) => k === game) || [0, game])[1] : ''}</h4>
@@ -2053,6 +2069,8 @@ function HUDInner({ s }) {
   if (s.mode === 'orb') return <OrbHUD openHelp={openHelp} />
   if (s.mode === 'garden') return <GardenHUD openHelp={openHelp} />
   if (s.mode === 'hunt') return <HuntHUD openHelp={openHelp} />
+  if (s.mode === 'climb') return <ClimbHUD openHelp={openHelp} />
+  if (s.mode === 'kong') return <KongHUD openHelp={openHelp} />
   if (s.mode === 'empire') return <EmpireHUD openHelp={openHelp} />
   if (s.mode === 'cards') return <CardsHUD SoundBtn={SoundBtn} openHelp={openHelp} TopPlayersMini={TopPlayersMini} />
   const playing = s.mode === 'playing' || s.mode === 'paused'
