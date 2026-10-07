@@ -1616,8 +1616,8 @@ function Hub({ s }) {
             {show('puzzle', 'sports') && <GameCard cls="c4" title="🔴 CONNECT FOUR" tag="Bot · 2P · online 1v1" hiLabel="WINS" hi={p.c4Wins || 0}
               art={<div className="miniC4"><i /><i /><i /><i /><i /></div>} label="SELECT MODE ▶" onPlay={() => setTab('c4')} onInvite={() => { setOgame('c4'); setTab('online') }}
               sub={<><span>GAMES</span><b>{p.c4Games || 0}</b></>} />}
-            {show('action', 'puzzle') && <GameCard cls="snake" title="🕹 MINI GAMES" tag="10 quick games · phone friendly" hiLabel="PLAYED" hi={p.miniGames || 0}
-              art={<div className="miniSnake"><b>🏗️</b><b>🐤</b><b>🍉</b><b>💎</b></div>} label="PICK A GAME ▶" onPlay={() => setTab('mini')} />}
+            {show('action', 'puzzle') && <GameCard cls="snake" title="🕹 MINI GAMES" tag="16 quick games · phone friendly" hiLabel="PLAYED" hi={p.miniGames || 0}
+              art={<div className="miniSnake"><b>🏗️</b><b>🐤</b><b>🍉</b><b>💎</b><b>🎣</b></div>} label="PICK A GAME ▶" onPlay={() => setTab('mini')} />}
             {show('action') && <GameCard cls="snake" title="🐍 NEON SNAKE" tag="Solo · vs bot · 2 players" hiLabel="BEST" hi={p.snakeBest || 0}
               art={<div className="miniSnake"><i /><i /><i /><i /><b>🍎</b></div>} label="SELECT MODE ▶" onPlay={() => setTab('snake')} onInvite={() => { setOgame('snake'); setTab('online') }}
               sub={<><span>GAMES</span><b>{p.snakeGames || 0}</b></>} />}

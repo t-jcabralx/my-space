@@ -1,4 +1,4 @@
-// MINI GAMES: ten quick original canvas games in the classic browser-arcade genres (stacker, flappy, bubble shooter,
+// MINI GAMES: sixteen quick original canvas games in the classic browser-arcade genres (stacker, flappy, bubble shooter,
 // runner, slicer, match-3, memory, whack-a-mole, idle miner, traffic dodger). Each game is a small object the shell drives:
 //   reset(), update(dt), draw(g), down(x, y), move(x, y), up(x, y), key(code)  +  score, over, label
 // Logical canvas is W x H; the shell scales it to the screen and maps touch/mouse into these coordinates.
@@ -406,6 +406,250 @@ function trafficDodge() {
   return o
 }
 
+// ---------------------------------------------------------------- 11. BLOB ARENA (.io style)
+function blobArena() {
+  const WW = 1400, WH = 1400
+  const o = { score: 0, over: false, label: 'MOVE YOUR FINGER / MOUSE · EAT SMALLER BLOBS · AVOID BIGGER ONES' }
+  let me, bots, pellets, aim, fx, t
+  const rad = (m) => 10 + Math.sqrt(m) * 2.6
+  const mkBot = (i) => ({ x: rnd(100, WW - 100), y: rnd(100, WH - 100), m: rnd(20, 90), c: hsl(i * 47 + 20, 75, 55), vx: 0, vy: 0, think: 0, tx: 0, ty: 0 })
+  o.reset = () => { me = { x: WW / 2, y: WH / 2, m: 20, vx: 0, vy: 0 }; bots = Array.from({ length: 14 }, (_, i) => mkBot(i)); pellets = Array.from({ length: 260 }, () => ({ x: rnd(20, WW - 20), y: rnd(20, WH - 20), c: hsl(ri(0, 360), 85, 60) })); aim = { x: 0, y: 0 }; fx = []; t = 0; o.score = 20; o.over = false }
+  const setAim = (x, y) => { aim = { x: x - W / 2, y: y - H / 2 } }
+  o.down = setAim; o.move = setAim
+  o.key = (c) => { if (c === 'ArrowLeft') aim = { x: -100, y: 0 }; if (c === 'ArrowRight') aim = { x: 100, y: 0 }; if (c === 'ArrowUp') aim = { x: 0, y: -100 }; if (c === 'ArrowDown') aim = { x: 0, y: 100 } }
+  const steer = (b, tx, ty, dt, k = 1) => { const dx = tx - b.x, dy = ty - b.y, d = Math.hypot(dx, dy) || 1, sp = (260 / (1 + Math.sqrt(b.m) * 0.07)) * k * Math.min(1, d / 40); b.vx += ((dx / d) * sp - b.vx) * Math.min(1, dt * 6); b.vy += ((dy / d) * sp - b.vy) * Math.min(1, dt * 6); b.x = clamp(b.x + b.vx * dt, 0, WW); b.y = clamp(b.y + b.vy * dt, 0, WH) }
+  const eat = (a, b) => a.m > b.m * 1.15 && Math.hypot(a.x - b.x, a.y - b.y) < rad(a.m) - rad(b.m) * 0.4
+  o.update = (dt) => {
+    stepFx(fx, dt)
+    if (o.over) return
+    t += dt
+    const len = Math.hypot(aim.x, aim.y)
+    steer(me, me.x + aim.x * 4, me.y + aim.y * 4, dt, len < 8 ? 0 : 1)
+    me.m = Math.max(20, me.m - me.m * 0.0006 * dt * 60 * 0.1)
+    for (let i = pellets.length - 1; i >= 0; i--) { const q = pellets[i]; if (Math.hypot(q.x - me.x, q.y - me.y) < rad(me.m)) { me.m += 1.2; pellets.splice(i, 1); pellets.push({ x: rnd(20, WW - 20), y: rnd(20, WH - 20), c: hsl(ri(0, 360), 85, 60) }) } }
+    for (const b of bots) {
+      b.think -= dt
+      if (b.think <= 0) {
+        b.think = rnd(0.4, 0.9); let tx = b.x + rnd(-200, 200), ty = b.y + rnd(-200, 200), bd = 1e9, flee = null
+        for (const q of pellets) { const d = Math.hypot(q.x - b.x, q.y - b.y); if (d < bd) { bd = d; tx = q.x; ty = q.y } }
+        for (const other of [me, ...bots]) { if (other === b) continue; const d = Math.hypot(other.x - b.x, other.y - b.y); if (d < 260) { if (other.m > b.m * 1.2) flee = other; else if (b.m > other.m * 1.25 && d < bd * 1.5) { tx = other.x; ty = other.y; bd = d / 1.5 } } }
+        if (flee) { tx = b.x - (flee.x - b.x); ty = b.y - (flee.y - b.y) }
+        b.tx = tx; b.ty = ty
+      }
+      steer(b, b.tx, b.ty, dt, 0.92)
+      for (let i = pellets.length - 1; i >= 0; i--) { const q = pellets[i]; if (Math.hypot(q.x - b.x, q.y - b.y) < rad(b.m)) { b.m += 1.2; pellets.splice(i, 1); pellets.push({ x: rnd(20, WW - 20), y: rnd(20, WH - 20), c: hsl(ri(0, 360), 85, 60) }) } }
+    }
+    for (let i = 0; i < bots.length; i++) {
+      const b = bots[i]
+      if (eat(me, b)) { me.m += b.m * 0.8; puff(fx, b.x, b.y, 14, b.c, 200); bots[i] = mkBot(i); bots[i].m = rnd(15, 60); bots[i].x = Math.random() < 0.5 ? 30 : WW - 30; continue }
+      if (eat(b, me)) { o.over = true; puff(fx, me.x, me.y, 30, '#3de8ff', 260); continue }
+      for (let j = 0; j < bots.length; j++) { const c = bots[j]; if (c !== b && eat(b, c)) { b.m += c.m * 0.8; bots[j] = mkBot(j); bots[j].x = Math.random() < 0.5 ? 30 : WW - 30 } }
+    }
+    o.score = Math.floor(me.m)
+  }
+  o.draw = (g) => {
+    g.fillStyle = '#0b1230'; g.fillRect(0, 0, W, H)
+    const k = clamp(46 / rad(me.m) * 0.9 + 0.35, 0.45, 1.1)
+    g.save(); g.translate(W / 2, H / 2); g.scale(k, k); g.translate(-me.x, -me.y)
+    g.strokeStyle = '#ffffff12'; g.lineWidth = 1; for (let x = 0; x <= WW; x += 70) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, WH); g.stroke() } for (let y = 0; y <= WH; y += 70) { g.beginPath(); g.moveTo(0, y); g.lineTo(WW, y); g.stroke() }
+    g.strokeStyle = '#ff4de1'; g.lineWidth = 4; g.strokeRect(0, 0, WW, WH)
+    for (const q of pellets) { if (Math.abs(q.x - me.x) > 400 / k || Math.abs(q.y - me.y) > 520 / k) continue; disc(g, q.x, q.y, 5, q.c) }
+    const all = [...bots.map((b) => ({ ...b, bot: 1 })), { ...me, c: '#3de8ff', me: 1 }].sort((a, b) => a.m - b.m)
+    for (const b of all) { const r = rad(b.m); disc(g, b.x, b.y, r, b.c); disc(g, b.x - r * 0.3, b.y - r * 0.3, r * 0.22, '#ffffff55'); if (b.me) { g.strokeStyle = '#fff'; g.lineWidth = 3; g.beginPath(); g.arc(b.x, b.y, r, 0, TAU); g.stroke() } }
+    drawFx(g, fx); g.restore()
+    txt(g, 'MASS ' + Math.floor(me.m), 70, 24, 11, '#fff', 'center')
+  }
+  return o
+}
+
+// ---------------------------------------------------------------- 12. BLOCK PUZZLE (1010 style)
+function blockPuzzle() {
+  const N = 8, CS = 38, OX = (W - N * CS) / 2, OY = 70
+  const SHAPES = [[[1]], [[1, 1]], [[1], [1]], [[1, 1, 1]], [[1], [1], [1]], [[1, 1, 1, 1]], [[1], [1], [1], [1]], [[1, 1], [1, 1]], [[1, 1, 1], [1, 1, 1], [1, 1, 1]], [[1, 0], [1, 1]], [[0, 1], [1, 1]], [[1, 1], [1, 0]], [[1, 1], [0, 1]], [[1, 0, 0], [1, 0, 0], [1, 1, 1]], [[1, 1, 1], [0, 0, 1], [0, 0, 1]], [[1, 1, 1], [0, 1, 0]], [[1, 1, 1, 1, 1]]]
+  const COL = ['#ff5a6a', '#ffd23a', '#3de8ff', '#7dff6a', '#b27aff', '#ff9a3a']
+  const o = { score: 0, over: false, label: 'DRAG PIECES ONTO THE BOARD · FILL ROWS AND COLUMNS' }
+  let grid, tray, drag, combo, fx
+  const fits = (sh, r, c) => sh.every((row, y) => row.every((v, x) => !v || (r + y >= 0 && r + y < N && c + x >= 0 && c + x < N && !grid[r + y][c + x])))
+  const canAny = () => tray.some((p) => p && (() => { for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) if (fits(p.sh, r, c)) return true; return false })())
+  const deal = () => { tray = [0, 1, 2].map(() => ({ sh: pick(SHAPES), c: ri(0, 5) })) }
+  const slot = (i) => ({ x: 20 + i * 112, y: 420, w: 100, h: 100 })
+  o.reset = () => { grid = Array.from({ length: N }, () => Array(N).fill(0)); deal(); drag = null; combo = 0; fx = []; o.score = 0; o.over = false }
+  o.down = (x, y) => { if (o.over) return; for (let i = 0; i < 3; i++) { const s = slot(i); if (tray[i] && x > s.x && x < s.x + s.w && y > s.y - 20 && y < s.y + s.h + 20) { drag = { i, x, y } ; return } } }
+  o.move = (x, y) => { if (drag) { drag.x = x; drag.y = y } }
+  const target = () => { const p = tray[drag.i], cw = p.sh[0].length, ch = p.sh.length; return { r: Math.round((drag.y - 70 - ch * CS / 2 - OY) / CS), c: Math.round((drag.x - cw * CS / 2 - OX) / CS) } }
+  o.up = () => {
+    if (!drag) return
+    const p = tray[drag.i], t = target()
+    if (fits(p.sh, t.r, t.c)) {
+      let cells = 0
+      p.sh.forEach((row, y) => row.forEach((v, x) => { if (v) { grid[t.r + y][t.c + x] = p.c + 1; cells++ } }))
+      const rows = [], cols = []
+      for (let r = 0; r < N; r++) if (grid[r].every((v) => v)) rows.push(r)
+      for (let c = 0; c < N; c++) if (grid.every((row) => row[c])) cols.push(c)
+      for (const r of rows) for (let c = 0; c < N; c++) { puff(fx, OX + c * CS + CS / 2, OY + r * CS + CS / 2, 3, COL[(grid[r][c] - 1) % 6], 120); grid[r][c] = 0 }
+      for (const c of cols) for (let r = 0; r < N; r++) { if (grid[r][c]) puff(fx, OX + c * CS + CS / 2, OY + r * CS + CS / 2, 3, COL[(grid[r][c] - 1) % 6], 120); grid[r][c] = 0 }
+      const lines = rows.length + cols.length
+      combo = lines ? combo + 1 : 0
+      o.score += cells + lines * 10 * lines + (combo > 1 ? combo * 5 : 0)
+      tray[drag.i] = null
+      if (tray.every((q) => !q)) deal()
+      if (!canAny()) o.over = true
+    }
+    drag = null
+  }
+  o.update = (dt) => stepFx(fx, dt)
+  const piece = (g, sh, c, x, y, cs, a = 1) => { g.globalAlpha = a; sh.forEach((row, yy) => row.forEach((v, xx) => { if (v) { g.fillStyle = COL[c % 6]; rr(g, x + xx * cs + 1, y + yy * cs + 1, cs - 2, cs - 2, 5); g.fill() } })); g.globalAlpha = 1 }
+  o.draw = (g) => {
+    sky(g, '#17224f', '#0a1030')
+    g.fillStyle = '#0006'; rr(g, OX - 5, OY - 5, N * CS + 10, N * CS + 10, 10); g.fill()
+    for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) { g.fillStyle = grid[r][c] ? COL[(grid[r][c] - 1) % 6] : '#ffffff10'; rr(g, OX + c * CS + 1, OY + r * CS + 1, CS - 2, CS - 2, 5); g.fill() }
+    if (drag) { const p = tray[drag.i], t = target(); if (fits(p.sh, t.r, t.c)) piece(g, p.sh, p.c, OX + t.c * CS, OY + t.r * CS, CS, 0.35) }
+    for (let i = 0; i < 3; i++) { const p = tray[i], s = slot(i); if (!p || (drag && drag.i === i)) continue; const cs = 24, w = p.sh[0].length * cs, h = p.sh.length * cs; piece(g, p.sh, p.c, s.x + (s.w - w) / 2, s.y + (s.h - h) / 2, cs) }
+    if (drag) { const p = tray[drag.i], cw = p.sh[0].length * CS, ch = p.sh.length * CS; piece(g, p.sh, p.c, drag.x - cw / 2, drag.y - 70 - ch / 2, CS) }
+    drawFx(g, fx); txt(g, 'SCORE ' + Math.floor(o.score), W / 2, 32, 14, '#ffe84a'); if (combo > 1) txt(g, 'COMBO x' + combo, W / 2, 52, 10, '#7dff6a')
+  }
+  return o
+}
+
+// ---------------------------------------------------------------- 13. COLOR MEMORY (Simon says)
+function colorMemory() {
+  const PADS = [['#ff5a6a', 40, 120], ['#ffd23a', 190, 120], ['#3de8ff', 40, 270], ['#7dff6a', 190, 270]]
+  const o = { score: 0, over: false, label: 'WATCH THE PATTERN, THEN REPEAT IT' }
+  let seq, idx, state, timer, lit, fx
+  o.reset = () => { seq = []; idx = 0; state = 'wait'; timer = 0.8; lit = -1; fx = []; o.score = 0; o.over = false }
+  const press = (i) => { lit = i; timer = 0.28 }
+  o.down = (x, y) => {
+    if (o.over || state !== 'input') return
+    for (let i = 0; i < 4; i++) { const [, px, py] = PADS[i]; if (x > px && x < px + 130 && y > py && y < py + 130) { press(i); state = 'inputlit'; return o._tap(i) } }
+  }
+  o._tap = (i) => { if (seq[idx] !== i) { o.over = true; return } idx++; if (idx >= seq.length) { o.score = seq.length; state = 'wait'; timer = 0.9 } }
+  o.key = (c) => { const m = { Digit1: 0, Digit2: 1, Digit3: 2, Digit4: 3, KeyQ: 0, KeyW: 1, KeyA: 2, KeyS: 3 }; if (m[c] !== undefined && state === 'input' && !o.over) { press(m[c]); state = 'inputlit'; o._tap(m[c]) } }
+  o.update = (dt) => {
+    stepFx(fx, dt)
+    if (o.over) return
+    timer -= dt
+    if (timer > 0) return
+    if (lit >= 0) { lit = -1; timer = state === 'show' ? 0.18 : 0.05; if (state === 'inputlit') state = 'input'; return }
+    if (state === 'wait') { seq.push(ri(0, 3)); idx = 0; state = 'show'; o._si = 0; timer = 0.1; return }
+    if (state === 'show') { if (o._si < seq.length) { press(seq[o._si]); o._si++; timer = 0.5 } else { state = 'input'; idx = 0 } }
+  }
+  o.draw = (g) => {
+    sky(g, '#1a1a2e', '#0a0a14')
+    PADS.forEach(([c, x, y], i) => { g.globalAlpha = lit === i ? 1 : 0.35; g.fillStyle = c; rr(g, x, y, 130, 130, 24); g.fill(); g.globalAlpha = 1; if (lit === i) { g.strokeStyle = '#fff'; g.lineWidth = 4; rr(g, x, y, 130, 130, 24); g.stroke(); g.lineWidth = 1 } })
+    txt(g, 'ROUND ' + (seq.length || 1), W / 2, 60, 18, '#fff'); txt(g, state === 'show' ? 'WATCH…' : state === 'wait' ? 'GET READY' : o.over ? 'WRONG!' : 'YOUR TURN', W / 2, 90, 11, '#ffe84a')
+    txt(g, 'KEYS 1 2 3 4', W / 2, 460, 8, '#667')
+  }
+  return o
+}
+
+// ---------------------------------------------------------------- 14. LAKE FISHING
+function lakeFishing() {
+  const SURF = 110
+  const o = { score: 0, over: false, label: 'MOVE TO AIM · HOLD TO DROP THE HOOK · RELEASE TO REEL IN', time: 60 }
+  let hook, fish, t, down, fx, spawnT, held, line
+  const KINDS = [['🐟', 10, '#7ad0ff', 18], ['🐠', 25, '#ffb02e', 16], ['🐡', 50, '#ffe84a', 20], ['🦑', -30, '#b27aff', 20], ['🥾', -10, '#8a6a4a', 18]]
+  o.reset = () => { hook = { x: W / 2, y: SURF, vy: 0, load: null }; fish = []; t = 60; down = false; fx = []; spawnT = 0.2; held = false; line = SURF; o.score = 0; o.over = false; o.time = 60 }
+  o.down = (x) => { hook.x = x; held = true }
+  o.move = (x) => { hook.x = clamp(x, 20, W - 20) }
+  o.up = () => { held = false }
+  o.key = (c) => { if (c === 'ArrowLeft') hook.x = clamp(hook.x - 30, 20, W - 20); if (c === 'ArrowRight') hook.x = clamp(hook.x + 30, 20, W - 20); if (c === 'Space') held = !held }
+  o.update = (dt) => {
+    stepFx(fx, dt)
+    if (o.over) return
+    t -= dt; o.time = Math.max(0, Math.ceil(t)); if (t <= 0) { o.over = true; return }
+    spawnT -= dt
+    if (spawnT <= 0) { const k = pick(KINDS.concat(KINDS.slice(0, 2))), dir = Math.random() < 0.5 ? 1 : -1; fish.push({ k, x: dir > 0 ? -30 : W + 30, y: rnd(SURF + 60, H - 60), v: dir * rnd(50, 130), hooked: false }); spawnT = rnd(0.5, 1.1) }
+    if (held && !hook.load) hook.vy = Math.min(hook.vy + 700 * dt, 340); else hook.vy = Math.max(hook.vy - 900 * dt, -380)
+    hook.y = clamp(hook.y + hook.vy * dt, SURF, H - 30)
+    if (hook.load && hook.y <= SURF + 2) { o.score = Math.max(0, o.score + hook.load.k[1]); puff(fx, hook.x, SURF, 10, hook.load.k[2], 150); hook.load = null; hook.vy = 0 }
+    for (const f of fish) { if (f.hooked) { f.x = hook.x; f.y = hook.y + 12; continue } f.x += f.v * dt; if (!hook.load && Math.hypot(f.x - hook.x, f.y - (hook.y + 10)) < f.k[3] + 6) { f.hooked = true; hook.load = f; hook.vy = -200; puff(fx, f.x, f.y, 6, '#fff', 90) } }
+    for (let i = fish.length - 1; i >= 0; i--) if (fish[i].hooked ? false : (fish[i].x < -60 || fish[i].x > W + 60)) fish.splice(i, 1)
+    for (let i = fish.length - 1; i >= 0; i--) if (fish[i].hooked && !hook.load) fish.splice(i, 1)
+  }
+  o.draw = (g) => {
+    sky(g, '#bfe9ff', '#bfe9ff'); g.fillStyle = '#ffd98a'; g.beginPath(); g.arc(300, 50, 28, 0, TAU); g.fill()
+    const gr = g.createLinearGradient(0, SURF, 0, H); gr.addColorStop(0, '#3aa0e0'); gr.addColorStop(1, '#0a2a66'); g.fillStyle = gr; g.fillRect(0, SURF, W, H - SURF)
+    g.fillStyle = '#8a5a2a'; g.fillRect(hook.x - 40, SURF - 22, 80, 14); g.fillStyle = '#ffffff'; g.beginPath(); g.moveTo(hook.x, SURF - 22); g.lineTo(hook.x, SURF - 60); g.lineTo(hook.x + 22, SURF - 24); g.fill()
+    g.strokeStyle = '#ffffffaa'; g.beginPath(); g.moveTo(hook.x, SURF - 10); g.lineTo(hook.x, hook.y); g.stroke(); g.fillStyle = '#ddd'; g.fillRect(hook.x - 4, hook.y, 8, 8)
+    for (const f of fish) { g.font = f.k[3] * 1.6 + 'px serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.save(); g.translate(f.x, f.y); if (f.v < 0 && !f.hooked) g.scale(-1, 1); g.fillText(f.k[0], 0, 0); g.restore() }
+    drawFx(g, fx); txt(g, 'TIME ' + o.time, 56, 24, 12, '#07304a'); txt(g, '$' + o.score, W - 50, 24, 14, '#07304a')
+  }
+  return o
+}
+
+// ---------------------------------------------------------------- 15. HOOP SHOT (flick basketball)
+function hoopShot() {
+  const o = { score: 0, over: false, label: 'FLICK THE BALL UP TOWARD THE HOOP', time: 60 }
+  let ball, hoop, t, sw, fx, streak
+  const reset = () => { ball = { x: W / 2, y: H - 70, vx: 0, vy: 0, fly: false, scored: false, passedTop: false, r: 22 } }
+  o.reset = () => { reset(); hoop = { x: W / 2, y: 150, dir: 1, w: 80 }; t = 60; sw = null; fx = []; streak = 0; o.score = 0; o.over = false; o.time = 60 }
+  o.down = (x, y) => { if (!ball.fly) sw = { x, y, t: performance.now ? 0 : 0, tt: 0 } }
+  o.move = (x, y) => { if (sw) { sw.cx = x; sw.cy = y; ball.x = clamp(ball.x, 40, W - 40) } }
+  o.up = (x, y) => {
+    if (!sw || ball.fly) { sw = null; return }
+    const dx = x - sw.x, dy = y - sw.y, dur = Math.max(0.06, sw.tt)
+    sw = null
+    if (dy > -25) return
+    ball.vx = clamp(dx / dur, -500, 500) * 0.9; ball.vy = clamp(dy / dur, -1500, -700); ball.fly = true
+  }
+  o.update = (dt) => {
+    stepFx(fx, dt)
+    if (o.over) return
+    if (sw) sw.tt += dt
+    t -= dt; o.time = Math.max(0, Math.ceil(t)); if (t <= 0) { o.over = true; return }
+    if (o.score >= 6) { hoop.x += hoop.dir * (60 + Math.min(120, o.score * 3)) * dt; if (hoop.x > W - 70) hoop.dir = -1; if (hoop.x < 70) hoop.dir = 1 }
+    if (!ball.fly) return
+    const py = ball.y
+    ball.vy += 1500 * dt; ball.x += ball.vx * dt; ball.y += ball.vy * dt
+    if (ball.x < ball.r) { ball.x = ball.r; ball.vx *= -0.7 } else if (ball.x > W - ball.r) { ball.x = W - ball.r; ball.vx *= -0.7 }
+    const lx = hoop.x - hoop.w / 2, rx = hoop.x + hoop.w / 2
+    for (const rimX of [lx, rx]) { const d = Math.hypot(ball.x - rimX, ball.y - hoop.y); if (d < ball.r + 5) { const nx = (ball.x - rimX) / (d || 1), ny = (ball.y - hoop.y) / (d || 1), dot = ball.vx * nx + ball.vy * ny; ball.vx -= 1.7 * dot * nx; ball.vy -= 1.7 * dot * ny; ball.x = rimX + nx * (ball.r + 5); ball.y = hoop.y + ny * (ball.r + 5) } }
+    if (py < hoop.y && ball.y >= hoop.y && ball.vy > 0 && ball.x > lx + 6 && ball.x < rx - 6 && !ball.scored) { ball.scored = true; streak++; o.score += streak > 2 ? 3 : 2; puff(fx, hoop.x, hoop.y + 20, 18, '#ffe84a', 200) }
+    if (ball.y > H + 40 || (ball.vy > 0 && ball.y > H - 60 && ball.y > hoop.y + 100 && Math.abs(ball.vy) < 400 && false)) { if (!ball.scored) streak = 0; reset() }
+  }
+  o.draw = (g) => {
+    sky(g, '#2a1a3a', '#120a1c')
+    g.fillStyle = '#ffffff22'; g.fillRect(hoop.x - 50, hoop.y - 70, 100, 70)
+    g.strokeStyle = '#ff6a2a'; g.lineWidth = 6; g.beginPath(); g.moveTo(hoop.x - hoop.w / 2, hoop.y); g.lineTo(hoop.x + hoop.w / 2, hoop.y); g.stroke(); g.lineWidth = 1
+    g.strokeStyle = '#ffffff88'; for (let i = 0; i < 5; i++) { g.beginPath(); g.moveTo(hoop.x - hoop.w / 2 + i * hoop.w / 4, hoop.y); g.lineTo(hoop.x - hoop.w / 2 + 12 + i * (hoop.w - 24) / 4, hoop.y + 38); g.stroke() }
+    disc(g, ball.x, ball.y, ball.r, '#ff8a2a'); g.strokeStyle = '#6a2a00'; g.lineWidth = 2; g.beginPath(); g.arc(ball.x, ball.y, ball.r, 0, TAU); g.moveTo(ball.x - ball.r, ball.y); g.lineTo(ball.x + ball.r, ball.y); g.moveTo(ball.x, ball.y - ball.r); g.lineTo(ball.x, ball.y + ball.r); g.stroke(); g.lineWidth = 1
+    drawFx(g, fx); txt(g, 'TIME ' + o.time, 56, 24, 12, '#fff'); if (streak > 1) txt(g, 'STREAK x' + streak, W / 2, 30, 12, '#ffe84a')
+  }
+  return o
+}
+
+// ---------------------------------------------------------------- 16. SUMO PUSH
+function sumoPush() {
+  const AR = 150, CX = W / 2, CY = 270
+  const o = { score: 0, over: false, label: 'DRAG TO CHARGE · PUSH THE BOT OUT OF THE RING' }
+  let me, bot, aim, round, msgT, fx, state
+  const mk = () => { me = { x: CX - 70, y: CY, vx: 0, vy: 0, r: 22 }; bot = { x: CX + 70, y: CY, vx: 0, vy: 0, r: 22 + Math.min(10, round) } }
+  o.reset = () => { round = 0; aim = null; fx = []; msgT = 0; state = 'play'; mk(); o.score = 0; o.over = false }
+  const setAim = (x, y) => { aim = { x, y } }
+  o.down = setAim; o.move = setAim; o.up = () => { aim = null }
+  o.key = (c) => { const m = { ArrowLeft: [CX - 200, CY], ArrowRight: [CX + 200, CY], ArrowUp: [CX, CY - 200], ArrowDown: [CX, CY + 200] }; if (m[c]) aim = { x: m[c][0] + (me.x - CX), y: m[c][1] + (me.y - CY) } }
+  o.update = (dt) => {
+    stepFx(fx, dt)
+    if (o.over) return
+    if (state === 'win' || state === 'lose') { msgT -= dt; if (msgT <= 0) { if (state === 'lose') { o.over = true } else { round++; mk(); state = 'play' } } return }
+    if (aim) { const dx = aim.x - me.x, dy = aim.y - me.y, d = Math.hypot(dx, dy) || 1; me.vx += (dx / d) * 640 * dt; me.vy += (dy / d) * 640 * dt }
+    { const dx = me.x - bot.x, dy = me.y - bot.y, d = Math.hypot(dx, dy) || 1, edge = Math.hypot(bot.x - CX, bot.y - CY); let ax = dx / d, ay = dy / d; if (edge > AR - 55) { ax = (CX - bot.x) / (edge || 1) * 0.8 + ax * 0.5; ay = (CY - bot.y) / (edge || 1) * 0.8 + ay * 0.5 } const k = 380 + round * 45; bot.vx += ax * k * dt; bot.vy += ay * k * dt }
+    for (const b of [me, bot]) { b.vx *= Math.pow(0.18, dt); b.vy *= Math.pow(0.18, dt); b.x += b.vx * dt; b.y += b.vy * dt }
+    const dx = bot.x - me.x, dy = bot.y - me.y, d = Math.hypot(dx, dy), min = me.r + bot.r
+    if (d < min && d > 0) { const nx = dx / d, ny = dy / d, ov = min - d; me.x -= nx * ov / 2; me.y -= ny * ov / 2; bot.x += nx * ov / 2; bot.y += ny * ov / 2; const rv = (bot.vx - me.vx) * nx + (bot.vy - me.vy) * ny; if (rv < 0) { const mm = me.r * me.r, mb = bot.r * bot.r, j = -(1 + 0.9) * rv / (1 / mm + 1 / mb); me.vx -= j * nx / mm; me.vy -= j * ny / mm; bot.vx += j * nx / mb; bot.vy += j * ny / mb; puff(fx, (me.x + bot.x) / 2, (me.y + bot.y) / 2, 5, '#fff', 120) } }
+    if (Math.hypot(bot.x - CX, bot.y - CY) > AR + bot.r * 0.4) { state = 'win'; msgT = 1; o.score = round + 1; puff(fx, bot.x, bot.y, 16, '#ffe84a', 200) }
+    else if (Math.hypot(me.x - CX, me.y - CY) > AR + me.r * 0.4) { state = 'lose'; msgT = 0.9; puff(fx, me.x, me.y, 16, '#ff6a6a', 200) }
+  }
+  o.draw = (g) => {
+    sky(g, '#2a1408', '#120804')
+    g.fillStyle = '#c9a56a'; g.beginPath(); g.arc(CX, CY, AR + 10, 0, TAU); g.fill(); g.fillStyle = '#e8d3a0'; g.beginPath(); g.arc(CX, CY, AR, 0, TAU); g.fill(); g.strokeStyle = '#a2753a'; g.lineWidth = 4; g.beginPath(); g.arc(CX, CY, AR, 0, TAU); g.stroke(); g.lineWidth = 1
+    disc(g, bot.x, bot.y, bot.r, '#ff5a6a'); disc(g, bot.x - 6, bot.y - 6, 6, '#ffffff66'); disc(g, me.x, me.y, me.r, '#3de8ff'); disc(g, me.x - 6, me.y - 6, 6, '#ffffff66')
+    if (aim) { g.strokeStyle = '#ffffff88'; g.setLineDash([4, 6]); g.beginPath(); g.moveTo(me.x, me.y); g.lineTo(aim.x, aim.y); g.stroke(); g.setLineDash([]) }
+    drawFx(g, fx); txt(g, 'WINS ' + (state === 'win' ? round + 1 : round), W / 2, 30, 14, '#fff'); if (state === 'win') txt(g, 'ROUND WON!', W / 2, 90, 16, '#7dff6a'); if (state === 'lose') txt(g, 'KNOCKED OUT', W / 2, 90, 16, '#ff6a6a')
+  }
+  return o
+}
+
 export const MINI = [
   { id: 'stack', icon: '🏗️', name: 'STACK TOWER', desc: 'Time your taps and build the tallest tower', make: stackTower },
   { id: 'wing', icon: '🐤', name: 'WING DASH', desc: 'Flap through the pipes without a single touch', make: wingDash },
@@ -417,4 +661,10 @@ export const MINI = [
   { id: 'mole', icon: '🔨', name: 'MOLE SMASH', desc: 'Whack moles, golden bonuses, avoid bombs', make: moleSmash },
   { id: 'miner', icon: '⛏️', name: 'IDLE MINER', desc: 'Tap rocks, hire miners, never stop growing', make: idleMiner },
   { id: 'traffic', icon: '🚗', name: 'TRAFFIC DODGE', desc: 'Weave through traffic and grab coins', make: trafficDodge },
+  { id: 'blob', icon: '🟣', name: 'BLOB ARENA', desc: 'Eat, grow and outsmart 14 hungry blobs', make: blobArena },
+  { id: 'blocks', icon: '🧩', name: 'BLOCK PUZZLE', desc: 'Drag pieces, clear lines, chain combos', make: blockPuzzle },
+  { id: 'simon', icon: '🎵', name: 'COLOR MEMORY', desc: 'Repeat the growing light pattern', make: colorMemory },
+  { id: 'fishing', icon: '🎣', name: 'LAKE FISHING', desc: 'Drop the hook, catch the big ones, avoid junk', make: lakeFishing },
+  { id: 'hoops', icon: '🏀', name: 'HOOP SHOT', desc: 'Flick the ball and sink streaks of baskets', make: hoopShot },
+  { id: 'sumo', icon: '🥋', name: 'SUMO PUSH', desc: 'Shove the bot out of the ring, round after round', make: sumoPush },
 ]

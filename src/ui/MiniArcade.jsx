@@ -1,5 +1,5 @@
 'use client'
-// MINI GAMES: a gallery of ten quick canvas games (see src/game/mini/games.js) plus the player that runs one of them.
+// MINI GAMES: a gallery of sixteen quick canvas games (see src/game/mini/games.js) plus the player that runs one of them.
 import { useEffect, useRef, useState } from 'react'
 import { MINI, W, H } from '../game/mini/games.js'
 import { profile, saveProfile, recordScore } from '../game/engine.js'
@@ -96,7 +96,7 @@ export default function MiniArcade() {
   return (
     <div className="mini-gallery">
       <h2>🕹 MINI GAMES</h2>
-      <p>Ten quick games made for short breaks. Tap or click to play. Works on phones and keyboards.</p>
+      <p>Sixteen quick games made for short breaks. Tap or click to play. Works on phones and keyboards.</p>
       <div className="mini-grid">
         {MINI.map((g) => (
           <button key={g.id} className="mini-card" onClick={() => { unlockAudio(); sfx('ui'); setId(g.id) }}>
