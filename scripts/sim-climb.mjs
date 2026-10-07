@@ -5,6 +5,7 @@ const check = (n, c, i) => { if (!c) failures++; console.log(c ? 'PASS' : 'FAIL'
 const api = { put3: (...a) => { if (a.slice(0, 10).some((v) => !Number.isFinite(v))) throw new Error('NaN put3 ' + a.slice(0, 10)) }, putS: (...a) => { if (a.slice(0, 9).some((v) => !Number.isFinite(v))) throw new Error('NaN putS') }, putM: () => {} }
 const step = (n, dt = 1 / 30) => { for (let i = 0; i < n; i++) { update(dt); G.time += dt } }
 check('8 mountains', MOUNTAINS.length === 8)
+const B0 = { best: -1, t: 0, pick: -1 }
 // a bot that finds ice above it, smashes it from below, and climbs through
 const B = { best: -1, t: 0, pick: -1 }
 function bot(p) {
@@ -66,4 +67,20 @@ for (const li of [0, 3]) {
 }
 for (const k of ['left', 'right', 'jump', 'hit']) climbActions.press(k, false)
 climbActions.stop()
-process.exit(failures ? 1 : 0)
+// x20 wide mountain: 600 columns, camera follows, drawing stays cheap, snapshot window is small
+{
+  climbActions.start({ level: 3, seed: 11, size: 20, two: true })
+  check('x20 is 600 columns wide', COLS === 600 && CL.floors[1].length === 600, COLS)
+  const [a, b] = CL.players; CL.spawnT = 1e9
+  a.x = 400; b.x = 380; a.y = b.y = 0; step(120)
+  check('camera follows climbers across a x20 mountain', Math.abs(CL.camX - 390) < 30, CL.camX.toFixed(0))
+  a.in.dx = 1; step(1); b.x = -400; step(5)
+  check('the second climber is tethered to the first', Math.abs(a.x - b.x) <= 82, (a.x - b.x).toFixed(0))
+  let n = 0; const cnt = { put3: (...q) => { n++; if (q.slice(0, 10).some((v) => !Number.isFinite(v))) throw new Error('NaN') }, putS: () => {}, putM: () => {} }
+  games.climb.draw3(cnt)
+  check('wide mountain only draws what is near the camera', n < 6000, n)
+  CL.foes.push({ id: 950, type: 'bird', x: -500, y: 10, dir: 1, st: 'fly', t: 0, dead: false, base: 10 }); step(2)
+  check('far-away foes are culled', !CL.foes.some((f) => f.id === 950))
+  climbActions.stop()
+}
+console.log(failures ? 'FAILURES: ' + failures : 'ALL PASS'); process.exit(failures ? 1 : 0)

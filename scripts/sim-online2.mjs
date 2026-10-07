@@ -132,13 +132,14 @@ if (game === 'orb') {
 if (game === 'climb' || game === 'kong') {
   const S = game === 'climb' ? CL : KG, A = game === 'climb' ? climbActions : kongActions
   await join()
-  if (role === 'host') await hostGame(game, game === 'kong' ? { size: 2 } : {})
+  if (role === 'host') await hostGame(game, game === 'kong' ? { size: 2 } : { size: 20 })
   check('the climb starts on both sides with two climbers', await until(() => S.mode === 'play' && S.net && S.players.length === 2), S.mode)
   check('seats are assigned', S.me === (role === 'host' ? 0 : 1))
   const x0 = S.players[S.me].x, gx0 = S.players[1].x
   if (role === 'guest') A.press('right', true)
   check(role === 'host' ? 'the host sees the guest climber run' : 'the guest runs its own climber', await until(() => Math.abs(S.players[1].x - gx0) > 2, 20000), 'x ' + S.players[1].x.toFixed(1))
   A.press('right', false)
+  if (game === 'climb') check('both sides built the same x20 mountain', CL.size === 20 && CL.floors[1].length === 600, 'size ' + CL.size)
   check('both see the same level and score counters', await until(() => S.t > 3, 20000), 't ' + S.t + ' mode ' + S.mode + ' net ' + !!S.net)
   if (role === 'host') { await sleep(1200); S.players.forEach((p) => { p.lives = 0; p.out = true }) }
   check('the run ends on both sides', await until(() => S.mode === 'over', 40000), S.mode)
