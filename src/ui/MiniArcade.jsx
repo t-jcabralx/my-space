@@ -96,7 +96,7 @@ export default function MiniArcade() {
   return (
     <div className="mini-gallery">
       <h2>🕹 MINI GAMES</h2>
-      <p>Sixteen quick games made for short breaks. Tap or click to play. Works on phones and keyboards.</p>
+      <p>Twenty-two quick games made for short breaks. Tap or click to play. Works on phones and keyboards.</p>
       <div className="mini-grid">
         {MINI.map((g) => (
           <button key={g.id} className="mini-card" onClick={() => { unlockAudio(); sfx('ui'); setId(g.id) }}>

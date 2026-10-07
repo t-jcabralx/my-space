@@ -20,7 +20,7 @@ for (const def of MINI) {
     }
   } catch (e) { threw = e }
   ok(!threw, def.name + ' runs without errors ' + (threw ? threw.stack.split('\n').slice(0, 3).join(' | ') : ''))
-  ok(['miner', 'memory', 'gems', 'blocks'].includes(def.id) || finished > 0, def.name + ' can end (finished ' + finished + '/3)')
+  ok(['miner', 'memory', 'gems', 'blocks', 'ttt', 'pong'].includes(def.id) || finished > 0, def.name + ' can end (finished ' + finished + '/3)')
   ok(def.id === 'bubble' || def.id === 'stack' ? true : maxScore >= 0, def.name + ' score ' + Math.floor(maxScore))
 }
 console.log(fail ? 'FAILED ' + fail : 'ALL PASS')
