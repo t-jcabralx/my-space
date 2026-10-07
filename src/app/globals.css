@@ -723,3 +723,7 @@ li.bonus { border-color: var(--gr); color: var(--gr); } li.fail { border-color: 
 .coopchip { border-color: #3de8ff; color: #3de8ff; max-width: 94%; text-align: center; }
 
 .sxboard { position: absolute; right: 2cqw; top: 8cqw; z-index: 3; background: #02030acc; border: 2px solid #28407a; padding: .4em .7em; font-size: .62em; min-width: 18cqw; pointer-events: none; } .sxboard div { display: flex; align-items: center; gap: .4em; padding: .1em 0; } .sxboard i { width: .8em; height: .8em; border-radius: 50%; } .sxboard em { margin-left: auto; font-style: normal; color: #ffe84a; } .sxboard .me { color: #3de8ff; }
+
+/* ---- score duels ---- */
+.duelbar { position: absolute; top: .6cqw; left: 50%; transform: translateX(-50%); z-index: 90; display: flex; align-items: center; gap: 1.6cqw; background: #070c26ee; border: 2px solid #ff4a8a; padding: .3cqw 1.4cqw; font-size: .7em; white-space: nowrap; pointer-events: none; } .duelbar .you b { color: #3de8ff; } .duelbar .foe b { color: #ff4a8a; } .duelbar em { font-style: normal; color: #ffe84a; }
+.duelres { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 92; background: #070c26f5; border: 3px solid #ffe84a; padding: 2.4cqw 3.4cqw; text-align: center; box-shadow: 0 0 40px #ffe84a66; } .duelres h2 { font-size: 2em; margin-bottom: .6cqw; } .duelres p { font-size: 1.2em; color: #cfe6ff; margin-bottom: 1.2cqw; }

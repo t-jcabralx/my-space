@@ -7,7 +7,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 if (!role) {
   const self = fileURLToPath(import.meta.url)
   let fail = 0
-  for (const g of (process.env.GAMES || 'orb,garden,ssx,kart,story').split(',')) {
+  for (const g of (process.env.GAMES || 'orb,garden,ssx,kart,snake,word,mines').split(',')) {
     if (g === 'story') continue
     const host = spawn('node', [self, 'host', g], { stdio: ['ignore', 'pipe', 'inherit'] })
     let hostOut = '', guestOut = '', guest
@@ -30,6 +30,10 @@ const { OB, orbActions } = await import('../src/game/orb.js')
 const { GD, gardenActions, gardenTest, SURVIVE_T } = await import('../src/game/garden.js')
 const { SX, snowTest } = await import('../src/game/ssx.js')
 const { RC } = await import('../src/game/race.js')
+const { D, DUELS } = await import('../src/game/duel.js')
+const { SN } = await import('../src/game/snake.js')
+const { WD } = await import('../src/game/word.js')
+const { MS } = await import('../src/game/mines.js')
 const { hostRaceMatch, installRaceOnline } = await import('../src/game/online/race-online.js')
 installGameNet(); installRaceOnline()
 let bad = 0
@@ -120,6 +124,21 @@ if (game === 'orb') {
   check('race ends on both sides', await until(() => RC.phase === 'results', 280000), RC.phase)
   clearInterval(drive); eng.keys.ArrowUp = eng.keys.ArrowLeft = eng.keys.ArrowRight = false
   console.log('RESULT', role, RC.results && RC.results.pos)
+  await sleep(1500)
+}
+if (DUELS[game]) {
+  await join()
+  if (role === 'host') await hostGame('duel:' + game, {})
+  check('the duel starts on both sides', await until(() => D.on && D.id === game && eng.G.mode === DUELS[game].mode), eng.G.mode)
+  await sleep(2500)
+  check('we see the rival score updates', await until(() => D.foeScore >= 0 && D.t > 2, 15000), JSON.stringify([D.foeScore, D.t]))
+  // finish the game quickly on each side (the host with a better result)
+  if (game === 'snake') { await until(() => !!SN.over, 60000) }
+  else if (game === 'word') { WD.answer = 'CRANE'; WD.rows = [{ w: 'CRANE', s: 'ggggg' }]; WD.done = true; WD.win = role === 'host' }
+  else if (game === 'mines') { MS.open = role === 'host' ? 30 : 5; MS.over = { win: role === 'host', secs: 40 } }
+  check('both sides report done', await until(() => D.mineDone, 30000), 'mine ' + D.mine)
+  check('the verdict arrives on both sides', await until(() => !!D.result, 30000), JSON.stringify(D.result))
+  console.log('RESULT', role, JSON.stringify(D.result))
   await sleep(1500)
 }
 clearInterval(t)

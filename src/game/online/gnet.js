@@ -41,7 +41,7 @@ export function installGameNet() {
     current = d.g
     reg[d.g].begin(ctxFor(d.g, 'guest', d))
   })
-  onMsg('gin', (d, env) => { if (d && reg[d.g] && current === d.g && reg[d.g].onMsg) reg[d.g].onMsg(d.d, env.f) })
+  onMsg('gin', (d, env) => { if (env.f === RT.cid) return; if (d && reg[d.g] && current === d.g && reg[d.g].onMsg) reg[d.g].onMsg(d.d, env.f) })
   onMsg('presence', (d, env) => { if (env.left && current && reg[current] && reg[current].onLeave) { announce('A player left the match', '#ff8a96', 'cBad'); reg[current].onLeave(env.left) } })
   onMsg('hostchange', () => { if (current && reg[current] && reg[current].onLeave && !isHost()) reg[current].onLeave(null) })
   setInterval(() => {

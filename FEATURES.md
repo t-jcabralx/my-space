@@ -69,3 +69,13 @@ Seven more games (Air Hockey, Billiards, Neon Defense, Neon Depths, Neon Beat, W
 - **The Abyss**: 50 different room scenarios (ambushes, gauntlets, survival, trap floors, shrines, merchants, rune trials, elites, a guardian every 10 rooms).
 - **6 hidden agendas** (pots, untouched rooms, speed, shrines, depth, collecting) that reward an **orb** (floating effect) and a **relic skill** (key F).
 - **Empire Rise**: idle soldiers auto-defend when an enemy gets near any of your buildings; new sounds for fighting, building, training, alarms and raid horns.
+
+## Update: Snow Rush, Kart items, Orb Rush, Garden Siege, finishers, story season 2, online everywhere
+- **🏂 SNOW RUSH** (SSX-style 3D snowboarding): 3 mountains (alpine, ice half-pipe, night), race 5 AI riders or Trick Attack, kickers, rails, boost, tricky/uber tricks, 6 riders. **Online race** for 2-4 friends (each rides on their own device, others are live ghosts).
+- **🍌 KART MODE** in Turbo Rush: item boxes, bananas, homing shells, blue shell, stars, lightning, boosts; rubber-band item luck. **Kart Clash** online room (up to 4 + bots, hits are relayed through the host).
+- **🔮 ORB RUSH** (marble shooter): 10 spiral levels, power orbs (slow / freeze / reverse / bomb), chain reactions; **online versus** (same orbs, combos send extra orbs to your rival).
+- **🧟 GARDEN SIEGE** (lane defence): 8 plants, 5 zombies, 10 levels with a wave director; **Horde mode** (you lead zombies against an AI gardener); **online versus** (one friend plants, the other leads the horde; sides swap each rematch).
+- **🥊 FINISH HIM** in Iron Fists: win the deciding round by K.O. and press special/super for an element finisher (Inferno, Absolute Zero, Thunder God, Soul Eater). Bots finish you too. Works online and in 2P.
+- **📖 STORY season 2: THE LAST CABINET**: acts IV and V (8 more chapters, 5 new characters), dialogue **choices** that set flags (co-pilot, spare or delete ARCHON), two endings, a 3-round **gauntlet** finale, and **👥 play any chapter with a friend** online (the objective counts for both players).
+- **⚔ SCORE DUELS**: Snake, Neon Breaker, 2048, Neon Beat, Neon Defense, Maze Chomp, Mine Sweep (same minefield) and Word Hunt (same word) can be played head-to-head online with live rival scores.
+- Tests: `scripts/sim-ssx.mjs`, `sim-kart.mjs`, `sim-orb.mjs`, `sim-garden.mjs`, `sim-story2.mjs` (in `npm run test:sim`) and the two-process `scripts/sim-online2.mjs` (`npm run test:online2`, needs the dev server).

@@ -19,6 +19,7 @@ import { EmpireLobby, EmpireHUD } from './EmpireUI.jsx'
 import { SsxLobby, SsxHUD } from './Ssx.jsx'
 import { OrbLobby, OrbHUD } from './Orb.jsx'
 import { GardenLobby, GardenHUD } from './Garden.jsx'
+import { DuelOverlay } from './Duel.jsx'
 import { gardenActions } from '../game/garden.js'
 import { orbActions } from '../game/orb.js'
 import { ssxActions } from '../game/ssx.js'
@@ -1577,7 +1578,7 @@ function Hub({ s }) {
               art={<MiniTetris />} label="SELECT MODE ▶" onPlay={() => setTab('tetris')} onInvite={() => { setOgame('tetris'); setTab('online') }}
               sub={<><span>TETRISES</span><b>{p.tetrises || 0}</b></>} />}
             {show('action','puzzle') && <GameCard cls="chomp" title="🟡 MAZE CHOMP" tag="Ghosts · pellets · fruit · co-op" hiLabel="BEST" hi={(p.chompHi || 0).toLocaleString()}
-              art={<MiniChomp />} label="SELECT MODE ▶" onPlay={() => setTab('chomp')}
+              art={<MiniChomp />} label="SELECT MODE ▶" onPlay={() => setTab('chomp')} onInvite={() => { setOgame('chomp'); setTab('online') }}
               sub={<><span>GHOSTS</span><b>{p.chompGhosts || 0}</b></>} />}
             {show('sports','action') && <GameCard cls="race" title="🏁 TURBO RUSH" tag="5 tracks · 6 cars · drift · nitro" hiLabel="WINS" hi={p.raceWins || 0}
               art={<div className="miniRace"><span>🏎️</span><b>💨</b></div>} label="START ENGINES ▶" onPlay={() => setTab('race')} onInvite={() => { setOgame('race'); setTab('online') }}
@@ -1592,7 +1593,7 @@ function Hub({ s }) {
               art={<div className="miniC4"><i /><i /><i /><i /><i /></div>} label="SELECT MODE ▶" onPlay={() => setTab('c4')} onInvite={() => { setOgame('c4'); setTab('online') }}
               sub={<><span>GAMES</span><b>{p.c4Games || 0}</b></>} />}
             {show('action') && <GameCard cls="snake" title="🐍 NEON SNAKE" tag="Solo · vs bot · 2 players" hiLabel="BEST" hi={p.snakeBest || 0}
-              art={<div className="miniSnake"><i /><i /><i /><i /><b>🍎</b></div>} label="SELECT MODE ▶" onPlay={() => setTab('snake')}
+              art={<div className="miniSnake"><i /><i /><i /><i /><b>🍎</b></div>} label="SELECT MODE ▶" onPlay={() => setTab('snake')} onInvite={() => { setOgame('snake'); setTab('online') }}
               sub={<><span>GAMES</span><b>{p.snakeGames || 0}</b></>} />}
             {show('puzzle', 'action') && <GameCard cls="garden" title="🧟 GARDEN SIEGE" tag="Plants vs zombies · 10 levels · horde mode · online versus" hiLabel="BEST" hi={fmtN(p.gardenBest || 0)}
               art={<div className="miniGarden"><b>🌻</b><b>🌱</b><b>🧟</b></div>} label="PLAY ▶" onPlay={() => setTab('garden')} onInvite={() => { setOgame('garden'); setTab('online') }}
@@ -1604,10 +1605,10 @@ function Hub({ s }) {
               art={<div className="miniSsx"><i /><b>🏂</b></div>} label="DROP IN ▶" onPlay={() => setTab('ssx')}
               sub={<><span>WINS</span><b>{p.ssxWins || 0}</b></>} />}
             {show('action') && <GameCard cls="breaker" title="🧱 NEON BREAKER" tag="5 levels · power-ups" hiLabel="BEST" hi={fmtN(p.breakerBest || 0)}
-              art={<div className="miniBreaker"><i /><i /><i /><i /><i /><i /></div>} label="PLAY ▶" onPlay={() => setTab('breaker')}
+              art={<div className="miniBreaker"><i /><i /><i /><i /><i /><i /></div>} label="PLAY ▶" onPlay={() => setTab('breaker')} onInvite={() => { setOgame('breaker'); setTab('online') }}
               sub={<><span>GAMES</span><b>{p.breakerGames || 0}</b></>} />}
             {show('puzzle') && <GameCard cls="mines" title="💣 MINE SWEEP" tag="3 boards · flags · chording" hiLabel="CLEARED" hi={p.minesWins || 0}
-              art={<div className="miniMines"><i>1</i><i>2</i><i>🚩</i><i>1</i></div>} label="PLAY ▶" onPlay={() => setTab('mines')}
+              art={<div className="miniMines"><i>1</i><i>2</i><i>🚩</i><i>1</i></div>} label="PLAY ▶" onPlay={() => setTab('mines')} onInvite={() => { setOgame('mines'); setTab('online') }}
               sub={<><span>GAMES</span><b>{p.minesGames || 0}</b></>} />}
             {show('sports') && <GameCard cls="hockey" title="🏒 AIR HOCKEY" tag="Neon table · bot · 2P · online" hiLabel="WINS" hi={p.hockeyWins || 0}
               art={<div className="miniHockey"><i className="puck" /><b className="ma" /><b className="mb" /></div>} label="SELECT MODE ▶" onPlay={() => setTab('hockey')} onInvite={() => { setOgame('hockey'); setTab('online') }}
@@ -1616,19 +1617,19 @@ function Hub({ s }) {
               art={<div className="miniPool"><i /><i /><i /><i /><i /><u /></div>} label="SELECT MODE ▶" onPlay={() => setTab('pool')} onInvite={() => { setOgame('pool'); setTab('online') }}
               sub={<><span>POTTED</span><b>{p.poolPots || 0}</b></>} />}
             {show('strategy') && <GameCard cls="td" title="🛡 NEON DEFENSE" tag="3 maps · 6 towers · 25 waves" hiLabel="BEST WAVE" hi={(p.tdBest || 0) + '/25'}
-              art={<div className="miniTd"><i /><i /><i /><b>🛡</b></div>} label="SELECT MAP ▶" onPlay={() => setTab('td')}
+              art={<div className="miniTd"><i /><i /><i /><b>🛡</b></div>} label="SELECT MAP ▶" onPlay={() => setTab('td')} onInvite={() => { setOgame('td'); setTab('online') }}
               sub={<><span>VICTORIES</span><b>{p.tdWins || 0}</b></>} />}
             {show('strategy', 'action') && <GameCard cls="rogue" title="🗡 NEON DEPTHS" tag="3D roguelike · co-op · story · bosses" hiLabel="DEEPEST" hi={(p.rogueDeep || 0) + '/12'}
               art={<div className="miniRogue"><span>🗡</span><b>👾</b><span>💎</span></div>} label="CHOOSE HERO ▶" onPlay={() => setTab('rogue')} onInvite={() => { setOgame('rogue'); setTab('online') }}
               sub={<><span>RUNS</span><b>{p.rogueRuns || 0}</b></>} />}
             {show('music') && <GameCard cls="rhythm" title="🎵 NEON BEAT" tag="4 lanes · 5 songs · hold notes" hiLabel="PLAYED" hi={p.rhythmPlays || 0}
-              art={<div className="miniBeat"><i /><i /><i /><i /></div>} label="PICK A SONG ▶" onPlay={() => setTab('rhythm')}
+              art={<div className="miniBeat"><i /><i /><i /><i /></div>} label="PICK A SONG ▶" onPlay={() => setTab('rhythm')} onInvite={() => { setOgame('rhythm'); setTab('online') }}
               sub={<><span>FULL COMBOS</span><b>{p.rhythmFC || 0}</b></>} />}
             {show('puzzle') && <GameCard cls="word" title="🔤 WORD HUNT" tag="Daily word · English + Filipino" hiLabel="STREAK" hi={(p.word && p.word.streak) || 0}
-              art={<div className="miniWord"><i className="g">W</i><i className="y">O</i><i>R</i><i className="g">D</i><i>S</i></div>} label="PLAY ▶" onPlay={() => setTab('word')}
+              art={<div className="miniWord"><i className="g">W</i><i className="y">O</i><i>R</i><i className="g">D</i><i>S</i></div>} label="PLAY ▶" onPlay={() => setTab('word')} onInvite={() => { setOgame('word'); setTab('online') }}
               sub={<><span>WON</span><b>{(p.word && p.word.wins) || 0}</b></>} />}
             {show('puzzle') && <GameCard cls="merge" title="🔢 2048 MERGE" tag="Swipe · undo · hammer · 3 sizes" hiLabel="BIGGEST" hi={p.mergeMax || 0}
-              art={<div className="miniMerge"><i>2</i><i>4</i><i>8</i><i>16</i></div>} label="PLAY ▶" onPlay={() => setTab('merge')}
+              art={<div className="miniMerge"><i>2</i><i>4</i><i>8</i><i>16</i></div>} label="PLAY ▶" onPlay={() => setTab('merge')} onInvite={() => { setOgame('merge'); setTab('online') }}
               sub={<><span>GAMES</span><b>{p.mergeGames || 0}</b></>} />}
             {cat === 'all' && <GameCard cls="topcard" title="🏆 TOP PLAYERS" tag="Global leaderboards for every game" hiLabel="YOUR RANK" hi={RANKS[ri][1]}
               art={<div className="miniPodium"><i>🥈</i><i>🥇</i><i>🥉</i></div>} label="SEE LEADERBOARDS ▶" onPlay={() => setTab('top')}
@@ -2019,6 +2020,7 @@ export default function HUD() {
       <Notices list={s.notices} />
       <div className="hud helplayer"><HelpLayer s={s} /></div>
       <StoryOverlay />
+      <DuelOverlay />
     </>
   )
 }

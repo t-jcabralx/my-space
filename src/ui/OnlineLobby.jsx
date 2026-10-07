@@ -2,6 +2,8 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { RT, subscribeRt, getRt, createRoom, joinRoom, leaveRoom, listRooms, roomAction, sendChat } from '../game/online/rt.js'
 import { hostGame, installGameNet } from '../game/online/gnet.js'
+import '../game/duel.js'
+const DUEL_IDS = ['snake', 'breaker', 'merge', 'rhythm', 'td', 'chomp', 'mines', 'word']
 import { hostCardGame, installCardsOnline } from '../game/online/cards-online.js'
 import { hostTetris, installTetrisOnline } from '../game/online/tetris-online.js'
 import { hostPickle, installPickleOnline } from '../game/online/pickle-online.js'
@@ -20,6 +22,14 @@ const profile0 = () => profile0Obj
 if (typeof window !== 'undefined') { installGameNet(); installCardsOnline(); installTetrisOnline(); installPickleOnline(); installBomberOnline(); installSpaceOnline(); installFightOnline(); installRaceOnline(); installHockeyOnline(); installPoolOnline(); installRogueOnline(); installC4Online(); installEmpireOnline() }
 
 const GAMES = [
+  ['snake', '🐍', 'SNAKE DUEL', 'Both play Neon Snake at the same time and watch each other\'s score live: the longer snake wins.', 2],
+  ['breaker', '🧱', 'BREAKER DUEL', 'Both play Neon Breaker at once. Highest score wins.', 2],
+  ['merge', '🔢', '2048 DUEL', 'Both play 2048 at once. Highest score when both are stuck wins.', 2],
+  ['rhythm', '🎵', 'BEAT DUEL', 'The same song, two players, live scores: best score wins.', 2],
+  ['td', '🛡', 'DEFENSE DUEL', 'Both defend the same map; whoever lasts longest and kills the most wins.', 2],
+  ['chomp', '🟡', 'CHOMP DUEL', 'Both play Maze Chomp at once. Highest score wins.', 2],
+  ['mines', '💣', 'SWEEP DUEL', 'The same minefield for both: clear it faster than your rival.', 2],
+  ['word', '🔤', 'WORD DUEL', 'The same secret word for both: solve it in fewer tries to win.', 2],
   ['ssx', '🏂', 'SNOW RUSH RACE', 'Race 2-4 friends down the mountain (or compare trick scores). Pick your rider, mountain and mode in the 🏂 SNOW RUSH tab first; the host chooses the mountain.', 4],
   ['garden', '🧟', 'GARDEN SIEGE VERSUS', 'One of you defends the garden with sun and plants, the other leads the zombie horde with brains. Sides swap on every rematch.', 2],
   ['orb', '🔮', 'ORB RUSH VERSUS', 'Race a friend through the same chain of orbs. Big combos send extra orbs to your rival; clear the board or make them fall in the hole.', 2],
@@ -89,6 +99,7 @@ export default function OnlineLobby({ s, TopPlayers, initGame }) {
     if (room.game === 'race' || room.game === 'kart') await hostRaceMatch({ track: typeof profile0().raceTrack === 'number' ? profile0().raceTrack : 0, laps: 3, diff: 2, ai: 3, kart: room.game === 'kart' })
     else if (room.game === 'orb') await hostGame('orb', { level: 0 })
     else if (room.game === 'garden') await hostGame('garden', {})
+    else if (DUEL_IDS.includes(room.game)) await hostGame('duel:' + room.game, { song: 1 })
     else if (room.game === 'ssx') await hostGame('ssx', { course: profile0().ssxCourse | 0, kind: profile0().ssxKind || 'race' })
     else if (room.game === 'fight') await hostFightMatch()
     else if (room.game === 'tetris') await hostTetris()
@@ -149,11 +160,11 @@ export default function OnlineLobby({ s, TopPlayers, initGame }) {
         <div className="roomPlayers">
           {room.players.map((p) => <div key={p.id} className="chip sel" style={{ margin: 3 }}>{p.id === room.host ? '👑 ' : '🙂 '}{p.name}{p.id === rt.cid ? ' (you)' : ''}</div>)}
           {(room.game === 'uno' || room.game === 'pusoy' || room.game === 'tongits' || room.game === 'space') && Array.from({ length: Math.max(0, room.max - room.players.length) }).map((_, i) => <div key={i} className="chip" style={{ margin: 3, opacity: 0.6 }}>🤖 BOT</div>)}
-          {(room.game === 'tetris' || room.game === 'pickle' || room.game === 'fight' || room.game === 'hockey' || room.game === 'pool' || room.game === 'rogue' || room.game === 'c4' || room.game === 'empire' || room.game === 'orb' || room.game === 'garden' || room.game === 'ssx') && room.players.length < 2 && <div className="chip" style={{ margin: 3, opacity: 0.6 }}>… waiting for opponent</div>}
+          {(room.game === 'tetris' || room.game === 'pickle' || room.game === 'fight' || room.game === 'hockey' || room.game === 'pool' || room.game === 'rogue' || room.game === 'c4' || room.game === 'empire' || room.game === 'orb' || room.game === 'garden' || room.game === 'ssx' || DUEL_IDS.includes(room.game)) && room.players.length < 2 && <div className="chip" style={{ margin: 3, opacity: 0.6 }}>… waiting for opponent</div>}
         </div>
         <div className="chips">
           {isHost
-            ? <button className="big" disabled={(room.game === 'tetris' || room.game === 'pickle' || room.game === 'bomber' || room.game === 'fight' || room.game === 'hockey' || room.game === 'pool' || room.game === 'rogue' || room.game === 'c4' || room.game === 'empire' || room.game === 'orb' || room.game === 'garden' || room.game === 'ssx') && room.players.length < 2} onClick={start}>▶ START GAME</button>
+            ? <button className="big" disabled={(room.game === 'tetris' || room.game === 'pickle' || room.game === 'bomber' || room.game === 'fight' || room.game === 'hockey' || room.game === 'pool' || room.game === 'rogue' || room.game === 'c4' || room.game === 'empire' || room.game === 'orb' || room.game === 'garden' || room.game === 'ssx' || DUEL_IDS.includes(room.game)) && room.players.length < 2} onClick={start}>▶ START GAME</button>
             : <div className="lobbyinfo">Waiting for the host to start…</div>}
           <button className="big sec" onClick={copyLink}>{copied ? '✔ LINK COPIED' : '🔗 COPY INVITE LINK'}</button>
           <button className="big sec" onClick={() => leaveRoom()}>LEAVE ROOM</button>

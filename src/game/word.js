@@ -32,7 +32,7 @@ function pickAnswer(lang, daily) {
 }
 function start(cfg = {}) {
   WD.lang = cfg.lang === 'tl' ? 'tl' : 'en'; WD.daily = !!cfg.daily; WD.hard = !!cfg.hard
-  WD.answer = pickAnswer(WD.lang, WD.daily).toUpperCase()
+  WD.answer = (cfg.seed ? list(WD.lang)[cfg.seed % list(WD.lang).length] : pickAnswer(WD.lang, WD.daily)).toUpperCase()
   WD.rows = []; WD.cur = ''; WD.done = false; WD.win = false; WD.reveal = -1; WD.msg = null; WD.keys = {}
   G.mode = 'word'; engineEmit(); WD.mode = 'play'
   music.set('cards', 0); sfx('ui'); emitW()

@@ -13,6 +13,7 @@ function start(cfg = {}) {
   const l = LV[cfg.lv | 0] || LV[0]
   MS.lv = LV.indexOf(l); MS.w = l.w; MS.h = l.h; MS.mines = l.m
   MS.cells = Array.from({ length: l.w * l.h }, () => ({ m: false, o: false, f: false, n: 0 }))
+  MS.rnd = cfg.seed ? (() => { let a = cfg.seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296 } })() : null
   MS.placed = false; MS.flags = 0; MS.open = 0; MS.secs = 0; MS.state = 'ready'; MS.over = null; MS.flagMode = false; MS.boom = -1
   G.mode = 'mines'; engineEmit(); MS.mode = 'play'
   music.set('cards', 0); sfx('ui'); emitM()
@@ -22,7 +23,7 @@ const nb = (i) => { const x = i % MS.w, y = (i / MS.w) | 0, o = []; for (let dy 
 function place(safe) {
   const ban = new Set([safe, ...nb(safe)])
   let n = 0
-  while (n < MS.mines) { const i = (Math.random() * MS.cells.length) | 0; if (ban.has(i) || MS.cells[i].m) continue; MS.cells[i].m = true; n++ }
+  while (n < MS.mines) { const i = ((MS.rnd || Math.random)() * MS.cells.length) | 0; if (ban.has(i) || MS.cells[i].m) continue; MS.cells[i].m = true; n++ }
   MS.cells.forEach((c, i) => { c.n = nb(i).filter((j) => MS.cells[j].m).length })
   MS.placed = true
 }
