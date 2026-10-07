@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { createContext, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import OnlineLobby from './OnlineLobby.jsx'
 import MiniArcade from './MiniArcade.jsx'
-import { joinRoom, subscribeRt, getRt } from '../game/online/rt.js'
+import { joinRoom, leaveRoom, subscribeRt, getRt } from '../game/online/rt.js'
 import { onKey as engineKey, setSquad, subscribe, getSnap, startGame, toShop, launchNext, buy, retryMission, toMenu, togglePause, useSkill, startGameAt, setShip, setName, markSeen, claimDaily } from '../game/engine.js'
 import { subscribeSlug, getSlugSnap, slugActions } from '../game/slug.js'
 import { subscribePickle, getPickleSnap, pickleActions, MODES } from '../game/pickle.js'
@@ -1519,7 +1519,10 @@ function DailyPanel({ q }) {
   )
 }
 
+const SearchCtx = createContext('')
 function GameCard({ cls, title, tag, hi, hiLabel, art, onPlay, label, sub, onInvite, extra }) {
+  const q = useContext(SearchCtx).trim().toLowerCase()
+  if (q && !(String(title) + ' ' + String(tag)).toLowerCase().includes(q)) return null
   return (
     <div className={'gcard ' + cls}>
       <h4>{title}</h4>
@@ -1539,8 +1542,14 @@ function Hub({ s }) {
   const [ogame, setOgameRaw] = useState('tetris')
   const [olock, setOlock] = useState(false) // opened from one game's own PLAY WITH FRIENDS button: show only that game
   const [onon, setOnon] = useState(0) // bumps every time an invite opens the lobby, so it always starts on that game
+  const rtS = useSyncExternalStore(subscribeRt, getRt, getRt)
+  const rtRef = useRef(rtS); rtRef.current = rtS
+  const [pending, setPending] = useState(null) // a game the player wants to invite friends to while still sitting in another room
+  const [q, setQ] = useState('')
+  const goOnline = (g) => { setOgameRaw(g); setOlock(true); setOnon((n) => n + 1); setTab('online') }
+  const openOnline = (g) => { const r = rtRef.current.room; if (r && g && r.game !== g) { setPending(g); return } goOnline(g) }
   const setOgame = (g) => { setOgameRaw(g); setOlock(true); setOnon((n) => n + 1) }
-  useEffect(() => { const h = (e) => { const [t, g] = String(e.detail || '').split(':'); if (g) { setOgameRaw(g); setOlock(true); setOnon((n) => n + 1) } if (t) setTab(t) }; window.addEventListener('si-open-tab', h); return () => window.removeEventListener('si-open-tab', h) }, [])
+  useEffect(() => { const h = (e) => { const [t, g] = String(e.detail || '').split(':'); if (g && t === 'online') { const r = rtRef.current.room; if (r && r.game !== g) { setPending(g); return } } if (g) { setOgameRaw(g); setOlock(true); setOnon((n) => n + 1) } if (t) setTab(t) }; window.addEventListener('si-open-tab', h); return () => window.removeEventListener('si-open-tab', h) }, [])
   useEffect(() => { try { const q = new URLSearchParams(location.search); if (q.get('join')) setTab('online'); else { const g = GAMES_SEO.find((x) => x.slug === q.get('play')); if (g && g.tab !== 'space') setTab(g.tab) } } catch { /* ignore */ } }, [])
   const [pmode, setPmode] = useState('bot')
   const [pdiff, setPdiff] = useState(2)
@@ -1575,96 +1584,114 @@ function Hub({ s }) {
       </div>
       <AudioNotice />
       {tab === 'home' && (
-        <>
+        <SearchCtx.Provider value={q}>
+          <div className="hero">
+            <div className="hero-id">
+              <div className="hero-av">{(p.name || 'P').slice(0, 1).toUpperCase()}</div>
+              <div><b>{p.name && p.name !== 'PLAYER' ? p.name : 'WELCOME, PLAYER'}</b><small>{RANKS[ri][1]}{next ? ' · ' + Math.max(0, next[0] - xp) + ' XP to ' + next[1] : ' · MAX RANK'}</small>
+                <div className="hero-bar"><i style={{ width: pct + '%' }} /></div></div>
+            </div>
+            <div className="hero-stats">
+              <div><small>CHIPS</small><b>🪙 {Number(p.chips || 0).toLocaleString()}</b></div>
+              <div><small>STORY</small><b>⭐ {p.storyStars || 0}</b></div>
+              <div><small>AWARDS</small><b>🏆 {doneAch}/{ACH.length}</b></div>
+            </div>
+            <div className="hero-actions">
+              <button className="big" onClick={() => setTab('story')}>📖 STORY</button>
+              <button className="big sec" onClick={() => setTab('mini')}>🕹 MINI GAMES <span className="newtag">NEW</span></button>
+              <button className="big sec" onClick={() => { setOlock(false); setOnon((n) => n + 1); setTab('online') }}>🌐 PLAY WITH FRIENDS</button>
+            </div>
+          </div>
           <JoinBar name={p.name} onJoined={() => setTab('online')} />
+          <div className="hubsearch"><input className="nameIn" type="text" value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.stopPropagation()} placeholder="🔎 Search games…  (uno, empire, race…)" />{q && <button className="chip" onClick={() => setQ('')}>✕ CLEAR</button>}</div>
           <div className="catchips">{CATS.map(([k, n]) => <button key={k} className={'chip ' + (cat === k ? 'sel' : '')} onClick={() => setCat(k)}>{n}</button>)}</div>
           <div className="cards4">
             {show('action') && <GameCard cls="space" title="🚀 SPACE IMPACT: NEON" tag="10 levels · 10 bosses · squad of 3 ships" hiLabel="HI-SCORE" hi={p.spaceHi.toLocaleString()}
-              art={<ShipPreview ship={p.ship} />} label="▶ PLAY" onPlay={startGame} onInvite={() => { setOgame('space'); setTab('online') }}
+              art={<ShipPreview ship={p.ship} />} label="▶ PLAY" onPlay={startGame} onInvite={() => { openOnline('space') }}
               extra={<div className="squadsel"><div className="sqrow"><small>TEAM</small>{[[0, 'SOLO'], [1, 'DUO'], [2, 'TRIO']].map(([n, l]) => <button key={n} className={'chip ' + ((s.squadSize === n) ? 'sel' : '')} onClick={() => setSquad(n, s.squadHuman, s.squadBots)}>{l}</button>)}<button className={'chip ic ' + (s.squadHuman ? 'sel' : '')} disabled={s.squadSize < 1} onClick={() => setSquad(s.squadSize, !s.squadHuman, s.squadBots)} title="A friend flies a ship on this keyboard: arrows + Enter">👥</button><button className={'chip ic ' + (s.squadBots ? 'sel' : '')} disabled={s.squadSize < 1} onClick={() => setSquad(s.squadSize, s.squadHuman, !s.squadBots)} title="Fill empty team slots with AI wingmen">🤖</button></div><small className="dim">{s.squadSize === 0 ? 'Flying solo' : s.squadBots ? 'AI flies empty slots' : '👥 same keyboard · 🤖 AI · or invite friends'}</small></div>}
               sub={<><span>LEVELS</span><b>{s.unlocked + 1}/10</b></>} />}
             {show('strategy', 'action') && <GameCard cls="empire" title="🏰 EMPIRE RISE" tag="Village to empire · raiders · up to 4 kingdoms online" hiLabel="RANK" hi={['VILLAGE', 'VILLAGE', 'TOWN', 'CITY', 'EMPIRE'][p.empireHall || 1]}
-              art={<div className="miniEmpire"><span>🏠</span><span>🏰</span><span>🗽</span></div>} label="BUILD KINGDOM ▶" onPlay={() => setTab('empire')} onInvite={() => { setOgame('empire'); setTab('online') }}
+              art={<div className="miniEmpire"><span>🏠</span><span>🏰</span><span>🗽</span></div>} label="BUILD KINGDOM ▶" onPlay={() => setTab('empire')} onInvite={() => { openOnline('empire') }}
               sub={<><span>VICTORIES</span><b>{p.empireWins || 0}</b></>} />}
             {show('cards') && <GameCard cls="cards" title="🃏 CARD ROOM" tag="UNO · Pusoy Dos · Lucky 9 · Tong-its" hiLabel="CHIPS" hi={'🪙 ' + Number(p.chips || 0).toLocaleString()}
-              art={<div className="miniCards"><i>♥</i><i>♠</i><i>9</i><i>+2</i></div>} label="SELECT GAME ▶" onPlay={() => setTab('cards')} onInvite={() => { setOgame('uno'); setTab('online') }}
+              art={<div className="miniCards"><i>♥</i><i>♠</i><i>9</i><i>+2</i></div>} label="SELECT GAME ▶" onPlay={() => setTab('cards')} onInvite={() => { openOnline('uno') }}
               sub={<><span>WON</span><b>{p.cardWins || 0}</b></>} />}
             {show('action') && <GameCard cls="slug" title="🪖 OPERATION GROUND ZERO" tag="Run & gun · POWs · tank · 3 bosses" hiLabel="HI-SCORE" hi={p.slugHi.toLocaleString()}
               art={<SpriteArt scene={[[SP.palm, 22, false, 3], [SP.vsv, 110, false, 3], [SP.heroS, 66, false, 4], [SP.solS, 178, true, 4], [SP.runS, 206, true, 4]]} />} label="▶ PLAY" onPlay={() => slugActions.start(0)}
               sub={<><span>WINS</span><b>{p.slugWins}</b></>} />}
             {show('sports') && <GameCard cls="pickle" title="🏓 PICKLEBALL" tag="Bots · 1v1 · 2v2 · real rules" hiLabel="WINS" hi={p.pickleWins || 0}
-              art={<div className="miniCourt"><i className="net" /><i className="ball" /><b className="pa">🧍</b><b className="pb">🤖</b></div>} label="SELECT MODE ▶" onPlay={() => setTab('pickle')} onInvite={() => { setOgame('pickle'); setTab('online') }}
+              art={<div className="miniCourt"><i className="net" /><i className="ball" /><b className="pa">🧍</b><b className="pb">🤖</b></div>} label="SELECT MODE ▶" onPlay={() => setTab('pickle')} onInvite={() => { openOnline('pickle') }}
               sub={<><span>ACES</span><b>{p.aces || 0}</b></>} />}
             {show('action') && <GameCard cls="bomber" title="💣 BOMBER BLAST" tag="Battle arena · bots · 1v1 · 2v2" hiLabel="WINS" hi={p.bomberWins || 0}
-              art={<MiniBomber />} label="SELECT MODE ▶" onPlay={() => setTab('bomber')} onInvite={() => { setOgame('bomber'); setTab('online') }}
+              art={<MiniBomber />} label="SELECT MODE ▶" onPlay={() => setTab('bomber')} onInvite={() => { openOnline('bomber') }}
               sub={<><span>BLOCKS</span><b>{p.bricks || 0}</b></>} />}
             {show('puzzle') && <GameCard cls="tetris" title="🧱 TETRA BLAST" tag="Solo · 1v1 vs bot · 2P · T-spins" hiLabel="LINES" hi={p.tetrisLines || 0}
-              art={<MiniTetris />} label="SELECT MODE ▶" onPlay={() => setTab('tetris')} onInvite={() => { setOgame('tetris'); setTab('online') }}
+              art={<MiniTetris />} label="SELECT MODE ▶" onPlay={() => setTab('tetris')} onInvite={() => { openOnline('tetris') }}
               sub={<><span>TETRISES</span><b>{p.tetrises || 0}</b></>} />}
             {show('action','puzzle') && <GameCard cls="chomp" title="🟡 MAZE CHOMP" tag="Ghosts · pellets · fruit · co-op" hiLabel="BEST" hi={(p.chompHi || 0).toLocaleString()}
-              art={<MiniChomp />} label="SELECT MODE ▶" onPlay={() => setTab('chomp')} onInvite={() => { setOgame('chomp'); setTab('online') }}
+              art={<MiniChomp />} label="SELECT MODE ▶" onPlay={() => setTab('chomp')} onInvite={() => { openOnline('chomp') }}
               sub={<><span>GHOSTS</span><b>{p.chompGhosts || 0}</b></>} />}
             {show('sports','action') && <GameCard cls="race" title="🏁 TURBO RUSH" tag="5 tracks · 6 cars · drift · nitro" hiLabel="WINS" hi={p.raceWins || 0}
-              art={<div className="miniRace"><span>🏎️</span><b>💨</b></div>} label="START ENGINES ▶" onPlay={() => setTab('race')} onInvite={() => { setOgame('race'); setTab('online') }}
+              art={<div className="miniRace"><span>🏎️</span><b>💨</b></div>} label="START ENGINES ▶" onPlay={() => setTab('race')} onInvite={() => { openOnline('race') }}
               sub={<><span>RACES</span><b>{p.raceRaces || 0}</b></>} />}
             {show('action','sports') && <GameCard cls="fight" title="🥊 IRON FISTS" tag="40 fighters · specials · supers · 1v1" hiLabel="WINS" hi={p.fightWins || 0}
-              art={<div className="miniFight"><span>🥋</span><b>VS</b><span>🥷</span></div>} label="CHOOSE FIGHTER ▶" onPlay={() => setTab('fight')} onInvite={() => { setOgame('fight'); setTab('online') }}
+              art={<div className="miniFight"><span>🥋</span><b>VS</b><span>🥷</span></div>} label="CHOOSE FIGHTER ▶" onPlay={() => setTab('fight')} onInvite={() => { openOnline('fight') }}
               sub={<><span>BEATEN</span><b>{Object.keys(p.fightBeaten || {}).length}/40</b></>} />}
             {show('puzzle') && <GameCard cls="flames" title="🔥 FLAMES" tag="Friends · Lovers · Affection · Marriage · Enemies · Siblings" hiLabel="TRIED" hi={p.flamesGames || 0}
               art={<div className="miniFlames"><i>F</i><i>L</i><i>A</i><i>M</i><i>E</i><i>S</i></div>} label="PLAY FLAMES ▶" onPlay={() => setTab('flames')}
               sub={<><span>LAST</span><b>{(p.flamesHistory && p.flamesHistory[0]) ? FOUT[p.flamesHistory[0].r].word : '-'}</b></>} />}
             {show('puzzle', 'sports') && <GameCard cls="c4" title="🔴 CONNECT FOUR" tag="Bot · 2P · online 1v1" hiLabel="WINS" hi={p.c4Wins || 0}
-              art={<div className="miniC4"><i /><i /><i /><i /><i /></div>} label="SELECT MODE ▶" onPlay={() => setTab('c4')} onInvite={() => { setOgame('c4'); setTab('online') }}
+              art={<div className="miniC4"><i /><i /><i /><i /><i /></div>} label="SELECT MODE ▶" onPlay={() => setTab('c4')} onInvite={() => { openOnline('c4') }}
               sub={<><span>GAMES</span><b>{p.c4Games || 0}</b></>} />}
             {show('action', 'puzzle') && <GameCard cls="snake" title="🕹 MINI GAMES" tag="16 quick games · phone friendly" hiLabel="PLAYED" hi={p.miniGames || 0}
               art={<div className="miniSnake"><b>🏗️</b><b>🐤</b><b>🍉</b><b>💎</b><b>🎣</b></div>} label="PICK A GAME ▶" onPlay={() => setTab('mini')} />}
             {show('action') && <GameCard cls="snake" title="🐍 NEON SNAKE" tag="Solo · vs bot · 2 players" hiLabel="BEST" hi={p.snakeBest || 0}
-              art={<div className="miniSnake"><i /><i /><i /><i /><b>🍎</b></div>} label="SELECT MODE ▶" onPlay={() => setTab('snake')} onInvite={() => { setOgame('snake'); setTab('online') }}
+              art={<div className="miniSnake"><i /><i /><i /><i /><b>🍎</b></div>} label="SELECT MODE ▶" onPlay={() => setTab('snake')} onInvite={() => { openOnline('snake') }}
               sub={<><span>GAMES</span><b>{p.snakeGames || 0}</b></>} />}
             {show('action', 'puzzle') && <GameCard cls="climb" title="🧗 FROST CLIMBERS" tag="3D ice climbing · co-op · 8 mountains" hiLabel="BEST" hi={fmtN(p.climbBest || 0)}
-              art={<div className="miniClimb"><b>🧗</b><i /><i /><i /></div>} label="CLIMB ▶" onPlay={() => setTab('climb')} onInvite={() => { setOgame('climb'); setTab('online') }}
+              art={<div className="miniClimb"><b>🧗</b><i /><i /><i /></div>} label="CLIMB ▶" onPlay={() => setTab('climb')} onInvite={() => { openOnline('climb') }}
               sub={<><span>MOUNTAIN</span><b>{Math.min(8, (p.climbLevel || 0) + 1)}/8</b></>} />}
             {show('action', 'puzzle') && <GameCard cls="kong" title="🦍 GIRDER GORILLA" tag="3D barrel climb · up to x20 wider · co-op" hiLabel="BEST" hi={fmtN(p.kongBest || 0)}
-              art={<KongLogo className="klogo card" />} label="CLIMB ▶" onPlay={() => setTab('kong')} onInvite={() => { setOgame('kong'); setTab('online') }}
+              art={<KongLogo className="klogo card" />} label="CLIMB ▶" onPlay={() => setTab('kong')} onInvite={() => { openOnline('kong') }}
               sub={<><span>SITE</span><b>{Math.min(8, (p.kongLevel || 0) + 1)}/8</b></>} />}
             {show('action', 'strategy') && <GameCard cls="hunt" title="🌙 13 DAYS OF HELL" tag="Horror survival · co-op · watch your back" hiLabel="BEST" hi={fmtN(p.huntBest || 0)}
-              art={<div className="miniHunt"><b>🔦</b><b>👁</b></div>} label="SURVIVE ▶" onPlay={() => setTab('hunt')} onInvite={() => { setOgame('hunt'); setTab('online') }}
+              art={<div className="miniHunt"><b>🔦</b><b>👁</b></div>} label="SURVIVE ▶" onPlay={() => setTab('hunt')} onInvite={() => { openOnline('hunt') }}
               sub={<><span>DAY</span><b>{Math.min(13, p.huntDay || 0)}/13</b></>} />}
             {show('puzzle', 'action') && <GameCard cls="garden" title="🧟 GARDEN SIEGE" tag="Plants vs zombies · 10 levels · horde mode · online versus" hiLabel="BEST" hi={fmtN(p.gardenBest || 0)}
-              art={<div className="miniGarden"><b>🌻</b><b>🌱</b><b>🧟</b></div>} label="PLAY ▶" onPlay={() => setTab('garden')} onInvite={() => { setOgame('garden'); setTab('online') }}
+              art={<div className="miniGarden"><b>🌻</b><b>🌱</b><b>🧟</b></div>} label="PLAY ▶" onPlay={() => setTab('garden')} onInvite={() => { openOnline('garden') }}
               sub={<><span>WINS</span><b>{p.gardenWins || 0}</b></>} />}
             {show('puzzle', 'action') && <GameCard cls="orb" title="🔮 ORB RUSH" tag="Marble shooter · 10 levels · online versus" hiLabel="BEST" hi={fmtN(p.orbBest || 0)}
-              art={<div className="miniOrb"><i /><i /><i /><i /><b>🐸</b></div>} label="PLAY ▶" onPlay={() => setTab('orb')} onInvite={() => { setOgame('orb'); setTab('online') }}
+              art={<div className="miniOrb"><i /><i /><i /><i /><b>🐸</b></div>} label="PLAY ▶" onPlay={() => setTab('orb')} onInvite={() => { openOnline('orb') }}
               sub={<><span>VS WINS</span><b>{p.orbWins || 0}</b></>} />}
             {show('action', 'sports') && <GameCard cls="ssx" title="🏂 SNOW RUSH" tag="3D snowboarding · race · tricks · rails" hiLabel="BEST" hi={fmtN(p.ssxBest || 0)}
               art={<div className="miniSsx"><i /><b>🏂</b></div>} label="DROP IN ▶" onPlay={() => setTab('ssx')}
               sub={<><span>WINS</span><b>{p.ssxWins || 0}</b></>} />}
             {show('action') && <GameCard cls="breaker" title="🧱 NEON BREAKER" tag="5 levels · power-ups" hiLabel="BEST" hi={fmtN(p.breakerBest || 0)}
-              art={<div className="miniBreaker"><i /><i /><i /><i /><i /><i /></div>} label="PLAY ▶" onPlay={() => setTab('breaker')} onInvite={() => { setOgame('breaker'); setTab('online') }}
+              art={<div className="miniBreaker"><i /><i /><i /><i /><i /><i /></div>} label="PLAY ▶" onPlay={() => setTab('breaker')} onInvite={() => { openOnline('breaker') }}
               sub={<><span>GAMES</span><b>{p.breakerGames || 0}</b></>} />}
             {show('puzzle') && <GameCard cls="mines" title="💣 MINE SWEEP" tag="3 boards · flags · chording" hiLabel="CLEARED" hi={p.minesWins || 0}
-              art={<div className="miniMines"><i>1</i><i>2</i><i>🚩</i><i>1</i></div>} label="PLAY ▶" onPlay={() => setTab('mines')} onInvite={() => { setOgame('mines'); setTab('online') }}
+              art={<div className="miniMines"><i>1</i><i>2</i><i>🚩</i><i>1</i></div>} label="PLAY ▶" onPlay={() => setTab('mines')} onInvite={() => { openOnline('mines') }}
               sub={<><span>GAMES</span><b>{p.minesGames || 0}</b></>} />}
             {show('sports') && <GameCard cls="hockey" title="🏒 AIR HOCKEY" tag="Neon table · bot · 2P · online" hiLabel="WINS" hi={p.hockeyWins || 0}
-              art={<div className="miniHockey"><i className="puck" /><b className="ma" /><b className="mb" /></div>} label="SELECT MODE ▶" onPlay={() => setTab('hockey')} onInvite={() => { setOgame('hockey'); setTab('online') }}
+              art={<div className="miniHockey"><i className="puck" /><b className="ma" /><b className="mb" /></div>} label="SELECT MODE ▶" onPlay={() => setTab('hockey')} onInvite={() => { openOnline('hockey') }}
               sub={<><span>MATCHES</span><b>{p.hockeyGames || 0}</b></>} />}
             {show('sports') && <GameCard cls="pool" title="🎱 BILLIARDS" tag="8-ball · bot · 2P · online" hiLabel="WINS" hi={p.poolWins || 0}
-              art={<div className="miniPool"><i /><i /><i /><i /><i /><u /></div>} label="SELECT MODE ▶" onPlay={() => setTab('pool')} onInvite={() => { setOgame('pool'); setTab('online') }}
+              art={<div className="miniPool"><i /><i /><i /><i /><i /><u /></div>} label="SELECT MODE ▶" onPlay={() => setTab('pool')} onInvite={() => { openOnline('pool') }}
               sub={<><span>POTTED</span><b>{p.poolPots || 0}</b></>} />}
             {show('strategy') && <GameCard cls="td" title="🛡 NEON DEFENSE" tag="3 maps · 6 towers · 25 waves" hiLabel="BEST WAVE" hi={(p.tdBest || 0) + '/25'}
-              art={<div className="miniTd"><i /><i /><i /><b>🛡</b></div>} label="SELECT MAP ▶" onPlay={() => setTab('td')} onInvite={() => { setOgame('td'); setTab('online') }}
+              art={<div className="miniTd"><i /><i /><i /><b>🛡</b></div>} label="SELECT MAP ▶" onPlay={() => setTab('td')} onInvite={() => { openOnline('td') }}
               sub={<><span>VICTORIES</span><b>{p.tdWins || 0}</b></>} />}
             {show('strategy', 'action') && <GameCard cls="rogue" title="🗡 NEON DEPTHS" tag="3D roguelike · co-op · story · bosses" hiLabel="DEEPEST" hi={(p.rogueDeep || 0) + '/12'}
-              art={<div className="miniRogue"><span>🗡</span><b>👾</b><span>💎</span></div>} label="CHOOSE HERO ▶" onPlay={() => setTab('rogue')} onInvite={() => { setOgame('rogue'); setTab('online') }}
+              art={<div className="miniRogue"><span>🗡</span><b>👾</b><span>💎</span></div>} label="CHOOSE HERO ▶" onPlay={() => setTab('rogue')} onInvite={() => { openOnline('rogue') }}
               sub={<><span>RUNS</span><b>{p.rogueRuns || 0}</b></>} />}
             {show('music') && <GameCard cls="rhythm" title="🎵 NEON BEAT" tag="4 lanes · 5 songs · hold notes" hiLabel="PLAYED" hi={p.rhythmPlays || 0}
-              art={<div className="miniBeat"><i /><i /><i /><i /></div>} label="PICK A SONG ▶" onPlay={() => setTab('rhythm')} onInvite={() => { setOgame('rhythm'); setTab('online') }}
+              art={<div className="miniBeat"><i /><i /><i /><i /></div>} label="PICK A SONG ▶" onPlay={() => setTab('rhythm')} onInvite={() => { openOnline('rhythm') }}
               sub={<><span>FULL COMBOS</span><b>{p.rhythmFC || 0}</b></>} />}
             {show('puzzle') && <GameCard cls="word" title="🔤 WORD HUNT" tag="Daily word · English + Filipino" hiLabel="STREAK" hi={(p.word && p.word.streak) || 0}
-              art={<div className="miniWord"><i className="g">W</i><i className="y">O</i><i>R</i><i className="g">D</i><i>S</i></div>} label="PLAY ▶" onPlay={() => setTab('word')} onInvite={() => { setOgame('word'); setTab('online') }}
+              art={<div className="miniWord"><i className="g">W</i><i className="y">O</i><i>R</i><i className="g">D</i><i>S</i></div>} label="PLAY ▶" onPlay={() => setTab('word')} onInvite={() => { openOnline('word') }}
               sub={<><span>WON</span><b>{(p.word && p.word.wins) || 0}</b></>} />}
             {show('puzzle') && <GameCard cls="merge" title="🔢 2048 MERGE" tag="Swipe · undo · hammer · 3 sizes" hiLabel="BIGGEST" hi={p.mergeMax || 0}
-              art={<div className="miniMerge"><i>2</i><i>4</i><i>8</i><i>16</i></div>} label="PLAY ▶" onPlay={() => setTab('merge')} onInvite={() => { setOgame('merge'); setTab('online') }}
+              art={<div className="miniMerge"><i>2</i><i>4</i><i>8</i><i>16</i></div>} label="PLAY ▶" onPlay={() => setTab('merge')} onInvite={() => { openOnline('merge') }}
               sub={<><span>GAMES</span><b>{p.mergeGames || 0}</b></>} />}
             {cat === 'all' && <GameCard cls="topcard" title="🏆 TOP PLAYERS" tag="Global leaderboards for every game" hiLabel="YOUR RANK" hi={RANKS[ri][1]}
               art={<div className="miniPodium"><i>🥈</i><i>🥇</i><i>🥉</i></div>} label="SEE LEADERBOARDS ▶" onPlay={() => setTab('top')}
@@ -1690,32 +1717,45 @@ function Hub({ s }) {
             </div>
             <div className="panel wide"><TopPlayers s={s} compact /></div>
           </div>
-        </>
+        </SearchCtx.Provider>
       )}
       {tab === 'pickle' && <PickleLobby s={s} mode={pmode} setMode={setPmode} diff={pdiff} setDiff={setPdiff} target={ptarget} setTarget={setPtarget} />}
       {tab === 'race' && <RaceLobby s={s} />}
-      {tab === 'hockey' && <HockeyLobby s={s} TopPlayers={TopPlayers} onInvite={() => { setOgame('hockey'); setTab('online') }} />}
-      {tab === 'pool' && <PoolLobby s={s} TopPlayers={TopPlayers} onInvite={() => { setOgame('pool'); setTab('online') }} />}
+      {tab === 'hockey' && <HockeyLobby s={s} TopPlayers={TopPlayers} onInvite={() => { openOnline('hockey') }} />}
+      {tab === 'pool' && <PoolLobby s={s} TopPlayers={TopPlayers} onInvite={() => { openOnline('pool') }} />}
       {tab === 'td' && <TdLobby s={s} TopPlayers={TopPlayers} />}
-      {tab === 'rogue' && <RogueLobby s={s} TopPlayers={TopPlayers} onInvite={() => { setOgame('rogue'); setTab('online') }} />}
+      {tab === 'rogue' && <RogueLobby s={s} TopPlayers={TopPlayers} onInvite={() => { openOnline('rogue') }} />}
       {tab === 'rhythm' && <RhythmLobby s={s} TopPlayers={TopPlayers} />}
       {tab === 'word' && <WordLobby s={s} TopPlayers={TopPlayers} />}
       {tab === 'merge' && <MergeLobby s={s} TopPlayers={TopPlayers} />}
-      {tab === 'empire' && <EmpireLobby s={s} TopPlayers={TopPlayers} onInvite={() => { setOgame('empire'); setTab('online') }} />}
-      {tab === 'c4' && <C4Lobby s={s} TopPlayers={TopPlayers} onInvite={() => { setOgame('c4'); setTab('online') }} />}
+      {tab === 'empire' && <EmpireLobby s={s} TopPlayers={TopPlayers} onInvite={() => { openOnline('empire') }} />}
+      {tab === 'c4' && <C4Lobby s={s} TopPlayers={TopPlayers} onInvite={() => { openOnline('c4') }} />}
       {tab === 'snake' && <SnakeLobby s={s} TopPlayers={TopPlayers} />}
       {tab === 'mini' && <MiniArcade />}
-      {tab === 'climb' && <ClimbLobby s={s} TopPlayers={TopPlayers} onInvite={() => { setOgame('climb'); setTab('online') }} />}
-      {tab === 'kong' && <KongLobby s={s} TopPlayers={TopPlayers} onInvite={() => { setOgame('kong'); setTab('online') }} />}
-      {tab === 'hunt' && <HuntLobby s={s} TopPlayers={TopPlayers} onInvite={() => { setOgame('hunt'); setTab('online') }} />}
-      {tab === 'garden' && <GardenLobby s={s} TopPlayers={TopPlayers} onInvite={() => { setOgame('garden'); setTab('online') }} />}
-      {tab === 'orb' && <OrbLobby s={s} TopPlayers={TopPlayers} onInvite={() => { setOgame('orb'); setTab('online') }} />}
-      {tab === 'ssx' && <SsxLobby s={s} TopPlayers={TopPlayers} onInvite={() => { setOgame('ssx'); setTab('online') }} />}
+      {pending && rtS.room && (
+        <div className="confirm-back" onPointerDown={(e) => e.stopPropagation()}>
+          <div className="confirm-box">
+            <h3>YOU ARE ALREADY IN A ROOM</h3>
+            <p>You are still in room <b>{rtS.room.code}</b> ({(GAMES_SEO.find((x) => x.slug === rtS.room.game || x.tab === rtS.room.game) || {}).title || String(rtS.room.game).toUpperCase()}). Leave it to invite friends to <b>{String(pending).toUpperCase().replace('TONGITS', 'TONG-ITS')}</b>?</p>
+            <div className="chips">
+              <button className="big" onClick={async () => { const g = pending; setPending(null); try { await leaveRoom() } catch { /* ignore */ } goOnline(g) }}>LEAVE ROOM &amp; CONTINUE</button>
+              <button className="big sec" onClick={() => { setPending(null); setOlock(false); setOnon((n) => n + 1); setTab('online') }}>GO BACK TO MY ROOM</button>
+              <button className="big sec" onClick={() => setPending(null)}>CANCEL</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {tab === 'climb' && <ClimbLobby s={s} TopPlayers={TopPlayers} onInvite={() => { openOnline('climb') }} />}
+      {tab === 'kong' && <KongLobby s={s} TopPlayers={TopPlayers} onInvite={() => { openOnline('kong') }} />}
+      {tab === 'hunt' && <HuntLobby s={s} TopPlayers={TopPlayers} onInvite={() => { openOnline('hunt') }} />}
+      {tab === 'garden' && <GardenLobby s={s} TopPlayers={TopPlayers} onInvite={() => { openOnline('garden') }} />}
+      {tab === 'orb' && <OrbLobby s={s} TopPlayers={TopPlayers} onInvite={() => { openOnline('orb') }} />}
+      {tab === 'ssx' && <SsxLobby s={s} TopPlayers={TopPlayers} onInvite={() => { openOnline('ssx') }} />}
       {tab === 'breaker' && <BreakerLobby s={s} TopPlayers={TopPlayers} />}
       {tab === 'mines' && <MinesLobby s={s} TopPlayers={TopPlayers} />}
       {tab === 'fight' && <FightLobby s={s} />}
       {tab === 'flames' && <FlamesLobby s={s} />}
-      {tab === 'cards' && <CardRoomLobby s={s} onOnline={(g) => { setOgame(g || 'uno'); setTab('online') }} />}
+      {tab === 'cards' && <CardRoomLobby s={s} onOnline={(g) => openOnline(g || 'uno')} />}
       {tab === 'online' && <OnlineLobby key={onon} s={s} TopPlayers={TopPlayers} initGame={ogame} lockGame={olock} />}
       {tab === 'chomp' && <ChompLobby s={s} mode={cmode} setMode={setCmode} level={clevel} setLevel={setClevel} />}
       {tab === 'tetris' && <TetrisLobby s={s} mode={tmode} setMode={setTmode} diff={tdiff} setDiff={setTdiff} level={tlevel} setLevel={setTlevel} />}

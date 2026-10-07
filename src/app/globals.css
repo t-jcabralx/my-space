@@ -883,3 +883,17 @@ li.bonus { border-color: var(--gr); color: var(--gr); } li.fail { border-color: 
 .mini-over { position: absolute; inset: 0; margin: auto; width: min(100%, calc((var(--vh, 1vh) * 100 - 270px) * 360 / 540)); aspect-ratio: 360 / 540; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; background: #02030acc; border-radius: 16px; animation: fadein .25s; }
 .mini-over h2 { font-size: 1.5em; color: #fff; } .mini-over p { color: #ffe84a; font-size: .9em; } .mini-over p b { font-size: 1.6em; color: #fff; } .mini-nb { color: #7dff6a !important; animation: pulse 1s infinite; }
 .mini-hint { display: block; text-align: center; color: #8fa4d8; margin-top: 10px; font-size: .65em; line-height: 1.6; }
+
+/* ---- dashboard hero, search and the "already in a room" prompt ---- */
+.hero { display: grid; grid-template-columns: 1.3fr 1fr 1.2fr; gap: 14px; align-items: center; padding: 14px 16px; border-radius: 16px; border: 2px solid #3de8ff55; background: radial-gradient(600px 200px at 0% 0%, #1b3a7a88, transparent), linear-gradient(180deg, #0f1a48, #0a1232); box-shadow: 0 0 26px #3de8ff22; }
+.hero-id { display: flex; gap: 12px; align-items: center; min-width: 0; } .hero-id b { display: block; font-size: 1.05em; color: #fff; overflow-wrap: anywhere; } .hero-id small { color: #8fa4d8; font-size: .65em; line-height: 1.6; display: block; margin: 4px 0 6px; }
+.hero-av { flex: 0 0 auto; width: 3.4em; height: 3.4em; border-radius: 50%; display: grid; place-items: center; font-size: 1.1em; color: #02030a; background: linear-gradient(135deg, #7af0ff, #ff4de1); box-shadow: 0 0 14px #3de8ff77; }
+.hero-bar { height: 8px; border-radius: 99px; background: #ffffff18; overflow: hidden; } .hero-bar i { display: block; height: 100%; background: linear-gradient(90deg, #3de8ff, #ffe84a); border-radius: 99px; }
+.hero-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center; } .hero-stats > div { background: #ffffff0d; border-radius: 10px; padding: 8px 4px; } .hero-stats small { display: block; color: #8fa4d8; font-size: .55em; margin-bottom: 4px; } .hero-stats b { font-size: .85em; color: #ffe84a; }
+.hero-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; } .hero-actions .big { font-size: .8em; padding: .7em 1em; }
+.newtag { display: inline-block; margin-left: 6px; padding: 2px 6px; border-radius: 6px; font-size: .65em; background: #ff4de1; color: #fff; animation: pulse 1.2s infinite; }
+.hubsearch { display: flex; gap: 8px; align-items: center; } .hubsearch .nameIn { flex: 1; text-transform: none; }
+.confirm-back { position: fixed; inset: 0; z-index: 900; display: grid; place-items: center; background: #02030acc; padding: 16px; backdrop-filter: blur(3px); }
+.confirm-box { width: min(92vw, 520px); background: linear-gradient(180deg, #121c4a, #0a1232); border: 2px solid #ffe84a; border-radius: 16px; padding: 22px; box-shadow: 0 0 40px #ffe84a44; display: flex; flex-direction: column; gap: 14px; text-align: center; animation: pop .25s; }
+.confirm-box h3 { color: #ffe84a; font-size: 1.1em; } .confirm-box p { color: #dce8ff; font-size: .8em; line-height: 1.7; } .confirm-box p b { color: #fff; } .confirm-box .chips { justify-content: center; }
+@media (max-width: 800px) { .hero { grid-template-columns: 1fr; } .hero-actions { justify-content: stretch; } .hero-actions .big { flex: 1 1 100%; } }
