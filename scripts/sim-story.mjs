@@ -7,8 +7,9 @@ let fail = 0
 const ok = (c, m) => { if (!c) { fail++; console.log('FAIL', m) } }
 const run = (sec) => { for (let i = 0; i < sec * 20; i++) update(1 / 20) }
 storyActions.reset()
-ok(CHAPTERS.length === 13, '13 chapters')
-ok(CHAPTERS.every((c) => c.intro.length && c.win.length && c.lose.length && typeof c.launch === 'function' && typeof c.check === 'function'), 'chapters complete')
+ok(CHAPTERS.length === 21, '21 chapters')
+const R = (v) => (typeof v === 'function' ? v({}) : v)
+ok(CHAPTERS.every((c) => R(c.intro).length && R(c.win).length && R(c.lose).length && typeof c.launch === 'function' && typeof c.check === 'function'), 'chapters complete')
 // locked chapters cannot be opened
 const IX = (t) => CHAPTERS.findIndex((c) => c.title === t)
 storyActions.open(4); ok(S.phase === 'idle', 'chapter 5 is locked at the start')
@@ -40,7 +41,7 @@ storyActions.skip()
 // leaving a mission via the dashboard abandons it
 storyActions.open(IX('MEMORY LEAK')); while (S.phase === 'intro') storyActions.advance(); run(3)
 G.mode = 'menu'; run(3); ok(S.phase === 'idle', 'leaving the mission returns to the story map: ' + S.phase)
-ok(getStorySnap().total === 13, 'snapshot')
+ok(getStorySnap().total === 21, 'snapshot')
 storyActions.reset()
 console.log(fail ? 'FAIL story' : 'PASS story flow')
 process.exit(fail ? 1 : 0)
