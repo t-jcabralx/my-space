@@ -83,6 +83,7 @@ export function EmpireHUD({ openHelp }) {
   const sel = g.sel
   return (
     <div className="hud mg-hud em-hud">
+      {g.env && <div className="renv" style={{ top: '5.2cqw', left: 'auto', right: '2cqw', transform: 'none' }}>{g.night > 0.5 ? '🌙' : '☀'} {g.env}</div>}
       {g.mode === 'play' && <Surface onPtr={(t, x, y, b) => empireActions.pointer(t, x, y, b)} />}
       <div className="em-top">
         {Object.entries(RES_ICO).map(([k, ico]) => <span key={k} title={k}>{ico} <b>{g.res ? g.res[k] : 0}</b></span>)}

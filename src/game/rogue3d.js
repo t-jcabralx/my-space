@@ -1,5 +1,6 @@
 // 3D look of NEON DEPTHS: a haunted forest in 3 moods, lit voxel characters with real animation, fog, lanterns, fireflies.
 // Everything is drawn with the shared lit instanced-box pass (put3). Game coordinates (x, y) become world (x, 0, -y).
+import { weatherFx } from './env4d.js'
 import { G } from './engine.js'
 import { col, rng, clamp } from './pxl.js'
 
@@ -480,6 +481,10 @@ export function drawRogue3(api, RG, CLASSES) {
   for (const tr of RG.traps) { for (let k = 0; k < 9; k++) { const a = (k / 9) * TAU, rr = tr.r * (0.35 + (k % 3) * 0.25); put3(tr.x + Math.cos(a) * rr, 0.6, -tr.y + Math.sin(a) * rr, 0.35, 1.3, 0.35, 0, 1.6, 1.7, 1.9) } for (let k = 0; k < 12; k++) { const a = (k / 12) * TAU; put3(tr.x + Math.cos(a) * tr.r, 0.2, -tr.y + Math.sin(a) * tr.r, 0.5, 0.2, 0.5, 0, 0.4, 2.2, 1.0) } }
   for (const rn of RG.rains) { for (let k = 0; k < 14; k++) { const a = k * 2.399 + t, rr = rn.r * ((k * 0.37) % 1), h = 14 - ((t * 30 + k * 5) % 14); put3(rn.x + Math.cos(a) * rr, h, -rn.y + Math.sin(a) * rr, 0.25, 2.4, 0.25, 0.2, 1.2, 3, 1.6) } for (let k = 0; k < 14; k++) { const a = (k / 14) * TAU; put3(rn.x + Math.cos(a) * rn.r, 0.2, -rn.y + Math.sin(a) * rn.r, 0.5, 0.2, 0.5, 0, 0.6, 2.4, 1.2) } }
   for (const m of RG.meteors) { const u = Math.max(0, m.l), hh = u * 38; for (let k = 0; k < 16; k++) { const a = (k / 16) * TAU; put3(m.x + Math.cos(a) * m.r * (1 - u * 0.4), 0.2, -m.y + Math.sin(a) * m.r * (1 - u * 0.4), 0.7, 0.2, 0.7, 0, 3, 0.6, 0.3) } put3(m.x + u * 6, hh + 2, -m.y, 3.4, 3.4, 3.4, t * 5, 3.4, 1.8, 0.5); put3(m.x + u * 6 + 1.5, hh + 5, -m.y, 2, 2, 2, t * 4, 3, 1.2, 0.3) }
+  // weather of this room (rain, drifting spores, embers or crystal dust, depending on where you are)
+  { const kd = th.kind, kk = gh(RG.rk, RG.floor), fxk = kd === 'ash' ? 'embers' : kd === 'crystal' ? 'snow' : kd === 'cave' ? 'spores' : kd === 'dead' ? (kk < 0.5 ? 'rain' : 'spores') : (kk < 0.33 ? 'rain' : kk < 0.55 ? 'spores' : null)
+    if (fxk) weatherFx(put3, C.x, C.z, fxk, t, { y0: 0, h: 34, r: 62, n: fxk === 'rain' ? 140 : 90, wind: Math.sin(t * 0.5) })
+    if (fxk === 'rain' && ((t * 0.37 + kk * 9) % 11) < 0.07) G.flash = Math.max(G.flash || 0, 0.35) }
   // fireflies / embers / wisps
   for (const f of E.flies) {
     if (!inView(f.x, f.z, 6)) continue

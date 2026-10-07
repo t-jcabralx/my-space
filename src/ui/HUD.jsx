@@ -20,6 +20,7 @@ import { SsxLobby, SsxHUD } from './Ssx.jsx'
 import { OrbLobby, OrbHUD } from './Orb.jsx'
 import { GardenLobby, GardenHUD } from './Garden.jsx'
 import { DuelOverlay } from './Duel.jsx'
+import { GAMES as GAMES_SEO } from '../lib/seo.js'
 import { HuntLobby, HuntHUD } from './Hunt.jsx'
 import { huntActions } from '../game/hunt.js'
 import { gardenActions } from '../game/garden.js'
@@ -1526,7 +1527,7 @@ function Hub({ s }) {
   const [cat, setCat] = useState('all')
   const [ogame, setOgame] = useState('tetris')
   useEffect(() => { const h = (e) => { const [t, g] = String(e.detail || '').split(':'); if (g) setOgame(g); if (t) setTab(t) }; window.addEventListener('si-open-tab', h); return () => window.removeEventListener('si-open-tab', h) }, [])
-  useEffect(() => { try { if (new URLSearchParams(location.search).get('join')) setTab('online') } catch { /* ignore */ } }, [])
+  useEffect(() => { try { const q = new URLSearchParams(location.search); if (q.get('join')) setTab('online'); else { const g = GAMES_SEO.find((x) => x.slug === q.get('play')); if (g && g.tab !== 'space') setTab(g.tab) } } catch { /* ignore */ } }, [])
   const [pmode, setPmode] = useState('bot')
   const [pdiff, setPdiff] = useState(2)
   const [ptarget, setPtarget] = useState(11)

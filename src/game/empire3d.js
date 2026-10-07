@@ -10,7 +10,16 @@ export function empireCamera(EM, aspect) {
   const tx = EM.cam.x, tz = -EM.cam.y
   return { x: tx + (Math.random() - 0.5) * s * 0.5, y: dist * 0.78, z: tz + dist * 0.62, tx, ty: 0, tz, fov: 40, far: 700, aspect }
 }
-export const empireLights = (EM) => ({ sun: { x: EM.cam.x - 40, y: 90, z: -EM.cam.y + 50, color: '#fff1d6', intensity: 1.15 }, target: { x: EM.cam.x, z: -EM.cam.y }, ambient: 0.8, dir: 0.1, lantern: null })
+import { timeOf, skyFor, labelOf, weatherFx } from './env4d.js'
+// a full day every 7 minutes; the weather is picked from the map seed
+export function empireEnv(EM) {
+  const T = timeOf(EM.tod0 === undefined ? 0.4 : EM.tod0, EM.t || 0, 420), wx = EM.weather || 'clear'
+  const E = skyFor(T, wx, { sky: '#7fb4ff', fog: '#a8c4e8', sun: '#fff1d6', sunI: 1.25, amb: 0.85, dir: 0.12 })
+  E.T = T; E.wx = wx; E.label = labelOf(T, wx)
+  E.fogNear = wx === 'clear' ? 0 : E.fogNear * 0.9; E.fogFar = wx === 'clear' ? 0 : E.fogFar * 0.9
+  return E
+}
+export const empireLights = (EM) => { const E = empireEnv(EM); return { sun: { x: EM.cam.x - 40 + Math.cos(E.T.ang) * 50, y: 40 + Math.max(0.15, E.T.el) * 70, z: -EM.cam.y + 50, color: E.sunColor, intensity: E.sunI }, target: { x: EM.cam.x, z: -EM.cam.y }, ambient: E.amb, dir: E.dir, lantern: E.T.night > 0.25 ? { x: EM.cam.x, y: 14, z: -EM.cam.y + 4, color: '#ffcf8a', intensity: 2.4 * E.T.night, distance: 95 } : null } }
 
 // ---------- terrain ----------
 function tileDraw(api, EM, i, j, step, t) {
@@ -129,6 +138,7 @@ export function drawEmpire3(api, EM, defs) {
     else if (f.k === 'ping') { for (let k = 0; k < 16; k++) { const a = (k / 16) * TAU, r = 1 + (0.6 - f.l) * 7; putS(f.x + Math.cos(a) * r, 0.5, -f.y + Math.sin(a) * r, 0.5, 0.3, 0.5, 3, 2.6, 0.5) } }
   }
   for (const q of G.parts) { const f = q.life / q.max, s = q.s * (0.3 + 0.5 * f); putS(q.x, 1 + (1 - f) * 2.5, -q.y, s, s, s, q.c[0] * 2, q.c[1] * 2, q.c[2] * 2) }
+  { const E = empireEnv(EM); if (E.wx === 'rain' || E.wx === 'snow') weatherFx(put3, cx, -cy, E.wx, t, { y0: 0, h: 40, r: 60 / Math.max(0.6, z) + 20, n: 150 }); else if (E.wx === 'fog') weatherFx(put3, cx, -cy, 'spores', t * 0.4, { y0: 0, h: 16, r: 50, n: 40 }) }
   // raid warning: a column of fire on the edge the raiders will come from
   if (EM.raidWarn > 0) { const dir = EM.raidDir; for (let k = -14; k <= 14; k++) { const wx = dir === 'WEST' ? 3 : dir === 'EAST' ? MW * T - 3 : cx + k * 3, wy = dir === 'SOUTH' ? 3 : dir === 'NORTH' ? MH * T - 3 : cy + k * 2.4, a = 0.6 + 0.4 * Math.sin(t * 8 + k); putS(wx, 2 + Math.abs(Math.sin(t * 6 + k)) * 2, -wy, 1.4, 2.2, 1.4, 3 * a, 0.9 * a, 0.2 * a) } }
 }

@@ -3,7 +3,8 @@
 import { G, emit as engineEmit, keys, games, profile, saveProfile, recordScore, part, ring, shake, flash, stepParticles, toMenu } from './engine.js'
 import { sfx, music, speak } from './audio.js'
 import { col, disk, rect, circle, clamp, R, rng } from './pxl.js'
-import { drawEmpire3, empireCamera, empireLights } from './empire3d.js'
+import { drawEmpire3, empireCamera, empireLights, empireEnv } from './empire3d.js'
+import { pickWeather } from './env4d.js'
 import { unprojectGround } from './rogue3d.js'
 import { EMCAMP, EMWHO } from './empirestory.js'
 
@@ -92,6 +93,7 @@ function start(cfg = {}) {
   EM.cfg = { ai: sc ? sc.ai : clamp(cfg.ai | 0 || 3, 0, 3), diff: clamp(cfg.diff | 0 || 2, 1, 3), speed: 1, type: online ? 'online' : 'solo', seed: cfg.seed }
   if (!online) EM.net = null
   EM.seed = cfg.seed || ((Math.random() * 1e6) | 0) + 1
+  { const wr = rng(EM.seed * 17 + 3); EM.tod0 = 0.3 + wr() * 0.3; EM.weather = pickWeather(EM.seed, { clear: 0.55, rain: 0.2, fog: 0.15, snow: 0.1 }) }
   EM.size = setMapSize(sc ? 1 : (cfg.size || profile.empireSize || 4))
   EM.terr = genMap(EM.seed); EM.occ = new Int32Array(MW * MH)
   EM.B = []; EM.U = []; EM.fx = []; EM.alerts = []; EM.t = 0; EM.nid = 1; EM.sel = null; EM.build = null; EM.atk = false; EM.over = null; EM.paused = false; EM.msg = null; EM.raidT = 75; EM.raidN = 0; EM.raidWarn = 0; EM.wonder = null; EM.speed = 1; EM.peers = cfg.peers || []
@@ -484,6 +486,7 @@ function emitE() {
     army: EM.U.filter((u) => u.owner === EM.me).length, bcount: EM.B.filter((b) => b.owner === EM.me).length, bcap: bldCap(EM.me),
     sel: sb ? { id: sb.id, type: sb.type, name: BDEF[sb.type].name, hp: Math.round(sb.hp), max: sb.max, lv: sb.lv, q: sb.q.map((q) => q.u), qt: sb.qt, built: !!sb.built, mine: sb.owner === EM.me, rate: BDEF[sb.type].rate ? Object.entries(BDEF[sb.type].rate).map(([k, v]) => k + ' +' + (v * (BDEF[sb.type].res ? clamp(resNear(sb, BDEF[sb.type].res) / 10, 0.3, 1.6) : 1) * prodMul(sb.owner)).toFixed(1) + '/s').join(' ') : '' } : null,
     players: EM.P.map((p) => ({ i: p.i, name: p.name, alive: p.alive, lv: p.hallLv, color: TEAM[p.i][0], kind: p.kind, army: EM.U.filter((u) => u.owner === p.i).length, me: p.i === EM.me })),
+    env: EM.mode === 'idle' ? '' : empireEnv(EM).label, night: EM.mode === 'idle' ? 0 : empireEnv(EM).T.night,
     scen: EM.scen ? { name: EM.scen.name, sub: EM.scen.sub, idx: EM.scenIdx } : null, obj: EM.obj.map((o) => ({ text: o.text, done: o.done, hint: o.hint })), hint: (EM.obj.find((o) => !o.done) || {}).hint || '', beat: EM.beat ? { ...EM.beat } : null, tale: EM.tale ? { who: EMWHO[EM.tale.lines[EM.tale.i][0]], text: EM.tale.lines[EM.tale.i][1], i: EM.tale.i, n: EM.tale.lines.length, kind: EM.tale.kind } : null, raid: EM.raidWarn > 0 ? Math.ceil(Math.max(0, EM.raidT)) : 0, raidDir: EM.raidDir, nextRaid: Math.max(0, Math.ceil(EM.raidT)), wave: EM.raidN, wonder: EM.wonder ? { t: Math.max(0, Math.ceil(EM.wonder.t)), owner: EM.P[EM.wonder.owner].name, mine: EM.wonder.owner === EM.me } : null, ver: ++EM.minimap,
   }
   subs.forEach((f) => f())
@@ -684,7 +687,7 @@ void draw2dUnused
 export const mapInfo = () => ({ terr: EM.terr, MW, MH, B: EM.B, U: EM.U, cam: EM.cam, me: EM.me })
 if (typeof window !== 'undefined') { window.__EM = EM; window.__empire = empireActions }
 games.empire = {
-  update, onKey, draw() {}, stop, sky: () => '#04070e',
+  update, onKey, draw() {}, stop, sky: () => (EM.mode === 'idle' ? '#04070e' : empireEnv(EM).sky), fog: () => { const E = empireEnv(EM); return E.fogFar ? { fog: E.fog, fogNear: E.fogNear, fogFar: E.fogFar } : null },
   draw3: (api) => { EM.cam3 = empireCamera(EM, 100 / 56); drawEmpire3(api, EM, { TEAM, UDEF, MW, MH, BDEF, canPlace, costOk }) },
   camera: (aspect) => { const c = empireCamera(EM, aspect); EM.cam3 = c; return c },
   lights: () => empireLights(EM),

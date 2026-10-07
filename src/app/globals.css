@@ -743,3 +743,11 @@ li.bonus { border-color: var(--gr); color: var(--gr); } li.fail { border-color: 
 .hammo small:first-child { display: block; color: #ffb02e; letter-spacing: .1em; }
 
 .renv { position: absolute; left: 50%; transform: translateX(-50%); top: 6.5cqw; background: #070c26cc; border: 1px solid #3de8ff; padding: .2cqw 1cqw; font-size: .55em; color: #cfe6ff; pointer-events: none; }
+
+/* ---- SEO landing pages (real, visible, scrollable pages for people and crawlers) ---- */
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+.seo-page { position: fixed; inset: 0; overflow-y: auto; background: radial-gradient(circle at 50% 0%, #0f1640, #04050d 70%); color: #dfe8ff; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; padding: 4vw 6vw 8vw; touch-action: pan-y; user-select: text; -webkit-user-select: text; }
+.seo-page h1 { font-size: clamp(26px, 4.4vw, 52px); line-height: 1.15; margin: 14px 0; color: #fff; } .seo-page h2 { font-size: clamp(20px, 2.6vw, 30px); margin: 30px 0 10px; color: #3de8ff; } .seo-page p, .seo-page li { font-size: clamp(16px, 1.5vw, 20px); max-width: 78ch; } .seo-lead { font-size: clamp(18px, 1.8vw, 24px) !important; color: #c9d6ff; }
+.seo-page a { color: #7fe9ff; } .seo-play { display: inline-block; background: #ff4de1; color: #0b1030 !important; font-weight: 800; padding: 14px 26px; border-radius: 40px; text-decoration: none; margin: 8px 0; }
+.seo-crumbs { font-size: 15px; color: #8fa4d8; } .seo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; margin: 14px 0; } .seo-card { display: flex; flex-direction: column; gap: 4px; padding: 14px; background: #0b1230; border: 1px solid #28407a; border-radius: 10px; text-decoration: none; color: #dfe8ff !important; } .seo-card b { color: #fff; } .seo-card small { color: #3de8ff; } .seo-card span { color: #9fb2e8; font-size: 14px; }
+.seo-page details { background: #0b1230; border: 1px solid #28407a; border-radius: 8px; padding: 10px 14px; margin: 8px 0; } .seo-page summary { cursor: pointer; font-weight: 700; color: #fff; }

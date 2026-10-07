@@ -105,3 +105,8 @@ See the **Skills & Controls** tab in the dashboard. Press **M** to mute, **P/Esc
 - **The Abyss**: 50 different room scenarios (ambushes, gauntlets, survival, trap floors, shrines, merchants, rune trials, elites, a guardian every 10 rooms).
 - **6 hidden agendas** (pots, untouched rooms, speed, shrines, depth, collecting) that reward an **orb** (floating effect) and a **relic skill** (key F).
 - **Empire Rise**: idle soldiers auto-defend when an enemy gets near any of your buildings; new sounds for fighting, building, training, alarms and raid horns.
+
+## SEO and sharing
+- Set `NEXT_PUBLIC_SITE_URL` (for example `https://your-domain.com`) in your hosting environment: it feeds the canonical URLs, the sitemap, robots.txt and the social preview image.
+- Every game has a real landing page at `/games/<slug>` (FLAMES is `/games/flames`) with its own title, description, structured data (VideoGame, FAQ for FLAMES, breadcrumbs) and a "play now" button that deep-links into the game with `/?play=<slug>`.
+- After deploying: add the site to Google Search Console and Bing Webmaster Tools, submit `/sitemap.xml`, and share the landing pages so other sites link to them. Rankings are earned over time; nothing here can guarantee a position.

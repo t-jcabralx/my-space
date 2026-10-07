@@ -74,6 +74,7 @@ export function SsxHUD({ openHelp }) {
       {g.online && g.board && <div className="sxboard">{g.board.map((b, i) => <div key={i} className={b.n === 'YOU' ? 'me' : ''}><i style={{ background: b.c }} />{i + 1}. {b.n}<em>{g.kind === 'trick' ? fmt(b.sc) : b.f !== null && b.f >= 0 ? clock(b.f) : b.z + 'm'}</em></div>)}</div>}
       {race && <div className="sxprog">{g.prog.map((r, i) => <i key={i} className={r.me ? 'me' : ''} style={{ left: (r.p * 100) + '%', background: r.c }} />)}<u /></div>}
       {!race && <div className="sxprog"><u /><i className="me" style={{ left: (g.pct * 100) + '%', background: '#fff' }} /></div>}
+      {g.envLabel && <div className="renv" style={{ top: '9cqw' }}>{g.night > 0.5 ? '🌙' : '☀'} {g.envLabel}</div>}
       <div className="sxspeed"><b>{g.speed}</b><small>KM/H</small></div>
       <div className={'sxboost' + (g.tricky ? ' tricky' : '') + (g.boosting ? ' fire' : '')}><span>{g.tricky ? 'TRICKY ' + g.tricky + 's' : 'BOOST'}</span><i><b style={{ width: (g.tricky ? 100 : g.boost) + '%' }} /></i></div>
       {g.text && <div className={'sxtrick' + (g.text.bad ? ' bad' : '')} style={{ '--c': g.text.c }}><b>{g.text.text}</b>{g.text.pts > 0 && <em>+{fmt(g.text.pts)}</em>}</div>}

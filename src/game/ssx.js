@@ -4,6 +4,7 @@ import { G, emit as engineEmit, keys, games, profile, saveProfile, recordScore, 
 import { sfx, music, rev } from './audio.js'
 import { col, clamp, rng } from './pxl.js'
 import { registerNet, gameEnded } from './online/gnet.js'
+import { pickWeather, timeOf, skyFor, labelOf, weatherFx } from './env4d.js'
 
 const TAU = Math.PI * 2
 const GRAV = 31, GS = 34, GL = 24, KD = 0.0105, RAIL_H = 1.05, DZ = 1.8
@@ -407,6 +408,7 @@ function start(o = {}) {
   F = build(CUR, SX.len, CUR.seed * 7 + (SX.kind === 'trick' ? 3 : 0), CUR.pipe ? 1 : Math.min(10, Math.ceil(WK / 2)))
   SX.riders = []; SX.fx = []; SX.score = 0; SX.toks = 0; SX.bestTrick = 0; SX.tricks = 0; SX.over = null; SX.msg = null; SX.text = null; SX.paused = false; SX.t = 0; SX.clock = 0; SX.finishT = 0; SX.place = 0
   SX.timeLeft = SX.kind === 'trick' ? 90 : 0
+  { const sd = o.seed || ((Math.random() * 1e9) | 0); SX.tod0 = 0.3 + (sd % 1000) / 1000 * 0.35; SX.weather = pickWeather(sd, { clear: 0.5, snow: 0.3, fog: 0.2 }) }
   const others = RIDERS.filter((d) => d.id !== SX.rid)
   const NET = o.net || null
   SX.net = NET
@@ -528,7 +530,7 @@ function emitS() {
   snap = {
     mode: SX.mode, paused: SX.paused, kind: SX.kind, course: CUR.name, count: Math.max(0, Math.ceil(SX.count)), speed: Math.round(Math.hypot(P.vx, P.vz) * 3.3), boost: Math.round(P.meter), tricky: P.tricky > 0 ? Math.ceil(P.tricky) : 0, boosting: P.boosting,
     place: order.indexOf(P) + 1, total: SX.riders.length, time: SX.t, timeLeft: SX.timeLeft, score: SX.score, toks: SX.toks, msg: SX.msg, text: SX.text, crash: P.crash > 0, air: !P.grounded && !P.grind && P.air > 0.15,
-    board: SX.net ? SX.riders.map((r) => ({ n: r.isP ? 'YOU' : r.name, c: r.def.jacket, sc: r.isP ? SX.score : r.sc | 0, f: r.fin, z: Math.round(r.z) })).sort((a, b) => (SX.kind === 'trick' ? b.sc - a.sc : b.z - a.z)) : null, online: !!SX.net,
+    board: SX.net ? SX.riders.map((r) => ({ n: r.isP ? 'YOU' : r.name, c: r.def.jacket, sc: r.isP ? SX.score : r.sc | 0, f: r.fin, z: Math.round(r.z) })).sort((a, b) => (SX.kind === 'trick' ? b.sc - a.sc : b.z - a.z)) : null, online: !!SX.net, envLabel: ssxEnv().label, night: ssxEnv().T.night,
     airPts: 0, grind: !!P.grind, over: SX.over, prog: SX.riders.map((r) => ({ p: clamp(r.z / SX.len, 0, 1), me: r.isP, c: r.def.jacket })), pct: clamp(P.z / SX.len, 0, 1), rider: P.name,
   }
   subs.forEach((f) => f())
@@ -574,7 +576,7 @@ registerNet('ssx', {
   begin(ctx) {
     const picks = {}
     picks[ctx.players[ctx.me].id] = profile.ssxPick | 0
-    start({ course: ctx.opts.course | 0, width: ctx.opts.width | 0, kind: ctx.opts.kind === 'trick' ? 'trick' : 'race', rider: profile.ssxPick | 0, net: { players: ctx.players, me: ctx.me, picks, role: ctx.role, send: (d) => ctx.send(d), sendHost: (d) => ctx.sendHost(d), restart: () => ctx.restart() } })
+    start({ seed: ctx.seed, course: ctx.opts.course | 0, width: ctx.opts.width | 0, kind: ctx.opts.kind === 'trick' ? 'trick' : 'race', rider: profile.ssxPick | 0, net: { players: ctx.players, me: ctx.me, picks, role: ctx.role, send: (d) => ctx.send(d), sendHost: (d) => ctx.sendHost(d), restart: () => ctx.restart() } })
     ctx.send({ k: 'hi', rid: profile.ssxPick | 0 })
   },
   active: () => !!SX.net && SX.mode !== 'idle',
@@ -613,12 +615,20 @@ function camera(aspect, dt) {
   const sk = G.shake || 0
   return { x: CAM.x + (Math.random() - 0.5) * sk, y: CAM.y + (Math.random() - 0.5) * sk, z: -CAM.z, tx: P.x + sh * 7, ty: P.y + 1.2, tz: -(P.z + ch * 7), fov: 56 + spd * 0.4 + (P.boosting ? 8 : 0), far: 240, aspect }
 }
+// time of day and weather on the mountain (the Midnight Peak stays night)
+export function ssxEnv() {
+  const c = CUR, T = c.night ? timeOf(0.02, 0, 1e9) : timeOf(SX.tod0 || 0.45, SX.clock, 300), wx = SX.weather || 'clear'
+  const E = skyFor(T, wx, { sky: c.sky, fog: c.fog, sun: c.sun, sunI: c.sunI, amb: c.amb, dir: 0.25 })
+  E.T = T; E.wx = wx; E.label = c.night ? (wx === 'clear' ? 'NIGHT' : 'NIGHT · ' + wx.toUpperCase()) : labelOf(T, wx)
+  E.fogNear = wx === 'clear' ? 38 : E.fogNear * 0.5; E.fogFar = wx === 'clear' ? 140 : E.fogFar * 0.4
+  return E
+}
 function lights() {
-  const P = SX.focus || SX.P, c = CUR
+  const P = SX.focus || SX.P, c = CUR, E = ssxEnv()
   const px = P ? P.x : 0, py = P ? P.y : 0, pz = P ? P.z : 0
   return {
-    sun: { x: px - 35, y: py + 60, z: -pz + 25, color: c.sun, intensity: c.sunI }, ambient: c.amb, dir: 0.25, shadow: false, target: { x: px, z: -pz },
-    lantern: { x: px, y: py + 4, z: -pz + 3, color: c.night ? '#ffd9a0' : '#ffffff', intensity: c.night ? 2.2 : 0, distance: 55 },
+    sun: { x: px - 35 + Math.cos(E.T.ang) * 40, y: py + 30 + Math.max(0.1, E.T.el) * 60, z: -pz + 25, color: E.sunColor, intensity: E.sunI }, ambient: E.amb, dir: E.dir, shadow: false, target: { x: px, z: -pz },
+    lantern: { x: px, y: py + 4, z: -pz + 3, color: '#ffd9a0', intensity: E.T.night > 0.3 ? 2.6 * E.T.night : 0, distance: 55 },
   }
 }
 function terrain(pos, colr, NX, NZ) {
@@ -830,6 +840,7 @@ function draw3(api) {
   for (const r of SX.riders) { if (r.isP || r.z < P.z - 10 || r.z > P.z + 90) continue; put3(r.x, r.y + 3.4, -r.z, 0.5, 0.5, 0.5, 0, ...hex(r.def.jacket, 1.8), t * 3) }
   // snow spray and speed lines
   for (const q of SX.fx) { const f = q.life / q.max, s = q.s * (0.4 + 0.6 * f); put3(q.x, q.y, -q.z, s, s, s, 0, q.c[0], q.c[1], q.c[2], q.life * 4) }
+  { const E = ssxEnv(); if (E.wx === 'snow') weatherFx(put3, CAM.x, -CAM.z, 'snow', t, { y0: P.y - 6, h: 40, r: 55, n: 150 }); else if (E.wx === 'fog') weatherFx(put3, CAM.x, -CAM.z, 'spores', t * 0.4, { y0: P.y - 2, h: 20, r: 45, n: 40 }) }
   const sp = Math.hypot(P.vx, P.vz)
   if (sp > 36 && SX.mode !== 'over') {
     const n = Math.min(14, Math.floor((sp - 30) * 0.6))
@@ -841,4 +852,4 @@ function draw3(api) {
 }
 export function snowTest() { return { ground, xc, F, CUR, terrain } }
 if (typeof window !== 'undefined') { window.__SX = SX; window.__ssx = ssxActions; window.__snow = snowTest }
-games.ssx = { update, onKey, draw() {}, draw3, camera, lights, fog: () => ({ fog: CUR.fog, fogNear: 38, fogFar: 140 }), terrain, stop, sky: () => CUR.sky }
+games.ssx = { update, onKey, draw() {}, draw3, camera, lights, fog: () => { const E = ssxEnv(); return { fog: E.fog, fogNear: E.fogNear, fogFar: E.fogFar } }, terrain, stop, sky: () => ssxEnv().sky }
