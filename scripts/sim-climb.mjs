@@ -47,6 +47,7 @@ for (const li of [0, 3]) {
   check(`mountain ${li + 1}: a climber can smash and climb all ${MOUNTAINS[li].floors} floors`, CL.lvl > li || CL.mode === 'over' || CL.clearT > 0 || p.done, `best y ${top.toFixed(0)} of ${CL.topY} in ${(f / 30) | 0}s`)
   climbActions.stop()
 }
+for (const k of ['left', 'right', 'jump', 'hit']) climbActions.press(k, false)
 // falling off the bottom costs a life; hammer kills a yeti; icicle and bird exist
 {
   climbActions.start({ level: 2, seed: 5 }); const p = CL.players[0]
