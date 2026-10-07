@@ -11,6 +11,7 @@ import { tdActions, TD } from './td.js'
 import { chompActions, C } from './chomp.js'
 import { minesActions, MS } from './mines.js'
 import { wordActions, WD } from './word.js'
+import { slugActions, S as SG } from './slug.js'
 
 export const DUELS = {
   snake: { name: 'NEON SNAKE', start: () => snakeActions.start({ type: 'solo' }), score: () => SN.score | 0, done: () => !!SN.over, mode: 'snake' },
@@ -20,6 +21,7 @@ export const DUELS = {
   td: { name: 'NEON DEFENSE', start: () => tdActions.start({ map: 0, story: false }), score: () => (TD.over ? TD.over.score | 0 : TD.wave * 100 + TD.kills), done: () => !!TD.over, mode: 'td' },
   chomp: { name: 'MAZE CHOMP', start: () => chompActions.start('classic', 1), score: () => C.score | 0, done: () => !!C.over, mode: 'chomp' },
   mines: { name: 'MINE SWEEP', start: (o) => minesActions.start({ lv: 0, seed: o.seed }), score: () => (MS.over ? (MS.over.win ? 1000000 - MS.over.secs * 100 : MS.open) : MS.open), done: () => !!MS.over, mode: 'mines' },
+  slug: { name: 'GROUND ZERO', start: () => slugActions.start(0), score: () => SG.score | 0, done: () => SG.mode === 'over' || SG.mode === 'clear' || SG.mode === 'victory', mode: 'slug' },
   word: { name: 'WORD HUNT', start: (o) => wordActions.start({ lang: 'en', daily: false, seed: o.seed }), score: () => (WD.done ? (WD.win ? 1000 - WD.rows.length * 100 : 0) : WD.rows.reduce((a, r) => a + (r.s ? [...r.s].filter((c) => c === 'g').length : 0), 0)), done: () => WD.done, mode: 'word' },
 }
 export const D = { on: false, id: '', foe: '', foeName: 'RIVAL', foeScore: 0, foeDone: false, mine: 0, mineDone: false, result: null, ctx: null, t: 0, sendT: 0, sent: false }

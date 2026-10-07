@@ -1,7 +1,7 @@
 // GARDEN SIEGE: lane defence in the spirit of the classic plants-vs-zombies games.
 // Play the PLANTS against an AI zombie horde (10 levels), play the ZOMBIES against AI defences, or play a friend online
 // (one is the garden, the other is the horde). Pure JS simulation, drawn in the lit 3D pass.
-import { G, emit as engineEmit, games, profile, saveProfile, recordScore, toMenu, shake, flash } from './engine.js'
+import { G, emit as engineEmit, games, profile, saveProfile, recordScore, toMenu, shake, flash, stepParticles } from './engine.js'
 import { sfx, music } from './audio.js'
 import { clamp, rng } from './pxl.js'
 import { unprojectGround } from './rogue3d.js'
@@ -130,6 +130,7 @@ function collectSun(id) { const i = GD.suns.findIndex((s) => s.id === id); if (i
 function update(dtRaw) {
   const dt = Math.min(dtRaw, 0.05)
   if (GD.mode === 'idle' || GD.paused) return
+  stepParticles(dt)
   for (const q of GD.fx) { q.life -= dt; q.x += q.vx * dt; q.y += q.vy * dt - 12 * dt * dt; q.z += q.vz * dt; q.vy -= 14 * dt }
   GD.fx = GD.fx.filter((q) => q.life > 0)
   if (GD.msg) { GD.msg.t -= dt; if (GD.msg.t <= 0) GD.msg = null }

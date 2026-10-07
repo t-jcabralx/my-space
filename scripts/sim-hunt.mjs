@@ -1,0 +1,69 @@
+import { update, G, games } from '../src/game/engine.js'
+import { HT, huntActions, MONS, SHOP, AW, AH } from '../src/game/hunt.js'
+let failures = 0
+const check = (n, c, i) => { if (!c) failures++; console.log(c ? 'PASS' : 'FAIL', n, i || '') }
+const api = { put3: (...a) => { if (a.slice(0, 10).some((v) => !Number.isFinite(v))) throw new Error('NaN put3 ' + a) }, putS: (...a) => { if (a.slice(0, 9).some((v) => !Number.isFinite(v))) throw new Error('NaN putS ' + a) }, putM: (...a) => { if (a.slice(0, 6).some((v) => !Number.isFinite(v))) throw new Error('NaN putM') } }
+const step = (n, dt = 1 / 20) => { for (let i = 0; i < n; i++) { update(dt); G.time += dt } }
+const sane = () => HT.players.every((p) => Number.isFinite(p.x) && Math.abs(p.x) <= AW + 1 && Math.abs(p.y) <= AH + 1 && p.hp <= p.max) && HT.mons.every((m) => Number.isFinite(m.x) && Number.isFinite(m.hp))
+// a bot hunter: shoots the nearest monster, backs away, reloads
+function bot(p) {
+  let best = null, bd = 1e9
+  for (const m of HT.mons) { const d = Math.hypot(m.x - p.x, m.y - p.y); if (d < bd) { bd = d; best = m } }
+  const T = ['left', 'right', 'up', 'down']
+  if (best) { HT.mouse.x = best.x; HT.mouse.y = best.y; HT.mouse.down = true; const a = Math.atan2(best.y - p.y, best.x - p.x), away = bd < 9, toward = bd > 15; huntActions.press('left', (away && Math.cos(a) > 0.3) || (toward && Math.cos(a) < -0.3)); huntActions.press('right', (away && Math.cos(a) < -0.3) || (toward && Math.cos(a) > 0.3)); huntActions.press('down', (away && Math.sin(a) > 0.3) || (toward && Math.sin(a) < -0.3)); huntActions.press('up', (away && Math.sin(a) < -0.3) || (toward && Math.sin(a) > 0.3)) }
+  else { HT.mouse.down = false; for (const k of T) huntActions.press(k, false) }
+  huntActions.press('reload', p.mag === 0)
+}
+const reset = () => { for (const k of ['left', 'right', 'up', 'down', 'reload']) huntActions.press(k, false); HT.mouse.down = false }
+check('monsters and shop exist', Object.keys(MONS).length === 5 && SHOP.length === 8)
+// a full day cycle: night, dawn, shop
+huntActions.start({ kind: 'days', seed: 7 })
+check('day 1 starts at dawn with a shop', HT.phase === 'dawn' && HT.day === 1)
+huntActions.ready(); step(3)
+check('readying up starts the night', HT.phase === 'night' && HT.spawnQ.length > 0, HT.phase)
+let f = 0, bad = false
+const p0 = HT.players[0]
+p0.hp = p0.max = 100000; p0.reserve = 9999
+while (HT.phase === 'night' && f < 20 * 200) { bot(p0); step(1); f++; if (f % 20 === 0) { if (!sane()) { bad = true; break } games.hunt.draw3(api) } }
+check('the bot survives night 1 and the dawn comes', !bad && HT.phase === 'dawn' && HT.day === 2, `phase ${HT.phase} day ${HT.day} kills ${HT.kills}`)
+check('kills drop scrap and the dawn pays a bonus', p0.scrap > 40, 'scrap ' + p0.scrap)
+const sc = p0.scrap, dmg0 = p0.up.dmg
+huntActions.buy('dmg')
+check('buying an upgrade costs scrap and works', p0.up.dmg === dmg0 + 1 && p0.scrap < sc)
+p0.scrap = 200; huntActions.buy('mines'); check('mines can be bought', p0.mines >= 4)
+// stalkers: sprint when unseen, creep when lit, hit harder from behind
+{
+  reset(); huntActions.start({ kind: 'back', seed: 3 })
+  const p = HT.players[0]; p.hp = p.max = 1000; p.a = 0; p.x = 0; p.y = 0
+  HT.spawnQ = []; HT.rate = 999
+  HT.mons = [{ id: 1, type: 'stalker', x: -20, y: 0, hp: 48, max: 48, a: 0, atkT: 0, hit: 0, t: 0, spitT: 9, sumT: 9, charge: 0, vx: 0, vy: 0, seen: 0 }]
+  p.in.a = 0; HT.mouse.x = 100; HT.mouse.y = 0
+  const x0 = HT.mons[0].x; step(10); const behindMove = HT.mons[0].x - x0
+  HT.mons = [{ id: 2, type: 'stalker', x: 14, y: 0, hp: 48, max: 48, a: 0, atkT: 0, hit: 0, t: 0, spitT: 9, sumT: 9, charge: 0, vx: 0, vy: 0, seen: 0 }]
+  const x1 = HT.mons[0].x; p.in.fire = false; step(10); const litMove = x1 - HT.mons[0].x
+  check('a stalker behind you sprints; one in your beam creeps', behindMove > litMove * 2.5, `behind ${behindMove.toFixed(1)} lit ${litMove.toFixed(1)}`)
+  HT.mons = [{ id: 3, type: 'stalker', x: -2, y: 0, hp: 48, max: 48, a: 0, atkT: 0, hit: 0, t: 0, spitT: 9, sumT: 9, charge: 0, vx: 0, vy: 0, seen: 0 }]
+  const hp0 = p.hp; step(2)
+  check('a bite from behind does double damage', hp0 - p.hp >= 30, 'lost ' + (hp0 - p.hp).toFixed(0))
+}
+// down, revive and game over
+{
+  reset(); huntActions.start({ kind: 'days', seed: 5 })
+  HT.players.push({ ...HT.players[0], i: 1, name: 'MATE', x: 20, y: 12, in: { dx: 0, dy: 0, a: 0, fire: false }, up: { dmg: 0, rate: 0, hp: 0, light: 0, speed: 0 } })
+  HT.players[0].down = true; HT.players[0].hp = 0; HT.players[1].x = 21; HT.players[1].y = 12; HT.players[0].x = 20; HT.players[0].y = 12
+  step(20 * 4)
+  check('a teammate standing close revives a downed hunter', !HT.players[0].down && HT.players[0].hp > 0, 'down ' + HT.players[0].down)
+  HT.players.forEach((p) => { p.down = true; p.hp = 0 }); step(5)
+  check('everybody down ends the run with a result', HT.mode === 'over' && HT.over && !HT.over.win)
+}
+// the finale: night 13 spawns the king, clearing it wins
+{
+  reset(); huntActions.start({ kind: 'days', seed: 9 }); HT.day = 13; HT.players[0].hp = HT.players[0].max = 1e6; HT.players[0].reserve = 99999
+  huntActions.ready(); step(3)
+  check('night 13 has the Hollow King', HT.spawnQ.some((q) => q.type === 'king'))
+  let n = 0; while (HT.mode === 'play' && n < 20 * 400) { for (const q of HT.spawnQ) q.t = Math.min(q.t, HT.phaseT); bot(HT.players[0]); for (const m of HT.mons) m.hp = Math.min(m.hp, 40); step(1); n++ }
+  check('beating night 13 wins the 13 days', HT.mode === 'over' && HT.over && HT.over.win, `mode ${HT.mode} t ${n / 20 | 0}s left ${HT.mons.map((m) => m.type + '@' + (m.x | 0) + ',' + (m.y | 0)).join(' ')} q ${HT.spawnQ.length} hp ${HT.players[0].hp | 0} phase ${HT.phase}`)
+}
+for (const k of ['left', 'right', 'up', 'down', 'reload']) huntActions.press(k, false); HT.mouse.down = false
+huntActions.stop()
+process.exit(failures ? 1 : 0)

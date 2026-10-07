@@ -1,7 +1,7 @@
 // ORB RUSH: a marble-shooter in the style of the classic frog games. A chain of coloured orbs rolls along a track toward
 // the skull hole; the frog in the middle shoots orbs to make groups of 3+. Adventure (10 levels) and online Versus (same
 // level, same orbs; big combos send extra orbs to your opponent).
-import { G, emit as engineEmit, keys, games, profile, saveProfile, recordScore, toMenu, shake, flash } from './engine.js'
+import { G, emit as engineEmit, keys, games, profile, saveProfile, recordScore, toMenu, shake, flash, stepParticles } from './engine.js'
 import { sfx, music } from './audio.js'
 import { col, clamp, rng } from './pxl.js'
 import { unprojectGround } from './rogue3d.js'
@@ -176,6 +176,7 @@ function update(dtRaw) {
   const dt = Math.min(dtRaw, 0.03)
   if (OB.mode === 'idle' || OB.paused) return
   OB.t += dt
+  stepParticles(dt)
   for (const q of OB.fx) { q.life -= dt; q.x += q.vx * dt; q.y += q.vy * dt }
   OB.fx = OB.fx.filter((q) => q.life > 0)
   if (OB.msg) { OB.msg.t -= dt; if (OB.msg.t <= 0) OB.msg = null }

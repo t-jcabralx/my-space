@@ -111,7 +111,7 @@ export function send(type, data, to) {
 // Redis pub/sub stays the signalling + fallback path; once a data channel to the host is open, the real-time game
 // messages (inputs, state snapshots, attacks) travel directly (~20-60ms instead of ~300ms). No extra server needed.
 const FAST = new Set(['gin', 'rev', 'rst', 'rmy', 'fst', 'fin', 'fbt', 'sst', 'sin', 'ssk', 'pst', 'pin', 'psh', 'prematch', 'bst', 'bin', 'bbomb', 'tst', 'tatk', 'tdead', 'hb', 'hst', 'hmy', 'hrematch', 'ost', 'oin', 'orematch', 'dst', 'din', 'dpk', 'drematch', 'cst', 'cmv', 'crematch', 'est', 'ecmd', 'erematch'])
-const P2P_GAMES = new Set(['race', 'kart', 'snake', 'breaker', 'merge', 'rhythm', 'td', 'chomp', 'mines', 'word', 'orb', 'garden', 'arena', 'ssx', 'fight', 'space', 'pickle', 'bomber', 'tetris', 'hockey', 'pool', 'rogue', 'c4', 'empire'])
+const P2P_GAMES = new Set(['race', 'kart', 'hunt', 'slug', 'snake', 'breaker', 'merge', 'rhythm', 'td', 'chomp', 'mines', 'word', 'orb', 'garden', 'arena', 'ssx', 'fight', 'space', 'pickle', 'bomber', 'tetris', 'hockey', 'pool', 'rogue', 'c4', 'empire'])
 const ICE = { iceServers: [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] }] }
 const peers = new Map()
 const earlyIce = new Map()

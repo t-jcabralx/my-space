@@ -7,7 +7,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 if (!role) {
   const self = fileURLToPath(import.meta.url)
   let fail = 0
-  for (const g of (process.env.GAMES || 'orb,garden,ssx,kart,snake,word,mines').split(',')) {
+  for (const g of (process.env.GAMES || 'orb,garden,ssx,kart,hunt,slug,snake,word,mines').split(',')) {
     if (g === 'story') continue
     const host = spawn('node', [self, 'host', g], { stdio: ['ignore', 'pipe', 'inherit'] })
     let hostOut = '', guestOut = '', guest
@@ -31,6 +31,7 @@ const { GD, gardenActions, gardenTest, SURVIVE_T } = await import('../src/game/g
 const { SX, snowTest } = await import('../src/game/ssx.js')
 const { RC } = await import('../src/game/race.js')
 const { D, DUELS } = await import('../src/game/duel.js')
+const { HT, huntActions } = await import('../src/game/hunt.js')
 const { SN } = await import('../src/game/snake.js')
 const { WD } = await import('../src/game/word.js')
 const { MS } = await import('../src/game/mines.js')
@@ -126,6 +127,22 @@ if (game === 'orb') {
   console.log('RESULT', role, RC.results && RC.results.pos)
   await sleep(1500)
 }
+if (game === 'hunt') {
+  await join()
+  if (role === 'host') await hostGame('hunt', { kind: 'back' })
+  check('the hunt starts on both sides with two hunters', await until(() => HT.mode === 'play' && HT.net && HT.players.length === 2), HT.mode)
+  check('seats are assigned', HT.me === (role === 'host' ? 0 : 1), 'me ' + HT.me)
+  const x0 = HT.players[HT.me].x
+  if (role === 'guest') huntActions.press('right', true)
+  check('monsters appear on both sides', await until(() => HT.mons.length > 0, 40000), 'mons ' + HT.mons.length)
+  if (role === 'host') check('the host sees the guest hunter moving', await until(() => Math.abs(HT.players[1].x - (-6 + 6)) > 3, 20000), 'x ' + HT.players[1].x)
+  else check('the guest moves its own hunter', await until(() => HT.players[1].x - x0 > 3, 20000), 'x ' + HT.players[1].x)
+  huntActions.press('right', false)
+  check('both see the same score/kills counters update', await until(() => HT.t > 5, 20000))
+  if (role === 'host') { await sleep(1500); HT.players.forEach((p) => { p.down = true; p.hp = 0 }) }
+  check('the run ends on both sides', await until(() => HT.mode === 'over', 40000), HT.mode)
+  await sleep(1500)
+}
 if (DUELS[game]) {
   await join()
   if (role === 'host') await hostGame('duel:' + game, {})
@@ -134,6 +151,7 @@ if (DUELS[game]) {
   check('we see the rival score updates', await until(() => D.foeScore >= 0 && D.t > 2, 15000), JSON.stringify([D.foeScore, D.t]))
   // finish the game quickly on each side (the host with a better result)
   if (game === 'snake') { await until(() => !!SN.over, 60000) }
+  else if (game === 'slug') { await until(() => eng.G.mode === 'slug', 5000); const { S: SG } = await import('../src/game/slug.js'); SG.score = role === 'host' ? 900 : 100; SG.mode = 'over' }
   else if (game === 'word') { WD.answer = 'CRANE'; WD.rows = [{ w: 'CRANE', s: 'ggggg' }]; WD.done = true; WD.win = role === 'host' }
   else if (game === 'mines') { MS.open = role === 'host' ? 30 : 5; MS.over = { win: role === 'host', secs: 40 } }
   check('both sides report done', await until(() => D.mineDone, 30000), 'mine ' + D.mine)

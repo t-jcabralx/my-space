@@ -75,6 +75,8 @@ for (let ci = 0; ci < 3; ci++) {
   step(60 * 3)
   check('a bad landing wipes out and then recovers', P.crashes >= 1 && P.crash === 0, 'crashes ' + P.crashes)
   check('rider is back on the snow after the wipeout', P.grounded || P.air > 0)
+  step(60 * 2)
+  check('the screen shake from a wipeout fades out (no endless earthquake)', G.shake < 0.05, 'shake ' + G.shake.toFixed(2))
 }
 // trick scoring: a clean 360 over a flat hop is worth points
 {

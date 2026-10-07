@@ -1,6 +1,6 @@
 // SNOW RUSH: an SSX-style 3D snowboarding game. Race five riders or go for a trick score down three mountains.
 // Logic space is (x sideways, y up, z downhill); the scene draws it with Z = -z so the camera sits behind the rider.
-import { G, emit as engineEmit, keys, games, profile, saveProfile, recordScore, toMenu, shake, flash } from './engine.js'
+import { G, emit as engineEmit, keys, games, profile, saveProfile, recordScore, toMenu, shake, flash, stepParticles } from './engine.js'
 import { sfx, music, rev } from './audio.js'
 import { col, clamp, rng } from './pxl.js'
 import { registerNet, gameEnded } from './online/gnet.js'
@@ -135,7 +135,7 @@ function crashRider(r, why) {
   if (r.crash > 0 || r.inv > 0) return
   r.crash = 1.5; r.tumble = 0; r.crashes++; r.why = (r.why || '') + (why || '?')[0] + '@' + (r.z | 0) + ' '; r.vx *= 0.3; r.vz *= 0.3; r.grind = null; r.uber = null
   spawnFx(r.x, r.y + 0.6, r.z, 22, [1, 1, 1.1], 12, 8, 0.8, 0.5)
-  if (r.isP) { sfx('rCrash'); shake(1.1); flash(0.2, [1, 1, 1]); SX.text = { text: why, pts: 0, t: 1.8, c: '#ff4a6a', bad: true }; r.pts = 0 }
+  if (r.isP) { sfx('rCrash'); shake(0.55); flash(0.15, [1, 1, 1]); SX.text = { text: why, pts: 0, t: 1.8, c: '#ff4a6a', bad: true }; r.pts = 0 }
 }
 function evalLanding(r) {
   const spinHalf = Math.round(Math.abs(r.spinAcc) / Math.PI), spinRem = Math.abs(Math.abs(r.spinAcc) - spinHalf * Math.PI)
@@ -455,6 +455,7 @@ function update(dtRaw) {
   const dt = Math.min(dtRaw, 1 / 30)
   if (SX.mode === 'idle' || SX.paused) return
   SX.clock += dt
+  stepParticles(dt) // decays the screen shake and flash
   for (const q of SX.fx) { q.life -= dt; q.vy -= 14 * dt; q.x += q.vx * dt; q.y += q.vy * dt; q.z += q.vz * dt }
   SX.fx = SX.fx.filter((q) => q.life > 0)
   if (SX.msg) { SX.msg.t -= dt; if (SX.msg.t <= 0) SX.msg = null }
