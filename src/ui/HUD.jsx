@@ -222,6 +222,7 @@ const HELP = {
       <>
         <p><b>Finish first!</b> Race through 3D tracks against bots (or friends online).</p>
         <ul>
+          <li><b>🍌 KART ITEMS mode:</b> drive through the rainbow boxes for an item and press <b>F</b> / <b>Q</b> / <b>SHIFT</b> (ITEM button on a phone). 🚀 boost, 🍌 banana (drops behind you), 🔴 homing shell (hits the car ahead), 🔵 blue shell (hunts the leader), ⭐ star (unstoppable), ⚡ lightning (slows everyone else). Players further back get better items.</li>
           <li><b>Drive:</b> ↑/W gas · ↓/S brake · ←/→ or A/D steer. On a phone use the on-screen buttons.</li>
           <li><b>Drift:</b> hold <b>SPACE</b> while steering to slide. Keep it going until the bar is full, then release for a <b>mini-turbo</b>.</li>
           <li><b>Nitro:</b> hold <b>SHIFT/E</b>. Green canisters on the road refill the tank, blue pads give a free boost.</li>
@@ -1219,7 +1220,7 @@ function RaceTouch() {
   return (
     <div className="touchpad rtouch">
       <div className="rsteer"><button {...hold('ArrowLeft')}>◀</button><button {...hold('ArrowRight')}>▶</button></div>
-      <div className="rpedals"><button className="nit" {...hold('ShiftLeft')}>NITRO</button><button className="dft" {...hold('Space')}>DRIFT</button><button className="brk" {...hold('ArrowDown')}>BRAKE</button><button className="gas" {...hold('ArrowUp')}>GAS</button></div>
+      <div className="rpedals"><button className="nit" {...hold('ShiftLeft')}>NITRO</button><button className="dft" {...hold('Space')}>DRIFT</button><button className="nit" {...hold('KeyF')}>ITEM</button><button className="brk" {...hold('ArrowDown')}>BRAKE</button><button className="gas" {...hold('ArrowUp')}>GAS</button></div>
     </div>
   )
 }
@@ -1232,7 +1233,8 @@ function RaceLobby({ s }) {
   const [ai, setAi] = useState(5)
   const best = p.raceBest || {}
   const T = TRACKS[track], C = CARS[car]
-  const go = () => raceActions.start({ track, car, laps, diff, ai, type: 'race' })
+  const [kart, setKart] = useState(!!p.raceKart)
+  const go = () => raceActions.start({ track, car, laps, diff, ai, type: 'race', kart })
   const stat = (v, max = 1.5) => <div className="fstat"><div><b style={{ width: Math.min(100, (v / max) * 100) + '%' }} /></div></div>
   return (
     <div className="lobby racelobby">
@@ -1248,11 +1250,13 @@ function RaceLobby({ s }) {
           <button key={c.id} className={'rcar ' + (car === c.id ? 'sel' : '')} style={{ '--c': c.color }} onClick={() => { setCar(c.id); setRacePick(c.id) }}><i /><strong>{c.name}</strong></button>))}
         </div>
         <div className="lobbyopts">
+          <div><h4>MODE</h4><div className="chips"><button className={'chip ' + (!kart ? 'sel' : '')} onClick={() => { setKart(false); p.raceKart = false }}>🏁 CLASSIC</button><button className={'chip ' + (kart ? 'sel' : '')} onClick={() => { setKart(true); p.raceKart = true }}>🍌 KART ITEMS</button></div></div>
           <div><h4>LAPS</h4><div className="chips">{[1, 2, 3, 5].map((n) => <button key={n} className={'chip ' + (laps === n ? 'sel' : '')} onClick={() => setLaps(n)}>{n}</button>)}</div></div>
           <div><h4>RIVALS</h4><div className="chips">{[1, 3, 5, 7].map((n) => <button key={n} className={'chip ' + (ai === n ? 'sel' : '')} onClick={() => setAi(n)}>{n} BOTS</button>)}</div></div>
           <div><h4>DIFFICULTY</h4><div className="chips">{['EASY', 'MEDIUM', 'HARD'].map((d, i) => <button key={d} className={'chip ' + (diff === i + 1 ? 'sel' : '')} onClick={() => setDiff(i + 1)}>{d}</button>)}</div></div>
         </div>
-        <div className="chips"><button className="big" onClick={go}>🏁 START RACE</button><button className="big sec" onClick={() => { setRacePick(car, track); window.dispatchEvent(new CustomEvent('si-open-tab', { detail: 'online:race' })) }}>🌐 INVITE FRIEND</button></div>
+        <div className="chips"><button className="big" onClick={go}>🏁 START RACE</button><button className="big sec" onClick={() => { setRacePick(car, track); window.dispatchEvent(new CustomEvent('si-open-tab', { detail: kart ? 'online:kart' : 'online:race' })) }}>🌐 INVITE FRIEND</button></div>
+        <small className="hint">{kart ? '🍌 KART ITEMS: drive through the rainbow boxes to get an item, press F / Q / SHIFT to use it. Bananas trip, shells home in on the car ahead, the blue shell hunts the leader, stars make you unstoppable, lightning slows everybody else.' : ''}</small>
         <small className="hint">↑/W gas · ↓/S brake · ←→/AD steer · SPACE drift (release for a mini-turbo) · SHIFT/E nitro · R reset car · blue pads boost · green canisters refill nitro</small>
       </div>
       <div className="lobbyR">
@@ -1282,6 +1286,7 @@ function RaceHUD() {
           <div className="rpos"><b>{m.pos}</b><span>/{m.total}</span><small>POSITION</small></div>
           <div className="rlap"><div>LAP <b>{m.lap}</b>/{g.laps}</div><small>{fmtT(m.lapTime)}</small><small>BEST {fmtT(m.best)}</small></div>
           <div className="rmapbox"><TrackMap ti={g.track} cars={g.map} /></div>
+          {g.kart && <div className={'ritem' + (m.item ? ' has' : '')}><b>{m.item ? ({ boost: '🚀', triple: '🚀', banana: '🍌', shell: '🔴', blue: '🔵', star: '⭐', bolt: '⚡' })[m.item] : '❔'}</b>{m.item === 'triple' && <em>x{m.itemN}</em>}<small>ITEM · F</small></div>}
           <div className="rboard">{g.board.slice(0, 6).map((c, i) => <div key={c.i} className={c.human ? 'me' : ''}><i style={{ background: c.color }} />{i + 1}. {c.name}</div>)}</div>
           <div className="rspeed"><strong>{m.kmh}</strong><span>KM/H</span>
             <div className="rbars"><div className="rn"><i style={{ width: m.nitro + '%' }} /><em>NITRO</em></div><div className="rd"><i style={{ width: m.charge * 100 + '%' }} className={m.charge >= 1 ? 'full' : ''} /><em>DRIFT</em></div></div>
@@ -1675,7 +1680,7 @@ function TopPlayers({ s, initial = 'space', compact = false, fixed = false }) {
   const lim = compact ? 5 : 10
   useEffect(() => { let on = true; setRows(null); fetchTop(game, lim).then((r) => on && setRows(r)); return () => { on = false } }, [game, lim])
   const me = (s.profile.name || '').toUpperCase()
-  const GAMES = [['space', 'SPACE IMPACT'], ['slug', 'GROUND ZERO'], ['pickle', 'PICKLEBALL'], ['bomber', 'BOMBER BLAST'], ['tetris', 'TETRA BLAST'], ['chomp', 'MAZE CHOMP'], ['uno', 'UNO'], ['pusoy', 'PUSOY DOS'], ['lucky9', 'LUCKY 9'], ['tongits', 'TONG-ITS'], ['race', 'TURBO RUSH'], ['hockey', 'AIR HOCKEY'], ['pool', 'BILLIARDS'], ['td', 'NEON DEFENSE'], ['rogue', 'NEON DEPTHS'], ['rhythm', 'NEON BEAT'], ['word', 'WORD HUNT'], ['merge', '2048 MERGE'], ['baccarat', 'BACCARAT'], ['poker', 'POKER'], ['c4', 'CONNECT FOUR'], ['snake', 'NEON SNAKE'], ['breaker', 'NEON BREAKER'], ['mines', 'MINE SWEEP'], ['empire', 'EMPIRE RISE'], ['ssx', 'SNOW RUSH']]
+  const GAMES = [['space', 'SPACE IMPACT'], ['slug', 'GROUND ZERO'], ['pickle', 'PICKLEBALL'], ['bomber', 'BOMBER BLAST'], ['tetris', 'TETRA BLAST'], ['chomp', 'MAZE CHOMP'], ['uno', 'UNO'], ['pusoy', 'PUSOY DOS'], ['lucky9', 'LUCKY 9'], ['tongits', 'TONG-ITS'], ['race', 'TURBO RUSH'], ['kart', 'KART CLASH'], ['hockey', 'AIR HOCKEY'], ['pool', 'BILLIARDS'], ['td', 'NEON DEFENSE'], ['rogue', 'NEON DEPTHS'], ['rhythm', 'NEON BEAT'], ['word', 'WORD HUNT'], ['merge', '2048 MERGE'], ['baccarat', 'BACCARAT'], ['poker', 'POKER'], ['c4', 'CONNECT FOUR'], ['snake', 'NEON SNAKE'], ['breaker', 'NEON BREAKER'], ['mines', 'MINE SWEEP'], ['empire', 'EMPIRE RISE'], ['ssx', 'SNOW RUSH']]
   return (
     <div className="topboard">
       <h4>🏆 TOP PLAYERS{fixed ? ' · ' + (GAMES.find(([k]) => k === game) || [0, game])[1] : ''}</h4>

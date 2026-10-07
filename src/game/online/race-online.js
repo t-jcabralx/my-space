@@ -18,6 +18,8 @@ function begin(role, cfg, list) {
     role,
     state: (s) => { send('rst', s).catch(() => {}) },
     mine: (a) => { send('rmy', { a }, host).catch(() => {}) },
+    ev: (d) => { send('rev', d, host).catch(() => {}) },
+    hit: (i, d) => { const h = humans[i]; if (h) send('rev', d, h.cid).catch(() => {}) },
     fast: () => !!(RT.p2p && Object.keys(RT.p2p).length),
     rematch: () => { if (isHost()) hostRace(); else send('rrematch', {}, host).catch(() => {}) },
     onStop: () => { humans = []; if (isHost()) roomAction('finish').catch(() => {}) },
@@ -51,6 +53,7 @@ export function installRaceOnline() {
   onMsg('rreq', (d, env) => { if (!isHost() && RT.room && env.f === RT.room.host) send('rpick', { car: myCar() }, env.f).catch(() => {}) })
   onMsg('rpick', (d, env) => { if (isHost() && d && Number.isInteger(d.car)) picks[env.f] = ((d.car % CARS.length) + CARS.length) % CARS.length })
   onMsg('rstart', (d, env) => { if (!isHost() && RT.room && env.f === RT.room.host && d && d.cfg && Array.isArray(d.list)) begin('guest', d.cfg, d.list.slice(0, 4)) })
+  onMsg('rev', (d, env) => { if (!raceNet.active() || !d) return; if (isHost()) { const i = humans.findIndex((h) => h.cid === env.f); if (i > 0) raceNet.hostEvent(i, d) } else if (RT.room && env.f === RT.room.host) raceNet.guestEvent(d) })
   onMsg('rrematch', () => { if (isHost() && raceNet.active()) hostRace().catch(() => {}) })
   onMsg('rmy', (d, env) => { if (!isHost() || !raceNet.active() || !d) return; const i = humans.findIndex((h) => h.cid === env.f); if (i > 0) raceNet.hostCar(i, d.a) })
   onMsg('rst', (d, env) => { if (!isHost() && raceNet.active() && env.f === (RT.room && RT.room.host)) raceNet.applyState(d) })

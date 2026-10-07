@@ -90,7 +90,7 @@ export const getRaceSnap = () => snap
 function mkCar(i, carId, human, name) {
   const st = CARS[carId]
   return { i, carId, st, human, name, x: 0, z: 0, th: 0, vx: 0, vz: 0, sp: 0, steer: 0, nitro: 30, boostT: 0, driftT: 0, charge: 0, drifting: false, prog: 0, lastS: 0, idx: 0, lat: 0, lap: 1, best: 0, lapStart: 0, lapTimes: [], finished: false, finishT: 0, rank: 0, off: false, cp: 0,
-    inp: { thr: 0, brk: 0, steer: 0, drift: false, nitro: false }, wrong: 0, bump: 0, lane: 0, aiT: 0, hit: 0, padCd: {}, lights: 0, color: st.color, skill: 1 }
+    inp: { thr: 0, brk: 0, steer: 0, drift: false, nitro: false }, wrong: 0, bump: 0, lane: 0, aiT: 0, hit: 0, padCd: {}, lights: 0, color: st.color, skill: 1, item: null, itemN: 0, spin: 0, spinDir: 1, star: 0, slowT: 0, hitInv: 0, itemT: 0 }
 }
 export function startRace(cfg = {}) {
   RC.cfg = { track: 0, car: 0, laps: 3, diff: 2, ai: 5, type: 'race', seed: (Math.random() * 1e9) | 0, humans: null, ...cfg }
@@ -131,6 +131,12 @@ export function startRace(cfg = {}) {
   RC.cans = []
   const r = rng(c.track * 977 + 13)
   for (let k = 0; k < 9; k++) { const j = Math.floor(((k + 0.5) / 9) * N); RC.cans.push({ idx: j, lat: (r() - 0.5) * W * 0.6, t: 0 }) }
+  RC.boxes = []; RC.items = []; RC.shells = []; RC.kid = 1; RC.deadIds = {}
+  if (c.kart) {
+    RC.cans = []
+    for (let k = 0; k < 12; k++) { const j = Math.floor(((k + 0.5) / 12) * N + 3) % N; for (const f of [-0.26, 0, 0.26]) RC.boxes.push({ idx: j, lat: f * W, t: 0 }) }
+    RC.cars.forEach((x) => { x.nitro = 0 })
+  }
   RC.fx = []; RC.results = null; RC.paused = false; RC.t = 0; RC.timer = 0; RC.shake = 0
   RC.me = 0
   G.mode = 'race'; G.parts = []; G.pops = []; G.shake = 0; G.flash = 0
@@ -145,7 +151,8 @@ function emitR() {
   const ranked = rankOf()
   snap = {
     mode: RC.mode, paused: RC.paused, phase: RC.phase, type: RC.cfg.type, track: RC.cfg.track, trackName: TRACKS[RC.cfg.track].name, laps: RC.cfg.laps, count: RC.phase === 'ready' ? Math.ceil(RC.count) : 0,
-    me: me ? { lap: Math.min(RC.cfg.laps, me.lap), pos: me.rank || 1, total: RC.cars.length, kmh: Math.round(me.sp * 3), nitro: Math.round(me.nitro), boost: me.boostT > 0, drifting: me.drifting, charge: Math.min(1, me.charge / 0.9), lapTime: me.finished ? 0 : RC.t - me.lapStart, best: me.best, last: me.lapTimes.length ? me.lapTimes[me.lapTimes.length - 1] : 0, elapsed: me.finished ? me.finishT : RC.t, finished: me.finished, wrong: me.wrong > 1.2, off: me.off } : null,
+    me: me ? { lap: Math.min(RC.cfg.laps, me.lap), pos: me.rank || 1, total: RC.cars.length, kmh: Math.round(me.sp * 3), nitro: Math.round(me.nitro), boost: me.boostT > 0, drifting: me.drifting, charge: Math.min(1, me.charge / 0.9), lapTime: me.finished ? 0 : RC.t - me.lapStart, best: me.best, last: me.lapTimes.length ? me.lapTimes[me.lapTimes.length - 1] : 0, elapsed: me.finished ? me.finishT : RC.t, finished: me.finished, wrong: me.wrong > 1.2, off: me.off, item: me.item, itemN: me.itemN, spin: me.spin > 0, star: me.star > 0, slow: me.slowT > 0 } : null,
+    kart: !!RC.cfg.kart,
     board: ranked.map((c) => ({ i: c.i, name: c.name, color: c.color, finished: c.finished, t: c.finishT, lap: c.lap, human: c.human })),
     map: RC.cars.map((c) => ({ i: c.i, x: c.x, z: c.z, color: c.color, me: c.i === RC.me })),
     results: RC.results, msg: RC.msg ? { ...RC.msg } : null,
@@ -180,7 +187,12 @@ function locate(c) {
 }
 function stepCar(c, dt) {
   const st = c.st, tk = RC.tk, W = tk.W
-  const inp = c.inp
+  if (c.star > 0) { c.star -= dt; c.boostT = Math.max(c.boostT, 0.1) }
+  if (c.slowT > 0) c.slowT -= dt
+  if (c.hitInv > 0) c.hitInv -= dt
+  if (c.itemT > 0) c.itemT -= dt
+  const inp = c.spin > 0 ? SPIN_INP : c.inp
+  if (c.spin > 0) c.spin -= dt
   const racing = RC.phase === 'race' || RC.phase === 'finish'
   const fwdx = Math.sin(c.th), fwdz = -Math.cos(c.th)
   let v = c.vx * fwdx + c.vz * fwdz
@@ -188,7 +200,7 @@ function stepCar(c, dt) {
   const nitroOn = racing && inp.nitro && c.nitro > 0 && !c.finished
   if (nitroOn) { c.nitro = Math.max(0, c.nitro - 26 * dt); c.boostT = Math.max(c.boostT, 0.12) }
   const boost = c.boostT > 0
-  const maxV = BASE_TOP * st.top * (boost ? 1.38 : 1) * (c.off ? 0.55 : 1) * (c.finished ? 0.4 : 1)
+  const maxV = BASE_TOP * st.top * (boost ? 1.38 : 1) * (c.star > 0 ? 1.22 : 1) * (c.slowT > 0 ? 0.62 : 1) * (c.off ? 0.55 : 1) * (c.finished ? 0.4 : 1)
   let acc = 0
   const thr = racing && !c.finished ? inp.thr : 0
   if (thr > 0) acc = BASE_ACC * st.acc * (boost ? 1.9 : 1) * thr * clamp(1 - Math.max(0, v) / maxV, 0, 1.2)
@@ -203,6 +215,7 @@ function stepCar(c, dt) {
   c.steer += (inp.steer - c.steer) * Math.min(1, dt * 9)
   const yaw = c.steer * turn * sv * (v >= 0 ? 1 : -1) * (c.finished ? 0 : 1)
   c.th += yaw * dt
+  if (c.spin > 0) { c.th += 11 * dt * c.spinDir; v *= Math.exp(-2.4 * dt) }
   // lateral grip: the car slides more when drifting, braking hard or off the road
   const gripBase = 6.8 * st.grip * (c.off ? 0.5 : 1) * (drifting ? 0.28 : 1) * (inp.brk > 0 && Math.abs(v) > 40 ? 0.6 : 1)
   const nfx = Math.sin(c.th), nfz = -Math.cos(c.th), nrx = Math.cos(c.th), nrz = Math.sin(c.th)
@@ -240,6 +253,7 @@ function stepCar(c, dt) {
     const di = ((c.idx - cn.idx + N + N / 2) % N) - N / 2
     if (Math.abs(di) < 1.6 && Math.abs(c.lat - cn.lat) < 4) { cn.t = 12; c.nitro = Math.min(100 * st.nitro, c.nitro + 35); if (c.i === RC.me) sfx('rNitro') }
   }
+  if (RC.cfg.kart) kartTouch(c)
   // exhaust, smoke and sparks
   if (c.drifting && Math.random() < dt * 40) fx(c.x - nfx * 3, 0.8, c.z - nfz * 3, R(-3, 3), R(1, 4), R(-3, 3), 0.7, '#e6e6f0', 1.3)
   if (c.off && c.sp > 20 && Math.random() < dt * 30) fx(c.x - nfx * 3, 0.8, c.z - nfz * 3, R(-4, 4), R(2, 6), R(-4, 4), 0.6, RC.tk.T.ground, 1.2)
@@ -263,6 +277,7 @@ function stepCar(c, dt) {
   }
   c.lights = v < -1 || inp.brk > 0 ? 1 : 0
 }
+const SPIN_INP = { thr: 0, brk: 0, steer: 0, drift: false, nitro: false }
 const say = (text, color) => { RC.msg = { text, sub: '', color, t: 1.1 } }
 function fx(x, y, z, vx, vy, vz, life, color, size) { if (RC.fx.length < 600) RC.fx.push({ x, y, z, vx, vy, vz, life, max: life, color, size }) }
 
@@ -295,6 +310,104 @@ function carBumps() {
   }
 }
 
+// ---------- kart items ----------
+const ITEM_ICON = { boost: '🚀', triple: '🚀', banana: '🍌', shell: '🔴', blue: '🔵', star: '⭐', bolt: '⚡' }
+export { ITEM_ICON }
+const evSend = (d) => { if (RC.net && RC.net.ev) RC.net.ev(d) }
+const isGuest = () => !!(RC.net && RC.net.role === 'guest')
+function rollItem(c) {
+  const n = RC.cars.length, r = n > 1 ? clamp(((c.rank || 1) - 1) / (n - 1), 0, 1) : 0
+  const w = { boost: 22, triple: 8 + 12 * r, banana: 30 - 22 * r, shell: 16 + 8 * r, star: 2 + 18 * r, bolt: r > 0.55 ? 8 + 8 * r : 0, blue: r > 0.8 && n >= 4 ? 16 : 0 }
+  let tot = 0; for (const k in w) tot += w[k]
+  let x = Math.random() * tot
+  for (const k in w) { x -= w[k]; if (x <= 0) return k }
+  return 'boost'
+}
+function addItem(k, x, z, owner) { RC.items.push({ id: RC.kid++, k, x, z, owner, t0: RC.t }) }
+function fireShell(c, k) {
+  const ranked = RC.cars.slice().sort((a, b) => (a.rank || 99) - (b.rank || 99))
+  let target = null
+  if (k === 'blue') target = ranked[0] !== c ? ranked[0] : null
+  else { const ix = ranked.indexOf(c); target = ix > 0 ? ranked[ix - 1] : null }
+  const fx_ = Math.sin(c.th), fz_ = -Math.cos(c.th)
+  RC.shells.push({ id: RC.kid++, k, x: c.x + fx_ * 5, z: c.z + fz_ * 5, dx: fx_, dz: fz_, target: target ? target.i : -1, owner: c.i, life: k === 'blue' ? 14 : 5 })
+}
+function boltAll(by) { for (const o of RC.cars) { if (o === by || o.star > 0) continue; hitCar(o, 'bolt') } if (by.i !== RC.me) G.flash = Math.max(G.flash || 0, 0.6) }
+export function hitCar(c, kind, fromNet) {
+  if (c.star > 0 || c.hitInv > 0 || c.finished) return
+  if (!fromNet && RC.net && RC.net.role === 'host' && c.remote) { if (RC.net.hit) RC.net.hit(c.i, { k: 'hit', kind }); return }
+  if (kind === 'bolt') { c.slowT = 3.5; c.hitInv = 0.8; c.vx *= 0.7; c.vz *= 0.7 }
+  else { c.spin = kind === 'blue' ? 1.7 : 1.25; c.spinDir = Math.random() < 0.5 ? -1 : 1; c.hitInv = c.spin + 1.3; c.vx *= 0.35; c.vz *= 0.35 }
+  for (let i = 0; i < 14; i++) fx(c.x, 1.6, c.z, R(-12, 12), R(3, 12), R(-12, 12), 0.6, kind === 'bolt' ? '#fff27a' : '#ff8a2a', 0.9)
+  if (c.i === RC.me) { sfx('rCrash'); RC.shake = Math.max(RC.shake, 0.9); RC.msg = { text: kind === 'bolt' ? 'ZAPPED!' : kind === 'banana' ? 'SLIPPED!' : 'HIT!', sub: '', color: '#ff6a4a', t: 1.2 } }
+}
+function useItem(c) {
+  if (!c.item || c.spin > 0 || c.finished) return
+  const it = c.item, fx_ = Math.sin(c.th), fz_ = -Math.cos(c.th)
+  if (it === 'boost' || it === 'triple') { c.boostT = Math.max(c.boostT, it === 'triple' ? 1.3 : 2.2); c.vx += fx_ * 12; c.vz += fz_ * 12; if (c.i === RC.me) { sfx('rBoost'); RC.shake = Math.max(RC.shake, 0.4) } }
+  else if (it === 'banana') { const x = c.x - fx_ * 6.5, z = c.z - fz_ * 6.5; if (isGuest()) evSend({ k: 'drop', t: 'banana', x, z }); else addItem('banana', x, z, c.i); if (c.i === RC.me) sfx('rBump') }
+  else if (it === 'shell' || it === 'blue') { if (isGuest()) evSend({ k: 'shell', t: it }); else fireShell(c, it); if (c.i === RC.me) sfx('rBoost') }
+  else if (it === 'star') { c.star = 7; c.boostT = Math.max(c.boostT, 1); if (c.i === RC.me) { sfx('rNitro'); RC.msg = { text: 'STAR POWER!', sub: '', color: '#ffe84a', t: 1.2 } } }
+  else if (it === 'bolt') { if (isGuest()) evSend({ k: 'bolt' }); else { boltAll(c); if (RC.net && RC.net.role === 'host') RC.cars.forEach((o) => { if (o.remote && o !== c && RC.net.hit) RC.net.hit(o.i, { k: 'bolt' }) }) } if (c.i === RC.me) { sfx('rNitro'); RC.msg = { text: 'LIGHTNING!', sub: '', color: '#fff27a', t: 1.2 } } }
+  c.itemN--
+  if (c.itemN <= 0) c.item = null
+}
+function kartTouch(c) {
+  if (c.finished) return
+  const tk = RC.tk, N = tk.N
+  for (const b of RC.boxes) {
+    if (b.t > 0) continue
+    const di = ((c.idx - b.idx + N + N / 2) % N) - N / 2
+    if (Math.abs(di) < 1.7 && Math.abs(c.lat - b.lat) < 3.4 && !c.remote) {
+      b.t = 4
+      if (!c.item) { c.item = rollItem(c); c.itemN = c.item === 'triple' ? 3 : 1; c.itemT = 0.8 + Math.random() * 1.6; if (c.i === RC.me) sfx('coin') }
+      for (let i = 0; i < 8; i++) fx(c.x, 2, c.z, R(-6, 6), R(2, 8), R(-6, 6), 0.5, '#ffe84a', 0.6)
+    }
+  }
+  for (const it of RC.items) {
+    if (it.dead || (it.owner === c.i && RC.t - it.t0 < 1.2)) continue
+    if (Math.hypot(it.x - c.x, it.z - c.z) < 3.4) {
+      if (c.star > 0) { it.dead = true; if (isGuest()) { RC.deadIds[it.id] = true; evSend({ k: 'itemhit', id: it.id }) } continue }
+      it.dead = true
+      hitCar(c, 'banana')
+      if (isGuest()) { RC.deadIds[it.id] = true; evSend({ k: 'itemhit', id: it.id }) }
+    }
+  }
+  RC.items = RC.items.filter((x) => !x.dead)
+}
+function kartWorld(dt) {
+  for (const b of RC.boxes) if (b.t > 0) b.t -= dt
+  RC.items = RC.items.filter((x) => RC.t - x.t0 < 40)
+  for (const sh of RC.shells) {
+    const tg = sh.target >= 0 ? RC.cars[sh.target] : null
+    const spd = sh.k === 'blue' ? 175 : 140
+    if (tg) { const dx = tg.x - sh.x, dz = tg.z - sh.z, d = Math.hypot(dx, dz) || 1; sh.dx = dx / d; sh.dz = dz / d }
+    sh.x += sh.dx * spd * dt; sh.z += sh.dz * spd * dt; sh.life -= dt
+    for (const o of RC.cars) {
+      if (o.i === sh.owner && sh.life > (sh.k === 'blue' ? 13 : 4.6)) continue
+      if (tg && o !== tg) continue
+      if (Math.hypot(o.x - sh.x, o.z - sh.z) < (sh.k === 'blue' ? 6 : 3.6)) {
+        sh.life = 0
+        if (sh.k === 'blue') { for (const q of RC.cars) if (Math.hypot(q.x - o.x, q.z - o.z) < 14) hitCar(q, 'blue') } else hitCar(o, 'shell')
+        for (let i = 0; i < 16; i++) fx(sh.x, 1.8, sh.z, R(-14, 14), R(3, 14), R(-14, 14), 0.6, sh.k === 'blue' ? '#4da8ff' : '#ff4a2a', 1)
+        break
+      }
+    }
+  }
+  RC.shells = RC.shells.filter((s) => s.life > 0)
+}
+function aiItem(c, dt) {
+  if (!c.item || c.itemT > 0 || c.spin > 0 || c.finished) return
+  const it = c.item
+  let ok = false
+  const fx_ = Math.sin(c.th), fz_ = -Math.cos(c.th)
+  if (it === 'boost' || it === 'triple') ok = Math.abs(c.inp.steer) < 0.35
+  else if (it === 'banana') ok = RC.cars.some((o) => { if (o === c) return false; const dx = o.x - c.x, dz = o.z - c.z; return dx * fx_ + dz * fz_ < -4 && Math.hypot(dx, dz) < 26 })
+  else if (it === 'shell') ok = (c.rank || 1) > 1 || c.itemT < -6
+  else ok = true
+  if (!ok) { c.itemT -= dt * 0 ; c.itemW = (c.itemW || 0) + dt; if (c.itemW > 7) ok = true }
+  if (ok) { c.itemW = 0; useItem(c); c.itemT = it === 'triple' ? 0.9 : 1.5 }
+}
 // ---------- AI ----------
 function aiDrive(c, dt) {
   const tk = RC.tk, N = tk.N, P = tk.P
@@ -331,7 +444,9 @@ function humanInput(c) {
   c.inp.brk = k.ArrowDown || k.KeyS ? 1 : 0
   c.inp.steer = (k.ArrowRight || k.KeyD ? 1 : 0) - (k.ArrowLeft || k.KeyA ? 1 : 0)
   c.inp.drift = !!k.Space
-  c.inp.nitro = !!(k.ShiftLeft || k.ShiftRight || k.KeyE)
+  c.inp.nitro = !RC.cfg.kart && !!(k.ShiftLeft || k.ShiftRight || k.KeyE)
+  const fk = !!(k.KeyF || k.KeyQ || (RC.cfg.kart && (k.ShiftLeft || k.ShiftRight || k.KeyE)))
+  if (fk && !c.fHeld) { c.fHeld = true; if (RC.phase === 'race') useItem(c) } else if (!fk) c.fHeld = false
 }
 
 // ---------- loop ----------
@@ -354,7 +469,7 @@ function update(dtRaw) {
   }
   for (const c of RC.cars) {
     if (c.remote) { remoteStep(c, dt); continue }
-    if (c.human) humanInput(c); else aiDrive(c, dt)
+    if (c.human) humanInput(c); else { aiDrive(c, dt); if (RC.cfg.kart && RC.phase === 'race') aiItem(c, dt) }
     if ((RC.phase === 'race') && !c.finished && c.sp < 4 && (c.inp.thr > 0 || !c.human)) { c.stuck = (c.stuck || 0) + dt; if (c.stuck > (c.human ? 4 : 2.2)) respawn(c) } else c.stuck = 0
     if (c.human && keys.KeyR && RC.phase === 'race' && c.sp < 60 && !c.rHeld) { c.rHeld = true; respawn(c) } else if (!keys.KeyR) c.rHeld = false
     if (RC.phase === 'ready') { if (c.human) { c.inp.thr = 0 } else { c.inp.thr = 0 }; if (RC.count < 0.7 && !c.human) c.inp.thr = 1 }
@@ -362,6 +477,7 @@ function update(dtRaw) {
   }
   carBumps()
   rankOf()
+  if (RC.cfg.kart && !(RC.net && RC.net.role === 'guest')) kartWorld(dt)
   // end of the race
   if (RC.phase === 'race' || RC.phase === 'finish') {
     const me = RC.cars[RC.me]
@@ -399,7 +515,7 @@ function finishRace() {
     profile.raceBest = rb
     const score = Math.round((RC.cars.length - pos + 1) * 1500 + Math.max(0, 140 - (me.finished ? me.finishT : 140)) * 80 + (pos === 1 ? 2500 : 0))
     RC.results.score = score
-    recordScore('race', score)
+    recordScore(RC.cfg.kart ? 'kart' : 'race', score)
     saveProfile()
   }
   sfx(pos <= 3 ? 'win' : 'over')
@@ -422,10 +538,10 @@ export function setRacePick(car, track) { if (car !== undefined) profile.racePic
 // ---------- online (every player drives their own car; the host runs the AI and relays everyone) ----------
 let nT = 0, inT = 0, lastN = -1, nSeq = 0
 const r2 = (v) => Math.round(v * 100) / 100
-const carSnap = (c) => [c.i, r2(c.x), r2(c.z), r2(c.th), r2(c.vx), r2(c.vz), c.lap, r2(c.prog), c.finished ? 1 : 0, r2(c.finishT), c.boostT > 0 ? 1 : 0, c.drifting ? 1 : 0, r2(c.nitro), c.lights]
+const carSnap = (c) => [c.i, r2(c.x), r2(c.z), r2(c.th), r2(c.vx), r2(c.vz), c.lap, r2(c.prog), c.finished ? 1 : 0, r2(c.finishT), c.boostT > 0 ? 1 : 0, c.drifting ? 1 : 0, r2(c.nitro), c.lights, c.star > 0 ? 1 : 0, c.spin > 0 ? 1 : 0, c.slowT > 0 ? 1 : 0]
 function netTick(dt) {
   nT -= dt
-  if (nT <= 0) { nT = RC.net.fast && RC.net.fast() ? 0.05 : 0.15; RC.net.state({ n: ++nSeq, ph: RC.phase, t: r2(RC.t), cnt: r2(RC.count), cars: RC.cars.map(carSnap), cfg: RC.cfg }) }
+  if (nT <= 0) { nT = RC.net.fast && RC.net.fast() ? 0.05 : 0.15; RC.net.state({ n: ++nSeq, ph: RC.phase, t: r2(RC.t), cnt: r2(RC.count), cars: RC.cars.map(carSnap), cfg: RC.cfg, it: RC.items.map((x) => [x.id, x.k, r2(x.x), r2(x.z)]), sh: RC.shells.map((x) => [x.id, x.k, r2(x.x), r2(x.z)]) }) }
 }
 function remoteStep(c, dt) { // a friend's car: follow their last reported state, extrapolating a little
   if (c.tx !== undefined) { c.x += (c.tx - c.x) * Math.min(1, dt * 14); c.z += (c.tz - c.z) * Math.min(1, dt * 14); c.th += angDiff(c.tth, c.th) * Math.min(1, dt * 14) }
@@ -462,7 +578,7 @@ export const raceNet = {
     const c = RC.cars[a[0]]
     if (!c || c.i === RC.me) return
     c.tx = a[1]; c.tz = a[2]; c.tth = a[3]; c.vx = a[4]; c.vz = a[5]; c.lap = a[6]; c.prog = a[7]; if (a[8] && !c.finished) { c.finished = true; c.finishT = a[9] }
-    c.boostT = a[10] ? 1 : 0; c.drifting = !!a[11]; c.nitro = a[12]; c.lights = a[13]
+    c.boostT = a[10] ? 1 : 0; c.drifting = !!a[11]; c.nitro = a[12]; c.lights = a[13]; c.star = a[14] ? 1 : 0; c.spin = a[15] ? 0.2 : 0; c.slowT = a[16] ? 1 : 0
     if (Math.hypot(c.x - c.tx, c.z - c.tz) > 25) { c.x = c.tx; c.z = c.tz; c.th = c.tth }
   },
   // guest: the host's full field (AI cars and relayed friends) and the race clock
@@ -472,7 +588,23 @@ export const raceNet = {
     if (s.ph === 'ready') { RC.count = s.cnt; RC.phase = 'ready' }
     else if (RC.phase === 'ready' && s.ph === 'race') { RC.phase = 'race' }
     for (const a of s.cars) raceNet.applyCar(a)
+    if (s.it) RC.items = s.it.map((a) => ({ id: a[0], k: a[1], x: a[2], z: a[3], t0: -9 })).filter((x) => !RC.deadIds[x.id])
+    if (s.sh) RC.shells = s.sh.map((a) => ({ id: a[0], k: a[1], x: a[2], z: a[3] }))
     if (s.ph === 'results' && RC.phase !== 'results') { const me = RC.cars[RC.me]; if (me && !me.finished) { me.finished = true; me.finishT = RC.t } finishRace() }
+  },
+  // kart items: a driver's request to the host, and the host's hit notices back to a driver
+  hostEvent(i, d) {
+    const c = RC.cars[i]
+    if (!c || !d) return
+    if (d.k === 'drop') addItem(d.t === 'banana' ? 'banana' : 'banana', +d.x || 0, +d.z || 0, i)
+    else if (d.k === 'shell') fireShell(c, d.t === 'blue' ? 'blue' : 'shell')
+    else if (d.k === 'bolt') boltAll(c)
+    else if (d.k === 'itemhit') { RC.items = RC.items.filter((x) => x.id !== d.id) }
+  },
+  guestEvent(d) {
+    const me = RC.cars[RC.me]
+    if (d && d.k === 'hit' && me) hitCar(me, d.kind, true)
+    else if (d && d.k === 'bolt' && me) { if (me.star <= 0) { me.slowT = 3.5; me.hitInv = 0.8 }; G.flash = Math.max(G.flash || 0, 0.6) }
   },
   hostCar(i, a) { const c = RC.cars[i]; if (c && c.remote) raceNet.applyCar(a) },
   playerLeft(i) { const c = RC.cars[i]; if (c) { c.remote = false; c.human = false } },
@@ -577,6 +709,9 @@ function draw3(api) {
   // pads and canisters
   for (const pd of RC.pads) { const p = P[pd.idx], ry = -Math.atan2(p.dz, p.dx); for (let k = 0; k < 3; k++) put3(p.x + p.dx * (k * 2.4 - 2.4) + p.nx * pd.lat, 0.4, p.z + p.dz * (k * 2.4 - 2.4) + p.nz * pd.lat, 4.6, 0.25, 6.4 - k * 1.2, 0, 0.4 + (Math.sin(t * 10 - k) * 0.5 + 0.5), 1.4, 2.4, ry) }
   for (const cn of RC.cans) { if (cn.t > 0) continue; const p = P[cn.idx]; put3(p.x + p.nx * cn.lat, 2.4 + Math.sin(t * 3 + cn.idx) * 0.4, p.z + p.nz * cn.lat, 1.6, 2.6, 1.6, 0, 0.3, 2.2, 1.0, t * 2) }
+  for (const b of RC.boxes || []) { if (b.t > 0) continue; const p = P[b.idx], h = (t * 0.6 + b.idx * 0.1) % 1, hue = [Math.sin(h * TAU) * 0.5 + 0.5, Math.sin(h * TAU + 2.1) * 0.5 + 0.5, Math.sin(h * TAU + 4.2) * 0.5 + 0.5]; put3(p.x + p.nx * b.lat, 3.2 + Math.sin(t * 3 + b.idx) * 0.5, p.z + p.nz * b.lat, 2.6, 2.6, 2.6, 0, hue[0] * 1.6 + 0.3, hue[1] * 1.6 + 0.3, hue[2] * 1.6 + 0.3, t * 1.5); put3(p.x + p.nx * b.lat, 3.2 + Math.sin(t * 3 + b.idx) * 0.5, p.z + p.nz * b.lat, 1.2, 1.2, 1.2, 0, 2, 2, 2, -t * 2) }
+  for (const it of RC.items || []) { put3(it.x, 0.9, it.z, 2.6, 0.7, 1.2, 0, 2.2, 1.9, 0.2, t * 2); put3(it.x, 1.3, it.z, 1.2, 0.6, 2.4, 0, 2.2, 1.9, 0.2, t * 2); put3(it.x, 2.4 + Math.sin(t * 4) * 0.3, it.z, 0.5, 0.5, 0.5, 0, 2.5, 0.4, 0.2, 0) }
+  for (const sh of RC.shells || []) { const bl = sh.k === 'blue', sz = bl ? 3.2 : 2.4; put3(sh.x, 1.8, sh.z, sz, sz * 0.8, sz, 0, bl ? 0.2 : 2.4, bl ? 0.5 : 0.25, bl ? 2.6 : 0.2, t * 14); put3(sh.x, 2.5, sh.z, sz * 0.5, sz * 0.4, sz * 0.5, 0, 2, 2, 2, 0); if (bl) for (let k = 0; k < 4; k++) put3(sh.x + Math.cos(k * 1.57 + t * 8) * 2, 1.8, sh.z + Math.sin(k * 1.57 + t * 8) * 2, 0.8, 0.8, 0.8, 0, 2, 2, 2.4, 0) }
   for (const c of RC.cars) drawCar3(put3, c, t)
   // particles: smoke, sparks and boost flames (bright boxes)
   for (const f of RC.fx) { const k = f.life / f.max, c = lc(f.color), sz = f.size * (0.4 + 0.6 * k); put3(f.x, f.y, f.z, sz, sz, sz, 0, c[0] * 1.5 * k + 0.1, c[1] * 1.5 * k + 0.1, c[2] * 1.5 * k + 0.1) }
@@ -607,6 +742,9 @@ function drawCar3(put3, c, t) {
   if (c.boostT > 0) for (const sd of [-0.6, 0.6]) part(sd, 1.1, 4.4 + Math.random() * 1.6, 1, 0.8, 2 + Math.random(), 2.6, 1.2, 0.2)
   if (c.drifting && c.charge > 0.9) part(0, 5.6, 0, 1.2, 1.2, 1.2, c.charge > 1.8 ? 2.4 : 0.6, c.charge > 1.8 ? 0.3 : 1.6, 2.4)
   if (c.human || c.i === RC.me) part(0, 3.6, 0.4, 0.9, 0.9, 0.9, 0.3, 2.4, 1.0) // beacon on your car
+  if (c.star > 0) { const h = (t * 3) % 1; part(0, 4.8, 0.4, 5.4, 0.5, 8.6, Math.sin(h * TAU) * 0.8 + 1.2, Math.sin(h * TAU + 2.1) * 0.8 + 1.2, Math.sin(h * TAU + 4.2) * 0.8 + 1.2) }
+  if (c.slowT > 0) part(0, 4.6, 0.4, 1.4, 1.4, 1.4, 1.8, 2, 0.4)
+  if (RC.cfg.kart && c.item && c.i === RC.me) part(0, 5.4, 0.4, 1.1, 1.1, 1.1, 2, 2, 2)
 }
 if (typeof window !== 'undefined') { window.__RC = RC; window.__race = raceActions }
 games.race = { update, onKey, draw, draw3, camera: raceCamera, sun: () => { const m = RC.cars[RC.me]; return { x: m ? m.x : 0, z: m ? m.z : 0 } }, stop, sky: () => (RC.tk ? RC.tk.T.sky : '#102040'), fog: () => (RC.tk ? RC.tk.T.fog : '#102040'), fov: () => 62 }
