@@ -454,6 +454,8 @@ function draw3(api) {
   const cx = CL.camX
   for (let k = 0; k < 9; k++) { const x = cx + (((-150 + k * 38 - cx * 0.15) % 342) + 513) % 342 - 171 + Math.sin(k * 7) * 8, h = 90 + (k * 37 % 60), w = 60 + (k * 13 % 30), by = cy * 0.55 - 30; put3(x, by + h / 2, -80 - (k % 3) * 14, w, h, w, 0, (0.55 + (k % 3) * 0.1) * (0.4 + 0.6 * E.T.day), (0.65 + (k % 3) * 0.08) * (0.4 + 0.6 * E.T.day), (0.9 + (k % 3) * 0.05) * (0.45 + 0.55 * E.T.day), k); put3(x, by + h - 6, -80 - (k % 3) * 14, w * 0.45, 16, w * 0.45, 0, 1.6 * E.T.day + 0.4, 1.7 * E.T.day + 0.4, 1.9 * E.T.day + 0.5, k) }
   if (E.T.night > 0.3) for (let i = 0; i < 80; i++) put3(cx - 120 + (i * 53 % 240), cy + 20 + (i * 29 % 70), -120, 1.4, 1.4, 1.4, 0, 1.6 * E.T.night, 1.7 * E.T.night, 2.2 * E.T.night, 0)
+  // drifting snowflakes around the camera (cheap, deterministic)
+  for (let i = 0; i < 70; i++) { const fx0 = cx - 65 + ((i * 37 + t * (2 + (i % 5)) * 1.3 + Math.sin(t * 0.7 + i) * 3) % 130 + 130) % 130, fy0 = cy + 32 - ((t * (4 + (i % 4) * 1.5) + i * 13) % 68), z = -4 + (i * 7 % 16); put3(fx0, fy0, z, 0.32, 0.32, 0.32, 0, 2, 2.1, 2.3, 0) }
   // side walls of the mountain
   for (let i = Math.max(0, Math.floor(lo / FH)); i <= Math.min(CL.floors.length - 1, Math.ceil(hi / FH)); i++) for (const s of [-1, 1]) { put3(s * (HALF + 6), floorY(i) + FH / 2 - 0.4, 0, 12, FH, 6, 0, 0.42 + (i % 2) * 0.05, 0.46, 0.55, 0); put3(s * (HALF + 0.5), floorY(i) + FH - 0.4, 0.2, 1.4, 0.7, 5.6, 0, 1.8, 1.85, 2, 0) }
   // floors
