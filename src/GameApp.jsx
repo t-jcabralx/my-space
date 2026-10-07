@@ -31,6 +31,8 @@ import './game/cards/uno.js'
 import './game/cards/pusoy.js'
 import './game/cards/lucky9.js'
 import './game/cards/tongits.js'
+import './game/cards/baccarat.js'
+import './game/cards/poker.js'
 import { subscribeSettings, getSettings } from './game/settings.js'
 import { isTouchPrimary } from './ui/platform.js'
 

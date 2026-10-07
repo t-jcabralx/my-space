@@ -63,7 +63,7 @@ export default function CardsHUD({ SoundBtn, openHelp, TopPlayersMini }) {
           <div className="ct-title"><b>{s.name}</b><small>{s.info}</small></div>
           <div className="ct-right"><div className="ct-chips">🪙 {Number(s.chips || 0).toLocaleString()}</div><SoundBtn /></div>
         </div>
-        {s.msg && <div className="ct-mid" style={s.id === 'lucky9' ? { top: '31%' } : undefined}><div className="ct-msg" key={s.msg}>{s.msg}</div></div>}
+        {s.msg && <div className="ct-mid" style={s.id === 'lucky9' || s.id === 'baccarat' ? { top: '31%' } : s.id === 'poker' ? { top: '57%' } : undefined}><div className="ct-msg" key={s.msg}>{s.msg}</div></div>}
         {/* UNO centre decorations */}
         {s.id === 'uno' && s.center && (
           <div className="uno-center" style={{ '--c': UCOL[color] }}>
@@ -76,6 +76,7 @@ export default function CardsHUD({ SoundBtn, openHelp, TopPlayersMini }) {
           <div className="pusoy-tag" key={(s.center.combo || '') + (s.center.owner || '')}>{s.center.combo ? `${s.center.owner}: ${s.center.combo}` : 'LEAD ANYTHING'}</div>
         )}
         {s.id === 'tongits' && <div className="tong-stock">STOCK {s.stock}</div>}
+        {s.labels && s.labels.map((l, i) => <div key={i} className={'ct-label' + (l.hot ? ' hot' : '')} style={{ left: l.x + '%', top: l.y + '%', color: l.color }}><b>{l.text}</b>{l.sub !== '' && l.sub !== undefined && <span>{l.sub}</span>}</div>)}
         {s.id === 'lucky9' && s.dealer && (
           <div className="seat dealer" style={{ left: '50%', top: '4%' }}>
             <div className="av">{s.dealer.avatar}</div><b>{s.dealer.name}</b>{s.dealer.val !== null && <span className="val">{s.dealer.val}</span>}{s.dealer.note && <em>{s.dealer.note}</em>}
@@ -88,18 +89,18 @@ export default function CardsHUD({ SoundBtn, openHelp, TopPlayersMini }) {
           <div key={p.id} className={'seat' + (p.turn ? ' turn' : '') + (p.human ? ' me' : '') + (p.danger ? ' danger' : '')} style={{ left: p.x + '%', top: p.y + '%' }}>
             <div className="av">{p.avatar}</div>
             <div className="sn"><b>{p.name}</b>
-              <small>{s.id === 'lucky9' || s.id === 'tongits' ? `🪙 ${Number(p.chips).toLocaleString()}` : s.id === 'pusoy' ? `${p.score} pts · ${p.count} cards` : `${p.score} pts · ${p.count} cards`}{s.id === 'tongits' ? ` · ${p.count} cards` : ''}</small>
+              <small>{s.id === 'lucky9' || s.id === 'tongits' || s.id === 'baccarat' || s.id === 'poker' ? `🪙 ${Number(p.chips).toLocaleString()}` : s.id === 'pusoy' ? `${p.score} pts · ${p.count} cards` : `${p.score} pts · ${p.count} cards`}{s.id === 'tongits' ? ` · ${p.count} cards` : ''}</small>
             </div>
             {p.uno && <span className="badge uno">UNO!</span>}
             {p.val !== null && p.val !== undefined && <span className="val">{p.val}</span>}
             {p.status && <span className="badge">{p.status}</span>}
             {p.note && <span className="badge note">{p.note}</span>}
             {p.tag && <span className={'badge res ' + (p.tagKind || '').toLowerCase()} key={p.tag}>{p.tag}</span>}
-            {s.id === 'lucky9' && p.bet > 0 && <div className="betstack" key={p.bet}>{Array.from({ length: Math.min(5, 1 + Math.floor(p.bet / 100)) }, (_, i) => <i key={i} style={{ bottom: i * 4 }} />)}<span>{p.bet}</span></div>}
+            {(s.id === 'lucky9' || s.id === 'baccarat' || s.id === 'poker') && p.bet > 0 && <div className="betstack" key={p.bet}>{Array.from({ length: Math.min(5, 1 + Math.floor(p.bet / 100)) }, (_, i) => <i key={i} style={{ bottom: i * 4 }} />)}<span>{p.bet}</span></div>}
           </div>
         ))}
         {/* buttons */}
-        <div className={'ct-buttons' + (s.id === 'lucky9' ? ' low' : '')}>
+        <div className={'ct-buttons' + (s.id === 'lucky9' || s.id === 'baccarat' || s.id === 'poker' ? ' low' : '')}>
           {s.buttons.map((b, i) => (
             <button key={b.name + (b.arg ?? '') + i} className={'ct-btn' + (b.hot ? ' hot' : '') + (b.pulse ? ' pulse' : '') + (b.off ? ' off' : '') + (b.chip ? ' chip' : '') + (b.on ? ' on' : '')} disabled={b.off} onClick={() => cardsActions.button(b.name, b.arg)}>{b.label}</button>
           ))}

@@ -4,6 +4,10 @@ import '../src/game/cards/uno.js'
 import '../src/game/cards/pusoy.js'
 import '../src/game/cards/lucky9.js'
 import '../src/game/cards/tongits.js'
+import '../src/game/cards/baccarat.js'
+import '../src/game/cards/poker.js'
+import { bankerDraws, total as bTotal } from '../src/game/cards/baccarat.js'
+import { rank5, cmp, best7 } from '../src/game/cards/poker.js'
 import { isSet, isRun, validMeld, bestMelds, dead } from '../src/game/cards/tongits.js'
 import { total, special, natural } from '../src/game/cards/lucky9.js'
 import { evalCombo, beats } from '../src/game/cards/pusoy.js'
@@ -94,6 +98,58 @@ check('lucky9: suited x2 / x3 / trips x5', special(L9(['2', 'S'], ['9', 'S'])).m
   }
   check('lucky9 human plays 6 rounds', rounds >= 6, 'rounds ' + rounds + ' chips ' + profile.chips)
   cardsActions.button('cash'); check('lucky9 cash out', CS.mode === 'over')
+}
+
+// ---- Baccarat rules ----
+{
+  const { profile } = await import('../src/game/engine.js')
+  check('baccarat: banker rules', bankerDraws(2, 9) && !bankerDraws(3, 8) && bankerDraws(4, 5) && !bankerDraws(4, 9) && bankerDraws(6, 7) && !bankerDraws(6, 5) && !bankerDraws(7, 0) && bankerDraws(5, null) && !bankerDraws(6, null))
+  check('baccarat: K+9 = 9, 7+8 = 5', bTotal(L9(['K', 'S'], ['9', 'H'])) === 9 && bTotal(L9(['7', 'S'], ['8', 'H'])) === 5)
+  profile.chips = 1000
+  cardsActions.start('baccarat', { bots: 3, auto: true })
+  for (let i = 0; i < 60 * 150; i++) update(1 / 60)
+  check('baccarat auto rounds run', CS.mode === 'play', getCardsSnap().info)
+  profile.chips = 1000
+  cardsActions.start('baccarat', { bots: 2 })
+  let rounds = 0, seen = false
+  for (let i = 0; i < 60 * 400 && rounds < 8; i++) {
+    update(1 / 60); if (i % 10 === 0) {
+      notify(); const s = getCardsSnap(); const b = (n, a) => s.buttons.find((x) => x.name === n && (a === undefined || x.arg === a) && !x.off)
+      if (b('deal')) { cardsActions.button('side', ['P', 'B', 'T'][rounds % 3]); cardsActions.button('deal') }
+      else if (b('next')) { seen = seen || s.cards.length >= 4; cardsActions.button('next'); rounds++ }
+      else if (b('loan')) cardsActions.button('loan')
+    }
+  }
+  check('baccarat human plays 8 rounds', rounds >= 8 && seen, 'rounds ' + rounds + ' chips ' + profile.chips)
+  cardsActions.button('cash'); check('baccarat cash out', CS.mode === 'over')
+}
+// ---- Poker hands and a full table ----
+{
+  const { profile } = await import('../src/game/engine.js')
+  const H = (...cs) => cs.map(([r, su]) => ({ rank: r, suit: su }))
+  const sf = rank5(H(['9', 'H'], ['10', 'H'], ['J', 'H'], ['Q', 'H'], ['K', 'H'])), quad = rank5(H(['7', 'H'], ['7', 'S'], ['7', 'D'], ['7', 'C'], ['2', 'H'])), fh = rank5(H(['3', 'H'], ['3', 'S'], ['3', 'D'], ['9', 'C'], ['9', 'H'])), fl = rank5(H(['2', 'H'], ['6', 'H'], ['9', 'H'], ['J', 'H'], ['K', 'H'])), st = rank5(H(['A', 'H'], ['2', 'S'], ['3', 'D'], ['4', 'C'], ['5', 'H'])), tk = rank5(H(['5', 'H'], ['5', 'S'], ['5', 'D'], ['9', 'C'], ['K', 'H'])), tp = rank5(H(['5', 'H'], ['5', 'S'], ['9', 'D'], ['9', 'C'], ['K', 'H'])), pr = rank5(H(['5', 'H'], ['5', 'S'], ['8', 'D'], ['9', 'C'], ['K', 'H'])), hc = rank5(H(['2', 'H'], ['5', 'S'], ['8', 'D'], ['9', 'C'], ['K', 'H']))
+  check('poker: hand order', cmp(sf, quad) > 0 && cmp(quad, fh) > 0 && cmp(fh, fl) > 0 && cmp(fl, st) > 0 && cmp(st, tk) > 0 && cmp(tk, tp) > 0 && cmp(tp, pr) > 0 && cmp(pr, hc) > 0)
+  check('poker: wheel straight is five-high', st[0] === 4 && st[1] === 5)
+  check('poker: kickers decide pairs', cmp(rank5(H(['5', 'H'], ['5', 'S'], ['8', 'D'], ['9', 'C'], ['A', 'H'])), pr) > 0)
+  check('poker: best of 7', best7(H(['A', 'H'], ['K', 'H'], ['Q', 'H'], ['J', 'H'], ['10', 'H'], ['2', 'S'], ['3', 'D']))[0] === 8)
+  profile.chips = 1000
+  cardsActions.start('poker', { bots: 3, auto: true })
+  for (let i = 0; i < 60 * 240; i++) update(1 / 60)
+  check('poker bots play many hands', CS.mode === 'play' && /HAND (\d+)/.test(getCardsSnap().info) && +/HAND (\d+)/.exec(getCardsSnap().info)[1] > 5, getCardsSnap().info)
+  profile.chips = 1000
+  cardsActions.start('poker', { bots: 3 })
+  let hands = 0, sawFlop = false
+  for (let i = 0; i < 60 * 600 && hands < 6; i++) {
+    update(1 / 60); if (i % 10 === 0) {
+      notify(); const s = getCardsSnap(); const b = (n) => s.buttons.find((x) => x.name === n && !x.off)
+      if (s.cards.filter((c) => c.up && c.x >= 30 && c.y === 44).length >= 3) sawFlop = true
+      if (b('check')) cardsActions.button('check'); else if (b('call')) cardsActions.button('call')
+      else if (b('next')) { cardsActions.button('next'); hands++ }
+      else if (b('loan')) cardsActions.button('loan')
+    }
+  }
+  check('poker human plays 6 hands to showdown', hands >= 6 && sawFlop, 'hands ' + hands + ' chips ' + profile.chips)
+  cardsActions.button('cash'); check('poker cash out', CS.mode === 'over')
 }
 
 // ---- Tong-its rule tests ----

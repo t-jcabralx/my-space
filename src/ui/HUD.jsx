@@ -192,11 +192,22 @@ const HELP = {
           <li>A 2-card <b>8 or 9</b> is a <b>natural</b>. Bonuses: all <b>same suit</b> pays ×2 (2 cards) or ×3 (3 cards); <b>three of a kind</b> pays ×5. Ties push (bet returned).</li>
           <li>Out of chips? Take the free <b>loan</b>. <b>CASH OUT</b> to bank your score on the leaderboard.</li>
         </ul>
+        <h5>BACCARAT</h5>
+        <ul>
+          <li>Pick <b>PLAYER</b>, <b>BANKER</b> or <b>TIE</b>, choose a bet and press <b>DEAL</b>. Two cards each; <b>A=1, 2-9 face value, 10/J/Q/K=0</b>; a hand is its <b>total mod 10</b>. Closest to 9 wins.</li>
+          <li>You never draw yourself: the table follows the fixed third-card rules. PLAYER pays 1:1, BANKER pays 0.95:1, TIE pays 8:1 (a tie returns PLAYER/BANKER bets). The coloured dots in the header are the last results (🔵 player, 🔴 banker, 🟢 tie).</li>
+        </ul>
+        <h5>TEXAS HOLD'EM POKER</h5>
+        <ul>
+          <li>You get 2 private cards; five shared cards come out in three steps (<b>flop</b> 3, <b>turn</b> 1, <b>river</b> 1). Make the best 5-card hand from your 2 + the 5. Blinds are 10/20.</li>
+          <li>On your turn: <b>CHECK</b> (free), <b>CALL</b> (match the bet), <b>RAISE</b> (+20/+50/+100), <b>ALL IN</b> or <b>FOLD</b> (give up the hand). Best hand at the showdown wins the pot. Order, best to worst: straight flush, four of a kind, full house, flush, straight, three of a kind, two pair, pair, high card.</li>
+        </ul>
         <h5>TONG-ITS (3 players)</h5>
         <ul>
           <li>Form <b>melds</b>: a <b>set</b> (3-4 of a rank) or a <b>run</b> (3+ of one suit in order, Ace is low). Each turn: <b>draw</b> from the stock, or <b>take the top discard</b> if it makes a meld with cards in your hand (select them, then click the discard pile). Then <b>MELD</b>, <b>sapaw</b> (select card(s), click any meld on the table to add to it), and finally <b>DISCARD</b> one card.</li>
           <li><b>TONG-ITS!</b> Empty your hand to win big (opponents pay double). Face cards are 10 points, Ace 1.</li>
-          <li><b>CALL DRAW</b> (needs an exposed meld, before drawing): opponents <b>FIGHT</b> or <b>FOLD</b>. Lowest leftover points wins; the caller loses ties. Folders pay the caller.</li>
+          <li><b>CALL DRAW</b> (needs an exposed meld, before drawing): the other players must answer <b>FIGHT</b> or <b>FOLD</b>.</li>
+          <li><b>How to answer:</b> the game shows your points next to the caller's. <b>Lower points wins.</b> If yours are lower, press <b>FIGHT</b> and you win the pot. If yours are higher (or equal), press <b>FOLD</b>: it only costs a small stake, while losing a fight costs more. The caller wins ties.</li>
           <li>Anyone with <b>no melds</b> at the end is <b>burned</b> and pays extra. If the stock runs out, the lowest hand wins.</li>
         </ul>
       </>
@@ -1059,9 +1070,11 @@ function CardRoomLobby({ s, onOnline }) {
     ['pusoy', '👑', 'PUSOY DOS', 'Filipino Big Two. 13 cards each, shed them first. Pairs, straights, full houses.'],
     ['lucky9', '🎰', 'LUCKY 9', 'Bet chips, get closest to 9 against the house. Naturals and bonuses.'],
     ['tongits', '🀄', 'TONG-ITS', 'Filipino rummy. Meld, sapaw, call Draw or go Tong-its!'],
+    ['baccarat', '🎴', 'BACCARAT', 'Bet on PLAYER, BANKER or TIE. Closest to 9 wins. Real third-card rules.'],
+    ['poker', '♠️', "TEXAS HOLD'EM", 'Poker against bots or friends: hole cards, flop, turn, river. Fold, call, raise or go all in.'],
   ]
   const start = (auto) => {
-    const opts = game === 'uno' ? { count, stack, target, auto, sevenZero: seven } : game === 'pusoy' ? { target: 40, auto } : game === 'lucky9' ? { bots, auto } : { stake, auto }
+    const opts = game === 'uno' ? { count, stack, target, auto, sevenZero: seven } : game === 'pusoy' ? { target: 40, auto } : game === 'lucky9' || game === 'baccarat' ? { bots, auto } : game === 'poker' ? { bots: Math.max(1, bots), auto } : { stake, auto }
     cardsActions.start(game, opts)
   }
   return (
@@ -1078,10 +1091,10 @@ function CardRoomLobby({ s, onOnline }) {
             <div><h4>PLAY TO</h4><div className="chips">{[100, 200, 500].map((v) => <button key={v} className={'chip ' + (target === v ? 'sel' : '')} onClick={() => setTarget(v)}>{v} PTS</button>)}</div></div>
           </>}
           {game === 'pusoy' && <div><h4>MATCH</h4><div className="chips"><button className="chip sel">FIRST TO 40 POINTS · 4 PLAYERS</button></div></div>}
-          {game === 'lucky9' && <div><h4>OTHER PLAYERS</h4><div className="chips">{[0, 1, 2, 3].map((v) => <button key={v} className={'chip ' + (bots === v ? 'sel' : '')} onClick={() => setBots(v)}>{v} BOTS</button>)}</div></div>}
+          {(game === 'lucky9' || game === 'baccarat' || game === 'poker') && <div><h4>OTHER PLAYERS</h4><div className="chips">{[0, 1, 2, 3].map((v) => <button key={v} className={'chip ' + (bots === v ? 'sel' : '')} onClick={() => setBots(v)}>{v} BOTS</button>)}</div></div>}
           {game === 'tongits' && <div><h4>STAKE PER ROUND</h4><div className="chips">{[50, 100, 200].map((v) => <button key={v} className={'chip ' + (stake === v ? 'sel' : '')} onClick={() => setStake(v)}>🪙 {v}</button>)}</div></div>}
         </div>
-        <div className="lobbyinfo"><b>{GAMES.find((g) => g[0] === game)[2]}</b> · {GAMES.find((g) => g[0] === game)[3]}<br /><small>{game === 'lucky9' || game === 'tongits' ? `Uses your chip bank: 🪙 ${Number(p.chips || 0).toLocaleString()}. Cash out to put your chips on the leaderboard.` : 'Click your cards to play. Glowing cards are playable.'}</small></div>
+        <div className="lobbyinfo"><b>{GAMES.find((g) => g[0] === game)[2]}</b> · {GAMES.find((g) => g[0] === game)[3]}<br /><small>{game === 'lucky9' || game === 'tongits' || game === 'baccarat' || game === 'poker' ? `Uses your chip bank: 🪙 ${Number(p.chips || 0).toLocaleString()}. Cash out to put your chips on the leaderboard.` : 'Click your cards to play. Glowing cards are playable.'}</small></div>
         <div className="chips"><button className="big" onClick={() => start(false)}>▶ SIT DOWN & PLAY</button><button className="big sec" onClick={() => start(true)}>👁 WATCH BOTS</button><button className="big sec" onClick={() => onOnline(game)}>🌐 PLAY WITH FRIENDS</button></div>
       </div>
       <div className="lobbyR">
@@ -1654,7 +1667,7 @@ function TopPlayers({ s, initial = 'space', compact = false, fixed = false }) {
   const lim = compact ? 5 : 10
   useEffect(() => { let on = true; setRows(null); fetchTop(game, lim).then((r) => on && setRows(r)); return () => { on = false } }, [game, lim])
   const me = (s.profile.name || '').toUpperCase()
-  const GAMES = [['space', 'SPACE IMPACT'], ['slug', 'GROUND ZERO'], ['pickle', 'PICKLEBALL'], ['bomber', 'BOMBER BLAST'], ['tetris', 'TETRA BLAST'], ['chomp', 'MAZE CHOMP'], ['uno', 'UNO'], ['pusoy', 'PUSOY DOS'], ['lucky9', 'LUCKY 9'], ['tongits', 'TONG-ITS'], ['race', 'TURBO RUSH'], ['hockey', 'AIR HOCKEY'], ['pool', 'BILLIARDS'], ['td', 'NEON DEFENSE'], ['rogue', 'NEON DEPTHS'], ['rhythm', 'NEON BEAT'], ['word', 'WORD HUNT'], ['merge', '2048 MERGE'], ['c4', 'CONNECT FOUR'], ['snake', 'NEON SNAKE'], ['breaker', 'NEON BREAKER'], ['mines', 'MINE SWEEP'], ['empire', 'EMPIRE RISE']]
+  const GAMES = [['space', 'SPACE IMPACT'], ['slug', 'GROUND ZERO'], ['pickle', 'PICKLEBALL'], ['bomber', 'BOMBER BLAST'], ['tetris', 'TETRA BLAST'], ['chomp', 'MAZE CHOMP'], ['uno', 'UNO'], ['pusoy', 'PUSOY DOS'], ['lucky9', 'LUCKY 9'], ['tongits', 'TONG-ITS'], ['race', 'TURBO RUSH'], ['hockey', 'AIR HOCKEY'], ['pool', 'BILLIARDS'], ['td', 'NEON DEFENSE'], ['rogue', 'NEON DEPTHS'], ['rhythm', 'NEON BEAT'], ['word', 'WORD HUNT'], ['merge', '2048 MERGE'], ['baccarat', 'BACCARAT'], ['poker', 'POKER'], ['c4', 'CONNECT FOUR'], ['snake', 'NEON SNAKE'], ['breaker', 'NEON BREAKER'], ['mines', 'MINE SWEEP'], ['empire', 'EMPIRE RISE']]
   return (
     <div className="topboard">
       <h4>🏆 TOP PLAYERS{fixed ? ' · ' + (GAMES.find(([k]) => k === game) || [0, game])[1] : ''}</h4>

@@ -679,3 +679,7 @@ li.bonus { border-color: var(--gr); color: var(--gr); } li.fail { border-color: 
 
 .mg-shops { position: absolute; left: 50%; bottom: 7cqw; transform: translateX(-50%); display: flex; gap: 1cqw; z-index: 3; pointer-events: none; } .mg-shops span { background: #070c26f2; border: 2px solid #ffd23a; color: #ffe84a; padding: .4cqw .9cqw; font-size: .6em; }
 .mg-ab.atk { border-color: #ff8a2a; background: #3a1608dd; }
+
+.ct-label { position: absolute; transform: translate(-50%, -50%); text-align: center; z-index: 3; pointer-events: none; display: flex; flex-direction: column; gap: .2cqw; text-shadow: 0 0 12px currentColor; } .ct-label b { font-size: .95em; letter-spacing: .12em; } .ct-label span { font-size: 1.6em; color: #fff; } .ct-label.hot { animation: pulse .6s infinite; }
+
+.mg-goal { position: absolute; top: 7cqw; left: 50%; transform: translateX(-50%); z-index: 3; background: #070c26dd; border: 2px solid #ffe84a; color: #ffe84a; padding: .45cqw 1.4cqw; font-size: .62em; white-space: nowrap; pointer-events: none; max-width: 94%; overflow: hidden; text-overflow: ellipsis; }

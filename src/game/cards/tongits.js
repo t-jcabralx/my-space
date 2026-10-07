@@ -333,7 +333,7 @@ function viewerMsg(v) {
   const p = T.players[v]
   if (T.phase === 'challenge' && T.challenge) {
     const caller = T.players[T.challenge.caller]
-    if (T.challenge.waiting.includes(v)) return `${caller.name} called DRAW (${dead(caller.hand)} points). Fight or Fold?`
+    if (T.challenge.waiting.includes(v)) { const me = dead(p.hand), th = dead(caller.hand); return `${caller.name} called DRAW with ${th} points. You have ${me}. ${me < th ? 'Yours is LOWER: FIGHT and you win!' : me === th ? 'A tie goes to the caller: FOLD is safer.' : 'Yours is HIGHER: FIGHT would lose, so FOLD (you pay a small stake).'} (Lowest points wins.)` }
     return `${caller.name} called DRAW…`
   }
   if (T.phase !== 'draw' && T.phase !== 'action') return T.msg
@@ -375,7 +375,7 @@ function snapFor(v) {
       buttons.push({ name: 'auto', label: 'AUTO MELD', off: !myTurn || !bestMelds(me().hand).melds.length })
       buttons.push({ name: 'discardsel', label: 'DISCARD', hot: true, off: !myTurn || sel.length !== 1, pulse: myTurn && sel.length === 1 })
     }
-    if (T.phase === 'challenge' && T.challenge && T.challenge.waiting.includes(v)) { buttons.push({ name: 'fight', label: 'FIGHT ⚔', hot: true, pulse: true }); buttons.push({ name: 'fold', label: 'FOLD', hot: true }) }
+    if (T.phase === 'challenge' && T.challenge && T.challenge.waiting.includes(v)) { { const cl = T.players[T.challenge.caller], mp = dead(me().hand), th = dead(cl.hand), win = mp < th; buttons.push({ name: 'fight', label: `FIGHT ⚔ ${win ? '(YOU WIN: ' + mp + ' vs ' + th + ')' : '(' + mp + ' vs ' + th + ')'}`, hot: win, pulse: win }); buttons.push({ name: 'fold', label: `FOLD (SAFE)`, hot: !win, pulse: !win }) } }
     if (T.phase === 'roundOver' && v === 0) buttons.push({ name: 'next', label: 'NEXT ROUND ▶', hot: true, pulse: true })
     buttons.push({ name: 'sort', label: (T.sortBy[v] || 'suit') === 'suit' ? 'SORT: SUIT' : 'SORT: RANK' })
     if (T.phase !== 'deal' && v === 0) buttons.push({ name: 'cash', label: CS.online ? 'END TABLE' : 'CASH OUT' })

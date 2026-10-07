@@ -33,6 +33,8 @@ const GAMES = [
   ['uno', '🟥', 'UNO', '2-4 humans, bots fill empty seats. Private hands, host runs the table.', 4],
   ['pusoy', '👑', 'PUSOY DOS', '2-4 humans, bots fill empty seats. First to 40 points.', 4],
   ['tongits', '🀄', 'TONG-ITS', '2-3 humans, bots fill the third seat. Everyone starts with 1000 table chips.', 3],
+  ['baccarat', '🎴', 'BACCARAT', 'Bet PLAYER, BANKER or TIE together. 1-4 humans, bots fill empty seats. Everyone starts with 1000 table chips.', 4],
+  ['poker', '♠️', "TEXAS HOLD'EM", 'Real poker with friends: 2-4 humans, bots fill empty seats. Everyone starts with 1000 table chips.', 4],
   ['lucky9', '🎰', 'LUCKY 9', '1-4 humans against the house. Everyone starts with 1000 table chips.', 4],
 ]
 const useRt = () => useSyncExternalStore(subscribeRt, getRt, getRt)

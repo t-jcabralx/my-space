@@ -64,7 +64,7 @@ export const EN = {
   imp: { hp: 26, spd: 16, c: '#ff6a3a', r: 1.3, dmg: 1, gold: 4, shoot: 1.6 },
 }
 const BOSS = CHAPTERS.map((c) => c.boss)
-const PACE = 0.8
+const pace = () => (RG.diff === 'story' ? 0.62 : RG.diff === 'heroic' ? 0.95 : 0.8)
 
 // the story of the Depths (told in cut-scenes when you play alone; shown as banners in co-op)
 const TALE = {
@@ -102,6 +102,20 @@ export const subscribeRogue = (f) => { subs.add(f); return () => subs.delete(f) 
 export const getRogueSnap = () => snap
 const lp = () => RG.players[RG.me] || RG.players[0]
 const alive = () => RG.players.filter((p) => p.alive)
+function roomGoal() {
+  if (RG.mode !== 'play') return ''
+  if (RG.open) {
+    if (RG.chests.some((c) => !c.open && (c.kind === 'puzzle' || c.kind === 'vault'))) return 'OPEN THE CHEST, THEN GO RIGHT ▶'
+    if (RG.secret && RG.secret.found) return 'THE PURPLE LIGHT IS A SECRET VAULT, OR GO RIGHT ▶'
+    return 'ROOM CLEAR: WALK TO THE GLOWING DOOR ON THE RIGHT ▶'
+  }
+  const t = RG.rtype
+  if (t === 'puzzle') return RG.puz && RG.puz.showing ? 'WATCH THE RUNES LIGHT UP…' : 'STEP ON THE RUNES IN THE SAME ORDER'
+  if (t === 'survival') return 'SURVIVE UNTIL THE TIMER ENDS'
+  if (t === 'trap') return 'DEFEAT THEM · AVOID THE GLOWING FLOOR TILES'
+  if (t === 'boss') return 'DEFEAT THE GUARDIAN · DODGE ITS SHOTS, CLICK TO ATTACK'
+  return 'DEFEAT ALL ENEMIES · CLICK TO ATTACK · SPACE TO DASH'
+}
 function emitR() {
   const p = lp()
   const bossE = RG.en.find((e) => e.def && e.def.boss && !e.dead)
@@ -111,7 +125,7 @@ function emitR() {
     choices: p && p.choices ? p.choices.map((c) => ({ id: c.id, name: c.name, ico: c.ico, desc: c.desc })) : null, msg: RG.msg ? { ...RG.msg } : null, over: RG.over,
     boss: bossE ? { name: bossE.def.name, hp: Math.max(0, bossE.hp) / bossE.max } : null, perks: p ? p.perks.slice() : [], open: RG.open,
     coop: RG.players.length > 1 || !!RG.net, net: RG.net ? RG.net.role : null, waiting: RG.players.filter((x) => x.choices).length,
-    team: RG.players.map((x, i) => ({ name: x.name, cls: x.cls, race: x.race, lv: x.lv, hp: x.hp, max: x.max, alive: x.alive, me: i === RG.me })), theme: themeOf().name, abyss: RG.abyss, aroom: RG.room + 1, aroomN: ABYSS_ROOMS, atitle: RG.abyss ? abyssRoom(Math.min(RG.room, ABYSS_ROOMS - 1)).title : '', surv: Math.ceil(RG.surv), orb: p ? (ORBS.find((o) => o.id === p.orb) || ORBS[0]) : ORBS[0], relic: p ? (() => { const d = RELICS.find((o) => o.id === p.relic) || RELICS[0]; return { id: d.id, name: d.name, ico: d.ico, cd: d.cd ? Math.max(0, p.rT) / d.cd : 0, has: d.id !== 'none' } })() : null, shops: RG.chests.filter((c) => c.kind === 'shop' && !c.open).map((c) => ({ label: c.label, price: c.price })), hazard: RG.hz.length > 0, urns: RG.urns.length, slow: RG.slowT > 0, chapter: RG.chapter, chName: CHAPTERS[RG.chapter - 1].name, chSub: CHAPTERS[RG.chapter - 1].sub, roomN: RG.room + 1, rooms: ROOMS, rtype: RG.rtype, sub: RG.sub, puz: RG.puz ? { step: RG.puz.step, n: RG.puz.seq.length, showing: RG.puz.showing, solved: RG.puz.solved } : null, secretHint: !!(RG.secret && !RG.secret.found && RG.open), secretOpen: !!(RG.secret && RG.secret.found), wpn: p ? (WEAPONS[CLASSES[p.cls].id].find((w) => w.id === p.wid) || {}) : {}, pwr: p ? (POWERS.find((w) => w.id === p.pw) || {}) : {}, dead: !!(p && !p.alive), lv: p ? p.lv : 1, xp: p ? p.xp : 0, need: p ? (p.lv >= MAXLV ? 1 : xpNeed(p.lv)) : 1, race: p ? p.race : 0, pet: p ? p.pet : 0, petName: p && p.pet ? petInfo(PETS[p.pet].id).name : '', petLv: p && p.pet ? petInfo(PETS[p.pet].id).lv : 0, buff: p ? p.buff > 0 : false,
+    team: RG.players.map((x, i) => ({ name: x.name, cls: x.cls, race: x.race, lv: x.lv, hp: x.hp, max: x.max, alive: x.alive, me: i === RG.me })), theme: themeOf().name, goal: roomGoal(), remain: RG.en.filter((e) => !e.dead).length + RG.spawnQ.length, abyss: RG.abyss, aroom: RG.room + 1, aroomN: ABYSS_ROOMS, atitle: RG.abyss ? abyssRoom(Math.min(RG.room, ABYSS_ROOMS - 1)).title : '', surv: Math.ceil(RG.surv), orb: p ? (ORBS.find((o) => o.id === p.orb) || ORBS[0]) : ORBS[0], relic: p ? (() => { const d = RELICS.find((o) => o.id === p.relic) || RELICS[0]; return { id: d.id, name: d.name, ico: d.ico, cd: d.cd ? Math.max(0, p.rT) / d.cd : 0, has: d.id !== 'none' } })() : null, shops: RG.chests.filter((c) => c.kind === 'shop' && !c.open).map((c) => ({ label: c.label, price: c.price })), hazard: RG.hz.length > 0, urns: RG.urns.length, slow: RG.slowT > 0, chapter: RG.chapter, chName: CHAPTERS[RG.chapter - 1].name, chSub: CHAPTERS[RG.chapter - 1].sub, roomN: RG.room + 1, rooms: ROOMS, rtype: RG.rtype, sub: RG.sub, puz: RG.puz ? { step: RG.puz.step, n: RG.puz.seq.length, showing: RG.puz.showing, solved: RG.puz.solved } : null, secretHint: !!(RG.secret && !RG.secret.found && RG.open), secretOpen: !!(RG.secret && RG.secret.found), wpn: p ? (WEAPONS[CLASSES[p.cls].id].find((w) => w.id === p.wid) || {}) : {}, pwr: p ? (POWERS.find((w) => w.id === p.pw) || {}) : {}, dead: !!(p && !p.alive), lv: p ? p.lv : 1, xp: p ? p.xp : 0, need: p ? (p.lv >= MAXLV ? 1 : xpNeed(p.lv)) : 1, race: p ? p.race : 0, pet: p ? p.pet : 0, petName: p && p.pet ? petInfo(PETS[p.pet].id).name : '', petLv: p && p.pet ? petInfo(PETS[p.pet].id).lv : 0, buff: p ? p.buff > 0 : false,
     skills: p ? SKILLS[CLASSES[p.cls].id].map((k, i) => ({ name: k.name, ico: k.ico, lv: k.lv, open: p.lv >= k.lv, cd: Math.max(0, i === 0 ? p.spT : i === 1 ? p.sT2 : p.sT3) / (k.cd * p.spCd / 9) })) : [], tale: RG.tale ? { who: TALE.who[RG.tale.lines[RG.tale.i][0]], text: RG.tale.lines[RG.tale.i][1], i: RG.tale.i, n: RG.tale.lines.length } : null,
   }
   subs.forEach((f) => f())
@@ -515,7 +529,7 @@ function killEnemy(e) {
   const c = col(e.def.c); for (let i = 0; i < (e.def.boss ? 40 : 10); i++) part(e.x, e.y, R(-34, 34), R(-34, 34), R(0.25, 0.7), c, R(0.8, 1.7))
   sfx('rgKill'); if (e.def.boss) { shake(2); flash(0.5, [1, 1, 1]) }
   const g = e.def.gold; for (let i = 0; i < g; i++) RG.loot.push({ k: 'gold', x: e.x + R(-2, 2), y: e.y + R(-2, 2), vx: R(-12, 12), vy: R(-12, 12), v: 1 })
-  if (Math.random() < 0.07 || e.def.boss) RG.loot.push({ k: 'heart', x: e.x, y: e.y, vx: 0, vy: 0, v: 1 })
+  if (Math.random() < (RG.diff === 'story' ? 0.2 : 0.07) || e.def.boss) RG.loot.push({ k: 'heart', x: e.x, y: e.y, vx: 0, vy: 0, v: 1 })
   const by = e.by
   if (by && by.alive && by.vamp && Math.random() < by.vamp) { by.hp = Math.min(by.max, by.hp + 1) }
   if (by && by.alive && by.orb === 'vampire') { by.vk++; if (by.vk >= 8) { by.vk = 0; by.hp = Math.min(by.max, by.hp + 1); part(by.x, by.y, 0, 14, 0.6, col('#ff4a6a'), 1.6) } }
@@ -789,7 +803,7 @@ function update(dtRaw) {
     e.flash = Math.max(0, e.flash - dt)
     if (e.spawnT > 0) { e.spawnT -= dt; continue }
     // the monsters move a little slower than the heroes: the dungeon is something to read, not just to survive
-    let edt = dt * PACE * (RG.slowT > 0 ? 0.35 : 1)
+    let edt = dt * pace() * (RG.slowT > 0 ? 0.35 : 1)
     if (e.burn) { e.burn.t -= dt; e.hp -= e.burn.dps * dt; if (Math.random() < 0.3) part(e.x + R(-1, 1), e.y + R(-1, 1), 0, 14, 0.4, col('#ff9a3a'), 1.1); if (e.burn.t <= 0) e.burn = null; if (e.hp <= 0) { e.by = e.burn ? e.burn.by : e.by; killEnemy(e); continue } }
     for (const q of RG.players) if (q.aura && q.alive && Math.hypot(q.x - e.x, q.y - e.y) < 11) { edt *= 0.7; break }
     enemyAI(e, edt)
@@ -809,7 +823,7 @@ function update(dtRaw) {
   }
   RG.pb = RG.pb.filter((b) => b.life > 0)
   for (const b of RG.eb) {
-    b.life -= dt; b.x += b.vx * dt * PACE; b.y += b.vy * dt * PACE
+    b.life -= dt; b.x += b.vx * dt * pace(); b.y += b.vy * dt * pace()
     if (Math.abs(b.x) > AX || Math.abs(b.y) > AY) { b.life = 0; continue }
     let hit = false
     for (const q of RG.players) if (q.alive && Math.hypot(b.x - q.x, b.y - q.y) < b.r + 1.0) { b.life = 0; hurtPlayer(q, b.dmg); hit = true; break }

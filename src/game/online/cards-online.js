@@ -5,6 +5,8 @@ import { unoApi } from '../cards/uno.js'
 import { pusoyApi } from '../cards/pusoy.js'
 import { lucky9Api } from '../cards/lucky9.js'
 import { tongitsApi } from '../cards/tongits.js'
+import { baccaratApi } from '../cards/baccarat.js'
+import { pokerApi } from '../cards/poker.js'
 import { RT, send, onMsg, isHost, alive, roomAction } from './rt.js'
 import { profile, saveProfile, recordScore, G, announce } from '../engine.js'
 import { sfx } from '../audio.js'
@@ -12,8 +14,8 @@ import { sfx } from '../audio.js'
 let installed = false
 const HOSTED = { current: null }
 let LASTOPTS = {}
-const APIS = { uno: unoApi, pusoy: pusoyApi, lucky9: lucky9Api, tongits: tongitsApi }
-const SEATS = { uno: 4, pusoy: 4, lucky9: 4, tongits: 3 }
+const APIS = { uno: unoApi, pusoy: pusoyApi, lucky9: lucky9Api, tongits: tongitsApi, baccarat: baccaratApi, poker: pokerApi }
+const SEATS = { uno: 4, pusoy: 4, lucky9: 4, tongits: 3, baccarat: 4, poker: 4 }
 const WINFIELD = { uno: 'unoWins', pusoy: 'pusoyWins' }
 
 // ---------------- HOST ----------------
@@ -25,6 +27,8 @@ export async function hostCardGame(game, opts) {
   LASTOPTS = { ...opts, game }
   const humans = [room.players.find((p) => p.id === RT.cid), ...room.players.filter((p) => p.id !== RT.cid)].map((p) => ({ cid: p.id, name: p.name }))
   const count = game === 'uno' ? Math.min(4, Math.max(humans.length, Number(opts.count) || 4)) : SEATS[game]
+  if (game === 'poker') opts = { ...opts, bots: Math.max(0, 4 - humans.length) }
+  if (game === 'baccarat') opts = { ...opts, bots: Math.max(0, 3 - humans.length) }
   CS.online = { host: true, game, onEnd: () => { send('gend', {}).catch(() => {}); if (isHost()) roomAction('finish').catch(() => {}); HOSTED.current = null } }
   CS.onNotify = () => push(false)
   HOSTED.current = { game, humans, last: {}, lastSend: 0, pending: false }

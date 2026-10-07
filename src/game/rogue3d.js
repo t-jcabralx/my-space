@@ -408,7 +408,7 @@ export function drawRogue3(api, RG, CLASSES) {
     put3(AX + 3, 7.5, z, 0.9 * fl, 1.4 * fl, 0.9 * fl, t * 3, 3.2, 1.7 * fl, 0.4); put3(AX + 3, 8.4, z, 0.5, 0.9 * fl, 0.5, 0, 3.4, 2.4, 0.7)
   }
   put3(AX + 3, 7.6, 0, 1.2, 1.2, 18, 0, 0.2, 0.17, 0.14)
-  if (RG.open) { for (let k = -8; k <= 8; k += 1) { const gl = 0.6 + Math.sin(t * 5 + k) * 0.4; put3(AX + 3, 3.2 + Math.sin(t * 3 + k * 0.7) * 0.4, k, 0.5, 6, 0.9, 0, th.glow[0] * gl + 0.3, th.glow[1] * gl + 0.3, th.glow[2] * gl + 0.3) } }
+  if (RG.open) { for (let k = 0; k < 14; k++) { const gl = 0.5 + 0.5 * Math.sin(t * 3 - k * 0.6); put3(AX + 3, 8 + k * 2.2, 0, 1.3, 1.6, 1.3, 0, th.glow[0] * gl + 0.4, th.glow[1] * gl + 0.4, th.glow[2] * gl + 0.4, 0) } for (let k = -8; k <= 8; k += 1) { const gl = 0.6 + Math.sin(t * 5 + k) * 0.4; put3(AX + 3, 3.2 + Math.sin(t * 3 + k * 0.7) * 0.4, k, 0.5, 6, 0.9, 0, th.glow[0] * gl + 0.3, th.glow[1] * gl + 0.3, th.glow[2] * gl + 0.3) } }
   else for (let k = -8; k <= 8; k += 2) { put3(AX + 3, 3, k, 0.7, 6.5, 0.7, Math.sin(k) * 0.2, 0.4, 0.1, 0.12); put3(AX + 3, 5, k + 1, 0.7, 0.7, 0.7, 0, 2.2, 0.2, 0.25) }
   // spawn points
   for (const s of RG.spawnQ) { const c = hex(EN_COLOR(s.type), 1); for (let k = 0; k < 10; k++) { const a = (k / 10) * TAU + t * 3, rr = 2.2 + Math.sin(t * 8 + k) * 0.4; put3(s.x + Math.cos(a) * rr, 0.3, -s.y + Math.sin(a) * rr, 0.5, 0.4, 0.5, 0, c[0] * 2.2, c[1] * 2.2, c[2] * 2.2) } }

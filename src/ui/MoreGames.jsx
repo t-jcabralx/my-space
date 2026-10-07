@@ -319,7 +319,7 @@ export function RogueHUD({ openHelp }) {
         <div className="mg-rgctl">
           {touch && <Stick onMove={rogueActions.stick} />}
           <div className="mg-abil">
-            {touch && <button className="mg-ab atk" onPointerDown={(e) => { e.stopPropagation(); rogueActions.hold(true) }} onPointerUp={() => rogueActions.hold(false)} onPointerCancel={() => rogueActions.hold(false)}>⚔<small>ATTACK</small></button>}
+            {<button className="mg-ab atk" onPointerDown={(e) => { e.stopPropagation(); rogueActions.hold(true) }} onPointerUp={() => rogueActions.hold(false)} onPointerCancel={() => rogueActions.hold(false)}>⚔<small>ATTACK</small></button>}
             {g.relic && g.relic.has && <button className={'mg-ab ' + (g.relic.cd > 0 ? 'cd' : '')} onClick={rogueActions.relic} title={g.relic.name}><i style={{ height: g.relic.cd * 100 + '%' }} />{g.relic.ico}<small>F</small></button>}
             <button className={'mg-ab ' + (g.dash > 0 ? 'cd' : '')} onClick={rogueActions.dash}><i style={{ height: g.dash * 100 + '%' }} />💨<small>DASH</small></button>
             {g.skills.map((k, i) => <button key={k.name} className={'mg-ab ' + (!k.open ? 'locked ' : k.cd > 0 ? 'cd' : '')} disabled={!k.open} onClick={() => rogueActions.special(i)} title={k.name}><i style={{ height: (k.open ? k.cd : 1) * 100 + '%' }} />{k.open ? k.ico : '🔒'}<small>{['Q', 'E', 'R'][i]}{!k.open ? ' LV' + k.lv : ''}</small></button>)}
@@ -329,6 +329,7 @@ export function RogueHUD({ openHelp }) {
       {g.surv > 0 && <div className="mg-hint">⏳ SURVIVE {g.surv}s</div>}
       {g.shops && g.shops.length > 0 && <div className="mg-shops">{g.shops.map((sh, i) => <span key={i}>{sh.label} · 🪙{sh.price}</span>)}</div>}
       {g.mode === 'play' && g.slow && <div className="mg-hint">⏳ TIME IS SLOW</div>}
+      {g.goal && g.mode === 'play' && !g.tale && <div className="mg-goal">🎯 {g.goal}{g.remain > 0 && !g.open ? ' · ' + g.remain + ' LEFT' : ''}</div>}
       {g.puz && !g.puz.solved && <div className="mg-hint">{g.puz.showing ? '🔮 WATCH THE RUNES…' : '🔮 STEP ON THE RUNES IN ORDER · ' + g.puz.step + '/' + g.puz.n + ' · THE MIDDLE PEDESTAL REPLAYS IT'}</div>}
       {g.secretHint && <div className="mg-hint">THE WALL AT THE TOP LOOKS CRACKED… ATTACK IT?</div>}
       {g.secretOpen && <div className="mg-hint">A HIDDEN PASSAGE IS OPEN · WALK INTO THE PURPLE LIGHT</div>}
