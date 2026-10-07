@@ -265,6 +265,8 @@ function update(dtRaw) {
   HT.mons = HT.mons.filter((m) => !m.dead)
   for (const k of HT.pick) { k.life -= dt; for (const p of HT.players) if (!p.down && Math.hypot(p.x - k.x, p.y - k.y) < 2.6) { k.life = 0; if (k.k === 'scrap') { p.scrap += k.v; sfx('coin') } else if (k.k === 'ammo') { p.reserve += k.v; sfx('pickup') } else { p.hp = Math.min(p.max, p.hp + k.v); sfx('rgHeart') } } }
   HT.pick = HT.pick.filter((k) => k.life > 0)
+  // anything still lurking when the sun is well up burns away (also frees stuck monsters)
+  if (HT.kind === 'days' && !HT.spawnQ.length && HT.phaseT > HT.nightLen + 25) { for (const m of HT.mons) if (!m.dead && m.type !== 'king') killMon(m); HT.mons = HT.mons.filter((m) => !m.dead) }
   // dawn
   if (HT.kind === 'days' && !HT.spawnQ.length && !HT.mons.length && HT.phaseT > 5) dawn()
   // everyone down: it is over
