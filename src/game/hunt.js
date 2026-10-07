@@ -8,7 +8,7 @@ import { clamp, rng } from './pxl.js'
 import { unprojectGround } from './rogue3d.js'
 import { registerNet, gameEnded } from './online/gnet.js'
 
-export const AW = 110, AH = 68, DAYS = 13
+export const AW = 230, AH = 135, DAYS = 13
 const TAU = Math.PI * 2
 const angDiff = (a, b) => { let d = a - b; while (d > Math.PI) d -= TAU; while (d < -Math.PI) d += TAU; return d }
 export const MONS = {
@@ -53,13 +53,19 @@ function buildWorld(seed) {
   // a graveyard in one corner and a wrecked car in the other
   for (let i = 0; i < 4; i++) for (let j = 0; j < 3; j++) HT.obst.push({ x: -AW + 26 + i * 6, y: AH - 24 + j * 6, r: 1.1, tomb: true })
   HT.obst.push({ x: AW - 28, y: -AH + 22, r: 3.2, car: true })
-  for (let i = 0; i < 230; i++) {
+  // outposts with a campfire and a ring of crates, and ruined watchtowers, spread over the wide map
+  for (const [ox, oy] of [[-120, -60], [120, 60], [-110, 70], [115, -70], [0, 100], [0, -105], [-190, 0], [190, 0]]) {
+    HT.decor.push({ x: ox, y: oy, fire: true })
+    for (let k = 0; k < 4; k++) HT.obst.push({ x: ox + Math.cos(k * 1.57 + 0.6) * 7, y: oy + Math.sin(k * 1.57 + 0.6) * 7, r: 1.6, crate: true, hp: 40 })
+    HT.obst.push({ x: ox + 14, y: oy + 6, r: 2.4, tower: true })
+  }
+  for (let i = 0; i < 1100; i++) {
     const x = (r() * 2 - 1) * (AW - 3), y = (r() * 2 - 1) * (AH - 3), rock = r() < 0.28, rr = rock ? 1.8 : r() < 0.7 ? 1.6 : 2.4
     if (!free(x, y, rr)) continue
     HT.obst.push({ x, y, r: rr, rock, h: 0.8 + r() * 0.9 })
   }
   let crates = 0
-  for (let i = 0; i < 400 && crates < 30; i++) {
+  for (let i = 0; i < 1500 && crates < 60; i++) {
     const x = (r() * 2 - 1) * (AW - 6), y = (r() * 2 - 1) * (AH - 6)
     if (!free(x, y, 1.6)) continue
     HT.obst.push({ x, y, r: 1.6, crate: true, hp: 40 }); crates++
@@ -544,6 +550,7 @@ function draw3(api) {
     if (o.cabin) { put3(o.x, 3.2, -o.y, 11, 6.4, 8, 0, 0.32, 0.2, 0.12, 0); put3(o.x, 7.4, -o.y, 12.6, 1.8, 9.4, 0, 0.22, 0.1, 0.08, 0); put3(o.x, 9.2, -o.y, 8, 1.8, 7, 0, 0.2, 0.09, 0.07, 0); put3(o.x + 3.2, 4, -o.y + 4.1, 1.8, 2, 0.3, 0, HT.phase === 'dawn' ? 1 : 2.4, HT.phase === 'dawn' ? 1 : 1.8, 0.5, 0); put3(o.x - 3, 4, -o.y + 4.1, 1.8, 2, 0.3, 0, 2.4, 1.8, 0.5, 0); put3(o.x + 4, 9.8, -o.y, 1.4, 3.4, 1.4, 0, 0.18, 0.12, 0.1, 0); continue }
     if (o.tomb) { put3(o.x, 1.4, -o.y, 1.6, 2.8, 0.6, 0, 0.3, 0.3, 0.34, o.x); put3(o.x, 0.3, -o.y + 1.2, 2, 0.5, 2.6, 0, 0.06, 0.05, 0.04, 0); continue }
     if (o.car) { put3(o.x, 1.3, -o.y, 7, 1.8, 3.6, 0, 0.3, 0.1, 0.08, 0.3); put3(o.x - 0.5, 2.8, -o.y, 3.6, 1.4, 3, 0, 0.2, 0.08, 0.07, 0.3); put3(o.x + 1.4, 0.6, -o.y + 2, 1.2, 1.2, 0.5, 0, 0.05, 0.05, 0.05, 0); continue }
+    if (o.tower) { put3(o.x, 4, -o.y, 3.4, 8, 3.4, 0, 0.16, 0.14, 0.14, 0.2); put3(o.x, 8.6, -o.y, 5.4, 1, 5.4, 0, 0.2, 0.14, 0.1, 0.2); continue }
     if (o.crate) { put3(o.x, 1.4, -o.y, 2.8, 2.8, 2.8, 0, 0.45, 0.3, 0.12, o.x); put3(o.x, 1.4, -o.y, 3, 0.4, 3, 0, 0.3, 0.2, 0.08, o.x); put3(o.x, 3.1, -o.y, 0.8, 0.5, 0.8, 0, 2.2, 1.8, 0.4, t * 2); continue }
     if (o.rock) { put3(o.x, o.r * 0.5, -o.y, o.r * 2.1, o.r * 1.2, o.r * 1.8, 0, 0.2, 0.2, 0.24, o.x); continue }
     put3(o.x, 1, -o.y, 0.7, 2, 0.7, 0, 0.18, 0.1, 0.06, 0); put3(o.x, 3 * o.h, -o.y, 3.6 * o.h, 2.2, 3.6 * o.h, 0, 0.05, 0.16, 0.07, o.x); put3(o.x, 5 * o.h, -o.y, 2.4 * o.h, 2.2, 2.4 * o.h, 0, 0.05, 0.2, 0.08, o.x + 0.4); put3(o.x, 6.8 * o.h, -o.y, 1.2 * o.h, 1.6, 1.2 * o.h, 0, 0.06, 0.22, 0.09, o.x + 0.8)

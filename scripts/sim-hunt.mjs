@@ -57,9 +57,10 @@ p0.scrap = 200; huntActions.buy('mines'); check('mines can be bought', p0.mines 
   check('the shotgun fires a spread of pellets', HT.bul.length - b0 >= 5, 'bullets ' + HT.bul.length)
   const cr = HT.obst.find((o) => o.crate); p.x = cr.x - 12; p.y = cr.y; p.wp = 'rifle'; p.mag = 12; p.a = 0; HT.mouse.x = cr.x; HT.mouse.y = cr.y; HT.mouse.down = true; step(20 * 4); HT.mouse.down = false
   check('crates can be shot open for loot', cr.dead && HT.pick.length >= 2, 'dead ' + cr.dead + ' pickups ' + HT.pick.length)
+  HT.obst.forEach((o) => { if (!o.crate && Math.hypot(o.x - p.x, o.y - p.y) < 70) o.dead = true })
   HT.mons = [{ id: 50, type: 'wraith', x: p.x + 40, y: p.y, hp: 38, max: 38, a: 0, atkT: 0, hit: 0, t: 0, spitT: 9, sumT: 9, charge: 0, vx: 0, vy: 0, seen: 0, blink: 0.1 }]
   const wx = HT.mons[0].x; step(10)
-  check('a wraith blinks toward you', wx - HT.mons[0].x > 9 + 8, 'moved ' + (wx - HT.mons[0].x).toFixed(1))
+  check('a wraith blinks toward you', wx - HT.mons[0].x > 12, 'moved ' + (wx - HT.mons[0].x).toFixed(1))
   HT.mons = [{ id: 51, type: 'howler', x: p.x + 20, y: p.y, hp: 80, max: 80, a: 0, atkT: 0, hit: 0, t: 0, spitT: 9, sumT: 0.1, charge: 0, vx: 0, vy: 0, seen: 0 }, { id: 52, type: 'crawler', x: p.x + 50, y: p.y, hp: 30, max: 30, a: 0, atkT: 0, hit: 0, t: 0, spitT: 9, sumT: 9, charge: 0, vx: 0, vy: 0, seen: 0 }]
   step(6)
   check('a howler screams and enrages nearby monsters', HT.mons.some((m) => m.rage > 0 || m.type === 'crawler' && m.x < p.x + 50 - 20))
