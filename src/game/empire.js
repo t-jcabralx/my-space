@@ -28,6 +28,12 @@ export const BDEF = {
   wall: { name: 'WALL', w: 1, hp: 280, cost: { stone: 12 }, ico: '🧱', lv: 1, desc: 'Blocks the way' },
   wonder: { name: 'WONDER', w: 4, hp: 1800, cost: { wood: 700, stone: 700, gold: 600 }, ico: '🗽', lv: 4, desc: 'Hold it for 2.5 minutes to win' },
 }
+// upgrades: every working building can grow to level 3 (the hall's rank sets how far)
+export const UPGRADABLE = ['house', 'farm', 'lumber', 'quarry', 'mine', 'barracks', 'tower']
+export const BLV_MAX = 3
+export const BLV_NAME = ['', 'BASIC', 'IMPROVED', 'MASTER']
+export const upCost = (b) => { const c = {}; for (const k in BDEF[b.type].cost) c[k] = Math.round(BDEF[b.type].cost[k] * (1 + b.lv * 1.2)); if (!c.stone) c.stone = 25 * b.lv; if (b.lv >= 2 && (b.type === 'mine' || b.type === 'barracks' || b.type === 'tower')) c.gold = 40; return c }
+export const UP_DESC = { house: '+3 population per level', farm: '+50% food per level', lumber: '+50% wood per level', quarry: '+50% stone per level', mine: '+50% gold per level', barracks: 'Trains 15% faster per level', tower: 'Longer range and +35% damage per level' }
 export const BORDER = ['house', 'farm', 'lumber', 'quarry', 'mine', 'barracks', 'tower', 'wall', 'wonder']
 export const HALL_UP = [null, { wood: 150, stone: 100 }, { wood: 400, stone: 300, gold: 150 }, { wood: 900, stone: 700, gold: 400 }]
 export const HALL_NAME = ['', 'VILLAGE', 'TOWN', 'CITY', 'EMPIRE']
@@ -150,7 +156,7 @@ export function canPlace(type, i, j, owner) {
 }
 const countB = (owner, type) => EM.B.filter((b) => b.owner === owner && b.type === type).length
 const bldCap = (owner) => 14 + (hall(owner) ? hall(owner).lv : 1) * 10
-function popOf(owner) { let used = 0; for (const u of EM.U) if (u.owner === owner) used += UDEF[u.type].pop; for (const b of EM.B) if (b.owner === owner) for (const q of b.q) used += UDEF[q.u].pop; const h = hall(owner); let cap = h ? 10 + (h.lv - 1) * 6 : 0; for (const b of EM.B) if (b.owner === owner && b.type === 'house' && b.built) cap += 6; return [used, cap] }
+function popOf(owner) { let used = 0; for (const u of EM.U) if (u.owner === owner) used += UDEF[u.type].pop; for (const b of EM.B) if (b.owner === owner) for (const q of b.q) used += UDEF[q.u].pop; const h = hall(owner); let cap = h ? 10 + (h.lv - 1) * 6 : 0; for (const b of EM.B) if (b.owner === owner && b.type === 'house' && b.built) cap += 6 + 3 * ((b.lv || 1) - 1); return [used, cap] }
 function resNear(b, kind) { let n = 0; for (let y = -3; y < b.w + 3; y++) for (let x = -3; x < b.w + 3; x++) { if (inMap(b.x + x, b.y + y) && EM.terr[ix(b.x + x, b.y + y)] === kind) n++ } return n }
 const prodMul = (owner) => { const h = hall(owner); return 1 + 0.25 * ((h ? h.lv : 1) - 1) }
 
@@ -174,9 +180,20 @@ export function doTrain(pi, bid, ut) {
   if (!costOk(pl.res, d.cost)) return false
   pay(pl.res, d.cost); b.q.push({ u: ut, t: d.t }); return true
 }
+export const upCap = (pi) => { const h = hall(pi); return h ? Math.min(BLV_MAX, h.lv + 1) : 1 }
 export function doUpgrade(pi, bid) {
   const pl = EM.P[pi], b = bById(bid)
-  if (!pl || !b || b.owner !== pi || b.type !== 'hall' || b.lv >= 4) return false
+  if (!pl || !b || b.owner !== pi) return false
+  if (b.type !== 'hall') {
+    if (!UPGRADABLE.includes(b.type) || !b.built || b.lv >= upCap(pi)) return false
+    const c = upCost(b); if (!costOk(pl.res, c)) return false
+    pay(pl.res, c); b.lv++
+    const add = Math.round(BDEF[b.type].hp * 0.45); b.max += add; b.hp = Math.min(b.max, b.hp + add); b.upT = 2.6
+    ring((b.x + b.w / 2) * T, (b.y + b.w / 2) * T, 22, 30, [col('#ffd23a')])
+    if (pi === EM.me) { sfx('emUp'); EM.beat = { text: BDEF[b.type].name + ' IS NOW ' + BLV_NAME[b.lv], sub: (UP_DESC[b.type] || '') + (b.lv === 2 && EM.scen ? ' · NOVA: LOOK AT HER SHINE!' : ''), color: '#ffd23a', t: 3 } }
+    return true
+  }
+  if (b.lv >= 4) return false
   const c = HALL_UP[b.lv]; if (!costOk(pl.res, c)) return false
   pay(pl.res, c); b.lv++; b.max += 350; b.hp = Math.min(b.max, b.hp + 350); pl.hallLv = b.lv
   ring((b.x + 1.5) * T, (b.y + 1.5) * T, 40, 50, [col('#ffd23a')]); if (pi === EM.me) { sfx('emUp'); EM.msg = { text: 'YOUR ' + HALL_NAME[b.lv - 1] + ' BECOMES A ' + HALL_NAME[b.lv], sub: b.lv === 4 ? 'THE WONDER CAN NOW BE BUILT' : 'NEW BUILDINGS AND UNITS UNLOCKED', color: '#ffd23a', t: 3.5 } }
@@ -309,14 +326,15 @@ function stepBuildings(dt) {
   for (const pl of EM.P) { if (!pl.alive) continue; pl.res.food += 0.3 * dt * prodMul(pl.i); pl.res.wood += 0.3 * dt * prodMul(pl.i) }
   for (const b of EM.B) {
     if (b.hit > 0) b.hit -= dt
+    if (b.upT > 0) b.upT -= dt
     const pl = EM.P[b.owner]; if (!pl || !pl.alive) continue
     if (!b.built) { b.bt -= dt; b.hp = Math.min(b.max, b.hp + b.max * 0.6 * dt / Math.max(1, (b.type === 'wonder' ? 40 : 4 + b.w * 2))); if (b.bt <= 0) { b.built = 1; b.hp = b.max; if (b.owner === EM.me) sfx('emDone'); ring((b.x + b.w / 2) * T, (b.y + b.w / 2) * T, 14, 24, [col(TEAM[b.owner][0])]) } continue }
     const d = BDEF[b.type]
-    if (d.rate) { const m = d.res ? clamp(resNear(b, d.res) / 10, 0.3, 1.6) : 1; for (const k in d.rate) pl.res[k] += d.rate[k] * m * prodMul(b.owner) * dt }
-    if (b.type === 'barracks' && b.q.length) { b.qt += dt; const q = b.q[0], ud = UDEF[q.u]; if (b.qt >= ud.t) { b.qt = 0; b.q.shift(); const h = hall(b.owner); const sx = (b.x + 1.5) * T, sy = (b.y - 0.8) * T; spawnUnit(q.u, b.owner, sx + R(-2, 2), sy); if (h && b.owner === EM.me) sfx('emReady') } }
+    if (d.rate) { const m = d.res ? clamp(resNear(b, d.res) / 10, 0.3, 1.6) : 1; for (const k in d.rate) pl.res[k] += d.rate[k] * m * prodMul(b.owner) * (1 + 0.5 * ((b.lv || 1) - 1)) * dt }
+    if (b.type === 'barracks' && b.q.length) { b.qt += dt; const q = b.q[0], ud = UDEF[q.u]; if (b.qt >= ud.t * (1 - 0.15 * ((b.lv || 1) - 1))) { b.qt = 0; b.q.shift(); const h = hall(b.owner); const sx = (b.x + 1.5) * T, sy = (b.y - 0.8) * T; spawnUnit(q.u, b.owner, sx + R(-2, 2), sy); if (h && b.owner === EM.me) sfx('emReady') } }
     if (b.type === 'tower' || b.type === 'hall') {
       b.atkT -= dt
-      if (b.atkT <= 0) { const c = bCenter(b), rng2 = b.type === 'tower' ? 17 + (b.lv || 1) : 15; let best = null, bd = rng2; for (const u of EM.U) if (u.owner !== b.owner && u.hp > 0) { const dd = Math.hypot(u.x - c.x, u.y - c.y); if (dd < bd) { bd = dd; best = u } } if (best) { b.atkT = b.type === 'tower' ? 1.2 : 1.4; EM.fx.push({ k: 'shot', x0: c.x, y0: c.y + 1, x1: best.x, y1: best.y, l: 0.15, c: '#ffe84a' }); sfx('tdShot'); hurtUnit(best, b.type === 'tower' ? 12 : 9, b.owner) } else b.atkT = 0.3 }
+      if (b.atkT <= 0) { const c = bCenter(b), rng2 = b.type === 'tower' ? 17 + (b.lv || 1) : 15; let best = null, bd = rng2; for (const u of EM.U) if (u.owner !== b.owner && u.hp > 0) { const dd = Math.hypot(u.x - c.x, u.y - c.y); if (dd < bd) { bd = dd; best = u } } if (best) { b.atkT = b.type === 'tower' ? 1.2 : 1.4; EM.fx.push({ k: 'shot', x0: c.x, y0: c.y + 1, x1: best.x, y1: best.y, l: 0.15, c: '#ffe84a' }); sfx('tdShot'); hurtUnit(best, b.type === 'tower' ? 12 * (1 + 0.35 * ((b.lv || 1) - 1)) : 9, b.owner) } else b.atkT = 0.3 }
     }
   }
   EM.B = EM.B.filter((b) => b.hp > 0)
@@ -361,8 +379,11 @@ function stepAI(dt) {
     if (countB(pl.i, 'tower') < h.lv + 1) want.push('tower')
     if (!EM.B.some((b) => b.owner === pl.i && b.type === 'house' && !b.built) && countB(pl.i, 'house') < 3 + h.lv * 3) want.push('house')
     if (h.lv >= 4 && countB(pl.i, 'wonder') === 0 && EM.t > (EM.cfg.diff >= 3 ? 420 : 600) && EM.cfg.diff >= 2) want.push('wonder')
+    // the auto-pilot also follows 'upgrade a building' goals
+    if (pl.auto && EM.obj.some((o) => o.t === 'upgrade' && !o.done)) EM.B.some((b) => b.owner === pl.i && UPGRADABLE.includes(b.type) && b.built && b.lv < upCap(pl.i) && costOk(pl.res, upCost(b)) && doUpgrade(pl.i, b.id))
     // upgrade the hall when affordable and a little time has passed
     if (h.lv < 4 && EM.t > 100 * h.lv * (1.4 - EM.cfg.diff * 0.2) && costOk(pl.res, HALL_UP[h.lv])) doUpgrade(pl.i, h.id)
+    else if (!want.length && EM.t > 150 && EM.B.some((b) => { if (b.owner !== pl.i || !UPGRADABLE.includes(b.type) || !b.built || b.lv >= upCap(pl.i)) return false; const c = upCost(b), r = h.lv < 4 ? HALL_UP[h.lv] : {}; const need = {}; for (const k of RES) need[k] = (c[k] || 0) + (r[k] || 0); return costOk(pl.res, need) && doUpgrade(pl.i, b.id) })) { /* upgraded one; the hall's own upgrade always keeps its savings */ }
     else for (const t of want) { const spot = findSpot(pl.i, t); if (spot && doBuild(pl.i, t, spot[0], spot[1])) break }
     // train soldiers
     for (const b of EM.B) if (b.owner === pl.i && b.type === 'barracks' && b.built && b.q.length < 2) {
@@ -436,6 +457,7 @@ function objDone(o) {
   const me = EM.me
   if (o.t === 'build') return EM.B.filter((b) => b.owner === me && b.type === o.what && b.built).length >= o.n
   if (o.t === 'army') return EM.U.filter((u) => u.owner === me).length >= o.n
+  if (o.t === 'upgrade') return EM.B.filter((b) => b.owner === me && b.lv >= (o.lv || 2) && b.type !== 'hall' && b.built).length >= o.n
   if (o.t === 'hall') { const h = hall(me); return !!h && h.lv >= o.n }
   if (o.t === 'raid') return EM.raidN >= o.n && EM.raidWarn <= 0 && (EM.U.filter((u) => u.owner < 0).length <= 1 || EM.t - (EM.raidAt || 0) > 70)
   if (o.t === 'destroy') return !EM.P[o.who].alive
@@ -487,7 +509,7 @@ function emitE() {
     mode: EM.mode, paused: EM.paused, t: Math.floor(EM.t), res: me ? { food: Math.floor(me.res.food), wood: Math.floor(me.res.wood), stone: Math.floor(me.res.stone), gold: Math.floor(me.res.gold) } : null, pop: used, cap,
     hallLv: h ? h.lv : 0, hallName: h ? HALL_NAME[h.lv] : '', hallId: h ? h.id : 0, up: h && h.lv < 4 ? HALL_UP[h.lv] : null, build: EM.build, atk: EM.atk, msg: EM.msg ? { ...EM.msg } : null, over: EM.over, speed: EM.speed, net: EM.net ? EM.net.role : null,
     army: EM.U.filter((u) => u.owner === EM.me).length, bcount: EM.B.filter((b) => b.owner === EM.me).length, bcap: bldCap(EM.me),
-    sel: sb ? { id: sb.id, type: sb.type, name: BDEF[sb.type].name, hp: Math.round(sb.hp), max: sb.max, lv: sb.lv, q: sb.q.map((q) => q.u), qt: sb.qt, built: !!sb.built, mine: sb.owner === EM.me, rate: BDEF[sb.type].rate ? Object.entries(BDEF[sb.type].rate).map(([k, v]) => k + ' +' + (v * (BDEF[sb.type].res ? clamp(resNear(sb, BDEF[sb.type].res) / 10, 0.3, 1.6) : 1) * prodMul(sb.owner)).toFixed(1) + '/s').join(' ') : '' } : null,
+    sel: sb ? { id: sb.id, type: sb.type, name: BDEF[sb.type].name, hp: Math.round(sb.hp), max: sb.max, lv: sb.lv, q: sb.q.map((q) => q.u), qt: sb.qt, built: !!sb.built, mine: sb.owner === EM.me, bup: sb.owner === EM.me && UPGRADABLE.includes(sb.type) && sb.built ? { lv: sb.lv, max: BLV_MAX, locked: sb.lv >= upCap(EM.me), cost: sb.lv < BLV_MAX ? upCost(sb) : null, desc: UP_DESC[sb.type] || '' } : null, rate: BDEF[sb.type].rate ? Object.entries(BDEF[sb.type].rate).map(([k, v]) => k + ' +' + (v * (BDEF[sb.type].res ? clamp(resNear(sb, BDEF[sb.type].res) / 10, 0.3, 1.6) : 1) * prodMul(sb.owner)).toFixed(1) + '/s').join(' ') : '' } : null,
     players: EM.P.map((p) => ({ i: p.i, name: p.name, alive: p.alive, lv: p.hallLv, color: TEAM[p.i][0], kind: p.kind, army: EM.U.filter((u) => u.owner === p.i).length, me: p.i === EM.me })),
     env: EM.mode === 'idle' ? '' : empireEnv(EM).label, night: EM.mode === 'idle' ? 0 : empireEnv(EM).T.night,
     scen: EM.scen ? { name: EM.scen.name, sub: EM.scen.sub, idx: EM.scenIdx } : null, obj: EM.obj.map((o) => ({ text: o.text, done: o.done, hint: o.hint })), hint: (EM.obj.find((o) => !o.done) || {}).hint || '', beat: EM.beat ? { ...EM.beat } : null, tale: EM.tale ? { who: EMWHO[EM.tale.lines[EM.tale.i][0]], text: EM.tale.lines[EM.tale.i][1], i: EM.tale.i, n: EM.tale.lines.length, kind: EM.tale.kind } : null, raid: EM.raidWarn > 0 ? Math.ceil(Math.max(0, EM.raidT)) : 0, raidDir: EM.raidDir, nextRaid: Math.max(0, Math.ceil(EM.raidT)), wave: EM.raidN, wonder: EM.wonder ? { t: Math.max(0, Math.ceil(EM.wonder.t)), owner: EM.P[EM.wonder.owner].name, mine: EM.wonder.owner === EM.me } : null, ver: ++EM.minimap,
@@ -528,7 +550,7 @@ export const empireActions = {
   nextTale() { const t = EM.tale; if (!t) return; sfx('wdKey'); if (t.i < t.lines.length - 1) t.i++; else EM.tale = null; emitE() },
   skipTale() { EM.tale = null; emitE() },
   setBuild(t) { if (!BDEF[t]) return; EM.build = EM.build === t ? null : t; EM.atk = false; EM.sel = null; sfx('ui'); emitE() },
-  upgrade() { const h = hall(EM.me); if (h && localCmd({ k: 'up', b: h.id })) { sfx('ui'); emitE() } else sfx('cBad') },
+  upgrade() { const sb = EM.sel ? bById(EM.sel) : null; const t = sb && sb.owner === EM.me ? sb : hall(EM.me); if (t && localCmd({ k: 'up', b: t.id })) { sfx('ui'); emitE() } else sfx('cBad') },
   train(u) { const b = EM.sel ? bById(EM.sel) : EM.B.find((x) => x.owner === EM.me && x.type === 'barracks' && x.built); if (b && localCmd({ k: 'train', b: b.id, u })) { sfx('ui'); emitE() } else sfx('cBad') },
   attackMode() { EM.atk = !EM.atk; EM.build = null; sfx('ui'); emitE() },
   recall() { localCmd({ k: 'rec' }); sfx('ui') },

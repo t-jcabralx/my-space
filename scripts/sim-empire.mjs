@@ -37,6 +37,25 @@ ok(EM.B.every((b) => Number.isFinite(b.hp)), 'buildings finite')
 console.log('PASS empire', EM.over ? JSON.stringify(EM.over).slice(0, 120) : 'running ' + Math.round(EM.t) + 's')
 // ---- online packets round trip ----
 empireActions.stop()
+// ---- building upgrades ----
+{
+  empireActions.start({ ai: 1, diff: 1, speed: 1 })
+  EM.P[0].res = { food: 5000, wood: 5000, stone: 5000, gold: 5000 }
+  const h0 = EM.B.find((b) => b.owner === 0 && b.type === 'hall')
+  let farm = null
+  for (let r = 4; r < 14 && !farm; r++) for (let a = 0; a < 60 && !farm; a++) { const i = Math.round(h0.x + 1 + Math.cos(a / 9) * r), j = Math.round(h0.y + 1 + Math.sin(a / 9) * r); farm = doBuild(0, 'farm', i, j) }
+  ok(farm && !doUpgrade(0, farm.id), 'a farm under construction cannot be upgraded')
+  if (farm) { farm.built = 1; farm.bt = 0 }
+  const hp0 = farm ? farm.max : 0
+  ok(farm && doUpgrade(0, farm.id) && farm.lv === 2 && farm.max > hp0, 'a built farm upgrades to level 2 and gets stronger')
+  ok(farm && !doUpgrade(0, farm.id), 'level 3 needs a TOWN hall')
+  doUpgrade(0, h0.id)
+  ok(farm && doUpgrade(0, farm.id) && farm.lv === 3, 'with a TOWN hall the farm reaches level 3')
+  ok(farm && !doUpgrade(0, farm.id), 'level 3 is the maximum')
+  const f0 = EM.P[0].res.food; for (let k = 0; k < 50; k++) update(0.2)
+  ok(EM.P[0].res.food > f0, 'upgraded farms keep producing food')
+  empireActions.stop()
+}
 // ---- the campaign: every scenario starts with a story, has goals, and the first ones can be won by an auto-pilot ----
 import { profile } from '../src/game/engine.js'
 import { EMCAMP } from '../src/game/empirestory.js'

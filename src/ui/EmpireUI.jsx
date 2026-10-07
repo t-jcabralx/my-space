@@ -119,6 +119,14 @@ export function EmpireHUD({ openHelp }) {
           <small>HP {sel.hp}/{sel.max}{!sel.built ? ' · BUILDING…' : ''}{sel.rate ? ' · ' + sel.rate : ''}</small>
           {sel.type === 'hall' && g.up && <button className="mg-btn go" disabled={!canPay(g.res, g.up)} onClick={empireActions.upgrade}>⬆ BECOME A {HALL_NAME[sel.lv + 1]}<br /><small>{costStr(g.up)}</small></button>}
           {sel.type === 'hall' && !g.up && <small>THE GREATEST EMPIRE! BUILD THE WONDER.</small>}
+          {sel.bup && sel.type !== 'hall' && (
+            <>
+              <small>LEVEL {sel.bup.lv}/{sel.bup.max}{sel.bup.desc ? ' · ' + sel.bup.desc : ''}</small>
+              {sel.bup.cost
+                ? <button className="mg-btn go" disabled={sel.bup.locked || !canPay(g.res, sel.bup.cost)} onClick={empireActions.upgrade} title="Upgrade (U)">⬆ UPGRADE TO LV {sel.bup.lv + 1}<br /><small>{sel.bup.locked ? 'UPGRADE THE HALL FIRST' : costStr(sel.bup.cost)}</small></button>
+                : <small>★ MAXED OUT</small>}
+            </>
+          )}
           {sel.type === 'barracks' && sel.built && (
             <div className="em-train">{Object.entries(UDEF).filter(([k, u]) => u.cost).map(([k, u]) => <button key={k} className="mg-btn" disabled={!canPay(g.res, u.cost) || g.hallLv < u.lv} onClick={() => empireActions.train(k)} title={u.name}>{u.ico} {u.name}<small>{g.hallLv < u.lv ? 'NEEDS ' + HALL_NAME[u.lv] : costStr(u.cost)}</small></button>)}
               {sel.q.length > 0 && <small>TRAINING: {sel.q.map((u) => UDEF[u].ico).join(' ')}</small>}</div>

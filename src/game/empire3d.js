@@ -26,7 +26,15 @@ function tileDraw(api, EM, i, j, step, t) {
   const { put3, putS } = api
   const tt = EM.terr[j * MWc + i], x = (i + step / 2) * T, z = -((j + step / 2) * T), s = T * step + 0.05
   const n = ((i * 7 + j * 13) % 7) * 0.012
-  if (tt === 0) { const g = (i + j) & 1 ? [0.08, 0.27, 0.09] : [0.1, 0.31, 0.11]; put3(x, 0, z, s, 0.6, s, 0, g[0] + n, g[1] + n, g[2] + n, 0); if (step === 1 && ((i * 31 + j * 17) % 11) === 0) { putS(x, 0.75, z, 0.35, 0.35, 0.35, 3, 0.8 + (i % 3) * 0.7, 0.6) } if (step === 1 && ((i * 19 + j * 23) % 9) === 0) put3(x, 0.6, z, 0.12, 0.8, 0.12, 0.2 * Math.sin(t * 2 + i), 0.12, 0.5, 0.14, 0) }
+  if (tt === 0) { const g = (i + j) & 1 ? [0.08, 0.27, 0.09] : [0.1, 0.31, 0.11]; put3(x, 0, z, s, 0.6, s, 0, g[0] + n, g[1] + n, g[2] + n, 0);
+    if (step === 1) {
+      const h2 = (i * 53 + j * 29) % 37
+      if (h2 === 0) { put3(x, 0.75, z, 1.1, 0.9, 1.1, 0, 0.05, 0.28, 0.08, i); put3(x + 0.2, 1.2, z - 0.1, 0.7, 0.6, 0.7, 0, 0.08, 0.34, 0.1, j) }              // bush
+      else if (h2 === 7) { put3(x, 0.6, z, 0.9, 0.7, 0.8, 0, 0.3, 0.3, 0.34, i); put3(x + 0.5, 0.5, z + 0.3, 0.5, 0.45, 0.5, 0, 0.26, 0.26, 0.3, j) }                // rocks
+      else if (h2 === 14) { put3(x, 0.55, z, 0.12, 0.5, 0.12, 0, 0.7, 0.62, 0.5, 0); put3(x, 0.85, z, 0.55, 0.22, 0.55, 0, 2, 0.3, 0.3, 0) }                          // mushroom
+      else if (h2 === 21) { for (let q = 0; q < 3; q++) put3(x + (q - 1) * 0.35, 0.8, z + ((q * 5) % 3 - 1) * 0.3, 0.1, 0.9, 0.1, Math.sin(t * 2 + i + q) * 0.15, 0.12, 0.4, 0.1, 0) }  // tall grass
+      else if (h2 === 28) { put3(x, 0.55, z, 0.9, 0.2, 0.28, 0, 0.36, 0.22, 0.1, i); put3(x + 0.4, 0.8, z, 0.2, 0.5, 0.2, 0, 0.36, 0.22, 0.1, 0) }                    // stump
+    } if (step === 1 && ((i * 31 + j * 17) % 11) === 0) { putS(x, 0.75, z, 0.35, 0.35, 0.35, 3, 0.8 + (i % 3) * 0.7, 0.6) } if (step === 1 && ((i * 19 + j * 23) % 9) === 0) put3(x, 0.6, z, 0.12, 0.8, 0.12, 0.2 * Math.sin(t * 2 + i), 0.12, 0.5, 0.14, 0) }
   else if (tt === 4) { const w = 0.85 + Math.sin(t * 1.4 + i * 0.6 + j * 0.45) * 0.12; put3(x, -0.35, z, s, 0.5, s, 0, 0.03 * w, 0.14 * w, 0.4 * w, 0); if (step === 1 && ((i + j + (t * 0.8 | 0)) % 6) === 0) put3(x, -0.07, z, 0.9, 0.05, 0.12, 0, 0.7, 0.9, 1.4, 0) }
   else if (tt === 1) {
     put3(x, 0, z, s, 0.6, s, 0, 0.05, 0.16, 0.06, 0)
@@ -74,6 +82,7 @@ function drawBuilding(api, b, EM, t, TEAM) {
     case 'wonder': { const g = 0.8 + Math.sin(t * 2.5) * 0.2; for (let k = 0; k < 5; k++) put3(cx, L(0.9 + k * 1.8), cz, W * (0.98 - k * 0.17), L(1.8), W * (0.98 - k * 0.17), 0, 0.7 * hit, 0.6 * hit, 0.34 * hit, k * 0.1); for (let k = 0; k < 4; k++) put3(cx + (k < 2 ? -1 : 1) * W * 0.42, L(2.4), cz + (k % 2 ? -1 : 1) * W * 0.42, 0.9, L(4.8), 0.9, 0, 0.8, 0.7, 0.4, 0); putS(cx, L(10.4) + Math.sin(t * 2) * 0.4, cz, 2.6, 2.6, 2.6, 3.4 * g, 2.8 * g, 0.6); for (let k = 0; k < 8; k++) { const a = t * 1.5 + (k / 8) * TAU; putS(cx + Math.cos(a) * 4, 7 + Math.sin(a * 2 + t) * 1.2, cz + Math.sin(a) * 4, 0.4, 0.4, 0.4, 3, 2.6, 0.8) } for (let k = 0; k < 9; k++) put3(cx, 12 + k * 1.2, cz, 0.5, 1, 0.5, 0, 1.4 * g, 1.2 * g, 0.4 * g, 0); break }
     default: break
   }
+  if (b.built && b.lv > 1 && b.type !== 'hall' && b.type !== 'wall' && b.type !== 'wonder') upgradeDress(api, b, cx, cz, W, tc, wall, t)
   if (lowhp && b.built) for (let k = 0; k < 3; k++) putS(cx + Math.sin(t * 9 + k * 2 + b.id) * W * 0.3, 2.4 + ((t * 3 + k) % 1.5) * 1.6, cz + Math.cos(t * 7 + k) * W * 0.3, 0.9, 1.2, 0.9, 3, 1 + Math.sin(t * 20 + k) * 0.4, 0.2)
   // health / build bars
   const f = b.built ? clamp(b.hp / b.max, 0, 1) : prog, top = b.type === 'hall' ? 10 + b.lv : b.type === 'wonder' ? 14 : b.type === 'tower' ? 9 : 6
@@ -81,6 +90,23 @@ function drawBuilding(api, b, EM, t, TEAM) {
   if (EM.sel === b.id) for (let k = 0; k < 24; k++) { const a = (k / 24) * TAU + t; put3(cx + Math.cos(a) * W * 0.78, 0.25, cz + Math.sin(a) * W * 0.78, 0.5, 0.2, 0.5, 0, 3, 3, 3.2, 0) }
 }
 
+// level 2 adds an annex and golden trim; level 3 adds banners, lanterns and a finial. Stars hover above upgraded buildings.
+function upgradeDress(api, b, cx, cz, W, tc, wall, t) {
+  const { put3, putS } = api, gold = [1.9, 1.5, 0.35]
+  put3(cx + W * 0.62, 0.9, cz - W * 0.05, W * 0.3, 1.8, W * 0.46, 0, wall[0], wall[1], wall[2], 0)
+  put3(cx + W * 0.62, 2.0, cz - W * 0.05, W * 0.4, 0.5, W * 0.56, 0, tc[0], tc[1], tc[2], 0)
+  put3(cx, 0.45, cz + W * 0.5, W * 0.92, 0.18, 0.2, 0, gold[0], gold[1], gold[2], 0)
+  if (b.lv >= 3) {
+    for (const sd of [-1, 1]) { put3(cx + sd * W * 0.52, 1.2, cz + W * 0.5, 0.2, 2.4, 0.2, 0, 0.4, 0.28, 0.16, 0); const g = 0.8 + Math.sin(t * 5 + sd + b.id) * 0.25; putS(cx + sd * W * 0.52, 2.7, cz + W * 0.5, 0.55, 0.55, 0.55, 3 * g, 2.3 * g, 0.7 * g) }
+    put3(cx - W * 0.48, 3.4, cz - W * 0.46, 0.2, 6.8, 0.2, 0, 0.45, 0.4, 0.3, 0)
+    const w = Math.sin(t * 4 + b.id) * 0.3
+    for (let k = 0; k < 3; k++) put3(cx - W * 0.48 + 0.5 + k * 0.4, 6.2 - k * 0.04, cz - W * 0.46 + w * (k + 1) * 0.4, 0.45, 1.1, 0.08, 0, tc[0] * 1.7, tc[1] * 1.7, tc[2] * 1.7, 0)
+    putS(cx - W * 0.48, 7, cz - W * 0.46, 0.5, 0.5, 0.5, gold[0] * 1.5, gold[1] * 1.5, gold[2])
+  }
+  const top = b.type === 'tower' ? 10.4 : b.type === 'barracks' ? 7.6 : 6.4
+  for (let k = 0; k < b.lv - 1; k++) { const a = Math.sin(t * 2.4 + k + b.id) * 0.25; putS(cx + (k - (b.lv - 2) / 2) * 1.1, top + a, cz, 0.7, 0.7, 0.7, 3, 2.5, 0.5) }
+  if (b.upT > 0) for (let k = 0; k < 14; k++) { const a = (k / 14) * TAU + t * 3, u = 1 - b.upT / 2.6; putS(cx + Math.cos(a) * W * 0.7, 0.5 + u * 5 + (k % 3) * 0.4, cz + Math.sin(a) * W * 0.7, 0.35, 0.35, 0.35, 3, 2.6, 0.7) }
+}
 // ---------- units ----------
 function drawUnit(api, u, EM, t, TEAM, UDEF) {
   const { put3, putS } = api, d = UDEF[u.type], raider = u.owner < 0
@@ -197,8 +223,8 @@ function drawWorkers(api, b, EM, t, TEAM) {
   }
   const wood = [0.4, 0.24, 0.1]
   switch (b.type) {
-    case 'lumber': { const S = siteOf(b, EM, 1) || [cx + W * 1.3, cz]; for (let k = 0; k < 2; k++) gatherer(api, b, t, [H[0] + (k ? 1.4 : -1.4), H[1]], S, { tool: 'axe', walk: 2.4, work: 3.4, rest: 1.2, swings: 3, carry: { kind: 'log' }, tint: [0.55, 0.14, 0.1], hat: [0.1, 0.35, 0.15], fx: chips([1.8, 1.2, 0.5]), off: k * 2.6 }); break }
-    case 'quarry': { const S = siteOf(b, EM, 2) || [cx + W * 1.3, cz]; for (let k = 0; k < 2; k++) gatherer(api, b, t, [H[0] + (k ? 1.4 : -1.4), H[1]], S, { tool: 'pick', walk: 2.4, work: 3.8, rest: 1.2, swings: 4, carry: { kind: 'stone' }, tint: [0.35, 0.33, 0.3], hat: [1.5, 1.2, 0.2], brim: true, fx: chips([2.2, 2.1, 1.8]), off: k * 3 }); break }
+    case 'lumber': { const S = siteOf(b, EM, 1) || [cx + W * 1.3, cz]; for (let k = 0; k < 2 + (b.lv >= 3 ? 1 : 0); k++) gatherer(api, b, t, [H[0] + (k === 1 ? 1.4 : k ? 2.6 : -1.4), H[1]], S, { tool: 'axe', walk: 2.4, work: 3.4, rest: 1.2, swings: 3, carry: { kind: 'log' }, tint: [0.55, 0.14, 0.1], hat: [0.1, 0.35, 0.15], fx: chips([1.8, 1.2, 0.5]), off: k * 2.6 }); break }
+    case 'quarry': { const S = siteOf(b, EM, 2) || [cx + W * 1.3, cz]; for (let k = 0; k < 2 + (b.lv >= 3 ? 1 : 0); k++) gatherer(api, b, t, [H[0] + (k === 1 ? 1.4 : k ? 2.6 : -1.4), H[1]], S, { tool: 'pick', walk: 2.4, work: 3.8, rest: 1.2, swings: 4, carry: { kind: 'stone' }, tint: [0.35, 0.33, 0.3], hat: [1.5, 1.2, 0.2], brim: true, fx: chips([2.2, 2.1, 1.8]), off: k * 3 }); break }
     case 'mine': { const S = siteOf(b, EM, 3) || [cx + W * 1.2, cz]; gatherer(api, b, t, [cx, cz + W * 0.42], S, { tool: 'pick', walk: 2, work: 3.4, rest: 2.4, swings: 3, carry: { kind: 'gold' }, tint: [0.3, 0.28, 0.35], hat: [1.5, 1.2, 0.2], brim: true, hide: true, fx: chips([3, 2.4, 0.5]) }); break }
     case 'farm': {
       for (let k = 0; k < 2; k++) {
@@ -234,6 +260,43 @@ function drawWorkers(api, b, EM, t, TEAM) {
   }
 }
 
+// ---------- scenery: dirt roads, a campfire and a well at each hall, chimney smoke, birds, butterflies, fireflies ----------
+function drawScenery(api, EM, t, cx, cy, rx, ry2, z, E, TEAM) {
+  const { put3, putS } = api
+  const halls = EM.B.filter((b) => b.type === 'hall' && b.built)
+  for (const h of halls) {
+    const hx = (h.x + h.w / 2) * T, hz = -((h.y + h.w / 2) * T)
+    if (Math.abs(hx - cx) > rx + 10) continue
+    const fx = hx + h.w * T * 0.78, fz = hz + h.w * T * 0.72
+    for (let k = 0; k < 4; k++) { const a = k * 1.57 + 0.6; put3(fx + Math.cos(a) * 0.7, 0.45, fz + Math.sin(a) * 0.7, 1.1, 0.25, 0.25, 0, 0.36, 0.22, 0.1, a) }
+    for (let k = 0; k < 3; k++) { const g = 0.7 + Math.sin(t * 9 + k * 2) * 0.3; putS(fx, 0.9 + k * 0.55 + g * 0.3, fz, 0.8 - k * 0.2, 1 - k * 0.15, 0.8 - k * 0.2, 3 * g, (1.6 - k * 0.4) * g, 0.2) }
+    const wx = hx - h.w * T * 0.85, wz = hz + h.w * T * 0.62
+    put3(wx, 0.8, wz, 2.2, 1.4, 2.2, 0, 0.42, 0.4, 0.45, 0); put3(wx, 0.95, wz, 1.4, 1.2, 1.4, 0, 0.03, 0.14, 0.35, 0)
+    put3(wx - 0.9, 2.2, wz, 0.2, 2.2, 0.2, 0, 0.36, 0.22, 0.1, 0); put3(wx + 0.9, 2.2, wz, 0.2, 2.2, 0.2, 0, 0.36, 0.22, 0.1, 0); put3(wx, 3.3, wz, 2.4, 0.3, 1.6, 0, 0.5, 0.18, 0.12, 0)
+    // roads from the hall's door to each of its buildings
+    for (const b of EM.B) {
+      if (b.owner !== h.owner || b === h || b.type === 'wall') continue
+      const bx = (b.x + b.w / 2) * T, bz = -((b.y + b.w / 2) * T)
+      if (Math.abs(bx - cx) > rx + 8 || bz > -(cy - ry2 - 16) + 40 || bz < -(cy + ry2 + 8) - 40) continue
+      const dx = bx - hx, dz = bz - (hz + h.w * T * 0.4), d = Math.hypot(dx, dz)
+      if (d > 46) continue
+      for (let u = 2.4; u < d - b.w * T * 0.55; u += 1.7) { const px = hx + dx * (u / d), pz = hz + h.w * T * 0.4 + dz * (u / d); put3(px, 0.32, pz, 1.35, 0.05, 1.35, 0, 0.3 + ((u * 7) % 3) * 0.015, 0.22, 0.12, u) }
+    }
+  }
+  // chimney smoke
+  for (const b of EM.B) {
+    if (!b.built || (b.type !== 'house' && b.type !== 'hall') || !(b.owner === EM.me || true)) continue
+    const bx = (b.x + b.w / 2) * T, bz = -((b.y + b.w / 2) * T)
+    if (Math.abs(bx - cx) > rx + 4) continue
+    const ox = b.type === 'house' ? 1 : 0, oy = b.type === 'house' ? 4.4 + (b.lv - 1) * 0 : 10 + b.lv
+    for (let k = 0; k < 4; k++) { const a = ((t * 0.5 + k * 0.25 + b.id * 0.13) % 1); putS(bx + ox + a * 1.8 + Math.sin(a * 5 + k) * 0.3, oy + a * 5, bz - 0.5, 0.5 + a * 0.9, 0.5 + a * 0.9, 0.5 + a * 0.9, 0.7 * (1 - a), 0.7 * (1 - a), 0.75 * (1 - a)) }
+  }
+  // birds wheel over the camera, butterflies drift over the grass, fireflies come out at night
+  for (let k = 0; k < 5; k++) { const a = t * (0.18 + k * 0.03) + k * 1.3, bx = cx + Math.cos(a) * (18 + k * 7), bz = -cy + Math.sin(a * 1.3) * (12 + k * 5), fl = Math.sin(t * 14 + k) * 0.4; put3(bx, 16 + k * 1.5, bz, 0.9, 0.12, 0.35, fl, 0.05, 0.05, 0.06, a); put3(bx - 0.4, 16 + k * 1.5 + fl * 0.4, bz, 0.6, 0.12, 0.3, -fl, 0.05, 0.05, 0.06, a) }
+  if (E.T.night < 0.5) for (let k = 0; k < 9; k++) { const a = t * 0.3 + k * 2.1, bx = cx + Math.sin(a * 0.9 + k) * 32, bz = -cy + Math.cos(a * 0.7 + k * 1.7) * 20 + Math.sin(k) * 8, f = Math.sin(t * 12 + k * 3) * 0.4; put3(bx, 2.3 + Math.sin(a * 2) * 0.8, bz, 0.35, 0.12, 0.5, f, k % 3 ? 2.2 : 0.4, k % 3 === 1 ? 0.5 : 1, k % 3 === 2 ? 2.2 : 0.4, a) }
+  if (E.T.night > 0.35) for (let k = 0; k < 16; k++) { const a = t * 0.2 + k * 1.9, bx = cx + Math.sin(a * 0.8 + k * 2) * 40, bz = -cy + Math.cos(a * 0.6 + k) * 24, g = 0.5 + 0.5 * Math.sin(t * 3 + k * 2.3); putS(bx, 1.6 + Math.sin(a * 2 + k) * 0.8, bz, 0.3, 0.3, 0.3, 2.2 * g * E.T.night, 2.4 * g * E.T.night, 0.5) }
+}
+
 let MWc = 96
 export function drawEmpire3(api, EM, defs) {
   const { put3, putS } = api, t = G.time, { TEAM, UDEF, MW, MH } = defs
@@ -255,6 +318,7 @@ export function drawEmpire3(api, EM, defs) {
     putS(gx, 2.2 + Math.sin(t * 4) * 0.3, gz, d.w * T * 0.5, d.w * T * 0.5, d.w * T * 0.5, c[0] * 0.4, c[1] * 0.4, c[2] * 0.4)
     const h = EM.B.find((b) => b.owner === EM.me && b.type === 'hall'); if (h) { const R = (16 + h.lv * 3) * T / 2, hx = (h.x + 1.5) * T, hz = -((h.y + 1.5) * T); for (let k = 0; k < 90; k++) { const a = (k / 90) * TAU; put3(hx + Math.cos(a) * R, 0.2, hz + Math.sin(a) * R, 0.5, 0.2, 0.5, 0, 1.4, 1.6, 2) } }
   }
+  if (z >= 0.55) drawScenery(api, EM, t, cx, cy, rx, ry2, z, empireEnv(EM), TEAM)
   for (const u of EM.U) { if (Math.abs(u.x - cx) > rx + 4 || u.y < cy - ry2 - 16 || u.y > cy + ry2 + 8) continue; drawUnit(api, u, EM, t, TEAM, UDEF) }
   for (const f of EM.fx) {
     if (f.k === 'shot') { const n = 7; for (let k = 0; k <= n; k++) { const u = k / n, arc = Math.sin(u * Math.PI) * (f.c === '#ff9a3a' ? 7 : 1.4); putS(f.x0 + (f.x1 - f.x0) * u, 2.4 + arc, -(f.y0 + (f.y1 - f.y0) * u), 0.55, 0.55, 0.55, 2.6, 2.2, 1.2) } }

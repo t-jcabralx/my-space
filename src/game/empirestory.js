@@ -5,17 +5,18 @@ export const EMCAMP = [
   {
     id: 1, name: 'A NEW HOME', sub: 'Scenario 1 · Ember', seed: 11, ai: 1, diff: 1, speed: 1, res: { food: 160, wood: 280, stone: 140, gold: 60 },
     raids: { first: 170, gap: 85, scale: 0.6 }, aiAtk: 1e9, brief: 'You are a few survivors with a fire, a field and a promise. Learn to build, to grow and to defend.',
-    intro: [L('sys', 'THE LAND OF EMBERS. A HANDFUL OF SURVIVORS WALK OUT OF THE ASHES OF THE GRID AND FIND A VALLEY NOBODY HAS DELETED.'), L('elder', 'We stop here. Water, trees, stone, and nobody chasing us. We will build a village.'), L('nova', 'I will guide you. First: houses so more people can live here. A lumber camp beside the forest. Then a barracks, because nothing stays peaceful for long.'), L('scout', 'Elder, I saw smoke in the east. Crimson\'s people. They are watching us.'), L('elder', 'Then we build quickly, and we build strong walls.')],
+    intro: [L('sys', 'THE LAND OF EMBERS. A HANDFUL OF SURVIVORS WALK OUT OF THE ASHES OF THE GRID AND FIND A VALLEY NOBODY HAS DELETED.'), L('elder', 'We stop here. Water, trees, stone, and nobody chasing us. We will build a village.'), L('nova', 'I will guide you. And remember: once a building has proved itself, upgrade it. A good house, a good farm, a good tower can grow with you. First: houses so more people can live here. A lumber camp beside the forest. Then a barracks, because nothing stays peaceful for long.'), L('scout', 'Elder, I saw smoke in the east. Crimson\'s people. They are watching us.'), L('elder', 'Then we build quickly, and we build strong walls.')],
     objectives: [
       { t: 'build', what: 'house', n: 2, text: 'Build 2 houses', hint: 'Open the build bar and pick HOUSE, then click the grass near your hall.' },
       { t: 'build', what: 'lumber', n: 2, text: 'Build a 2nd lumber camp', hint: 'Lumber camps work best right next to forest.' },
       { t: 'build', what: 'barracks', n: 1, text: 'Build a barracks', hint: 'Barracks (3rd building row) trains soldiers.' },
       { t: 'army', n: 8, text: 'Have 8 soldiers', hint: 'Click your barracks, then TRAIN swordsmen (T) and archers (Y).' },
       { t: 'build', what: 'tower', n: 1, text: 'Build a watch tower', hint: 'Raiders are coming. A tower shoots anything that comes near.' },
+      { t: 'upgrade', n: 1, lv: 2, text: 'Upgrade a building to level 2', hint: 'Click a finished building and press UPGRADE (U). Upgraded buildings work harder and look grander.' },
       { t: 'hall', n: 2, text: 'Upgrade the hall to a TOWN', hint: 'Click your Town Hall and press UPGRADE (U).' },
       { t: 'raid', n: 1, text: 'Survive the first raid', hint: 'Keep your soldiers close to the hall and your towers fed.' },
     ],
-    outro: [L('elder', 'We held. The village stands, and the children are laughing again.'), L('scout', 'The raiders ran. But Elder... Queen Crimson\'s banners are on the border. She wants this valley.'), L('nova', 'Then it is time to meet her on the field.')],
+    outro: [L('elder', 'We held. The village stands, and the children are laughing again. Even the old lumber camp has a new roof.'), L('scout', 'The raiders ran. But Elder... Queen Crimson\'s banners are on the border. She wants this valley.'), L('nova', 'Then it is time to meet her on the field.')],
   },
   {
     id: 2, name: 'THE BORDER WAR', sub: 'Scenario 2 · Spark', seed: 23, ai: 2, diff: 1, speed: 1, res: { food: 200, wood: 320, stone: 180, gold: 100 },
@@ -24,6 +25,7 @@ export const EMCAMP = [
     objectives: [
       { t: 'hall', n: 2, text: 'Grow into a TOWN', hint: 'Upgrade the hall (U). Towns can build mines and train knights at a City.' },
       { t: 'build', what: 'tower', n: 3, text: 'Build 3 towers', hint: 'Queen Crimson attacks around the 2 minute mark.' },
+      { t: 'upgrade', n: 3, lv: 2, text: 'Upgrade 3 buildings', hint: 'Upgraded towers shoot farther and harder; upgraded barracks train faster.' },
       { t: 'army', n: 16, text: 'Raise an army of 16', hint: 'More barracks train faster. Archers behind swordsmen is a strong mix.' },
       { t: 'destroy', who: 1, text: 'Destroy Crimson\'s Town Hall', hint: 'Right-click her hall (or press G then click) to send your army.' },
     ],
@@ -36,6 +38,7 @@ export const EMCAMP = [
     objectives: [
       { t: 'hall', n: 3, text: 'Reach CITY rank', hint: 'A City hall has much more hit points and trains knights.' },
       { t: 'build', what: 'tower', n: 5, text: 'Build 5 towers', hint: 'Put towers near the hall and along the side the raiders come from.' },
+      { t: 'upgrade', n: 3, lv: 3, text: 'Bring 3 buildings to MASTER level', hint: 'Level 3 needs a Town hall or better. Master towers and barracks win sieges.' },
       { t: 'build', what: 'wall', n: 10, text: 'Build 10 wall segments', hint: 'Walls cost only stone. Raiders stop to break them while the towers shoot.' },
       { t: 'raid', n: 12, text: 'Survive 12 waves of raiders', hint: 'Keep your army near the hall and recall (H) when a wave arrives.' },
     ],
