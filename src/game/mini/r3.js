@@ -18,7 +18,7 @@ const norm = (a) => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] 
 const LIGHT = norm([-0.45, 0.85, -0.55])
 const BOXF = [[[0, 4, 5, 1], [0, -1, 0]], [[3, 2, 6, 7], [0, 1, 0]], [[0, 1, 2, 3], [0, 0, -1]], [[4, 7, 6, 5], [0, 0, 1]], [[0, 3, 7, 4], [-1, 0, 0]], [[1, 5, 6, 2], [1, 0, 0]]]
 
-export function makeR3(g) {
+export function makeR3(g, W = 360, H = 540) {
   const r = { g, q: [], cam: null, E: [0, 0, 0], R: [1, 0, 0], U: [0, 1, 0], F: [0, 0, 1], focal: 600 }
   r.look = (ex, ey, ez, tx, ty, tz, fov = 45) => {
     r.E = [ex, ey, ez]; r.F = norm([tx - ex, ty - ey, tz - ez]); r.R = norm(cross([0, 1, 0], r.F)); r.U = cross(r.F, r.R); r.focal = (H / 2) / Math.tan((fov * Math.PI) / 360)

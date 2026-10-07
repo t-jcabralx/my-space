@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import OnlineLobby from './OnlineLobby.jsx'
 import MiniArcade from './MiniArcade.jsx'
+import { Art3D, GameLogo, splitTitle, hasArt } from './Art3D.jsx'
 import { joinRoom, leaveRoom, subscribeRt, getRt } from '../game/online/rt.js'
 import { onKey as engineKey, setSquad, subscribe, getSnap, startGame, toShop, launchNext, buy, retryMission, toMenu, togglePause, useSkill, startGameAt, setShip, setName, markSeen, claimDaily } from '../game/engine.js'
 import { subscribeSlug, getSlugSnap, slugActions } from '../game/slug.js'
@@ -1523,11 +1524,11 @@ const SearchCtx = createContext('')
 function GameCard({ cls, title, tag, hi, hiLabel, art, onPlay, label, sub, onInvite, extra }) {
   const q = useContext(SearchCtx).trim().toLowerCase()
   if (q && !(String(title) + ' ' + String(tag)).toLowerCase().includes(q)) return null
+  const [logo, name] = splitTitle(title)
   return (
     <div className={'gcard ' + cls}>
-      <h4>{title}</h4>
-      <small>{tag}</small>
-      <div className="gart">{art}</div>
+      <div className="gtitle">{logo && <GameLogo emoji={logo} cls={cls} />}<div><h4>{name}</h4><small>{tag}</small></div></div>
+      <div className="gart">{hasArt(cls) ? <Art3D id={cls} /> : art}</div>
       <div className="kv"><span>{hiLabel}</span><b>{hi}</b>{sub}</div>
       {extra}
       <button className="big" onClick={onPlay}>{label}</button>
@@ -1535,7 +1536,6 @@ function GameCard({ cls, title, tag, hi, hiLabel, art, onPlay, label, sub, onInv
     </div>
   )
 }
-
 function Hub({ s }) {
   const [tab, setTab] = useState('home')
   const [cat, setCat] = useState('all')
@@ -1643,7 +1643,7 @@ function Hub({ s }) {
             {show('puzzle', 'sports') && <GameCard cls="c4" title="🔴 CONNECT FOUR" tag="Bot · 2P · online 1v1" hiLabel="WINS" hi={p.c4Wins || 0}
               art={<div className="miniC4"><i /><i /><i /><i /><i /></div>} label="SELECT MODE ▶" onPlay={() => setTab('c4')} onInvite={() => { openOnline('c4') }}
               sub={<><span>GAMES</span><b>{p.c4Games || 0}</b></>} />}
-            {show('action', 'puzzle') && <GameCard cls="snake" title="🕹 MINI GAMES" tag="22 quick games · phone friendly" hiLabel="PLAYED" hi={p.miniGames || 0}
+            {show('action', 'puzzle') && <GameCard cls="mini" title="🕹 MINI GAMES" tag="22 quick games · phone friendly" hiLabel="PLAYED" hi={p.miniGames || 0}
               art={<div className="miniSnake"><b>🏗️</b><b>🐤</b><b>🍉</b><b>💎</b><b>🎣</b></div>} label="PICK A GAME ▶" onPlay={() => setTab('mini')} />}
             {show('action') && <GameCard cls="snake" title="🐍 NEON SNAKE" tag="Solo · vs bot · 2 players" hiLabel="BEST" hi={p.snakeBest || 0}
               art={<div className="miniSnake"><i /><i /><i /><i /><b>🍎</b></div>} label="SELECT MODE ▶" onPlay={() => setTab('snake')} onInvite={() => { openOnline('snake') }}
