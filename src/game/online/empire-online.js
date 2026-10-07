@@ -1,5 +1,6 @@
 // Online EMPIRE RISE: the host runs the world; each friend sends commands (build, train, upgrade, attack) and mirrors the state.
 import { empireActions, empireNet, EM } from '../empire.js'
+import { profile } from '../engine.js'
 import { RT, send, onMsg, isHost, alive, roomAction } from './rt.js'
 import { announce } from '../engine.js'
 
@@ -16,15 +17,15 @@ function begin(role, d) {
     onStop: () => { if (isHost()) roomAction('finish').catch(() => {}) },
   })
   const players = d.players
-  if (role === 'host') empireActions.start({ type: 'online', seed: d.seed, ai: d.ai, diff: d.diff, peers: players.slice(1) })
-  else { const me = Math.max(0, players.findIndex((p) => p.id === RT.cid)); empireActions.start({ type: 'online', seed: d.seed, ai: d.ai, diff: d.diff, me, peers: players.slice(1) }) }
+  if (role === 'host') empireActions.start({ type: 'online', seed: d.seed, ai: d.ai, diff: d.diff, size: d.size, peers: players.slice(1) })
+  else { const me = Math.max(0, players.findIndex((p) => p.id === RT.cid)); empireActions.start({ type: 'online', seed: d.seed, ai: d.ai, diff: d.diff, size: d.size, me, peers: players.slice(1) }) }
 }
 async function hostStart() {
   if (!RT.room || RT.room.players.length < 2) throw new Error('Waiting for a friend to join')
   if (RT.room.status !== 'playing') await roomAction('start', {})
   const players = RT.room.players.map((p) => ({ id: p.id, name: p.name }))
   const ai = Math.max(0, 4 - players.length)
-  const d = { seed: ((Math.random() * 1e6) | 0) + 1, ai, diff: cfg.diff, players }
+  const d = { seed: ((Math.random() * 1e6) | 0) + 1, ai, diff: cfg.diff, size: profile.empireSize || 4, players }
   send('estart', d).catch(() => {})
   begin('host', d)
 }

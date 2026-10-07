@@ -75,11 +75,14 @@ function groundDX(dx, z) {
 }
 const ground = (x, z) => groundDX(x - xc(z), z)
 
-function build(c, len, seed) {
-  const rnd = rng(seed), f = { kick: [], rails: [], rocks: [], pads: [], toks: [], gates: [] }
+// reps = how many times the course is dressed (a wider mountain needs proportionally more kickers, rails, rocks and coins)
+function build(c, len, seed, reps = 1) {
+  const f = { kick: [], rails: [], rocks: [], pads: [], toks: [], gates: [] }
   const lim = c.pipe ? 3.4 : c.hw - 4.5
-  let z = 130
   const kp = 0.36 * c.kick, rp = kp + 0.22 * c.rails, op = rp + 0.26 * c.rocks, pp = op + 0.12
+  for (let pass = 0; pass < reps; pass++) {
+  const rnd = rng(seed + pass * 7919)
+  let z = 130 + pass * 23
   while (z < len - 90) {
     const r = rnd()
     if (r < kp) {
@@ -100,8 +103,9 @@ function build(c, len, seed) {
     else { const dx = (rnd() * 2 - 1) * lim; for (let i = 0; i < 5; i++) f.toks.push({ z: z + i * 5, dx: dx + Math.sin(i) * 1.4, up: 1.3 }); z += 55 }
     z += 12 + rnd() * 22
   }
+  }
   for (let g = 300; g < len - 100; g += 300) f.gates.push(g)
-  f.rocks.sort((a, b) => a.z - b.z)
+  f.rocks.sort((a, b) => a.z - b.z); f.kick.sort((a, b) => a.z - b.z); f.rails.sort((a, b) => a.z0 - b.z0); f.pads.sort((a, b) => a.z - b.z); f.toks.sort((a, b) => a.z - b.z)
   return f
 }
 
@@ -392,10 +396,13 @@ function aiInput(r, dt) {
 // ------------------------------------------------------------------ the race
 function start(o = {}) {
   const ci = clamp(o.course | 0, 0, COURSES.length - 1)
-  CUR = COURSES[ci]
+  const WK = [1, 3, 6, 12, 20].includes(o.width) ? o.width : [1, 3, 6, 12, 20].includes(profile.ssxWidth) ? profile.ssxWidth : 6
+  CUR = { ...COURSES[ci] }
+  if (!CUR.pipe) CUR.hw = COURSES[ci].hw * WK
+  SX.wk = CUR.pipe ? 1 : WK
   SX.ci = ci; SX.kind = o.kind === 'trick' ? 'trick' : 'race'; SX.rid = clamp(o.rider | 0, 0, RIDERS.length - 1)
   SX.len = SX.kind === 'trick' ? 4600 : CUR.len
-  F = build(CUR, SX.len, CUR.seed * 7 + (SX.kind === 'trick' ? 3 : 0))
+  F = build(CUR, SX.len, CUR.seed * 7 + (SX.kind === 'trick' ? 3 : 0), CUR.pipe ? 1 : Math.min(10, Math.ceil(WK / 2)))
   SX.riders = []; SX.fx = []; SX.score = 0; SX.toks = 0; SX.bestTrick = 0; SX.tricks = 0; SX.over = null; SX.msg = null; SX.text = null; SX.paused = false; SX.t = 0; SX.clock = 0; SX.finishT = 0; SX.place = 0
   SX.timeLeft = SX.kind === 'trick' ? 90 : 0
   const others = RIDERS.filter((d) => d.id !== SX.rid)
@@ -534,7 +541,7 @@ export const ssxActions = {
   pause() { if (!SX.net && (SX.mode === 'play' || SX.mode === 'ready') && !SX.paused) { SX.paused = true; emitS(); return true } return false },
   rematch() { if (SX.net) { if (SX.net.role === 'host') SX.net.restart(); else SX.net.sendHost({ k: 'rematch' }); return } start({ course: SX.ci, kind: SX.kind, rider: SX.rid }) },
   press(name, on) { TK[name] = on },
-  setPrefs(o) { if (o.course !== undefined) profile.ssxCourse = o.course; if (o.kind) profile.ssxKind = o.kind; if (o.rider !== undefined) profile.ssxPick = o.rider; saveProfile() },
+  setPrefs(o) { if (o.width !== undefined) profile.ssxWidth = o.width; if (o.course !== undefined) profile.ssxCourse = o.course; if (o.kind) profile.ssxKind = o.kind; if (o.rider !== undefined) profile.ssxPick = o.rider; saveProfile() },
 }
 
 // ------------------------------------------------------------------ online: every rider is simulated on their own device; the others are shown as live ghosts
@@ -565,7 +572,7 @@ registerNet('ssx', {
   begin(ctx) {
     const picks = {}
     picks[ctx.players[ctx.me].id] = profile.ssxPick | 0
-    start({ course: ctx.opts.course | 0, kind: ctx.opts.kind === 'trick' ? 'trick' : 'race', rider: profile.ssxPick | 0, net: { players: ctx.players, me: ctx.me, picks, role: ctx.role, send: (d) => ctx.send(d), sendHost: (d) => ctx.sendHost(d), restart: () => ctx.restart() } })
+    start({ course: ctx.opts.course | 0, width: ctx.opts.width | 0, kind: ctx.opts.kind === 'trick' ? 'trick' : 'race', rider: profile.ssxPick | 0, net: { players: ctx.players, me: ctx.me, picks, role: ctx.role, send: (d) => ctx.send(d), sendHost: (d) => ctx.sendHost(d), restart: () => ctx.restart() } })
     ctx.send({ k: 'hi', rid: profile.ssxPick | 0 })
   },
   active: () => !!SX.net && SX.mode !== 'idle',
@@ -617,11 +624,12 @@ function terrain(pos, colr, NX, NZ) {
   const zf = P ? P.z : 0, z0 = Math.floor((zf - 16) / DZ) * DZ, W = c.pipe ? 38 : 56
   const sn = c.snow, nk = c.night ? 0.8 : 1
   const row0 = Math.round(z0 / DZ)
+  const off = !c.pipe && P ? clamp(P.x - xc(P.z), -c.hw - 30, c.hw + 30) : 0 // the mesh slides sideways with the rider so a very wide mountain is always under them
   for (let j = 0; j < NZ; j++) {
     const z = z0 + j * DZ, cx = xc(z)
     const stripe = (Math.floor(z / 7) & 1) * 0.03
     for (let i = 0; i < NX; i++) {
-      const u = (i / (NX - 1)) * 2 - 1, dx = Math.sign(u) * Math.pow(Math.abs(u), 1.45) * W, ad = Math.abs(dx)
+      const u = (i / (NX - 1)) * 2 - 1, dx = off + Math.sign(u) * Math.pow(Math.abs(u), 1.45) * W, ad = Math.abs(dx)
       const h = groundDX(dx, z)
       const o = (j * NX + i) * 3
       pos[o] = cx + dx; pos[o + 1] = h; pos[o + 2] = -z

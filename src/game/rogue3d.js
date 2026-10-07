@@ -74,25 +74,17 @@ function buildEnv(RG) {
   const th = themeOf(RG), r = rng(RG.floor * 977 + RG.rk * 131 + 7)
   const E = { key: RG.floor + ':' + RG.rk, ground: [], trees: [], tufts: [], shrooms: [], rocks: [], flies: [] }
   const gc = (a, k) => [a[0] * k, a[1] * k, a[2] * k]
-  for (let x = -AX - 4; x <= AX + 4; x += 4) for (let z = -AY - 4; z <= AY + 4; z += 4) {
-    const k = 0.8 + r() * 0.4, c = (Math.floor(x / 4) + Math.floor(z / 4)) % 2 === 0 ? gc(th.g1, k) : gc(th.g2, k)
-    E.ground.push([x, -0.3, z, 4.05, 0.6, 4.05, 0, c[0], c[1], c[2], 0])
-  }
-  for (let x = -76; x <= 76; x += 8) for (let z = -52; z <= 52; z += 8) {
-    if (Math.abs(x) <= AX + 6 && Math.abs(z) <= AY + 6) continue
-    const k = 0.5 + r() * 0.3; E.ground.push([x, -0.5, z, 8.1, 0.6, 8.1, 0, th.g2[0] * k, th.g2[1] * k, th.g2[2] * k, 0])
-  }
-  // a worn path to the door
-  for (let x = -AX + 3; x <= AX + 2; x += 2.6) { const z = Math.sin(x * 0.12) * 1.4 + (r() - 0.5) * 1.2; const k = 0.7 + r() * 0.5; E.ground.push([x, 0.06, z, 1.7, 0.12, 1.6, (r() - 0.5) * 0.5, 0.2 * k + 0.05, 0.18 * k + 0.05, 0.14 * k + 0.05, 0]) }
+  // the ground is drawn around the camera every frame (see drawGround), so a huge arena costs nothing extra
   // forest wall: dense trees around the arena, a gap at the door
   const tree = (x, z, s, row) => { E.trees.push({ x, z, s, ph: r() * TAU, h: (7 + r() * 6) * s, row, lean: (r() - 0.5) * 0.12 }) }
   const low = (x, z, row) => E.trees.push({ x, z, s: 0.75 + r() * 0.35, ph: r() * TAU, h: (4.5 + r() * 3) * (row ? 1.2 : 1), row, lean: (r() - 0.5) * 0.1 })
   for (let x = -AX - 14; x <= AX + 14; x += 3.4 + r() * 1.4) { tree(x, -AY - 4 - r() * 3, 1 + r() * 0.5, 0); low(x + 1.5, AY + 6 + r() * 3, 0); tree(x, -AY - 10 - r() * 6, 1.4 + r() * 0.6, 1); low(x, AY + 12 + r() * 4, 1) }
   for (let z = -AY - 8; z <= AY + 4; z += 3.8 + r() * 1.2) { tree(-AX - 8 - r() * 3, z, 1 + r() * 0.4, 0); tree(-AX - 14 - r() * 6, z, 1.5 + r() * 0.6, 1); if (Math.abs(z) > 10) tree(AX + 7 + r() * 3, z, 1 + r() * 0.5, 0); if (Math.abs(z) > 9) tree(AX + 13 + r() * 5, z, 1.5 + r() * 0.6, 1) }
-  for (let i = 0; i < 90; i++) E.tufts.push({ x: (r() - 0.5) * 2 * (AX - 1), z: (r() - 0.5) * 2 * (AY - 1), h: 0.9 + r() * 1.2, ph: r() * TAU })
-  for (let i = 0; i < 16; i++) E.shrooms.push({ x: (r() - 0.5) * 2 * (AX + 2), z: (r() > 0.5 ? 1 : -1) * (AY - 1 + r() * 3), s: 0.5 + r() * 0.8, ph: r() * 6 })
-  for (let i = 0; i < 26; i++) E.rocks.push({ x: (r() - 0.5) * 2 * (AX + 6), z: (r() - 0.5) * 2 * (AY + 6), s: 0.4 + r() * 0.9, ry: r() * 3 })
-  for (let i = 0; i < 34; i++) E.flies.push({ x: (r() - 0.5) * 2 * (AX + 6), z: (r() - 0.5) * 2 * (AY + 4), y: 1.5 + r() * 6, ph: r() * TAU, sp: 0.3 + r() * 0.7, rad: 1 + r() * 3 })
+  const kk = RG.ks || Math.max(1, Math.round(AX / 90)), Kd = Math.min(kk ** 2, 100)
+  for (let i = 0; i < 90 * Kd; i++) E.tufts.push({ x: (r() - 0.5) * 2 * (AX - 1), z: (r() - 0.5) * 2 * (AY - 1), h: 0.9 + r() * 1.2, ph: r() * TAU })
+  for (let i = 0; i < 16 * Kd; i++) E.shrooms.push({ x: (r() - 0.5) * 2 * (AX + 2), z: (r() > 0.5 ? 1 : -1) * (AY - 1 + r() * 3), s: 0.5 + r() * 0.8, ph: r() * 6 })
+  for (let i = 0; i < 26 * Kd; i++) E.rocks.push({ x: (r() - 0.5) * 2 * (AX + 6), z: (r() - 0.5) * 2 * (AY + 6), s: 0.4 + r() * 0.9, ry: r() * 3 })
+  for (let i = 0; i < 34 * Math.min(Kd, 12); i++) E.flies.push({ x: (r() - 0.5) * 2 * (AX + 6), z: (r() - 0.5) * 2 * (AY + 4), y: 1.5 + r() * 6, ph: r() * TAU, sp: 0.3 + r() * 0.7, rad: 1 + r() * 3 })
   return E
 }
 
@@ -375,6 +367,24 @@ function drawPet(api, pt, t) {
     if (pt.used) putS(pt.x, 3.5, -pt.y, 2.4, 2.4, 2.4, 0.4, 0.15, 0.1)
   }
 }
+const gh = (a, b) => { let h = Math.imul(a | 0, 374761393) ^ Math.imul(b | 0, 668265263); h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296 }
+function drawGround(put3, th, E, cx, cz) {
+  const tint = (a, k) => [a[0] * k, a[1] * k, a[2] * k]
+  const ix0 = Math.floor((cx - 80) / 4), ix1 = Math.floor((cx + 80) / 4), iz0 = Math.floor((cz - 52) / 4), iz1 = Math.floor((cz + 52) / 4)
+  for (let ix = ix0; ix <= ix1; ix++) for (let iz = iz0; iz <= iz1; iz++) {
+    const x = ix * 4, z = iz * 4
+    if (Math.abs(x) > AX + 4 || Math.abs(z) > AY + 4) {
+      if (((ix | 0) & 1) || ((iz | 0) & 1)) continue // outside the arena: coarse 8x8 tiles
+      const k = 0.5 + gh(ix, iz) * 0.3, c = tint(th.g2, k); put3(x + 2, -0.5, z + 2, 8.1, 0.6, 8.1, 0, c[0], c[1], c[2], 0)
+      continue
+    }
+    const k = 0.8 + gh(ix, iz) * 0.4, c = (ix + iz) % 2 === 0 ? tint(th.g1, k) : tint(th.g2, k)
+    put3(x, -0.3, z, 4.05, 0.6, 4.05, 0, c[0], c[1], c[2], 0)
+  }
+  // a worn path to the door
+  for (let x = Math.max(-AX + 3, Math.floor((cx - 80) / 2.6) * 2.6); x <= Math.min(AX + 2, cx + 80); x += 2.6) { const h = gh(Math.round(x * 5), 3), z = Math.sin(x * 0.12) * 1.4 + (h - 0.5) * 1.2, k = 0.7 + gh(Math.round(x * 5), 9) * 0.5; put3(x, 0.06, z, 1.7, 0.12, 1.6, (h - 0.5) * 0.5, 0.2 * k + 0.05, 0.18 * k + 0.05, 0.14 * k + 0.05, 0) }
+  void E
+}
 // ---------- main ----------
 export function drawRogue3(api, RG, CLASSES) {
   setArena(RG)
@@ -384,17 +394,19 @@ export function drawRogue3(api, RG, CLASSES) {
   if (!ENV || ENV.key !== key) ENV = buildEnv(RG)
   const E = ENV
   // ground
-  for (const g of E.ground) put3(g[0], g[1], g[2], g[3], g[4], g[5], g[6], g[7], g[8], g[9], g[10])
+  drawGround(put3, th, E, C.x, C.z)
   // rocks
-  for (const r of E.rocks) { const k = th.rock; put3(r.x, r.s * 0.4, r.z, r.s * 1.6, r.s * 0.9, r.s * 1.3, 0, k[0], k[1], k[2], r.ry); put3(r.x + r.s * 0.4, r.s * 0.95, r.z, r.s * 0.9, r.s * 0.5, r.s * 0.8, 0, th.moss[0], th.moss[1], th.moss[2], r.ry + 0.4) }
+  const inView = (x, z, pad = 0) => Math.abs(x - C.x) < 84 + pad && Math.abs(z - C.z) < 54 + pad
+  for (const r of E.rocks) { if (!inView(r.x, r.z)) continue; const k = th.rock; put3(r.x, r.s * 0.4, r.z, r.s * 1.6, r.s * 0.9, r.s * 1.3, 0, k[0], k[1], k[2], r.ry); put3(r.x + r.s * 0.4, r.s * 0.95, r.z, r.s * 0.9, r.s * 0.5, r.s * 0.8, 0, th.moss[0], th.moss[1], th.moss[2], r.ry + 0.4) }
   // grass tufts swaying
-  for (const g of E.tufts) { const sw = Math.sin(t * 1.6 + g.ph) * 0.25; for (let b = -1; b <= 1; b++) put3(g.x + b * 0.3 + sw * 0.5, g.h * 0.5, g.z, 0.2, g.h, 0.2, sw * 0.4 + b * 0.15, th.leaf[1][0] * 0.9, th.leaf[1][1] * 0.9, th.leaf[1][2] * 0.9, 0) }
+  for (const g of E.tufts) { if (!inView(g.x, g.z)) continue; const sw = Math.sin(t * 1.6 + g.ph) * 0.25; for (let b = -1; b <= 1; b++) put3(g.x + b * 0.3 + sw * 0.5, g.h * 0.5, g.z, 0.2, g.h, 0.2, sw * 0.4 + b * 0.15, th.leaf[1][0] * 0.9, th.leaf[1][1] * 0.9, th.leaf[1][2] * 0.9, 0) }
   // glowing mushrooms
-  for (const m of E.shrooms) { const gl = 0.7 + Math.sin(t * 2 + m.ph) * 0.3; put3(m.x, m.s * 0.6, m.z, 0.3 * m.s, m.s * 1.2, 0.3 * m.s, 0, 0.7, 0.65, 0.6); put3(m.x, m.s * 1.35, m.z, m.s * 1.5, m.s * 0.5, m.s * 1.5, 0, th.mush[0] * gl, th.mush[1] * gl, th.mush[2] * gl) }
+  for (const m of E.shrooms) { if (!inView(m.x, m.z)) continue; const gl = 0.7 + Math.sin(t * 2 + m.ph) * 0.3; put3(m.x, m.s * 0.6, m.z, 0.3 * m.s, m.s * 1.2, 0.3 * m.s, 0, 0.7, 0.65, 0.6); put3(m.x, m.s * 1.35, m.z, m.s * 1.5, m.s * 0.5, m.s * 1.5, 0, th.mush[0] * gl, th.mush[1] * gl, th.mush[2] * gl) }
   // trees (sway)
-  for (const tr of E.trees) putTree(put3, th, tr, t)
+  for (const tr of E.trees) { if (inView(tr.x, tr.z, 14)) putTree(put3, th, tr, t) }
   // obstacles: mossy ruins and boulders
   for (const o of RG.obst) {
+    if (!inView(o.x, -o.y, 8)) continue
     const rr = rng((o.s || 1) * 31 + 5), k = th.rock
     const lay = 3 + (o.w >= 6 || o.h >= 6 ? 1 : 0)
     for (let i = 0; i < lay; i++) { const inset = i * 0.6, hgt = 1.9; put3(o.x + (rr() - 0.5) * 0.5, hgt * (i + 0.5), -o.y + (rr() - 0.5) * 0.5, o.w - inset * 1.2, hgt, o.h - inset * 1.2, 0, k[0] * (1 + i * 0.12), k[1] * (1 + i * 0.12), k[2] * (1 + i * 0.12), (rr() - 0.5) * 0.25) }
@@ -470,6 +482,7 @@ export function drawRogue3(api, RG, CLASSES) {
   for (const m of RG.meteors) { const u = Math.max(0, m.l), hh = u * 38; for (let k = 0; k < 16; k++) { const a = (k / 16) * TAU; put3(m.x + Math.cos(a) * m.r * (1 - u * 0.4), 0.2, -m.y + Math.sin(a) * m.r * (1 - u * 0.4), 0.7, 0.2, 0.7, 0, 3, 0.6, 0.3) } put3(m.x + u * 6, hh + 2, -m.y, 3.4, 3.4, 3.4, t * 5, 3.4, 1.8, 0.5); put3(m.x + u * 6 + 1.5, hh + 5, -m.y, 2, 2, 2, t * 4, 3, 1.2, 0.3) }
   // fireflies / embers / wisps
   for (const f of E.flies) {
+    if (!inView(f.x, f.z, 6)) continue
     const a = t * f.sp + f.ph, gl = 0.6 + Math.sin(t * 3 + f.ph * 3) * 0.4
     const x = f.x + Math.cos(a) * f.rad, z = f.z + Math.sin(a * 1.3) * f.rad
     const y = th.kind === 'crystal' || th.kind === 'ash' ? (f.y + t * 1.2 * f.sp) % 11 : f.y + Math.sin(a * 2) * 0.8

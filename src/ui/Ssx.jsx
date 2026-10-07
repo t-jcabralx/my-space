@@ -11,7 +11,8 @@ const Bar = ({ v, c }) => <i className="sxbar"><b style={{ width: Math.round(v *
 
 export function SsxLobby({ s, TopPlayers, onInvite }) {
   const [ci, setCi] = useState(s.profile.ssxCourse | 0), [kind, setKind] = useState(s.profile.ssxKind || 'race'), [rid, setRid] = useState(s.profile.ssxPick | 0)
-  const pick = (o) => { if (o.course !== undefined) setCi(o.course); if (o.kind) setKind(o.kind); if (o.rider !== undefined) setRid(o.rider); ssxActions.setPrefs(o) }
+  const [wd, setWd] = useState(s.profile.ssxWidth || 6)
+  const pick = (o) => { if (o.width !== undefined) setWd(o.width); if (o.course !== undefined) setCi(o.course); if (o.kind) setKind(o.kind); if (o.rider !== undefined) setRid(o.rider); ssxActions.setPrefs(o) }
   const p = s.profile, times = p.ssxTimes || {}
   const R = RIDERS[rid]
   return (
@@ -21,6 +22,8 @@ export function SsxLobby({ s, TopPlayers, onInvite }) {
         <button className={'mg-btn ' + (kind === 'race' ? 'on' : '')} onClick={() => pick({ kind: 'race' })}>🏁 RACE</button>
         <button className={'mg-btn ' + (kind === 'trick' ? 'on' : '')} onClick={() => pick({ kind: 'trick' })}>⭐ TRICK ATTACK · 90s</button>
       </div>
+      <h4>MOUNTAIN WIDTH <small className="dim">(x{wd}: {wd * 26} metres of open snow{COURSES[ci].pipe ? ', the half-pipe keeps its shape' : ''})</small></h4>
+      <div className="chips">{[1, 3, 6, 12, 20].map((v) => <button key={v} className={'chip ' + (wd === v ? 'sel' : '')} onClick={() => pick({ width: v })}>{v === 1 ? 'x1 PISTE' : v === 20 ? 'x20 RANGE' : 'x' + v}</button>)}</div>
       <div className="sxcourses">
         {COURSES.map((c, i) => (
           <button key={c.id} className={'sxcourse ' + c.id + (ci === i ? ' sel' : '')} onClick={() => pick({ course: i })}>
@@ -41,7 +44,7 @@ export function SsxLobby({ s, TopPlayers, onInvite }) {
         <div><span>TRICKS</span><Bar v={(R.trk - 0.85) / 0.4} c="#ff4a8a" /></div>
         <div><span>BALANCE</span><Bar v={(R.bal - 0.85) / 0.4} c="#6aff9a" /></div>
       </div>
-      <div className="chips"><button className="big" onClick={() => ssxActions.start({ course: ci, kind, rider: rid })}>▶ DROP IN</button>{onInvite && <button className="big sec" onClick={onInvite}>🌐 RACE FRIENDS ONLINE</button>}</div>
+      <div className="chips"><button className="big" onClick={() => ssxActions.start({ course: ci, kind, rider: rid, width: wd })}>▶ DROP IN</button>{onInvite && <button className="big sec" onClick={onInvite}>🌐 RACE FRIENDS ONLINE</button>}</div>
     </div><div className="lobbyR">
       <div className="panel"><h4>MY SNOW RUSH STATS</h4><div className="kv"><span>RUNS</span><b>{p.ssxGames || 0}</b><span>WINS</span><b>{p.ssxWins || 0}</b><span>BEST SCORE</span><b>{fmt(p.ssxBest)}</b><span>BEST TRICK</span><b>{fmt(p.ssxTrick)}</b></div></div>
       <TopPlayers s={s} initial="ssx" compact fixed />

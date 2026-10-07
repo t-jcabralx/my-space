@@ -1,7 +1,7 @@
 'use client'
 // EMPIRE RISE: lobby, HUD (resources, build bar, building panel, minimap) and the end screen.
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
-import { subscribeEmpire, getEmpireSnap, empireActions, EM, BDEF, BORDER, UDEF, HALL_UP, HALL_NAME, TEAM, mapInfo, MW, MH, T } from '../game/empire.js'
+import { subscribeEmpire, getEmpireSnap, empireActions, EM, BDEF, BORDER, UDEF, HALL_UP, HALL_NAME, TEAM, mapInfo, MW, MH, T, SIZES } from '../game/empire.js'
 import { useTouchPrimary } from './platform.js'
 import { EMCAMP } from '../game/empirestory.js'
 
@@ -12,7 +12,7 @@ const canPay = (res, c) => !!res && Object.entries(c).every(([k, v]) => (res[k] 
 const Stat = ({ k, v }) => <><span>{k}</span><b>{v}</b></>
 
 export function EmpireLobby({ s, TopPlayers, onInvite }) {
-  const [ai, setAi] = useState(3), [diff, setDiff] = useState(2), [mode, setMode] = useState('camp')
+  const [ai, setAi] = useState(3), [diff, setDiff] = useState(2), [mode, setMode] = useState('camp'), [size, setSize] = useState(s.profile.empireSize || 4)
   const p = s.profile, cleared = (p.empireCamp && p.empireCamp.cleared) || 0
   const [sel, setSel] = useState(Math.min(cleared, EMCAMP.length - 1))
   const sc = EMCAMP[sel]
@@ -30,9 +30,11 @@ export function EmpireLobby({ s, TopPlayers, onInvite }) {
         <>
           <h4>HOW MANY RIVAL KINGDOMS?</h4>
           <div className="chips">{[[1, '1 RIVAL'], [2, '2 RIVALS'], [3, '3 RIVALS']].map(([v, n]) => <button key={v} className={'chip ' + (ai === v ? 'sel' : '')} onClick={() => setAi(v)}>{n}</button>)}</div>
+          <h4>MAP SIZE <small className="dim">(x{size} each way = {96 * size} x {96 * size} tiles)</small></h4>
+          <div className="chips">{SIZES.map((v) => <button key={v} className={'chip ' + (size === v ? 'sel' : '')} onClick={() => { setSize(v); s.profile.empireSize = v }}>{v === 1 ? 'x1 CLASSIC' : v === 20 ? 'x20 CONTINENT' : 'x' + v}</button>)}</div>
           <h4>RIVAL STRENGTH</h4>
           <div className="chips">{[[1, 'GENTLE'], [2, 'FIERCE'], [3, 'BRUTAL']].map(([v, n]) => <button key={v} className={'chip ' + (diff === v ? 'sel' : '')} onClick={() => setDiff(v)}>{n}</button>)}</div>
-          <div className="chips"><button className="big" onClick={() => empireActions.start({ ai, diff })}>▶ BUILD MY KINGDOM</button><button className="big sec" onClick={onInvite}>🌐 INVITE FRIENDS (UP TO 4 KINGDOMS)</button></div>
+          <div className="chips"><button className="big" onClick={() => empireActions.start({ ai, diff, size })}>▶ BUILD MY KINGDOM</button><button className="big sec" onClick={onInvite}>🌐 INVITE FRIENDS (UP TO 4 KINGDOMS)</button></div>
         </>
       )}
       <div className="lobbyinfo"><b>EMPIRE RISE</b> · You start with a small <b>village</b> on a huge map. Build farms, lumber camps, quarries and mines, train soldiers, and upgrade your hall: <b>VILLAGE → TOWN → CITY → EMPIRE</b>. Rival kingdoms and <b>raiders</b> will attack you, so build towers and walls. Win by destroying every rival hall, or by building the <b>Wonder</b> and holding it for 2.5 minutes.</div>

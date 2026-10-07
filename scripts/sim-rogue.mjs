@@ -68,9 +68,10 @@ rogueActions.start({ type: 'online', cls: 0 })
 rogueActions.skipTale()
 rogueNet.applyInput('friend1', { mx: 1, my: 0, cls: 2, name: 'BUDDY', dn: 0, sn: 0 })
 ok(RG.players.length === 2 && RG.players[1].cls === 2 && RG.players[1].remote, 'a friend joins and gets their own hero')
+const fx0 = RG.players[1].x
 for (let i = 0; i < 60 * 8; i++) { rogueNet.applyInput('friend1', { mx: 0.5, my: 0.2, cls: 2, name: 'BUDDY', dn: i === 100 ? 1 : 0, sn: 0 }); update(1 / 60) }
 ok(out.length > 20 && out[0][0] === 'friend1', 'host streams state to the friend: ' + out.length)
-ok(RG.players[1].x > -AXtest() , 'the friend moves by their input')
+ok(RG.players[1].x > fx0 + 5, 'the friend moves by their input')
 function AXtest() { return 44 }
 const pkt = out[out.length - 1][1]
 ok(pkt.pl.length === 2 && pkt.me === 1 && Array.isArray(pkt.en), 'packet shape')

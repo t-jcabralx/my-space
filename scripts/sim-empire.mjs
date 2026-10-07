@@ -55,4 +55,19 @@ for (let i = 0; i < EMCAMP.length; i++) {
   if (EM.mode === 'over' && EM.over.win) ok((profile.empireCamp && profile.empireCamp.cleared) >= i + 1, 'winning saves the campaign')
   empireActions.stop()
 }
+// map sizes: x4 and x20 (1920 x 1920 tiles) build, run and keep raiders close to the village
+import { setMapSize } from '../src/game/empire.js'
+for (const k of [4, 20]) {
+  empireActions.start({ ai: 2, diff: 2, size: k, seed: 5 })
+  ok(MW === 96 * k && EM.terr.length === MW * MH, 'size x' + k + ' map is ' + MW + ' tiles wide')
+  const halls = EM.B.filter((b) => b.type === 'hall')
+  ok(halls.length >= 3 && halls.every((h) => h.x > 2 && h.y > 2 && h.x < MW - 3 && h.y < MH - 3), 'x' + k + ': every kingdom starts inside the map')
+  EM.raidT = 1
+  for (let i = 0; i < 20 * 40; i++) update(0.05)
+  const raiders = EM.U.filter((u) => u.owner < 0)
+  const me = EM.B.find((b) => b.type === 'hall' && b.owner === EM.me)
+  ok(raiders.length > 0 && raiders.every((u) => Number.isFinite(u.x) && Math.hypot(u.x - me.x * 2, u.y - me.y * 2) < 400), 'x' + k + ': raiders appear near the village (' + raiders.length + ')')
+  empireActions.stop()
+}
+void setMapSize
 process.exit(fail ? 1 : 0)

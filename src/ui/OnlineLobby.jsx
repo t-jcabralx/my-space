@@ -104,7 +104,7 @@ export default function OnlineLobby({ s, TopPlayers, initGame }) {
     else if (room.game === 'garden') await hostGame('garden', {})
     else if (room.game === 'hunt') await hostGame('hunt', { kind: profile0().huntKind || 'days' })
     else if (DUEL_IDS.includes(room.game)) await hostGame('duel:' + room.game, { song: 1 })
-    else if (room.game === 'ssx') await hostGame('ssx', { course: profile0().ssxCourse | 0, kind: profile0().ssxKind || 'race' })
+    else if (room.game === 'ssx') await hostGame('ssx', { width: profile0().ssxWidth | 0, course: profile0().ssxCourse | 0, kind: profile0().ssxKind || 'race' })
     else if (room.game === 'fight') await hostFightMatch()
     else if (room.game === 'tetris') await hostTetris()
     else if (room.game === 'space') await hostSpace()

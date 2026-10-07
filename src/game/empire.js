@@ -7,8 +7,13 @@ import { drawEmpire3, empireCamera, empireLights } from './empire3d.js'
 import { unprojectGround } from './rogue3d.js'
 import { EMCAMP, EMWHO } from './empirestory.js'
 
-export const MW = 96, MH = 96, T = 2
-const WORLD = MW * T
+export let MW = 96, MH = 96
+export const T = 2
+let WORLD = MW * T
+export const SIZES = [1, 2, 4, 8, 12, 20]
+const BASE_SPAWNS = [[22 / 96, 22 / 96], [74 / 96, 74 / 96], [74 / 96, 22 / 96], [22 / 96, 74 / 96]]
+// the map is 96 x 96 tiles times the chosen size (up to 20x each way = 1920 x 1920 tiles)
+export function setMapSize(k) { const K = SIZES.includes(k) ? k : 4; MW = MH = 96 * K; WORLD = MW * T; SPAWNS.length = 0; for (const [a, b] of BASE_SPAWNS) SPAWNS.push([Math.round(a * MW), Math.round(b * MH)]); return K }
 export const TERR = ['grass', 'forest', 'stone', 'gold', 'water']
 export const BDEF = {
   hall: { name: 'TOWN HALL', w: 3, hp: 900, cost: {}, ico: '🏰', lv: 1 },
@@ -53,7 +58,7 @@ const hall = (pi) => EM.B.find((b) => b.owner === pi && b.type === 'hall' && b.h
 function vnoise(r, n) { const a = Array.from({ length: n * n }, () => r()); return (x, y) => { const gx = x * (n - 1), gy = y * (n - 1), i = Math.min(n - 2, gx | 0), j = Math.min(n - 2, gy | 0), fx = gx - i, fy = gy - j; const s = (u) => u * u * (3 - 2 * u); const v = (a0, a1, f) => a0 + (a1 - a0) * s(f); return v(v(a[j * n + i], a[j * n + i + 1], fx), v(a[(j + 1) * n + i], a[(j + 1) * n + i + 1], fx), fy) } }
 export const SPAWNS = [[22, 22], [74, 74], [74, 22], [22, 74]]
 function genMap(seed) {
-  const r = rng(seed * 7919 + 13), n1 = vnoise(r, 9), n2 = vnoise(r, 17), n3 = vnoise(r, 13)
+  const Kn = MW / 96, r = rng(seed * 7919 + 13), n1 = vnoise(r, Math.round(9 * Kn)), n2 = vnoise(r, Math.round(17 * Kn)), n3 = vnoise(r, Math.round(13 * Kn))
   const t = new Uint8Array(MW * MH)
   for (let j = 0; j < MH; j++) for (let i = 0; i < MW; i++) {
     const x = i / (MW - 1), y = j / (MH - 1)
@@ -66,7 +71,7 @@ function genMap(seed) {
     t[ix(i, j)] = v
   }
   // gold veins inside the mountains and some scattered ore
-  for (let k = 0; k < 140; k++) { const i = (r() * MW) | 0, j = (r() * MH) | 0; if (t[ix(i, j)] === 2 && r() < 0.5) t[ix(i, j)] = 3 }
+  for (let k = 0, kn = Math.round(140 * Kn * Kn); k < kn; k++) { const i = (r() * MW) | 0, j = (r() * MH) | 0; if (t[ix(i, j)] === 2 && r() < 0.5) t[ix(i, j)] = 3 }
   // clear and enrich every spawn: grass around the hall, a forest, rock and gold nearby
   for (const [sx, sy] of SPAWNS) {
     for (let j = -9; j <= 9; j++) for (let i = -9; i <= 9; i++) { const d = Math.hypot(i, j); if (d < 8.5 && inMap(sx + i, sy + j)) t[ix(sx + i, sy + j)] = 0 }
@@ -85,6 +90,7 @@ function start(cfg = {}) {
   EM.cfg = { ai: sc ? sc.ai : clamp(cfg.ai | 0 || 3, 0, 3), diff: clamp(cfg.diff | 0 || 2, 1, 3), speed: 1, type: online ? 'online' : 'solo', seed: cfg.seed }
   if (!online) EM.net = null
   EM.seed = cfg.seed || ((Math.random() * 1e6) | 0) + 1
+  EM.size = setMapSize(sc ? 1 : (cfg.size || profile.empireSize || 4))
   EM.terr = genMap(EM.seed); EM.occ = new Int32Array(MW * MH)
   EM.B = []; EM.U = []; EM.fx = []; EM.alerts = []; EM.t = 0; EM.nid = 1; EM.sel = null; EM.build = null; EM.atk = false; EM.over = null; EM.paused = false; EM.msg = null; EM.raidT = 75; EM.raidN = 0; EM.raidWarn = 0; EM.wonder = null; EM.speed = 1; EM.peers = cfg.peers || []
   const humans = online ? 1 + EM.peers.length : 1
@@ -323,7 +329,8 @@ function stepRaiders(dt) {
     const hums = alivePl.filter((p) => p.kind === 'human'), pool = hums.length && Math.random() < 0.75 ? hums : alivePl
     const target = pool[(Math.random() * pool.length) | 0], h = hall(target.i), hc = bCenter(h)
     const n = Math.max(2, Math.round((3 + Math.floor(EM.raidN * 1.8) + (EM.cfg.diff - 1) * 2) * EM.raidScale))
-    const sx = EM.raidDir === 'WEST' ? 4 : EM.raidDir === 'EAST' ? WORLD - 4 : R(20, WORLD - 20), sy = EM.raidDir === 'SOUTH' ? 4 : EM.raidDir === 'NORTH' ? WORLD - 4 : R(20, WORLD - 20)
+    // raiders appear at most ~140 world units from the village they attack, so a huge map does not mean a ten-minute walk
+    const RD = 140, sx = clamp(EM.raidDir === 'WEST' ? hc.x - RD : EM.raidDir === 'EAST' ? hc.x + RD : hc.x + R(-70, 70), 4, WORLD - 4), sy = clamp(EM.raidDir === 'SOUTH' ? hc.y - RD : EM.raidDir === 'NORTH' ? hc.y + RD : hc.y + R(-70, 70), 4, WORLD - 4)
     for (let i = 0; i < n; i++) { const type = EM.raidN >= 3 && i % 5 === 0 ? 'rbrute' : i % 4 === 3 ? 'rarcher' : 'raider'; const u = spawnUnit(type, -1, sx + R(-6, 6), sy + R(-6, 6)); u.order = { x: hc.x + R(-6, 6), y: hc.y + R(-6, 6) } }
   }
 }

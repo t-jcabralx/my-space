@@ -89,5 +89,16 @@ for (let ci = 0; ci < 3; ci++) {
   step(10)
   check('a clean 360 with a grab scores', SX.score > s0 + 200 && P.crashes === 0, 'gained ' + (SX.score - s0) + ' crashes ' + P.crashes + ' acc ' + P.spinAcc.toFixed(2))
 }
+// wide mountains: x1 piste up to x20 range
+{
+  ssxActions.start({ course: 0, kind: 'race', rider: 0, width: 1 }); const T = snowTest(); const k1 = T.F.kick.length, hw1 = T.CUR.hw
+  ssxActions.start({ course: 0, kind: 'race', rider: 0, width: 20 }); const T20 = snowTest()
+  check('x20 is twenty times wider (260 m half-width) and has more to do', T20.CUR.hw === hw1 * 20 && T20.F.kick.length > k1 * 4, `hw ${T20.CUR.hw} kickers ${k1} -> ${T20.F.kick.length}`)
+  const P = SX.P; step(60 * 5)
+  P.x = T20.xc(P.z) + 150; P.y = T20.ground(P.x, P.z); P.vx = 0; P.vz = 5; P.grounded = true
+  step(60 * 6)
+  const pos = new Float32Array(44 * 84 * 3), cl = new Float32Array(44 * 84 * 3); games.ssx.terrain(pos, cl, 44, 84)
+  check('you can ride a hundred metres from the centre line, the terrain follows you', sane() && Math.abs(P.x - T20.xc(P.z)) > 100 && pos.every(Number.isFinite) && Math.abs(pos[22 * 3] - P.x) < 80, 'dx ' + (P.x - T20.xc(P.z)).toFixed(0))
+}
 ssxActions.stop()
 process.exit(failures ? 1 : 0)

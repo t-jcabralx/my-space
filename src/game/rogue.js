@@ -184,7 +184,12 @@ function enterRoom() {
   if (ar) { RG.floor = ar.biome; RG.chapter = ar.biome + 1 }
   const ch = CHAPTERS[RG.chapter - 1]
   RG.rtype = RG.sub === 'secret' ? 'secret' : ar ? ar.type : ch.plan[Math.min(RG.room, ROOMS - 1)]
-  const [sx, sy] = ROOM_SIZE[SIZE_OF[RG.rtype] || RG.rtype]; RG.ax = AX = sx; RG.ay = AY = sy
+  const [sx0, sy0] = ROOM_SIZE[SIZE_OF[RG.rtype] || RG.rtype]
+  // fighting rooms are stretched by the chosen map size (x1 .. x20); quiet rooms (shops, shrines, puzzles) stay cosy
+  const KS = [1, 2, 4, 8, 12, 20].includes(profile.depthsScale) ? profile.depthsScale : 4
+  RG.ks = ['combat', 'elite', 'boss', 'ambush', 'gauntlet', 'survival', 'trap'].includes(RG.rtype) ? KS : 1
+  const sx = Math.round(sx0 * RG.ks), sy = Math.round(sy0 * RG.ks)
+  RG.ax = AX = sx; RG.ay = AY = sy
   RG.players.forEach((p, i) => {
     p.x = -AX + 6; p.y = (i - (n - 1) / 2) * 7; p.inv = 1; if (p.aegis) p.shield = 1
     if (!p.alive) { p.alive = true; p.hp = Math.max(1, Math.ceil(p.max / 2)) }
@@ -196,7 +201,7 @@ function enterRoom() {
   RG.obst = []
   const boss = RG.rtype === 'boss'
   const quiet = RG.rtype === 'treasure' || RG.rtype === 'shrine' || RG.rtype === 'merchant'
-  const k = quiet ? 1 : boss ? 3 : RG.rtype === 'puzzle' ? 2 : Math.round((AX * AY) / 330) + ((Math.random() * 3) | 0)
+  const k = quiet ? 1 : boss ? 3 : RG.rtype === 'puzzle' ? 2 : Math.min(Math.round((AX * AY) / 330), 70 + 12 * RG.ks) + ((Math.random() * 3) | 0)
   for (let i = 0; i < k; i++) {
     const w = 4 + 2 * ((Math.random() * 3) | 0), h = 4 + 2 * ((Math.random() * 3) | 0)
     const x = R(-AX + 16, AX - 14), y = R(-AY + 6, AY - 6)
@@ -208,7 +213,7 @@ function enterRoom() {
   const dif = RG.abyss ? 1 + RG.room * 0.035 : 1
   const dm = { story: 0.6, normal: 1, heroic: 1.3 }[RG.diff] || 1
   const sc = (1 + RG.floor * 0.28) * (1 + 0.5 * (n - 1)) * dif * dm
-  const areaK = clamp((AX * AY) / 2300, 0.7, 2.3)
+  const areaK = clamp((AX * AY) / 2300, 0.7, 2.3) * (1 + 0.55 * (Math.sqrt(RG.ks) - 1))
   const spawn = (type, x, y, delay, elite) => RG.spawnQ.push({ type, x, y, t: delay, sc, elite: !!elite })
   const fight = (budget, eliteN, t0 = 0) => {
     let b = budget, i = 0

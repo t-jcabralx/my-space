@@ -240,6 +240,7 @@ export function RogueLobby({ s, TopPlayers, onInvite }) {
   const [power, setPower] = useState(p.roguePower && powerOk(p.roguePower) ? p.roguePower : 'none')
   const [codex, setCodex] = useState(false)
   const [diff, setDiff] = useState(p.rogueDiff || 'story')
+  const [ks, setKs] = useState([1, 2, 4, 8, 12, 20].includes(p.depthsScale) ? p.depthsScale : 4)
   const [mode, setMode] = useState(p.rogueMode === 'abyss' && abyssOk() ? 'abyss' : 'chapters')
   const [orb, setOrb] = useState(p.rogueOrb && orbOk(p.rogueOrb) ? p.rogueOrb : 'none')
   const [relic, setRelic] = useState(p.rogueRelic && relicOk(p.rogueRelic) ? p.rogueRelic : 'none')
@@ -257,6 +258,8 @@ export function RogueLobby({ s, TopPlayers, onInvite }) {
         {CHAPTERS.some((c) => !chapterOk(c.id)) && (() => { const nx = CHAPTERS.find((c) => !chapterOk(c.id)); const need = CHAPTERS[nx.id - 2]; return <div className="lobbyinfo" style={{ borderColor: '#ff8a2a' }}>🔒 <b>HOW TO UNLOCK CHAPTER {nx.id}:</b> beat <b>{need.name}</b> (chapter {need.id}) by defeating its guardian in room 5. Each chapter unlocks when you clear the one before it. Stuck? Pick <b>STORY</b> difficulty below: monsters are much weaker, you get 2 extra hearts, and your clicks snap onto enemies.</div> })()}
         <div className="lobbyinfo"><b>{ch.name}</b> · {ch.blurb} <small>5 rooms: {ch.plan.map((t) => ({ combat: '⚔', elite: '💀', puzzle: '🔮', treasure: '💰', boss: '👑' }[t])).join(' → ')} · a hidden vault waits behind a cracked wall in room {ch.secretRoom}</small></div>
         <h4>DIFFICULTY</h4>
+        <h4>MAP SIZE <small className="dim">(fighting rooms are x{ks} wider: {96 * ks * 2} x {52 * ks * 2} m)</small></h4>
+        <div className="chips">{[1, 2, 4, 8, 12, 20].map((v) => <button key={v} className={'chip ' + (ks === v ? 'sel' : '')} onClick={() => { setKs(v); save('depthsScale', v) }}>{v === 1 ? 'x1 CLASSIC' : v === 20 ? 'x20 WILDS' : 'x' + v}</button>)}</div>
         <div className="chips">{[['story', 'STORY (EASY)'], ['normal', 'NORMAL'], ['heroic', 'HEROIC (HARD)']].map(([k, n]) => <button key={k} className={'chip ' + (diff === k ? 'sel' : '')} onClick={() => { setDiff(k); save('rogueDiff', k) }}>{n}</button>)}</div>
         <h4>2 · CLASS</h4>
         <div className="modegrid">{RCLS.map((c, i) => <button key={c.id} className={'modecard ' + (cls === i ? 'sel' : '')} onClick={() => pickClass(i)}><div className="vs"><span>{c.ico}</span></div><strong>{c.name}</strong><small>{c.desc}</small></button>)}</div>
