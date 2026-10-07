@@ -66,6 +66,13 @@ for (const k of [4, 20]) {
   for (let i = 0; i < 20 * 40; i++) update(0.05)
   const raiders = EM.U.filter((u) => u.owner < 0)
   ok(raiders.length > 0 && raiders.every((u) => Number.isFinite(u.x) && halls.some((h) => Math.hypot(u.x - h.x * 2, u.y - h.y * 2) < 400)), 'x' + k + ': raiders appear near the village (' + raiders.length + ')')
+  { // the 3D pass must read the big map correctly: grass tiles near the hall, not water
+    const { games } = await import('../src/game/engine.js')
+    let grass = 0, calls = 0
+    const api = { put3: (x, y, z, sx, sy, sz, rz, r, g, b) => { calls++; if (Math.abs(y) < 0.01 && g > 0.2 && g < 0.35 && r < 0.15 && b < 0.15) grass++ }, putS: () => {} }
+    games.empire.draw3(api)
+    ok(calls > 300 && grass > 100, 'x' + k + ': the 3D view of the home village shows land (' + grass + ' grass tiles)')
+  }
   empireActions.stop()
 }
 void setMapSize

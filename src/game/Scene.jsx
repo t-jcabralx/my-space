@@ -232,7 +232,7 @@ export function Fighters3D() {
     m.instanceMatrix.needsUpdate = true; m.instanceColor.needsUpdate = true
     if (sph.current) { sph.current.count = nS; sph.current.instanceMatrix.needsUpdate = true; sph.current.instanceColor.needsUpdate = true }
     // colour the rim light after the element of whoever is attacking
-    if (G.mode === 'race' && light.current && games.race && games.race.sun) { const p = games.race.sun(); light.current.position.set(p.x - 30, 90, p.z + 40); light.current.target.position.set(p.x, 0, p.z); light.current.target.updateMatrixWorld(); light.current.castShadow = false }
+    if (G.mode === 'race' && light.current && games.race && games.race.sun) { const p = games.race.sun(); const ev = games.race.env(); light.current.position.set(p.x + ev.sun.x * 0.12, 60 + ev.sun.y * 0.14, p.z + 40 + ev.sun.z * 0.1); light.current.color.set(ev.sunColor); light.current.intensity = ev.sunI; light.current.target.position.set(p.x, 0, p.z); light.current.target.updateMatrixWorld(); light.current.castShadow = false; if (glow.current && ev.glow) { glow.current.visible = true; glow.current.position.set(ev.glow.x, ev.glow.y, ev.glow.z); glow.current.color.set(ev.glow.color); glow.current.intensity = ev.glow.intensity; glow.current.distance = ev.glow.distance; glow.current.decay = 1.3 } }
     if (G.mode === 'fight' && light.current) { light.current.castShadow = true }
     if (LIT3.has(G.mode) && games[G.mode] && games[G.mode].lights) {
       const L = games[G.mode].lights()
@@ -366,7 +366,7 @@ export function Rig() {
     const s = G.shake
     // the global lights are bright for the 2D games; the forest needs them low for suspense
     const amb = state.scene.children.find((c) => c.isAmbientLight), dl = state.scene.children.find((c) => c.isDirectionalLight)
-    if (LIT3.has(G.mode) && games[G.mode] && games[G.mode].lights) { const L = games[G.mode].lights(); if (amb) amb.intensity = L.ambient; if (dl) dl.intensity = L.dir } else { if (amb && amb.intensity !== 1.2) amb.intensity = 1.2; if (dl && dl.intensity !== 2.2) dl.intensity = 2.2 }
+    if (LIT3.has(G.mode) && games[G.mode] && games[G.mode].lights) { const L = games[G.mode].lights(); if (amb) amb.intensity = L.ambient; if (dl) dl.intensity = L.dir } else if (G.mode === 'race' && games.race && games.race.env) { const e = games.race.env(); if (amb) amb.intensity = e.amb; if (dl) dl.intensity = e.dir } else { if (amb && amb.intensity !== 1.2) amb.intensity = 1.2; if (dl && dl.intensity !== 2.2) dl.intensity = 2.2 }
     if (LIT3.has(G.mode) && games[G.mode] && games[G.mode].camera) {
       const cam = games[G.mode].camera(state.size.width / Math.max(1, state.size.height), dt)
       state.camera.position.set(cam.x, cam.y, cam.z)
@@ -389,8 +389,9 @@ export function Rig() {
       state.camera.position.set(cam.x, cam.y, cam.z)
       state.camera.lookAt(cam.tx, cam.ty, cam.tz)
       if (Math.abs(state.camera.fov - cam.fov) > 0.05 || state.camera.far !== cam.far) { state.camera.fov = cam.fov; state.camera.far = cam.far; state.camera.updateProjectionMatrix() }
-      if (!state.scene.fog) state.scene.fog = new THREE.Fog(games.race.fog(), 160, 900)
-      state.scene.fog.color.set(games.race.fog())
+      const ev = games.race.env()
+      if (!state.scene.fog) state.scene.fog = new THREE.Fog(ev.fog, ev.fogNear, ev.fogFar)
+      state.scene.fog.color.set(ev.fog); state.scene.fog.near = ev.fogNear; state.scene.fog.far = ev.fogFar
       rigWasFight = true
       return
     }

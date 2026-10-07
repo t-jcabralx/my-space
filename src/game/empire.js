@@ -72,6 +72,8 @@ function genMap(seed) {
   }
   // gold veins inside the mountains and some scattered ore
   for (let k = 0, kn = Math.round(140 * Kn * Kn); k < kn; k++) { const i = (r() * MW) | 0, j = (r() * MH) | 0; if (t[ix(i, j)] === 2 && r() < 0.5) t[ix(i, j)] = 3 }
+  // on big maps make sure every kingdom starts on dry land: no lakes within 30 tiles of a spawn
+  if (Kn > 1) for (const [sx, sy] of SPAWNS) for (let j = -30; j <= 30; j++) for (let i = -30; i <= 30; i++) { if (Math.hypot(i, j) < 30 && inMap(sx + i, sy + j) && t[ix(sx + i, sy + j)] === 4 && Math.min(sx + i, sy + j, MW - 1 - sx - i, MH - 1 - sy - j) > 3) t[ix(sx + i, sy + j)] = 0 }
   // clear and enrich every spawn: grass around the hall, a forest, rock and gold nearby
   for (const [sx, sy] of SPAWNS) {
     for (let j = -9; j <= 9; j++) for (let i = -9; i <= 9; i++) { const d = Math.hypot(i, j); if (d < 8.5 && inMap(sx + i, sy + j)) t[ix(sx + i, sy + j)] = 0 }

@@ -85,3 +85,8 @@ Seven more games (Air Hockey, Billiards, Neon Defense, Neon Depths, Neon Beat, W
 - **Empire Rise**: map size picker x1-x20 (up to 1,920 x 1,920 tiles; raiders appear within ~140 m of the village). Campaign scenarios stay x1.
 - **Neon Depths**: map size picker x1-x20 for fighting rooms (quiet rooms stay small). Ground, trees, rocks and fireflies are drawn around the camera only.
 - **Snow Rush**: mountain width picker x1-x20 (the half-pipe keeps its shape); wider mountains get proportionally more kickers, rails, rocks, pines and coins.
+
+## Update: scenery rework and the 4th dimension (Turbo Rush / Kart)
+- The track scenery is no longer a baked 7,000-box block: roads, kerbs, lamps, trees, buildings, cacti and mountains are drawn around the camera every frame, so a track can be x1, x2, x4 or x8 long.
+- **Time and weather change while you race**: a full day/night cycle every ~200 s (sun and moon, stars, sunrise/sunset colours, lamp posts and headlights at night, lit city windows) and weather (clear, rain with puddles and lightning, fog, snow). Rain and snow make the road slippery for everyone. Trees sway in the wind. Weather and start time are picked in the lobby (or random per race, identical for online players).
+- Empire Rise: fixed the 3D terrain on large maps (it was reading a 96-tile map width), and every kingdom now starts on dry land on big maps.

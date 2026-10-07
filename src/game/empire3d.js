@@ -15,7 +15,7 @@ export const empireLights = (EM) => ({ sun: { x: EM.cam.x - 40, y: 90, z: -EM.ca
 // ---------- terrain ----------
 function tileDraw(api, EM, i, j, step, t) {
   const { put3, putS } = api
-  const tt = EM.terr[j * 96 + i], x = (i + step / 2) * T, z = -((j + step / 2) * T), s = T * step + 0.05
+  const tt = EM.terr[j * MWc + i], x = (i + step / 2) * T, z = -((j + step / 2) * T), s = T * step + 0.05
   const n = ((i * 7 + j * 13) % 7) * 0.012
   if (tt === 0) { const g = (i + j) & 1 ? [0.08, 0.27, 0.09] : [0.1, 0.31, 0.11]; put3(x, 0, z, s, 0.6, s, 0, g[0] + n, g[1] + n, g[2] + n, 0); if (step === 1 && ((i * 31 + j * 17) % 11) === 0) { putS(x, 0.75, z, 0.35, 0.35, 0.35, 3, 0.8 + (i % 3) * 0.7, 0.6) } if (step === 1 && ((i * 19 + j * 23) % 9) === 0) put3(x, 0.6, z, 0.12, 0.8, 0.12, 0.2 * Math.sin(t * 2 + i), 0.12, 0.5, 0.14, 0) }
   else if (tt === 4) { const w = 0.85 + Math.sin(t * 1.4 + i * 0.6 + j * 0.45) * 0.12; put3(x, -0.35, z, s, 0.5, s, 0, 0.03 * w, 0.14 * w, 0.4 * w, 0); if (step === 1 && ((i + j + (t * 0.8 | 0)) % 6) === 0) put3(x, -0.07, z, 0.9, 0.05, 0.12, 0, 0.7, 0.9, 1.4, 0) }
@@ -102,8 +102,10 @@ function drawUnit(api, u, EM, t, TEAM, UDEF) {
   if (u.hp < u.max) { const f = clamp(u.hp / u.max, 0, 1), y = (u.type === 'catapult' ? 4 : u.type === 'knight' ? 5 : 4); for (let q = 0; q < 6; q++) { const on = q / 6 < f; put3(X - 0.9 + (q + 0.5) * 0.3, y, Z, 0.27, 0.3, 0.25, 0, on ? 0.3 : 0.5, on ? 2.2 : 0.1, on ? 0.4 : 0.1, 0) } }
 }
 
+let MWc = 96
 export function drawEmpire3(api, EM, defs) {
   const { put3, putS } = api, t = G.time, { TEAM, UDEF, MW, MH } = defs
+  MWc = MW
   const cx = EM.cam.x, cy = EM.cam.y, z = EM.cam.z
   const rx = 64 / z + 8, ry2 = 40 / z + 8
   const step = z < 0.78 ? 2 : 1

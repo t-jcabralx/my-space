@@ -741,3 +741,5 @@ li.bonus { border-color: var(--gr); color: var(--gr); } li.fail { border-color: 
 
 .hmini { position: absolute; right: 2cqw; top: 7cqw; width: 17cqw; height: 10.4cqw; background: #02060ccc; border: 2px solid #3a6a3a; z-index: 3; pointer-events: none; overflow: hidden; } .hmini i, .hmini b, .hmini u { position: absolute; transform: translate(-50%, -50%); } .hmini i { width: 4px; height: 4px; background: #ff3a3a; } .hmini i.k { width: 9px; height: 9px; background: #ff4de1; } .hmini b { width: 8px; height: 8px; border-radius: 50%; background: #3de8ff; border: 1px solid #fff; } .hmini b.me { background: #ffe84a; } .hmini b.dn { background: #666; } .hmini u { width: 8px; height: 6px; background: #8a5a2a; }
 .hammo small:first-child { display: block; color: #ffb02e; letter-spacing: .1em; }
+
+.renv { position: absolute; left: 50%; transform: translateX(-50%); top: 6.5cqw; background: #070c26cc; border: 1px solid #3de8ff; padding: .2cqw 1cqw; font-size: .55em; color: #cfe6ff; pointer-events: none; }

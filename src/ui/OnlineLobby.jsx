@@ -99,7 +99,7 @@ export default function OnlineLobby({ s, TopPlayers, initGame }) {
   const isHost = !!room && room.host === rt.cid
   const g = room ? GAMES.find((x) => x[0] === room.game) : null
   const start = () => run(async () => {
-    if (room.game === 'race' || room.game === 'kart') await hostRaceMatch({ track: typeof profile0().raceTrack === 'number' ? profile0().raceTrack : 0, laps: 3, diff: 2, ai: 3, kart: room.game === 'kart' })
+    if (room.game === 'race' || room.game === 'kart') await hostRaceMatch({ track: typeof profile0().raceTrack === 'number' ? profile0().raceTrack : 0, laps: 3, diff: 2, ai: 3, kart: room.game === 'kart', size: profile0().raceSize || 1, weather: profile0().raceWeather && profile0().raceWeather !== 'auto' ? profile0().raceWeather : undefined, tod: typeof profile0().raceTod === 'number' && profile0().raceTod >= 0 ? profile0().raceTod : undefined })
     else if (room.game === 'orb') await hostGame('orb', { level: 0 })
     else if (room.game === 'garden') await hostGame('garden', {})
     else if (room.game === 'hunt') await hostGame('hunt', { kind: profile0().huntKind || 'days' })

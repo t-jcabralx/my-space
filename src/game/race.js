@@ -1,6 +1,6 @@
 // TURBO RUSH: a 3D arcade racer. 5 tracks, 6 cars, drifting with mini-turbos, nitro, boost pads, AI rivals and lap records.
 // Pure JS simulation (testable headlessly); drawn as lit 3D boxes through Scene.jsx (draw3) with a chase camera.
-import { G, keys, games, profile, saveProfile, recordScore, toMenu } from './engine.js'
+import { G, keys, games, profile, saveProfile, recordScore, toMenu, flash } from './engine.js'
 import { rgb } from './sprites.js'
 import { sfx, music, speak, rev } from './audio.js'
 
@@ -29,9 +29,10 @@ function catmull(p0, p1, p2, p3, t) {
   return [0, 1].map((i) => 0.5 * ((2 * p1[i]) + (-p0[i] + p2[i]) * t + (2 * p0[i] - 5 * p1[i] + 4 * p2[i] - p3[i]) * t2 + (-p0[i] + 3 * p1[i] - 3 * p2[i] + p3[i]) * t3))
 }
 const built = {}
-export function buildTrack(ti) {
-  if (built[ti]) return built[ti]
-  const T = TRACKS[ti], c = T.pts, n = c.length
+export function buildTrack(ti, K = 1) {
+  const key = ti + ':' + K
+  if (built[key]) return built[key]
+  const T = TRACKS[ti], c = T.pts.map((q) => [q[0] * K, q[1] * K]), n = c.length
   const raw = []
   for (let i = 0; i < n; i++) for (let k = 0; k < 24; k++) raw.push(catmull(c[(i + n - 1) % n], c[i], c[(i + 1) % n], c[(i + 2) % n], k / 24))
   // resample at an even spacing
@@ -53,8 +54,8 @@ export function buildTrack(ti) {
     P[i].dx = dx / l; P[i].dz = dz / l; P[i].nx = -P[i].dz; P[i].nz = P[i].dx
   }
   for (let i = 0; i < N; i++) { const a = P[i], b = P[(i + 1) % N]; P[i].k = angDiff(Math.atan2(b.dx, -b.dz), Math.atan2(a.dx, -a.dz)) / step }
-  built[ti] = { T, P, N, len: N * step, step, W: T.w }
-  return built[ti]
+  built[key] = { T, P, N, len: N * step, step, W: T.w, K }
+  return built[key]
 }
 // fast checks used by the tests: the loop never touches itself
 export function trackClearance(ti) {
@@ -96,7 +97,14 @@ export function startRace(cfg = {}) {
   RC.cfg = { track: 0, car: 0, laps: 3, diff: 2, ai: 5, type: 'race', seed: (Math.random() * 1e9) | 0, humans: null, ...cfg }
   const c = RC.cfg
   if (c.type !== 'online') RC.net = null
-  RC.tk = buildTrack(c.track)
+  RC.tk = buildTrack(c.track, [1, 2, 4, 8].includes(c.size) ? c.size : 1)
+  // the 4th dimension: a day/night cycle and weather that change while you race (deterministic from the seed so online players share them)
+  { const wr = rng((c.seed || 1) * 13 + 5), T0 = TRACKS[c.track], roll = wr()
+    const auto = T0.scenery === 'snow' ? (roll < 0.6 ? 'snow' : roll < 0.8 ? 'fog' : 'clear') : T0.scenery === 'city' ? (roll < 0.5 ? 'rain' : roll < 0.7 ? 'fog' : 'clear') : T0.scenery === 'cacti' ? (roll < 0.75 ? 'clear' : 'fog') : (roll < 0.5 ? 'clear' : roll < 0.78 ? 'rain' : 'fog')
+    RC.weather = ['clear', 'rain', 'fog', 'snow'].includes(c.weather) ? c.weather : auto
+    RC.tod0 = typeof c.tod === 'number' ? c.tod : wr()
+    RC.storm = RC.weather === 'rain' && wr() < 0.5; RC.stormT = 6 + wr() * 8
+    RC.gripK = RC.weather === 'rain' ? 0.84 : RC.weather === 'snow' ? 0.72 : 1 }
   const { P, N, W } = RC.tk
   const rs = rng(c.seed || 1)
   const humans = c.humans && c.humans.length ? c.humans : [c.car]
@@ -152,7 +160,7 @@ function emitR() {
   snap = {
     mode: RC.mode, paused: RC.paused, phase: RC.phase, type: RC.cfg.type, track: RC.cfg.track, trackName: TRACKS[RC.cfg.track].name, laps: RC.cfg.laps, count: RC.phase === 'ready' ? Math.ceil(RC.count) : 0,
     me: me ? { lap: Math.min(RC.cfg.laps, me.lap), pos: me.rank || 1, total: RC.cars.length, kmh: Math.round(me.sp * 3), nitro: Math.round(me.nitro), boost: me.boostT > 0, drifting: me.drifting, charge: Math.min(1, me.charge / 0.9), lapTime: me.finished ? 0 : RC.t - me.lapStart, best: me.best, last: me.lapTimes.length ? me.lapTimes[me.lapTimes.length - 1] : 0, elapsed: me.finished ? me.finishT : RC.t, finished: me.finished, wrong: me.wrong > 1.2, off: me.off, item: me.item, itemN: me.itemN, spin: me.spin > 0, star: me.star > 0, slow: me.slowT > 0 } : null,
-    kart: !!RC.cfg.kart,
+    kart: !!RC.cfg.kart, envLabel: ENVC ? ENVC.label : '', night: ENVC ? ENVC.night : 0,
     board: ranked.map((c) => ({ i: c.i, name: c.name, color: c.color, finished: c.finished, t: c.finishT, lap: c.lap, human: c.human })),
     map: RC.cars.map((c) => ({ i: c.i, x: c.x, z: c.z, color: c.color, me: c.i === RC.me })),
     results: RC.results, msg: RC.msg ? { ...RC.msg } : null,
@@ -217,7 +225,7 @@ function stepCar(c, dt) {
   c.th += yaw * dt
   if (c.spin > 0) { c.th += 11 * dt * c.spinDir; v *= Math.exp(-2.4 * dt) }
   // lateral grip: the car slides more when drifting, braking hard or off the road
-  const gripBase = 6.8 * st.grip * (c.off ? 0.5 : 1) * (drifting ? 0.28 : 1) * (inp.brk > 0 && Math.abs(v) > 40 ? 0.6 : 1)
+  const gripBase = 6.8 * st.grip * (RC.gripK || 1) * (c.off ? 0.5 : 1) * (drifting ? 0.28 : 1) * (inp.brk > 0 && Math.abs(v) > 40 ? 0.6 : 1)
   const nfx = Math.sin(c.th), nfz = -Math.cos(c.th), nrx = Math.cos(c.th), nrz = Math.sin(c.th)
   const slide = (c.vx * nrx + c.vz * nrz) * (1 - Math.min(1, gripBase * dt)) // sideways speed fades with grip
   c.vx = nfx * v + nrx * slide; c.vz = nfz * v + nrz * slide
@@ -454,6 +462,7 @@ function update(dtRaw) {
   const dt = Math.min(dtRaw, 0.04)
   if (RC.mode === 'idle' || RC.paused) return
   RC.t += dt
+  if (RC.storm && RC.phase === 'race') { RC.stormT -= dt; if (RC.stormT <= 0) { RC.stormT = 9 + Math.random() * 10; flash(0.55, [0.8, 0.85, 1]); G.shake = Math.max(G.shake, 0.3); sfx('distant') } }
   for (let i = RC.fx.length - 1; i >= 0; i--) { const f = RC.fx[i]; f.life -= dt; f.x += f.vx * dt; f.y = Math.max(0.2, f.y + f.vy * dt); f.z += f.vz * dt; f.vy -= 8 * dt; if (f.life <= 0) RC.fx.splice(i, 1) }
   if (RC.msg) { RC.msg.t -= dt; if (RC.msg.t <= 0) RC.msg = null }
   RC.shake = Math.max(0, RC.shake - dt * 2)
@@ -635,75 +644,164 @@ export function raceCamera(aspect, dt) {
   const sh = RC.shake
   return { x: CAM.x + (Math.random() - 0.5) * sh * 1.2, y: CAM.y + (Math.random() - 0.5) * sh * 0.8, z: CAM.z + (Math.random() - 0.5) * sh * 1.2, tx: CAM.tx, ty: CAM.ty, tz: CAM.tz, fov: CAM.fov, far: 1600 }
 }
-// static scenery is built once per track into typed arrays and copied each frame (it is thousands of boxes)
-const staticCache = {}
-function buildStatic(ti) {
-  if (staticCache[ti]) return staticCache[ti]
-  const tk = buildTrack(ti), T = tk.T, P = tk.P, N = tk.N, W = tk.W
-  const MAXS = 7000
-  const A = new Float32Array(MAXS * 16), C = new Float32Array(MAXS * 3)
-  let n = 0
-  const put = (x, y, z, sx, sy, sz, ry, r, g, b) => {
-    if (n >= MAXS) return
-    const o = n * 16, cy = Math.cos(ry), sy_ = Math.sin(ry)
-    A[o] = cy * sx; A[o + 1] = 0; A[o + 2] = -sy_ * sx; A[o + 3] = 0
-    A[o + 4] = 0; A[o + 5] = sy; A[o + 6] = 0; A[o + 7] = 0
-    A[o + 8] = sy_ * sz; A[o + 9] = 0; A[o + 10] = cy * sz; A[o + 11] = 0
-    A[o + 12] = x; A[o + 13] = y; A[o + 14] = z; A[o + 15] = 1
-    const c = n * 3; C[c] = r; C[c + 1] = g; C[c + 2] = b; n++
+// ---------- the 4th dimension: time of day and weather ----------
+const DAYLEN = 200 // seconds for a full day (and night) while you race
+const hx = (a) => '#' + a.map((v) => Math.round(clamp(v, 0, 1) * 255).toString(16).padStart(2, '0')).join('')
+const mixc = (a, b, k) => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k]
+const sstep = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t) }
+let ENVC = null
+export function raceEnv() {
+  if (!RC.tk) return { sky: '#102040', fog: '#102040', fogNear: 160, fogFar: 900, amb: 1, dir: 1.5, sunI: 1.6, sunColor: '#ffffff', night: 0, day: 1, tod: 0.5, glow: null, sun: { x: 0, y: 500, z: 0 }, weather: 'clear', label: '' }
+  const T = RC.tk.T, tod = ((RC.tod0 || 0) + (RC.phase === 'ready' ? 0 : RC.t) / DAYLEN) % 1
+  const el = Math.sin((tod - 0.25) * TAU), day = sstep(-0.12, 0.3, el), night = 1 - day, glowH = clamp(1 - Math.abs(el) / 0.3, 0, 1)
+  const wx = RC.weather || 'clear'
+  const gray = wx === 'rain' ? [0.34, 0.38, 0.44] : wx === 'snow' ? [0.78, 0.82, 0.88] : wx === 'fog' ? [0.62, 0.66, 0.7] : null
+  const gk = wx === 'rain' ? 0.6 : wx === 'snow' ? 0.5 : wx === 'fog' ? 0.75 : 0
+  const base = (c, nightC) => { let v = mixc(nightC, [...lc(c)], day); v = mixc(v, [1, 0.5, 0.25], glowH * 0.5 * (1 - gk * 0.5)); return gray ? mixc(v, [gray[0] * (0.25 + 0.75 * day), gray[1] * (0.25 + 0.75 * day), gray[2] * (0.25 + 0.75 * day)], gk) : v }
+  const sky = base(T.sky, [0.03, 0.04, 0.12]), fog = base(T.fog, [0.04, 0.05, 0.14])
+  const nf = { clear: [160, 900], rain: [80, 520], fog: [20, 240], snow: [60, 400] }[wx]
+  const lamp = night > 0.4
+  const me = RC.cars[RC.me]
+  const ang = (tod - 0.25) * TAU
+  const e = {
+    sky: hx(sky), fog: hx(fog), fogNear: nf[0] * (0.5 + 0.5 * day), fogFar: nf[1] * (0.55 + 0.45 * day), night, day, tod, weather: wx, lamp,
+    amb: (0.3 + 0.9 * day) * (gk ? 1 - gk * 0.25 : 1), dir: (0.25 + 1.9 * day) * (gk ? 1 - gk * 0.45 : 1), sunI: (0.3 + 1.5 * day) * (gk ? 1 - gk * 0.5 : 1),
+    sunColor: hx(mixc(mixc([0.6, 0.7, 1], [1, 0.95, 0.82], day), [1, 0.55, 0.25], glowH * 0.7)),
+    sun: { x: Math.cos(ang) * 700, y: Math.max(40, el * 650 + 40), z: -280 },
+    glow: me ? { x: me.x + Math.sin(me.th) * 14, y: 6, z: me.z - Math.cos(me.th) * 14, color: '#ffe6b0', intensity: night * 3.6, distance: 120 } : null,
+    label: (day > 0.85 ? 'DAY' : night > 0.85 ? 'NIGHT' : el > 0 === (tod < 0.5) && tod < 0.5 ? 'SUNRISE' : 'SUNSET') + (wx === 'clear' ? '' : ' · ' + wx.toUpperCase()),
   }
-  const col = (hex, k = 1) => { const c = lc(hex); return [c[0] * k, c[1] * k, c[2] * k] }
-  const g = col(T.ground), road = col(T.road), acc = col(T.accent), sky = col(T.sky)
-  // ground & far mountains
-  put(0, -1.2, 0, 3200, 2, 3200, 0, g[0], g[1], g[2])
-  const r = rng(ti * 31 + 7)
-  for (let i = 0; i < 28; i++) { const a = (i / 28) * TAU + r() * 0.2, d = 1100 + r() * 200, h = 90 + r() * 160; const m = T.scenery === 'city' ? col('#2a1a60', 1 + r() * 0.5) : T.scenery === 'snow' ? col('#c8e0f0', 0.8 + r() * 0.3) : T.scenery === 'cacti' ? col('#a06a3a', 0.8 + r() * 0.3) : col('#5a7aa0', 0.7 + r() * 0.3); put(Math.cos(a) * d, h / 2 - 2, Math.sin(a) * d, 140 + r() * 140, h, 140 + r() * 140, r() * 3, m[0], m[1], m[2]) }
-  put(-300, 300, -1050, 120, 120, 4, 0, 3, 2.6, 1.6) // the sun
-  // road, kerbs, barriers, dashes
-  for (let i = 0; i < N; i++) {
-    const a = P[i], b = P[(i + 1) % N]
-    const mx = (a.x + b.x) / 2, mz = (a.z + b.z) / 2, len = Math.hypot(b.x - a.x, b.z - a.z) + 0.5
-    const ry = Math.atan2(-(b.z - a.z), b.x - a.x)
-    put(mx, 0, mz, len, 0.5, W, ry, road[0], road[1], road[2])
-    const kc = (i % 2) ? [1.6, 0.2, 0.2] : [1.6, 1.6, 1.6]
-    for (const sd of [-1, 1]) {
-      const kx = mx + a.nx * sd * (W / 2 + 1), kz = mz + a.nz * sd * (W / 2 + 1)
-      put(kx, 0.12, kz, len, 0.6, 2, ry, kc[0], kc[1], kc[2])
-      if (i % 2 === 0) put(mx + a.nx * sd * (W / 2 + 7), 0.9, mz + a.nz * sd * (W / 2 + 7), len + 0.4, 2.2, 1, ry, acc[0] * 0.9, acc[1] * 0.9, acc[2] * 0.9)
-    }
-    if (i % 4 === 0) put(mx, 0.3, mz, len * 0.55, 0.2, 0.7, ry, 1.5, 1.5, 1.5)
-  }
-  // start / finish line and gantry
-  { const p = P[0], ry = Math.atan2(-p.dz, p.dx)
-    for (let k = 0; k < 10; k++) for (let j = 0; j < 2; j++) put(p.x + p.dx * (j - 0.5) * 2 + p.nx * (k - 4.5) * (W / 10), 0.32, p.z + p.dz * (j - 0.5) * 2 + p.nz * (k - 4.5) * (W / 10), 2, 0.2, W / 10, ry, (k + j) % 2 ? 1.8 : 0.1, (k + j) % 2 ? 1.8 : 0.1, (k + j) % 2 ? 1.8 : 0.1)
-    for (const sd of [-1, 1]) put(p.x + p.nx * sd * (W / 2 + 3), 7, p.z + p.nz * sd * (W / 2 + 3), 2, 14, 2, ry, 0.5, 0.5, 0.6)
-    put(p.x, 14, p.z, 2, 3, W + 8, ry, acc[0] * 1.4, acc[1] * 1.4, acc[2] * 1.4) }
-  // boost pads (chevrons)
-  // scenery along the track
-  const r2s = rng(ti * 101 + 3)
-  const count = 340
-  for (let k = 0; k < count; k++) {
-    const i = Math.floor(r2s() * N), p = P[i], side = r2s() < 0.5 ? -1 : 1, dist = W / 2 + 14 + r2s() * 90
-    const x = p.x + p.nx * side * dist, z = p.z + p.nz * side * dist
-    // keep scenery off the road (other parts of the loop)
-    let ok = true
-    for (let j = 0; j < N; j += 6) { if (Math.hypot(P[j].x - x, P[j].z - z) < W / 2 + 12) { ok = false; break } }
-    if (!ok) continue
-    const sc = 0.8 + r2s() * 1.1
-    if (T.scenery === 'trees') { const tr = col('#5a3a1a'), lf = col(r2s() < 0.5 ? '#2f8a3a' : '#3aa04a', 0.8 + r2s() * 0.4); put(x, 3 * sc, z, 1.6 * sc, 6 * sc, 1.6 * sc, 0, tr[0], tr[1], tr[2]); put(x, 8 * sc, z, 7 * sc, 5 * sc, 7 * sc, r2s() * 3, lf[0], lf[1], lf[2]); put(x, 12 * sc, z, 4.6 * sc, 4 * sc, 4.6 * sc, r2s() * 3, lf[0] * 1.1, lf[1] * 1.1, lf[2] * 1.1) }
-    else if (T.scenery === 'city') { const h = 30 + r2s() * 90, b = col(['#1a1a3a', '#241a4a', '#14284a'][(r2s() * 3) | 0], 1 + r2s() * 0.6), w = 14 + r2s() * 14; put(x, h / 2, z, w, h, w, r2s() * 3, b[0], b[1], b[2]); for (let y = 6; y < h - 4; y += 7) put(x + 0.1, y, z, w + 0.4, 1.4, w * 0.9, 0, acc[0] * (r2s() < 0.5 ? 1.8 : 0.5), acc[1] * 1.2, acc[2] * 1.8); if (r2s() < 0.3) put(x, h + 2, z, 1, 4, 1, 0, 2.4, 0.3, 0.3) }
-    else if (T.scenery === 'snow') { const tr = col('#4a3a2a'), lf = col('#d8f0ff', 0.9 + r2s() * 0.3); put(x, 2, z, 1.4 * sc, 4 * sc, 1.4 * sc, 0, tr[0], tr[1], tr[2]); put(x, 6 * sc, z, 8 * sc, 3 * sc, 8 * sc, r2s() * 3, lf[0] * 0.55, lf[1] * 0.75, lf[2] * 0.7); put(x, 9 * sc, z, 5.4 * sc, 3 * sc, 5.4 * sc, r2s() * 3, lf[0] * 0.7, lf[1] * 0.85, lf[2] * 0.8); put(x, 12 * sc, z, 3 * sc, 3 * sc, 3 * sc, r2s() * 3, lf[0], lf[1], lf[2]) }
-    else { const cg = col('#3a8a3a', 0.8 + r2s() * 0.4); put(x, 4 * sc, z, 2 * sc, 8 * sc, 2 * sc, 0, cg[0], cg[1], cg[2]); put(x + 2.2 * sc, 5.5 * sc, z, 3 * sc, 1.4 * sc, 1.4 * sc, 0, cg[0], cg[1], cg[2]); put(x + 3.4 * sc, 7 * sc, z, 1.4 * sc, 3 * sc, 1.4 * sc, 0, cg[0], cg[1], cg[2]); if (r2s() < 0.4) { const rk = col('#a07a4a', 0.8 + r2s() * 0.4); put(x + 8, 2 * sc, z + 5, 7 * sc, 4 * sc, 6 * sc, r2s() * 3, rk[0], rk[1], rk[2]) } }
-  }
-  staticCache[ti] = { A, C, n }
-  return staticCache[ti]
+  ENVC = e
+  return e
 }
+// ---------- scenery: built once per track as plain lists, drawn around the camera every frame (so a track can be any size) ----------
+const sceneCache = {}
+const h2 = (a, b) => { let h = Math.imul(a | 0, 374761393) ^ Math.imul(b | 0, 668265263); h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296 }
+function buildScene(tk, ti) {
+  const key = ti + ':' + tk.K
+  if (sceneCache[key]) return sceneCache[key]
+  const T = tk.T, P = tk.P, N = tk.N, W = tk.W
+  const segs = []
+  for (let i = 0; i < N; i++) { const a = P[i], b = P[(i + 1) % N]; segs.push({ x: (a.x + b.x) / 2, z: (a.z + b.z) / 2, len: Math.hypot(b.x - a.x, b.z - a.z) + 0.5, ry: Math.atan2(-(b.z - a.z), b.x - a.x), nx: a.nx, nz: a.nz, i }) }
+  let minx = 1e9, maxx = -1e9, minz = 1e9, maxz = -1e9
+  for (const p of P) { minx = Math.min(minx, p.x); maxx = Math.max(maxx, p.x); minz = Math.min(minz, p.z); maxz = Math.max(maxz, p.z) }
+  const cx = (minx + maxx) / 2, cz = (minz + maxz) / 2, rad = Math.max(maxx - minx, maxz - minz) / 2
+  const r2s = rng(ti * 101 + 3 + tk.K * 7)
+  // a coarse grid of road points so "is this spot clear of the road" is fast
+  const grid = new Map(), GS = 60
+  P.forEach((p) => { const k = Math.floor(p.x / GS) + ',' + Math.floor(p.z / GS); (grid.get(k) || grid.set(k, []).get(k)).push(p) })
+  const nearRoad = (x, z, d) => { const gx = Math.floor(x / GS), gz = Math.floor(z / GS); for (let i = gx - 2; i <= gx + 2; i++) for (let j = gz - 2; j <= gz + 2; j++) { const l = grid.get(i + ',' + j); if (l) for (const p of l) if (Math.hypot(p.x - x, p.z - z) < d) return true } return false }
+  const props = []
+  const count = Math.min(4200, Math.round(340 * Math.sqrt(tk.K) * tk.K * 0.6 + 340))
+  for (let k = 0; k < count; k++) {
+    const i = Math.floor(r2s() * N), p = P[i], side = r2s() < 0.5 ? -1 : 1, dist = W / 2 + 14 + r2s() * (90 + 40 * tk.K)
+    const x = p.x + p.nx * side * dist, z = p.z + p.nz * side * dist
+    if (nearRoad(x, z, W / 2 + 12)) continue
+    props.push({ x, z, sc: 0.8 + r2s() * 1.1, ry: r2s() * 3, s: r2s(), s2: r2s(), s3: r2s(), kind: T.scenery })
+  }
+  // lamp posts and little grandstands/billboards beside the road
+  const lamps = []
+  for (let i = 0; i < N; i += Math.max(6, 10 - tk.K)) for (const sd of [-1, 1]) { const p = P[i]; if (((i / 8) | 0) % 2 === (sd > 0 ? 0 : 1)) lamps.push({ x: p.x + p.nx * sd * (W / 2 + 4), z: p.z + p.nz * sd * (W / 2 + 4), sd, i }) }
+  const mounts = []
+  for (let i = 0; i < 34; i++) { const a = (i / 34) * TAU + r2s() * 0.2, d = rad + 700 + r2s() * 300, h = 90 + r2s() * 190; mounts.push({ x: cx + Math.cos(a) * d, z: cz + Math.sin(a) * d, h, w: 140 + r2s() * 160, w2: 140 + r2s() * 160, ry: r2s() * 3, s: 0.7 + r2s() * 0.4 }) }
+  const sc = { segs, props, lamps, mounts, cx, cz, rad }
+  sceneCache[key] = sc
+  return sc
+}
+function drawScene(put3, putS, env, camX, camZ, t) {
+  const tk = RC.tk, T = tk.T, W = tk.W, P = tk.P
+  const sc = buildScene(tk, RC.cfg.track)
+  const col = (hex, k = 1) => { const c = lc(hex); return [c[0] * k, c[1] * k, c[2] * k] }
+  const dl = 0.35 + 0.65 * env.day // the lit pass shades the world, but flat colours should also fall with the sun
+  const g = col(T.ground, 1), road = col(T.road), acc = col(T.accent)
+  const wind = Math.sin(t * 0.7) * 0.5 + Math.sin(t * 1.9 + 1) * 0.25 + (env.weather === 'rain' ? Math.sin(t * 4) * 0.3 : 0)
+  // ground follows the camera
+  put3(camX, -1.2, camZ, 1900, 2, 1900, 0, g[0] * (T.scenery === 'snow' ? 1 : 0.9) * (env.weather === 'snow' ? 1.25 : 1), g[1] * (env.weather === 'snow' ? 1.3 : 1), g[2] * (env.weather === 'snow' ? 1.3 : 1), 0)
+  // distant mountains
+  for (const m of sc.mounts) {
+    const dx = m.x - camX, dz = m.z - camZ; if (dx * dx + dz * dz > 2400 * 2400) continue
+    const mc = T.scenery === 'city' ? col('#2a1a60', 1 + m.s * 0.4) : T.scenery === 'snow' ? col('#c8e0f0', 0.8 + m.s * 0.3) : T.scenery === 'cacti' ? col('#a06a3a', 0.8 + m.s * 0.3) : col('#5a7aa0', 0.6 + m.s * 0.4)
+    put3(m.x, m.h / 2 - 2, m.z, m.w, m.h, m.w2, 0, mc[0] * dl, mc[1] * dl, mc[2] * dl, m.ry)
+    if (m.h > 150) put3(m.x, m.h - 8, m.z, m.w * 0.4, 18, m.w2 * 0.4, 0, 1.2 * dl, 1.2 * dl, 1.3 * dl, m.ry)
+  }
+  // the road around the camera
+  const R2 = 330 * 330
+  for (const s of sc.segs) {
+    const dx = s.x - camX, dz = s.z - camZ; if (dx * dx + dz * dz > R2) continue
+    const wet = env.weather === 'rain' ? 0.75 : 1
+    put3(s.x, 0, s.z, s.len, 0.5, W, 0, road[0] * wet, road[1] * wet, road[2] * wet * (env.weather === 'rain' ? 1.15 : 1), s.ry)
+    const odd = s.i % 2
+    for (const sd of [-1, 1]) {
+      const kx = s.x + s.nx * sd * (W / 2 + 1), kz = s.z + s.nz * sd * (W / 2 + 1)
+      put3(kx, 0.12, kz, s.len, 0.6, 2, 0, odd ? 1.4 : 1.4, odd ? 0.2 : 1.4, odd ? 0.2 : 1.4, s.ry)
+      if (odd === 0) put3(s.x + s.nx * sd * (W / 2 + 7), 0.9, s.z + s.nz * sd * (W / 2 + 7), s.len + 0.4, 2.2, 1, 0, acc[0] * 0.9, acc[1] * 0.9, acc[2] * 0.9, s.ry)
+    }
+    if (s.i % 4 === 0) put3(s.x, 0.3, s.z, s.len * 0.55, 0.2, 0.7, 0, 1.5, 1.5, 1.5, s.ry)
+    if (env.weather === 'rain' && s.i % 3 === 0) put3(s.x + s.nx * ((s.i * 7) % 9 - 4), 0.28, s.z + s.nz * ((s.i * 7) % 9 - 4), 5, 0.05, 2, 0, 0.35, 0.42, 0.6, s.ry) // puddles
+  }
+  // start / finish gantry
+  { const p = P[0], ry = Math.atan2(-p.dz, p.dx)
+    for (let k = 0; k < 10; k++) for (let j = 0; j < 2; j++) put3(p.x + p.dx * (j - 0.5) * 2 + p.nx * (k - 4.5) * (W / 10), 0.32, p.z + p.dz * (j - 0.5) * 2 + p.nz * (k - 4.5) * (W / 10), 2, 0.2, W / 10, 0, (k + j) % 2 ? 1.8 : 0.1, (k + j) % 2 ? 1.8 : 0.1, (k + j) % 2 ? 1.8 : 0.1, ry)
+    for (const sd of [-1, 1]) put3(p.x + p.nx * sd * (W / 2 + 3), 7, p.z + p.nz * sd * (W / 2 + 3), 2, 14, 2, 0, 0.5, 0.5, 0.6, ry)
+    put3(p.x, 14, p.z, 2, 3, W + 8, 0, acc[0] * 1.4, acc[1] * 1.4, acc[2] * 1.4, ry)
+    // a little crowd and grandstand
+    for (const sd of [-1, 1]) { put3(p.x + p.nx * sd * (W / 2 + 20) - p.dx * 10, 3, p.z + p.nz * sd * (W / 2 + 20) - p.dz * 10, 6, 6, 40, 0, 0.3, 0.3, 0.4, ry); for (let q = 0; q < 14; q++) put3(p.x + p.nx * sd * (W / 2 + 16.5) - p.dx * (q * 2.7 - 6), 7 + (q % 3) * 0.4 + Math.abs(Math.sin(t * 5 + q)) * (RC.phase === 'finish' ? 1.2 : 0.3), p.z + p.nz * sd * (W / 2 + 16.5) - p.dz * (q * 2.7 - 6), 1.6, 1.8, 1.6, 0, ...hxr(q + sd)) } }
+  // lamp posts (they light up at night)
+  for (const l of sc.lamps) {
+    const dx = l.x - camX, dz = l.z - camZ; if (dx * dx + dz * dz > 260 * 260) continue
+    const on = env.night > 0.35 ? 1 : 0
+    put3(l.x, 5, l.z, 0.5, 10, 0.5, 0, 0.3, 0.3, 0.35, 0); put3(l.x, 10.4, l.z, 2.2, 0.6, 1, 0, 0.3, 0.3, 0.35, 0)
+    put3(l.x - l.sd * 0.4, 10, l.z, 1.6, 0.5, 0.8, 0, 0.9 + on * 2.2, 0.85 + on * 1.8, 0.6 + on * 0.8, 0)
+  }
+  // props: trees sway in the wind, windows glow at night, cacti, snowy pines
+  const PR = 440 * 440
+  for (const q of sc.props) {
+    const dx = q.x - camX, dz = q.z - camZ; if (dx * dx + dz * dz > PR) continue
+    const x = q.x, z = q.z, s = q.sc, sway = wind * 0.04
+    if (q.kind === 'trees') {
+      const lf = col(q.s < 0.5 ? '#2f8a3a' : '#3aa04a', 0.8 + q.s2 * 0.4), autumn = env.tod > 0.7 && q.s3 < 0.3
+      const lr = autumn ? 1.5 : lf[0], lg = autumn ? 0.8 : lf[1], lb = autumn ? 0.2 : lf[2]
+      put3(x, 3 * s, z, 1.6 * s, 6 * s, 1.6 * s, 0, 0.36, 0.23, 0.1, 0); put3(x + wind * s * 0.5, 8 * s, z, 7 * s, 5 * s, 7 * s, sway, lr, lg, lb, q.ry); put3(x + wind * s, 12 * s, z, 4.6 * s, 4 * s, 4.6 * s, sway * 1.5, lr * 1.1, lg * 1.1, lb * 1.1, q.ry + 0.6)
+    } else if (q.kind === 'city') {
+      const h = 30 + q.s * 90, w = 14 + q.s2 * 14, b = col(['#1a1a3a', '#241a4a', '#14284a'][(q.s3 * 3) | 0], 1 + q.s * 0.6)
+      put3(x, h / 2, z, w, h, w, 0, b[0], b[1], b[2], q.ry)
+      const lit = 0.5 + env.night * 1.6
+      for (let y = 6; y < h - 4; y += 7) put3(x + 0.1, y, z, w + 0.4, 1.4, w * 0.9, 0, acc[0] * (((y * 7 + (q.s * 99) | 0) % 3) ? lit : 0.3), acc[1] * 1.2 * lit * 0.8, acc[2] * 1.8 * lit * 0.8, q.ry)
+      if (q.s3 < 0.3) put3(x, h + 2, z, 1, 4, 1, 0, 2.4, 0.3, 0.3 + (Math.sin(t * 3 + q.s * 9) > 0 ? 1.4 : 0), 0)
+    } else if (q.kind === 'snow') {
+      const lf = col('#d8f0ff', 0.9 + q.s2 * 0.3)
+      put3(x, 2, z, 1.4 * s, 4 * s, 1.4 * s, 0, 0.29, 0.23, 0.17, 0); put3(x, 6 * s, z, 8 * s, 3 * s, 8 * s, sway, lf[0] * 0.55, lf[1] * 0.75, lf[2] * 0.7, q.ry); put3(x, 9 * s, z, 5.4 * s, 3 * s, 5.4 * s, sway * 1.5, lf[0] * 0.7, lf[1] * 0.85, lf[2] * 0.8, q.ry + 0.5); put3(x, 12 * s, z, 3 * s, 3 * s, 3 * s, sway * 2, lf[0] * 1.2, lf[1] * 1.2, lf[2] * 1.2, q.ry)
+    } else {
+      const cg = col('#3a8a3a', 0.8 + q.s2 * 0.4)
+      put3(x, 4 * s, z, 2 * s, 8 * s, 2 * s, 0, cg[0], cg[1], cg[2], 0); put3(x + 2.2 * s, 5.5 * s, z, 3 * s, 1.4 * s, 1.4 * s, 0, cg[0], cg[1], cg[2], 0); put3(x + 3.4 * s, 7 * s, z, 1.4 * s, 3 * s, 1.4 * s, 0, cg[0], cg[1], cg[2], 0)
+      if (q.s3 < 0.4) { const rk = col('#a07a4a', 0.8 + q.s * 0.4); put3(x + 8, 2 * s, z + 5, 7 * s, 4 * s, 6 * s, 0, rk[0], rk[1], rk[2], q.ry) }
+    }
+  }
+  // the sky: sun and moon, stars after dark
+  const cam3 = CAM, sx = cam3.x + env.sun.x, sy = env.sun.y, sz = cam3.z + env.sun.z
+  if (env.day > 0.05 && env.weather !== 'rain') putS(sx, sy, sz, 90, 90, 90, 3 * env.day + 0.3, 2.4 * env.day + 0.3, 1.2 * env.day)
+  if (env.night > 0.1) {
+    putS(cam3.x - env.sun.x * 0.8, 520, cam3.z - 380, 64, 64, 64, 1.6 * env.night, 1.7 * env.night, 2.2 * env.night)
+    if (env.weather === 'clear' || env.weather === 'snow') for (let i = 0; i < 150; i++) { const a = h2(i, 1) * TAU, e = 0.25 + h2(i, 2) * 0.7, rr = 760; put3(cam3.x + Math.cos(a) * rr * Math.cos(e), 90 + Math.sin(e) * rr * 0.9, cam3.z + Math.sin(a) * rr * Math.cos(e), 3, 3, 3, 0, (1 + Math.sin(t * 3 + i)) * env.night * 1.6 + 0.2, (1 + Math.sin(t * 3 + i)) * env.night * 1.6 + 0.2, env.night * 2 + 0.2, 0) }
+  }
+  // weather: rain streaks, snowflakes, wind-blown dust
+  if (env.weather === 'rain' || env.weather === 'snow') {
+    const n = env.weather === 'rain' ? 170 : 130
+    for (let i = 0; i < n; i++) {
+      const rx = (h2(i, 11) * 2 - 1) * 70, rz = (h2(i, 12) * 2 - 1) * 70, spd = env.weather === 'rain' ? 70 : 9, hh = 46
+      const y = hh - ((h2(i, 13) * hh + t * spd) % hh)
+      if (env.weather === 'rain') put3(camX + rx + wind * 4, y, camZ + rz, 0.07, 2.4, 0.07, 0, 0.55, 0.65, 1, 0)
+      else put3(camX + rx + Math.sin(t * 0.8 + i) * 2.4, y, camZ + rz + Math.cos(t * 0.6 + i) * 1.6, 0.3, 0.3, 0.3, 0, 1.6, 1.7, 1.9, i)
+    }
+  }
+}
+const hxr = (q) => { const k = Math.abs(Math.sin(q * 12.9898)) ; return [0.4 + k, 0.3 + (1 - k) * 0.8, 0.5 + ((k * 7) % 1)] }
 function draw() { /* the race is drawn entirely in the lit 3D pass (draw3) */ }
 function draw3(api) {
-  const { put3, bulk } = api
+  const { put3, putS } = api
   if (!RC.tk) return
-  const st = buildStatic(RC.cfg.track)
-  bulk(st.A, st.C, st.n)
+  const env = raceEnv(), cm = RC.cars[RC.me] || { x: CAM.tx, z: CAM.tz }
+  drawScene(put3, putS, env, CAM.tx, CAM.tz, G.time)
   const N = RC.tk.N, P = RC.tk.P, W = RC.tk.W
   const T = RC.tk.T, acc = lc(T.accent), t = G.time
   // pads and canisters
@@ -747,4 +845,4 @@ function drawCar3(put3, c, t) {
   if (RC.cfg.kart && c.item && c.i === RC.me) part(0, 5.4, 0.4, 1.1, 1.1, 1.1, 2, 2, 2)
 }
 if (typeof window !== 'undefined') { window.__RC = RC; window.__race = raceActions }
-games.race = { update, onKey, draw, draw3, camera: raceCamera, sun: () => { const m = RC.cars[RC.me]; return { x: m ? m.x : 0, z: m ? m.z : 0 } }, stop, sky: () => (RC.tk ? RC.tk.T.sky : '#102040'), fog: () => (RC.tk ? RC.tk.T.fog : '#102040'), fov: () => 62 }
+games.race = { update, onKey, draw, draw3, env: raceEnv, camera: raceCamera, sun: () => { const m = RC.cars[RC.me]; return { x: m ? m.x : 0, z: m ? m.z : 0 } }, stop, sky: () => raceEnv().sky, fog: () => raceEnv().fog, fov: () => 62 }

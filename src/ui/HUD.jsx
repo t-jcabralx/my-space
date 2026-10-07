@@ -1248,7 +1248,8 @@ function RaceLobby({ s }) {
   const best = p.raceBest || {}
   const T = TRACKS[track], C = CARS[car]
   const [kart, setKart] = useState(!!p.raceKart)
-  const go = () => raceActions.start({ track, car, laps, diff, ai, type: 'race', kart })
+  const [size, setSize] = useState([1, 2, 4, 8].includes(p.raceSize) ? p.raceSize : 1), [wx, setWx] = useState(p.raceWeather || 'auto'), [tod, setTod] = useState(typeof p.raceTod === 'number' ? p.raceTod : -1)
+  const go = () => raceActions.start({ track, car, laps, diff, ai, type: 'race', kart, size, weather: wx === 'auto' ? undefined : wx, tod: tod < 0 ? undefined : tod })
   const stat = (v, max = 1.5) => <div className="fstat"><div><b style={{ width: Math.min(100, (v / max) * 100) + '%' }} /></div></div>
   return (
     <div className="lobby racelobby">
@@ -1264,6 +1265,9 @@ function RaceLobby({ s }) {
           <button key={c.id} className={'rcar ' + (car === c.id ? 'sel' : '')} style={{ '--c': c.color }} onClick={() => { setCar(c.id); setRacePick(c.id) }}><i /><strong>{c.name}</strong></button>))}
         </div>
         <div className="lobbyopts">
+          <div><h4>TRACK SIZE</h4><div className="chips">{[1, 2, 4, 8].map((n) => <button key={n} className={'chip ' + (size === n ? 'sel' : '')} onClick={() => { setSize(n); p.raceSize = n }}>x{n}</button>)}</div></div>
+          <div><h4>WEATHER</h4><div className="chips">{[['auto', 'AUTO'], ['clear', '☀ CLEAR'], ['rain', '🌧 RAIN'], ['fog', '🌫 FOG'], ['snow', '❄ SNOW']].map(([k, n]) => <button key={k} className={'chip ' + (wx === k ? 'sel' : '')} onClick={() => { setWx(k); p.raceWeather = k }}>{n}</button>)}</div></div>
+          <div><h4>START TIME</h4><div className="chips">{[[-1, 'AUTO'], [0.25, '🌅 DAWN'], [0.5, '☀ NOON'], [0.75, '🌇 DUSK'], [0, '🌙 NIGHT']].map(([k, n]) => <button key={k} className={'chip ' + (tod === k ? 'sel' : '')} onClick={() => { setTod(k); p.raceTod = k }}>{n}</button>)}</div></div>
           <div><h4>MODE</h4><div className="chips"><button className={'chip ' + (!kart ? 'sel' : '')} onClick={() => { setKart(false); p.raceKart = false }}>🏁 CLASSIC</button><button className={'chip ' + (kart ? 'sel' : '')} onClick={() => { setKart(true); p.raceKart = true }}>🍌 KART ITEMS</button></div></div>
           <div><h4>LAPS</h4><div className="chips">{[1, 2, 3, 5].map((n) => <button key={n} className={'chip ' + (laps === n ? 'sel' : '')} onClick={() => setLaps(n)}>{n}</button>)}</div></div>
           <div><h4>RIVALS</h4><div className="chips">{[1, 3, 5, 7].map((n) => <button key={n} className={'chip ' + (ai === n ? 'sel' : '')} onClick={() => setAi(n)}>{n} BOTS</button>)}</div></div>
@@ -1305,6 +1309,7 @@ function RaceHUD() {
           <div className="rspeed"><strong>{m.kmh}</strong><span>KM/H</span>
             <div className="rbars"><div className="rn"><i style={{ width: m.nitro + '%' }} /><em>NITRO</em></div><div className="rd"><i style={{ width: m.charge * 100 + '%' }} className={m.charge >= 1 ? 'full' : ''} /><em>DRIFT</em></div></div>
           </div>
+          {g.envLabel && <div className="renv">{g.night > 0.5 ? '🌙' : '☀'} {g.envLabel}</div>}
           {g.count > 0 && <div className="rcount" key={g.count}>{g.count > 3 ? 'READY' : g.count}</div>}
           {g.msg && <div className="rmsg" key={g.msg.text} style={{ color: g.msg.color || '#ffe84a' }}><h1>{g.msg.text}</h1>{g.msg.sub && <p>{g.msg.sub}</p>}</div>}
           {m.wrong && <div className="rwrong">⚠ WRONG WAY</div>}

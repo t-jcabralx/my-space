@@ -60,4 +60,23 @@ for (let ti = 0; ti < TRACKS.length; ti++) {
   check('nitro boosts speed and uses the tank', nmax > 62 && me.nitro < n0, `peak ${nmax.toFixed(0)}, nitro ${n0.toFixed(0)}->${me.nitro.toFixed(0)}`)
   keys.ArrowUp = false
 }
+// ---- the 4th dimension: track size, time of day and weather ----
+{
+  const { raceEnv } = await import('../src/game/race.js')
+  const api = { put3: (...a) => { if (a.slice(0, 10).some((v) => !Number.isFinite(v))) throw new Error('NaN put3 ' + a.slice(0, 10)) }, putS: (...a) => { if (a.slice(0, 9).some((v) => !Number.isFinite(v))) throw new Error('NaN putS') } }
+  const { games } = await import('../src/game/engine.js')
+  raceActions.start({ track: 0, car: 0, laps: 1, diff: 1, ai: 2, type: 'race', size: 4, weather: 'rain', tod: 0.5, seed: 9 })
+  check('x4 track is four times longer', RC.tk.K === 4 && RC.tk.len > buildTrack(0).len * 3.5, `len ${RC.tk.len | 0} vs ${buildTrack(0).len | 0}`)
+  check('rain makes the road slippery', RC.weather === 'rain' && RC.gripK < 0.9)
+  const e0 = raceEnv(); check('noon is bright', e0.day > 0.9 && e0.amb > 1)
+  for (let i = 0; i < 60 * 8; i++) { update(1 / 60); G.time += 1 / 60 }
+  games.race.draw3(api)
+  RC.t = 120; const e1 = raceEnv()
+  check('the sun moves: later in the race it gets dark', e1.night > 0.5 && e1.amb < e0.amb && e1.fog !== e0.fog, `night ${e1.night.toFixed(2)}`)
+  RC.t = 120; games.race.draw3(api)
+  for (const w of ['clear', 'fog', 'snow']) { raceActions.start({ track: 3, car: 1, laps: 1, diff: 1, ai: 1, type: 'race', size: 2, weather: w, tod: 0.8, seed: 3 }); for (let i = 0; i < 60 * 3; i++) { update(1 / 60); G.time += 1 / 60 } games.race.draw3(api); check('weather ' + w + ' draws cleanly', raceEnv().weather === w) }
+  raceActions.start({ track: 2, car: 0, laps: 1, diff: 2, ai: 2, type: 'race', size: 8, seed: 5 })
+  let t2 = 0; while (RC.phase !== 'results' && t2 < 60 * 60 * 10) { update(1 / 60); G.time += 1 / 60; t2++; if (t2 % 600 === 0) games.race.draw3(api); if (!RC.cars.every((c) => Number.isFinite(c.x) && Number.isFinite(c.z) && c.sp < 400)) break }
+  check('a x8 track still runs with the AI cars', RC.cars.every((c) => Number.isFinite(c.x) && c.sp < 400) && RC.cars.some((c) => c.prog > 1500), 'best progress ' + Math.max(...RC.cars.map((c) => c.prog)) | 0)
+}
 process.exit(failures ? 1 : 0)
