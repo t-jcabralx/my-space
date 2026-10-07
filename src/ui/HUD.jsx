@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import OnlineLobby from './OnlineLobby.jsx'
+import MiniArcade from './MiniArcade.jsx'
 import { joinRoom, subscribeRt, getRt } from '../game/online/rt.js'
 import { onKey as engineKey, setSquad, subscribe, getSnap, startGame, toShop, launchNext, buy, retryMission, toMenu, togglePause, useSkill, startGameAt, setShip, setName, markSeen, claimDaily } from '../game/engine.js'
 import { subscribeSlug, getSlugSnap, slugActions } from '../game/slug.js'
@@ -1183,9 +1184,9 @@ function FlamesHUD() {
       {g.phase === 'input' && (
         <div className="flamesform">
           <h2>WHO ARE WE TALKING ABOUT?</h2>
-          <input className="nameinp" value={a} maxLength={18} placeholder="FIRST NAME" onChange={(e) => setA(e.target.value)} onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Enter') go() }} autoFocus />
+          <input className="nameinp" value={a} placeholder="FIRST NAME" onChange={(e) => setA(e.target.value)} onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Enter') go() }} autoFocus />
           <div className="plus">+</div>
-          <input className="nameinp" value={b} maxLength={18} placeholder="SECOND NAME" onChange={(e) => setB(e.target.value)} onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Enter') go() }} />
+          <input className="nameinp" value={b} placeholder="SECOND NAME" onChange={(e) => setB(e.target.value)} onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Enter') go() }} />
           {g.note && <div className="fnote">{g.note}</div>}
           <button className="big blink" onClick={go}>🔥 REVEAL OUR FLAMES</button>
           <button className="big sec" onClick={flamesActions.quit}>DASHBOARD</button>
@@ -1561,7 +1562,7 @@ function Hub({ s }) {
   const doneAch = ACH.filter(([, , g, goal]) => g(p, s.unlocked) >= goal).length
   const GAME_TABS = { pickle: '🏓 PICKLEBALL', bomber: '💣 BOMBER', tetris: '🧱 TETRIS', chomp: '🟡 CHOMP', cards: '🃏 CARDS', race: '🏁 RACE', fight: '🥊 FIGHT', flames: '🔥 FLAMES', hockey: '🏒 AIR HOCKEY', pool: '🎱 BILLIARDS', td: '🛡 DEFENSE', rogue: '🗡 DEPTHS', rhythm: '🎵 BEAT', word: '🔤 WORD HUNT', merge: '🔢 2048', c4: '🔴 CONNECT 4', snake: '🐍 SNAKE', breaker: '🧱 BREAKER', mines: '💣 SWEEP', empire: '🏰 EMPIRE', ssx: '🏂 SNOW RUSH', orb: '🔮 ORB RUSH', garden: '🧟 GARDEN', hunt: '🌙 13 DAYS', climb: '🧗 CLIMBERS', kong: '🦍 GORILLA' }
   // the tab bar stays short: dashboard, the game you opened (if any), and the utility tabs. Games are opened from the dashboard cards.
-  const TABS = [['home', 'DASHBOARD'], ...(GAME_TABS[tab] ? [[tab, GAME_TABS[tab]]] : []), ['online', '🌐 ONLINE'], ['story', '📖 STORY'], ['top', '🏆 TOP PLAYERS'], ['ship', 'CUSTOMIZE SHIP'], ['levels', 'SPACE LEVELS'], ['skills', 'CONTROLS'], ['settings', '⚙ SETTINGS'], ['awards', `AWARDS ${doneAch}/${ACH.length}`]]
+  const TABS = [['home', 'DASHBOARD'], ...(GAME_TABS[tab] ? [[tab, GAME_TABS[tab]]] : []), ['mini', '🕹 MINI GAMES'], ['online', '🌐 ONLINE'], ['story', '📖 STORY'], ['top', '🏆 TOP PLAYERS'], ['ship', 'CUSTOMIZE SHIP'], ['levels', 'SPACE LEVELS'], ['skills', 'CONTROLS'], ['settings', '⚙ SETTINGS'], ['awards', `AWARDS ${doneAch}/${ACH.length}`]]
   const CATS = [['all', 'ALL GAMES'], ['action', '⚔ ACTION'], ['sports', '🏅 SPORTS'], ['strategy', '🧠 STRATEGY'], ['puzzle', '🧩 PUZZLE'], ['cards', '🃏 CARDS'], ['music', '🎵 MUSIC']]
   const show = (...c) => cat === 'all' || c.includes(cat)
   return (
@@ -1615,6 +1616,8 @@ function Hub({ s }) {
             {show('puzzle', 'sports') && <GameCard cls="c4" title="🔴 CONNECT FOUR" tag="Bot · 2P · online 1v1" hiLabel="WINS" hi={p.c4Wins || 0}
               art={<div className="miniC4"><i /><i /><i /><i /><i /></div>} label="SELECT MODE ▶" onPlay={() => setTab('c4')} onInvite={() => { setOgame('c4'); setTab('online') }}
               sub={<><span>GAMES</span><b>{p.c4Games || 0}</b></>} />}
+            {show('action', 'puzzle') && <GameCard cls="snake" title="🕹 MINI GAMES" tag="10 quick games · phone friendly" hiLabel="PLAYED" hi={p.miniGames || 0}
+              art={<div className="miniSnake"><b>🏗️</b><b>🐤</b><b>🍉</b><b>💎</b></div>} label="PICK A GAME ▶" onPlay={() => setTab('mini')} />}
             {show('action') && <GameCard cls="snake" title="🐍 NEON SNAKE" tag="Solo · vs bot · 2 players" hiLabel="BEST" hi={p.snakeBest || 0}
               art={<div className="miniSnake"><i /><i /><i /><i /><b>🍎</b></div>} label="SELECT MODE ▶" onPlay={() => setTab('snake')} onInvite={() => { setOgame('snake'); setTab('online') }}
               sub={<><span>GAMES</span><b>{p.snakeGames || 0}</b></>} />}
@@ -1701,6 +1704,7 @@ function Hub({ s }) {
       {tab === 'empire' && <EmpireLobby s={s} TopPlayers={TopPlayers} onInvite={() => { setOgame('empire'); setTab('online') }} />}
       {tab === 'c4' && <C4Lobby s={s} TopPlayers={TopPlayers} onInvite={() => { setOgame('c4'); setTab('online') }} />}
       {tab === 'snake' && <SnakeLobby s={s} TopPlayers={TopPlayers} />}
+      {tab === 'mini' && <MiniArcade />}
       {tab === 'climb' && <ClimbLobby s={s} TopPlayers={TopPlayers} onInvite={() => { setOgame('climb'); setTab('online') }} />}
       {tab === 'kong' && <KongLobby s={s} TopPlayers={TopPlayers} onInvite={() => { setOgame('kong'); setTab('online') }} />}
       {tab === 'hunt' && <HuntLobby s={s} TopPlayers={TopPlayers} onInvite={() => { setOgame('hunt'); setTab('online') }} />}

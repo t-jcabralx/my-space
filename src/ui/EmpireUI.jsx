@@ -51,12 +51,13 @@ function Minimap({ ver }) {
   useEffect(() => {
     const c = ref.current; if (!c) return
     const info = mapInfo(); if (!info.terr) return
-    if (!base.current || base.current.seedKey !== EM.seed) {
+    const sk = EM.seed + '/' + (((EM.cleared || []).length) >> 3)
+    if (!base.current || base.current.seedKey !== sk) {
       const MS = Math.min(MW, 512), stp = MW / MS // huge maps are sampled so the minimap stays quick
       const o = document.createElement('canvas'); o.width = MS; o.height = MS; const g = o.getContext('2d'), id = g.createImageData(MS, MS)
       const C = [[28, 70, 32], [14, 50, 22], [80, 80, 96], [200, 160, 30], [18, 50, 120]]
       for (let j = 0; j < MS; j++) for (let i = 0; i < MS; i++) { const t = info.terr[((j * stp) | 0) * MW + ((i * stp) | 0)], k = ((MS - 1 - j) * MS + i) * 4, col = C[t]; id.data[k] = col[0]; id.data[k + 1] = col[1]; id.data[k + 2] = col[2]; id.data[k + 3] = 255 }
-      g.putImageData(id, 0, 0); o.seedKey = EM.seed; base.current = o
+      g.putImageData(id, 0, 0); o.seedKey = sk; base.current = o
     }
     const g = c.getContext('2d'); g.imageSmoothingEnabled = false
     g.drawImage(base.current, 0, 0, c.width, c.height)
@@ -119,6 +120,7 @@ export function EmpireHUD({ openHelp }) {
           <small>HP {sel.hp}/{sel.max}{!sel.built ? ' · BUILDING…' : ''}{sel.rate ? ' · ' + sel.rate : ''}</small>
           {sel.type === 'hall' && g.up && <button className="mg-btn go" disabled={!canPay(g.res, g.up)} onClick={empireActions.upgrade}>⬆ BECOME A {HALL_NAME[sel.lv + 1]}<br /><small>{costStr(g.up)}</small></button>}
           {sel.type === 'hall' && !g.up && <small>THE GREATEST EMPIRE! BUILD THE WONDER.</small>}
+          {sel.built && sel.type !== 'hall' && sel.type !== 'wonder' && <small>↔ DRAG IT TO MOVE (SMALL FEE)</small>}
           {sel.bup && sel.type !== 'hall' && (
             <>
               <small>LEVEL {sel.bup.lv}/{sel.bup.max}{sel.bup.desc ? ' · ' + sel.bup.desc : ''}</small>

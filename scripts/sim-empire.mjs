@@ -1,5 +1,5 @@
 import { update, G } from '../src/game/engine.js'
-import { EM, empireActions, BDEF, UDEF, canPlace, doBuild, doTrain, doUpgrade, MW, MH } from '../src/game/empire.js'
+import { EM, empireActions, BDEF, UDEF, canPlace, doBuild, doTrain, doUpgrade, doMove, MW, MH } from '../src/game/empire.js'
 let fail = 0
 const ok = (c, m) => { if (!c) { fail++; console.log('FAIL', m) } }
 const step = (sec, dt = 0.1) => { for (let i = 0; i < sec / dt && EM.mode === 'play'; i++) update(dt) }
@@ -54,6 +54,27 @@ empireActions.stop()
   ok(farm && !doUpgrade(0, farm.id), 'level 3 is the maximum')
   const f0 = EM.P[0].res.food; for (let k = 0; k < 50; k++) update(0.2)
   ok(EM.P[0].res.food > f0, 'upgraded farms keep producing food')
+  empireActions.stop()
+}
+// ---- finite forests, and moving a building ----
+{
+  empireActions.start({ ai: 1, diff: 1, speed: 1 })
+  EM.P[0].res = { food: 5000, wood: 5000, stone: 5000, gold: 5000 }
+  const h1 = EM.B.find((b) => b.owner === 0 && b.type === 'hall')
+  let camp = null
+  for (let r = 3; r < 16 && !camp; r++) for (let a = 0; a < 80 && !camp; a++) { const i = Math.round(h1.x + 1 + Math.cos(a / 9) * r), j = Math.round(h1.y + 1 + Math.sin(a / 9) * r); const bb = doBuild(0, 'lumber', i, j); if (bb) camp = bb }
+  ok(!!camp, 'a lumber camp can be built')
+  if (camp) {
+    camp.built = 1; camp.bt = 0
+    let moved = false; const x0 = camp.x
+    for (let r = 4; r < 12 && !moved; r++) for (let a = 0; a < 60 && !moved; a++) { const i = Math.round(h1.x + 1 + Math.cos(a / 7 + 2) * r), j = Math.round(h1.y + 1 + Math.sin(a / 7 + 2) * r); if (i !== camp.x || j !== camp.y) moved = doMove(0, camp.id, i, j) }
+    ok(moved && camp.x !== x0, 'a finished building can be moved for a fee')
+    const trees = () => { let n = 0; for (let k = 0; k < EM.terr.length; k++) if (EM.terr[k] === 1) n++; return n }
+    const t0 = trees(); for (let k = 0; k < 4500; k++) update(0.2)
+    ok(trees() < t0, 'lumber camps use up the trees they cut (' + t0 + ' -> ' + trees() + ')')
+    ok(EM.cleared && EM.cleared.length > 0 && EM.cleared.every((i) => EM.terr[i] === 0), 'cleared tiles become grass')
+    const ob = EM.B.find((b) => b.type === 'hall'); ok(!doMove(0, ob.id, ob.x + 6, ob.y), 'the hall cannot be moved')
+  }
   empireActions.stop()
 }
 // ---- the campaign: every scenario starts with a story, has goals, and the first ones can be won by an auto-pilot ----

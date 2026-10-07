@@ -181,7 +181,7 @@ function pace(t, A, B, walk = 3, pause = 2) {
   return { x: A[0] + dx * u, z: A[1] + dz * u, moving, dir: [dx / d * f, dz / d * f] }
 }
 function siteOf(b, EM, kind) {
-  if (b._site !== undefined && b._siteKind === kind) return b._site
+  if (b._site !== undefined && b._siteKind === kind && (b._site === null || EM.terr[b._siteIdx] === kind)) return b._site
   let best = null, bd = 1e9
   const mcx = b.x + b.w / 2, mcy = b.y + b.w / 2
   for (let dj = -5; dj < b.w + 5; dj++) for (let di = -5; di < b.w + 5; di++) {
@@ -190,7 +190,7 @@ function siteOf(b, EM, kind) {
     if (di >= 0 && di < b.w && dj >= 0 && dj < b.w) continue
     if (EM.terr[j * MWc + i] !== kind) continue
     const d = Math.hypot(i + 0.5 - mcx, j + 0.5 - mcy)
-    if (d < bd) { bd = d; best = [(i + 0.5) * T, -((j + 0.5) * T)] }
+    if (d < bd) { bd = d; best = [(i + 0.5) * T, -((j + 0.5) * T)]; b._siteIdx = j * MWc + i }
   }
   b._site = best; b._siteKind = kind
   return best
@@ -311,6 +311,7 @@ export function drawEmpire3(api, EM, defs) {
   put3(MW * T / 2, -0.8, -MH * T / 2, MW * T + 16, 0.4, MH * T + 16, 0, 0.02, 0.03, 0.05, 0)
   for (const b of EM.B) { const bx = (b.x + b.w / 2) * T, by = (b.y + b.w / 2) * T; if (Math.abs(bx - cx) > rx + 6 || by < cy - ry2 - 16 || by > cy + ry2 + 8) continue; drawBuilding(api, b, EM, t, TEAM); if (z >= 0.55) drawWorkers(api, b, EM, t, TEAM) }
   // placement ghost
+  if (EM.moving) { const mm = EM.moving, md = defs.BDEF[mm.type], gx2 = (mm.i + md.w / 2) * T, gz2 = -((mm.j + md.w / 2) * T), c2 = mm.ok ? [0.4, 3, 0.9] : [3, 0.4, 0.4]; for (let a = 0; a < md.w * 4; a++) { const u = a / (md.w * 4); const px = gx2 + (u < 0.25 ? -1 + u * 8 : u < 0.5 ? 1 : u < 0.75 ? 1 - (u - 0.5) * 8 : -1) * md.w * T / 2, pz = gz2 + (u < 0.25 ? -1 : u < 0.5 ? -1 + (u - 0.25) * 8 : u < 0.75 ? 1 : 1 - (u - 0.75) * 8) * md.w * T / 2; putS(px, 0.5, pz, 0.5, 0.5, 0.5, c2[0], c2[1], c2[2]) } putS(gx2, 2.4 + Math.sin(t * 4) * 0.3, gz2, md.w * T * 0.5, md.w * T * 0.5, md.w * T * 0.5, c2[0] * 0.4, c2[1] * 0.4, c2[2] * 0.4) }
   if (EM.build && EM.hover) {
     const d = defs.BDEF[EM.build], i = ((EM.hover.x / T) | 0) - (d.w >> 1), j = ((EM.hover.y / T) | 0) - (d.w >> 1), ok = defs.canPlace(EM.build, i, j, EM.me) && EM.P[EM.me] && defs.costOk(EM.P[EM.me].res, d.cost)
     const gx = (i + d.w / 2) * T, gz = -((j + d.w / 2) * T), c = ok ? [0.4, 3, 0.9] : [3, 0.4, 0.4]

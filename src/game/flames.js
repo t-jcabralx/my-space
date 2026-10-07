@@ -75,7 +75,7 @@ function reveal(n1, n2) {
   if (FL.phase !== 'input' && FL.phase !== 'result') return false
   const c = computeFlames(n1, n2)
   if (!c.A.length || !c.B.length) { FL.note = 'Type two names with at least one letter each'; sfx('deny'); emitF(); return false }
-  FL.note = ''; FL.q = []; FL.calc = c; FL.a = String(n1).trim().slice(0, 18); FL.b = String(n2).trim().slice(0, 18)
+  FL.note = ''; FL.q = []; FL.calc = c; FL.a = String(n1).trim().slice(0, 200); FL.b = String(n2).trim().slice(0, 200)
   FL.crossedA = c.A.map(() => false); FL.crossedB = c.B.map(() => false); FL.out = {}; FL.hot = ''; FL.counter = 0; FL.result = null; FL.resT = 0
   FL.phase = 'cross'; G.parts = []; G.pops = []
   sfx('cShuffle'); emitF()

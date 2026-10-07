@@ -102,7 +102,7 @@ function start(cfg = {}) {
   { const wr = rng(EM.seed * 17 + 3); EM.tod0 = 0.3 + wr() * 0.3; EM.weather = pickWeather(EM.seed, { clear: 0.55, rain: 0.2, fog: 0.15, snow: 0.1 }) }
   EM.size = setMapSize(sc ? 1 : (cfg.size || profile.empireSize || 4))
   EM.terr = genMap(EM.seed); EM.occ = new Int32Array(MW * MH)
-  EM.B = []; EM.U = []; EM.fx = []; EM.alerts = []; EM.t = 0; EM.nid = 1; EM.sel = null; EM.build = null; EM.atk = false; EM.over = null; EM.paused = false; EM.msg = null; EM.raidT = 75; EM.raidN = 0; EM.raidWarn = 0; EM.wonder = null; EM.speed = 1; EM.peers = cfg.peers || []
+  EM.cleared = []; EM.chop = {}; EM.B = []; EM.U = []; EM.fx = []; EM.alerts = []; EM.t = 0; EM.nid = 1; EM.sel = null; EM.build = null; EM.atk = false; EM.over = null; EM.paused = false; EM.msg = null; EM.raidT = 75; EM.raidN = 0; EM.raidWarn = 0; EM.wonder = null; EM.speed = 1; EM.peers = cfg.peers || []
   const humans = online ? 1 + EM.peers.length : 1
   const total = Math.min(4, Math.max(sc && sc.ai === 0 ? 1 : 2, humans + EM.cfg.ai))
   EM.P = []
@@ -158,6 +158,25 @@ const countB = (owner, type) => EM.B.filter((b) => b.owner === owner && b.type =
 const bldCap = (owner) => 14 + (hall(owner) ? hall(owner).lv : 1) * 10
 function popOf(owner) { let used = 0; for (const u of EM.U) if (u.owner === owner) used += UDEF[u.type].pop; for (const b of EM.B) if (b.owner === owner) for (const q of b.q) used += UDEF[q.u].pop; const h = hall(owner); let cap = h ? 10 + (h.lv - 1) * 6 : 0; for (const b of EM.B) if (b.owner === owner && b.type === 'house' && b.built) cap += 6 + 3 * ((b.lv || 1) - 1); return [used, cap] }
 function resNear(b, kind) { let n = 0; for (let y = -3; y < b.w + 3; y++) for (let x = -3; x < b.w + 3; x++) { if (inMap(b.x + x, b.y + y) && EM.terr[ix(b.x + x, b.y + y)] === kind) n++ } return n }
+// the tiles a camp works are finite: each holds only so much wood, stone or gold, then turns to grass
+const TILE_CAP = { 1: 90, 2: 160, 3: 130 }
+function depleteNear(b, kind, amt) {
+  if (!EM.chop) EM.chop = {}
+  let idx = b._tIdx
+  if (idx === undefined || idx < 0 || EM.terr[idx] !== kind) {
+    idx = -1; let bd = 1e9; const cx = b.x + b.w / 2, cy = b.y + b.w / 2
+    for (let dj = -4; dj < b.w + 4; dj++) for (let di = -4; di < b.w + 4; di++) { const i = b.x + di, j = b.y + dj; if (!inMap(i, j) || EM.terr[ix(i, j)] !== kind) continue; const d = Math.hypot(i + 0.5 - cx, j + 0.5 - cy); if (d < bd) { bd = d; idx = ix(i, j) } }
+    b._tIdx = idx
+  }
+  if (idx < 0) return
+  EM.chop[idx] = (EM.chop[idx] === undefined ? TILE_CAP[kind] : EM.chop[idx]) - amt
+  if (EM.chop[idx] <= 0) {
+    EM.terr[idx] = 0; delete EM.chop[idx]; (EM.cleared || (EM.cleared = [])).push(idx); b._tIdx = undefined; b._site = undefined
+    const tx = ((idx % MW) + 0.5) * T, ty = (((idx / MW) | 0) + 0.5) * T
+    ring(tx, ty, 6, 12, [col(kind === 1 ? '#7dff6a' : kind === 2 ? '#bfc4d8' : '#ffd23a')])
+    if (b.owner === EM.me) sfx(kind === 1 ? 'crate' : 'hit')
+  }
+}
 const prodMul = (owner) => { const h = hall(owner); return 1 + 0.25 * ((h ? h.lv : 1) - 1) }
 
 // ---------- commands (the same path for the local player, the AI and friends) ----------
@@ -199,6 +218,27 @@ export function doUpgrade(pi, bid) {
   ring((b.x + 1.5) * T, (b.y + 1.5) * T, 40, 50, [col('#ffd23a')]); if (pi === EM.me) { sfx('emUp'); EM.msg = { text: 'YOUR ' + HALL_NAME[b.lv - 1] + ' BECOMES A ' + HALL_NAME[b.lv], sub: b.lv === 4 ? 'THE WONDER CAN NOW BE BUILT' : 'NEW BUILDINGS AND UNITS UNLOCKED', color: '#ffd23a', t: 3.5 } }
   return true
 }
+// buildings can be picked up and dropped somewhere else for a small fee (30% of the wood price)
+export const MOVABLE = ['house', 'farm', 'lumber', 'quarry', 'mine', 'barracks', 'tower', 'wall']
+export const moveCost = (b) => { const c = {}; const w = BDEF[b.type].cost.wood || 0, st = BDEF[b.type].cost.stone || 0; if (w) c.wood = Math.max(5, Math.round(w * 0.3)); if (st) c.stone = Math.max(4, Math.round(st * 0.3)); if (!c.wood && !c.stone) c.wood = 5; return c }
+export function canMove(b, i, j, owner) {
+  if (!b || !MOVABLE.includes(b.type) || !b.built) return false
+  removeB(b)
+  const ok = canPlace(b.type, i, j, owner)
+  for (let y = 0; y < b.w; y++) for (let x = 0; x < b.w; x++) if (inMap(b.x + x, b.y + y)) EM.occ[ix(b.x + x, b.y + y)] = b.id
+  return ok
+}
+export function doMove(pi, bid, i, j) {
+  const pl = EM.P[pi], b = bById(bid)
+  if (!pl || !pl.alive || !b || b.owner !== pi || (b.x === i && b.y === j)) return false
+  if (!canMove(b, i, j, pi)) return false
+  const c = moveCost(b); if (!costOk(pl.res, c)) return false
+  pay(pl.res, c)
+  removeB(b); b.x = i; b.y = j; b._tIdx = undefined; b._site = undefined; b.upT = 1.4
+  for (let y = 0; y < b.w; y++) for (let x = 0; x < b.w; x++) if (inMap(b.x + x, b.y + y)) EM.occ[ix(b.x + x, b.y + y)] = b.id
+  ring((b.x + b.w / 2) * T, (b.y + b.w / 2) * T, 10, 20, [col('#ffffff')])
+  return true
+}
 export function doAttack(pi, x, y, tid) {
   for (const u of EM.U) if (u.owner === pi) { u.order = { x, y, tid: tid || 0 }; u.tgt = 0 }
   return true
@@ -209,6 +249,7 @@ function command(pi, c) {
   if (c.k === 'build') return doBuild(pi, c.t, c.i | 0, c.j | 0)
   if (c.k === 'train') return doTrain(pi, c.b | 0, c.u)
   if (c.k === 'up') return doUpgrade(pi, c.b | 0)
+  if (c.k === 'mv') return doMove(pi, c.b | 0, c.i | 0, c.j | 0)
   if (c.k === 'atk') return doAttack(pi, +c.x, +c.y, c.t | 0)
   if (c.k === 'rec') return doRecall(pi)
 }
@@ -330,7 +371,7 @@ function stepBuildings(dt) {
     const pl = EM.P[b.owner]; if (!pl || !pl.alive) continue
     if (!b.built) { b.bt -= dt; b.hp = Math.min(b.max, b.hp + b.max * 0.6 * dt / Math.max(1, (b.type === 'wonder' ? 40 : 4 + b.w * 2))); if (b.bt <= 0) { b.built = 1; b.hp = b.max; if (b.owner === EM.me) sfx('emDone'); ring((b.x + b.w / 2) * T, (b.y + b.w / 2) * T, 14, 24, [col(TEAM[b.owner][0])]) } continue }
     const d = BDEF[b.type]
-    if (d.rate) { const m = d.res ? clamp(resNear(b, d.res) / 10, 0.3, 1.6) : 1; for (const k in d.rate) pl.res[k] += d.rate[k] * m * prodMul(b.owner) * (1 + 0.5 * ((b.lv || 1) - 1)) * dt }
+    if (d.rate) { const m = d.res ? clamp(resNear(b, d.res) / 10, 0.3, 1.6) : 1; const lm = prodMul(b.owner) * (1 + 0.5 * ((b.lv || 1) - 1)); for (const k in d.rate) pl.res[k] += d.rate[k] * m * lm * dt; if (d.res) depleteNear(b, d.res, Object.values(d.rate)[0] * m * lm * dt) }
     if (b.type === 'barracks' && b.q.length) { b.qt += dt; const q = b.q[0], ud = UDEF[q.u]; if (b.qt >= ud.t * (1 - 0.15 * ((b.lv || 1) - 1))) { b.qt = 0; b.q.shift(); const h = hall(b.owner); const sx = (b.x + 1.5) * T, sy = (b.y - 0.8) * T; spawnUnit(q.u, b.owner, sx + R(-2, 2), sy); if (h && b.owner === EM.me) sfx('emReady') } }
     if (b.type === 'tower' || b.type === 'hall') {
       b.atkT -= dt
@@ -562,13 +603,23 @@ export const empireActions = {
     if (EM.mode !== 'play' || EM.paused) return
     const w = toWorld(ax, ay)
     EM.hover = { x: w.x, y: w.y }
+    if (type === 'down' && button !== 2 && !EM.build && !EM.atk && EM.sel) {
+      // pressing on the building you already selected lets you drag it somewhere else
+      const pk = pickAt(w.x, w.y), sb = bById(EM.sel)
+      if (pk && pk.b && pk.b.id === EM.sel && sb && sb.owner === EM.me && MOVABLE.includes(sb.type) && sb.built) EM.mvDrag = { id: sb.id, ax, ay }
+    }
     if (type === 'down') { EM.drag = { ax, ay, cx: EM.cam.x, cy: EM.cam.y, moved: false, button, g0: w, cam0: { x: EM.cam.x, y: EM.cam.y, z: EM.cam.z } } }
     else if (type === 'move' && EM.drag && EM.drag.button !== 2) {
       const dx = ax - EM.drag.ax, dy = ay - EM.drag.ay
       if (Math.hypot(dx, dy) > 1.2) EM.drag.moved = true
-      if (EM.drag.moved && !EM.build) { const gw = toWorld(ax, ay, empireCamera({ cam: EM.drag.cam0 }, 100 / 56)); EM.cam.x = clamp(EM.drag.cx - (gw.x - EM.drag.g0.x), 10, WORLD - 10); EM.cam.y = clamp(EM.drag.cy - (gw.y - EM.drag.g0.y), 10, WORLD - 10) }
+      if (EM.mvDrag && EM.drag.moved) { const mb = bById(EM.mvDrag.id); if (mb) { const bi = ((w.x / T) | 0) - (mb.w >> 1), bj = ((w.y / T) | 0) - (mb.w >> 1); EM.moving = { id: mb.id, type: mb.type, i: bi, j: bj, ok: canMove(mb, bi, bj, EM.me) && costOk(EM.P[EM.me].res, moveCost(mb)) } } }
+      else if (EM.drag.moved && !EM.build) { const gw = toWorld(ax, ay, empireCamera({ cam: EM.drag.cam0 }, 100 / 56)); EM.cam.x = clamp(EM.drag.cx - (gw.x - EM.drag.g0.x), 10, WORLD - 10); EM.cam.y = clamp(EM.drag.cy - (gw.y - EM.drag.g0.y), 10, WORLD - 10) }
     } else if (type === 'up' && EM.drag) {
       const d = EM.drag; EM.drag = null
+      if (EM.mvDrag) {
+        const mv = EM.moving; EM.mvDrag = null; EM.moving = null
+        if (mv && d.moved) { if (localCmd({ k: 'mv', b: mv.id, i: mv.i, j: mv.j })) { sfx('tdBuild'); emitE() } else { sfx('cBad'); EM.msg = { text: 'CANNOT MOVE IT THERE', sub: 'NEEDS FREE GRASS NEAR YOUR TOWN AND A SMALL FEE', color: '#ff8a96', t: 2 } } return }
+      }
       if (d.moved && !EM.build) return
       click(w, d.button)
     }
@@ -603,6 +654,7 @@ export const empireNet = {
   applyState(s) {
     if (!EM.net || EM.net.role !== 'guest' || !s || s.n <= lastN || EM.mode === 'idle') return
     lastN = s.n
+    if (s.cl) for (const idx of s.cl) if (EM.terr[idx] !== 0 && EM.terr[idx] !== 4) EM.terr[idx] = 0
     if (s.b) { // full building list
       const occ = new Int32Array(MW * MH); EM.B = s.b.map((q) => { const d = BDEF[q[2]]; const b = { id: q[0], owner: q[1], type: q[2], x: q[3], y: q[4], w: d.w, hp: q[5], max: q[6], lv: q[7], q: Array.from({ length: q[8] }, () => ({ u: 'sword' })), built: q[9], hit: 0, qt: q[10] || 0 }; for (let y = 0; y < b.w; y++) for (let x = 0; x < b.w; x++) if (inMap(b.x + x, b.y + y)) occ[ix(b.x + x, b.y + y)] = b.id; return b }); EM.occ = occ
       const bb = s.b.filter((q) => q[1] === EM.me && q[2] === 'hall')[0]; if (bb) { EM.P[EM.me].hallLv = bb[7] }
@@ -624,6 +676,7 @@ function netTick(dt) {
   const full = EM.bsnapT <= 0; if (full) EM.bsnapT = 0.6
   const pk = { n: ++nSeq, t: Math.round(EM.t), rt: Math.round(EM.raidT), rw: EM.raidWarn, rd: EM.raidDir, rn: EM.raidN, wo: EM.wonder ? [EM.wonder.owner, Math.round(EM.wonder.t)] : 0,
     u: EM.U.map((u) => [u.id, u.owner, u.type, r1(u.x), r1(u.y), Math.round(u.hp)]), r: EM.P.map((p) => [Math.floor(p.res.food), Math.floor(p.res.wood), Math.floor(p.res.stone), Math.floor(p.res.gold), p.alive ? 1 : 0, p.kills]), msg: EM.msg, over: EM.over, wn: EM.warn }
+  if (full) pk.cl = EM.cleared || []
   if (full) pk.b = EM.B.map((b) => [b.id, b.owner, b.type, b.x, b.y, Math.round(b.hp), b.max, b.lv, b.q.length, b.built, Math.round(b.qt * 10) / 10])
   for (const pl of EM.P) if (pl.kind === 'human' && pl.pid) EM.net.state(pl.pid, pk)
 }
