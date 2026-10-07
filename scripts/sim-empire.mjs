@@ -65,8 +65,7 @@ for (const k of [4, 20]) {
   EM.raidT = 1
   for (let i = 0; i < 20 * 40; i++) update(0.05)
   const raiders = EM.U.filter((u) => u.owner < 0)
-  const me = EM.B.find((b) => b.type === 'hall' && b.owner === EM.me)
-  ok(raiders.length > 0 && raiders.every((u) => Number.isFinite(u.x) && Math.hypot(u.x - me.x * 2, u.y - me.y * 2) < 400), 'x' + k + ': raiders appear near the village (' + raiders.length + ')')
+  ok(raiders.length > 0 && raiders.every((u) => Number.isFinite(u.x) && halls.some((h) => Math.hypot(u.x - h.x * 2, u.y - h.y * 2) < 400)), 'x' + k + ': raiders appear near the village (' + raiders.length + ')')
   empireActions.stop()
 }
 void setMapSize
