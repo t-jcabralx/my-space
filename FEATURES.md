@@ -79,3 +79,9 @@ Seven more games (Air Hockey, Billiards, Neon Defense, Neon Depths, Neon Beat, W
 - **📖 STORY season 2: THE LAST CABINET**: acts IV and V (8 more chapters, 5 new characters), dialogue **choices** that set flags (co-pilot, spare or delete ARCHON), two endings, a 3-round **gauntlet** finale, and **👥 play any chapter with a friend** online (the objective counts for both players).
 - **⚔ SCORE DUELS**: Snake, Neon Breaker, 2048, Neon Beat, Neon Defense, Maze Chomp, Mine Sweep (same minefield) and Word Hunt (same word) can be played head-to-head online with live rival scores.
 - Tests: `scripts/sim-ssx.mjs`, `sim-kart.mjs`, `sim-orb.mjs`, `sim-garden.mjs`, `sim-story2.mjs` (in `npm run test:sim`) and the two-process `scripts/sim-online2.mjs` (`npm run test:online2`, needs the dev server).
+
+## Update: huge maps
+- **13 Days of Hell / Watch Your Back**: the world is 9,200 x 5,400 m (20x), generated chunk by chunk from the seed (online players get the same forest). Outposts with campfires, crates, graveyard, wreck, minimap window.
+- **Empire Rise**: map size picker x1-x20 (up to 1,920 x 1,920 tiles; raiders appear within ~140 m of the village). Campaign scenarios stay x1.
+- **Neon Depths**: map size picker x1-x20 for fighting rooms (quiet rooms stay small). Ground, trees, rocks and fireflies are drawn around the camera only.
+- **Snow Rush**: mountain width picker x1-x20 (the half-pipe keeps its shape); wider mountains get proportionally more kickers, rails, rocks, pines and coins.

@@ -103,6 +103,8 @@ function build(c, len, seed, reps = 1) {
     else { const dx = (rnd() * 2 - 1) * lim; for (let i = 0; i < 5; i++) f.toks.push({ z: z + i * 5, dx: dx + Math.sin(i) * 1.4, up: 1.3 }); z += 55 }
     z += 12 + rnd() * 22
   }
+  // a wide mountain is dotted with solid pines you have to carve around
+  if (reps > 1) for (let i = 0, nt = Math.round(len / 34); i < nt; i++) f.rocks.push({ z: 140 + rnd() * (len - 240), dx: (rnd() * 2 - 1) * (c.hw - 3), r: 1.5 + rnd() * 0.6, tree: true })
   }
   for (let g = 300; g < len - 100; g += 300) f.gates.push(g)
   f.rocks.sort((a, b) => a.z - b.z); f.kick.sort((a, b) => a.z - b.z); f.rails.sort((a, b) => a.z0 - b.z0); f.pads.sort((a, b) => a.z - b.z); f.toks.sort((a, b) => a.z - b.z)
@@ -801,6 +803,7 @@ function draw3(api) {
     const k = F.rocks[i]
     if (k.z > z1) break
     const x = xc(k.z) + k.dx, y = ground(x, k.z)
+    if (k.tree) { drawTree(api, x, y, -k.z, 1.1, hash(k.z | 0, 7), night); continue }
     put3(x, y + k.r * 0.4, -k.z, k.r * 1.9, k.r * 1.3, k.r * 1.7, 0, 0.36, 0.38, 0.44, k.z)
     put3(x + 0.3, y + k.r * 0.95, -k.z, k.r * 1.1, k.r * 0.7, k.r * 1.0, 0, 0.9, 0.95, 1.0, k.z + 0.5)
   }
