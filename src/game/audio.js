@@ -305,6 +305,7 @@ const SFX = {
   rtBass: (n = 45) => { const f = 440 * Math.pow(2, (n - 69) / 12); tone('sawtooth', f, f, 0.2, 0.09) },
   rtLead: (n = 69) => { const f = 440 * Math.pow(2, (n - 69) / 12); tone('square', f, f, 0.12, 0.05) },
   wdKey: () => tone('square', 700, 700, 0.025, 0.05),
+  blip: (f = 600) => tone('square', f * (0.96 + Math.random() * 0.08), f * 0.9, 0.035, 0.035),
   wdFlip: (i = 0) => tone('triangle', 400 + i * 90, 500 + i * 90, 0.09, 0.09),
   wdGood: () => arp([523, 659, 784, 1046, 1318], 'triangle', 0.15, 0.1, 0.12),
   wdBad: () => tone('sawtooth', 200, 120, 0.2, 0.12),
@@ -314,7 +315,7 @@ const SFX = {
   mgPow: () => tone('sine', 300, 900, 0.15, 0.12),
   test: () => { arp([523, 659, 784, 1046], 'square', 0.16, 0.12, 0.11); noise(0.3, 0.3, 2000, 100, 0.5) },
 }
-const MIN_GAP = { emSword: 60, emBow: 70, emCata: 300, emHorn: 3000, emAlarm: 3000, emReady: 250, emDone: 300, emBoom: 120, emMarch: 400, rgWind: 3000, rgOwl: 3000, rgCreak: 3000, rgHeart: 400, hkHit: 40, hkWall: 40, plClack: 25, plRail: 40, tdShot: 40, tdKill: 40, tdZap: 60, rgSwing: 60, rgShot: 50, rgKill: 40, rtPerfect: 20, rtGood: 20, rtHat: 30, wdKey: 30, mgSlide: 40, mgMerge: 40, rBump: 150, rBoost: 400, rDrift: 200, fVoice: 120, fStep: 160, fCrowd: 800, vulcan: 45, tankEngine: 150, grunt: 60, jeep: 200, plane: 300, crate: 60, shoot: 50, pistol: 60, hmg: 42, eshot: 90, rotor: 110, hit: 25, boom: 35, coin: 30, ding: 40, step: 80, whistle: 70, bossHit: 40, deflect: 50 }
+const MIN_GAP = { blip: 25, emSword: 60, emBow: 70, emCata: 300, emHorn: 3000, emAlarm: 3000, emReady: 250, emDone: 300, emBoom: 120, emMarch: 400, rgWind: 3000, rgOwl: 3000, rgCreak: 3000, rgHeart: 400, hkHit: 40, hkWall: 40, plClack: 25, plRail: 40, tdShot: 40, tdKill: 40, tdZap: 60, rgSwing: 60, rgShot: 50, rgKill: 40, rtPerfect: 20, rtGood: 20, rtHat: 30, wdKey: 30, mgSlide: 40, mgMerge: 40, rBump: 150, rBoost: 400, rDrift: 200, fVoice: 120, fStep: 160, fCrowd: 800, vulcan: 45, tankEngine: 150, grunt: 60, jeep: 200, plane: 300, crate: 60, shoot: 50, pistol: 60, hmg: 42, eshot: 90, rotor: 110, hit: 25, boom: 35, coin: 30, ding: 40, step: 80, whistle: 70, bossHit: 40, deflect: 50 }
 const lastAt = {}
 export function sfx(name, arg) {
   if (!ctx || muted || !SFX[name]) return

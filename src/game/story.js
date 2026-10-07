@@ -18,16 +18,16 @@ import { orbActions, OB } from './orb.js'
 import { ssxActions, SX } from './ssx.js'
 
 export const CAST = {
-  echo: { name: 'ECHO', color: '#3de8ff', ico: '🧑‍🚀' },
-  nova: { name: 'NOVA', color: '#ff4de1', ico: '🤖' },
-  pix: { name: 'PIXEL', color: '#ffe84a', ico: '👾' },
-  ovl: { name: 'OVERLORD', color: '#ff3a3a', ico: '👁' },
-  sys: { name: 'SYSTEM', color: '#6aff9a', ico: '💾' },
-  tess: { name: 'TURBO TESS', color: '#ffb02e', ico: '🏎' },
-  bloom: { name: 'BLOOM', color: '#7dff6a', ico: '🌻' },
-  sage: { name: 'ORACLE', color: '#b07aff', ico: '🔮' },
-  frost: { name: 'FROST', color: '#9ad8ff', ico: '🏂' },
-  arc: { name: 'ARCHON', color: '#ff4de1', ico: '🕷' },
+  echo: { name: 'ECHO', color: '#3de8ff', ico: '🧑‍🚀', blip: 520, tts: 1.0 },
+  nova: { name: 'NOVA', color: '#ff4de1', ico: '🤖', blip: 760, tts: 1.5 },
+  pix: { name: 'PIXEL', color: '#ffe84a', ico: '👾', blip: 900, tts: 1.7 },
+  ovl: { name: 'OVERLORD', color: '#ff3a3a', ico: '👁', blip: 150, tts: 0.1 },
+  sys: { name: 'SYSTEM', color: '#6aff9a', ico: '💾', blip: 440, tts: 0.8 },
+  tess: { name: 'TURBO TESS', color: '#ffb02e', ico: '🏎', blip: 620, tts: 1.2 },
+  bloom: { name: 'BLOOM', color: '#7dff6a', ico: '🌻', blip: 700, tts: 1.4 },
+  sage: { name: 'ORACLE', color: '#b07aff', ico: '🔮', blip: 330, tts: 0.6 },
+  frost: { name: 'FROST', color: '#9ad8ff', ico: '🏂', blip: 560, tts: 0.9 },
+  arc: { name: 'ARCHON', color: '#ff4de1', ico: '🕷', blip: 200, tts: 0.2 },
 }
 const flagsOf = () => (save().flags || (save().flags = {}))
 const L = (who, text) => ({ who, text })

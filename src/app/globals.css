@@ -774,3 +774,32 @@ li.bonus { border-color: var(--gr); color: var(--gr); } li.fail { border-color: 
 .kmini { top: auto; bottom: 7cqw; border-radius: 6px; border-width: 2px; box-shadow: 0 0 14px #ff8a2a55; }
 
 .uno-timer { position: absolute; left: 50%; top: 14cqw; transform: translateX(-50%); z-index: 90; pointer-events: none; background: #04160fcc; border: 1px solid #ffffff30; padding: .4cqw 1.4cqw; border-radius: 99px; font-weight: 800; font-size: .85em; } .uno-timer.low { color: #ff6a6a; border-color: #ff6a6a; animation: pop .3s; }
+
+/* ---- story cut-scenes: cinematic stage ---- */
+.storyfull { overflow: hidden; }
+.storyfull > .sstage, .storyfull > .sbox { position: relative; z-index: 2; }
+.storyfull .stitle { position: absolute; z-index: 3; top: 8.5cqw; } .stitle small { display: block; margin-bottom: .9cqw; } .stitle h2 { line-height: 1.05; animation: stitleIn .7s cubic-bezier(.2,.9,.3,1) both; }
+@keyframes stitleIn { from { opacity: 0; letter-spacing: .5em; transform: scale(1.15); } to { opacity: 1; } }
+.sbg { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+.sbgico { position: absolute; right: -4cqw; top: 50%; transform: translateY(-50%); font-size: 46cqw; opacity: .08; filter: blur(2px) saturate(1.6); animation: sdrift 14s ease-in-out infinite alternate; }
+.sgrid { position: absolute; left: -50%; right: -50%; bottom: -20%; height: 70%; background: linear-gradient(transparent 0, color-mix(in srgb, var(--c) 35%, transparent) 100%), repeating-linear-gradient(90deg, color-mix(in srgb, var(--c) 40%, transparent) 0 1px, transparent 1px 7cqw), repeating-linear-gradient(0deg, color-mix(in srgb, var(--c) 40%, transparent) 0 1px, transparent 1px 5cqw); transform: perspective(40cqw) rotateX(62deg); opacity: .35; animation: sgridmove 3s linear infinite; mask-image: linear-gradient(transparent, #000 60%); }
+@keyframes sgridmove { from { background-position: 0 0, 0 0, 0 0; } to { background-position: 0 0, 0 0, 0 5cqw; } }
+.sglow { position: absolute; inset: 0; background: radial-gradient(60cqw 30cqw at 50% 70%, color-mix(in srgb, var(--c) 22%, transparent), transparent 70%); transition: background .4s; }
+@keyframes sdrift { from { transform: translateY(-52%) rotate(-4deg); } to { transform: translateY(-48%) rotate(4deg); } }
+.storyfull.act0 { background: radial-gradient(900px 500px at 50% 30%, #1a2a6a88, #02030afc), #02030afc; }
+.storyfull.act1 { background: radial-gradient(900px 500px at 50% 30%, #4a1a7a88, #02030afc), #02030afc; }
+.storyfull.act2 { background: radial-gradient(900px 500px at 50% 30%, #7a1a3a88, #02030afc), #02030afc; }
+.storyfull.act3 { background: radial-gradient(900px 500px at 50% 30%, #1a6a6a88, #02030afc), #02030afc; }
+.storyfull.act4 { background: radial-gradient(900px 500px at 50% 30%, #7a5a1a88, #02030afc), #02030afc; }
+.storyfull.lost { background: radial-gradient(900px 500px at 50% 30%, #6a1a2a88, #02030afc), #02030afc; } .storyfull.outro { background: radial-gradient(900px 500px at 50% 30%, #1a6a3a88, #02030afc), #02030afc; }
+.sbar { position: absolute; left: 0; right: 0; height: 6cqw; background: #000; z-index: 4; } .sbar.top { top: 0; } .sbar.bot { bottom: 0; }
+.sstage { display: flex; justify-content: center; align-items: flex-end; gap: 5cqw; margin-bottom: 3.4cqw; min-height: 14cqw; }
+.spc { display: flex; flex-direction: column; align-items: center; gap: .4cqw; opacity: .45; filter: grayscale(.7) brightness(.6); transform: scale(.78); transition: all .3s; animation: spcIn .45s both; animation-delay: calc(var(--i) * .05s); }
+.spc .spe { font-size: 6.5em; line-height: 1; filter: drop-shadow(0 0 18px var(--c)); } .spc small { color: var(--c); letter-spacing: .2em; font-size: .8em; }
+.spc.on { opacity: 1; filter: none; transform: scale(1.12) translateY(-.6cqw); } .spc.on.talk .spe { animation: stalk .28s ease-in-out infinite alternate; }
+@keyframes stalk { from { transform: translateY(0) rotate(-1.5deg); } to { transform: translateY(-.7cqw) rotate(1.5deg) scale(1.04); } }
+@keyframes spcIn { from { opacity: 0; transform: translateY(3cqw) scale(.7); } }
+.sbox { grid-template-columns: 1fr; animation: sboxIn .25s both; margin-bottom: 6.5cqw; min-height: 11cqw; backdrop-filter: blur(4px); }
+@keyframes sboxIn { from { opacity: 0; transform: translateY(1cqw); } }
+.sdots { position: absolute; left: 2cqw; bottom: .8cqw; display: flex; gap: .4cqw; } .sdots i { width: .6cqw; height: .6cqw; border-radius: 50%; background: #ffffff30; } .sdots i.past { background: #ffffff70; } .sdots i.on { background: var(--c); box-shadow: 0 0 8px var(--c); }
+.storyfull .sbtns { position: absolute; z-index: 5; right: 2cqw; top: 1.4cqw; } .storyfull .sgoal { position: absolute; z-index: 5; bottom: 1.2cqw; left: 50%; transform: translateX(-50%); } .storyfull .schoices { position: absolute; z-index: 5; bottom: 8cqw; }
