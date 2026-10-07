@@ -4,6 +4,7 @@
 import { G, emit as engineEmit, keys, games, profile, saveProfile, recordScore, toMenu, shake, flash, stepParticles } from './engine.js'
 import { sfx, music } from './audio.js'
 import { clamp, rng } from './pxl.js'
+import { limb, lerp } from './rig.js'
 import { registerNet, gameEnded } from './online/gnet.js'
 
 export const FH = 11, AMP = 4, SIZES = [1, 2, 4, 8, 12, 20]
@@ -320,24 +321,97 @@ function drawHero(api, p, t) {
   const { put3 } = api
   if (p.out || p.gone) return
   if ((p.inv > 0 && Math.floor(t * 12) % 2 === 0) || (p.dead > 0 && Math.floor(t * 20) % 3 === 0)) return
-  const f = p.face, run = Math.abs(p.in.dx) > 0 && p.ground ? Math.sin(p.anim * 16) : 0, x = p.x, y = p.y
-  const red = p.color === '#ff6ab8' ? [1.8, 0.5, 1] : [2, 0.3, 0.25], blue = [0.3, 0.5, 1.6], skin = [1.8, 1.4, 1.1]
-  const b = (lx, ly, lz, sx, sy, sz, c, rz = 0) => put3(x + lx * f, y + ly, lz, sx, sy, sz, rz * f, c[0], c[1], c[2], 0)
-  if (p.ladder) { const sw = Math.sin(p.y * 2.4) * 0.4; b(-0.3, 0.7 + sw, 0.3, 0.5, 1.2, 0.6, blue); b(0.3, 0.7 - sw, -0.3, 0.5, 1.2, 0.6, blue); b(0, 1.9, 0, 1.4, 1.6, 1, blue); b(0, 3, 0, 1.1, 1, 1.1, skin); b(0, 3.5, 0, 1.4, 0.5, 1.2, red); b(0.5 - sw, 2.6, 0.7, 0.4, 1.6, 0.4, red); return }
-  b(-0.3 + run * 0.35, 0.6, 0.3, 0.6, 1.2, 0.7, blue); b(0.3 - run * 0.35, 0.6, -0.3, 0.6, 1.2, 0.7, blue)
-  b(0, 1.9, 0, 1.4, 1.5, 1, blue); b(0, 2.2, 0.55, 1.1, 0.8, 0.2, red); b(0, 3.1, 0, 1.1, 1, 1.1, skin); b(0, 3.65, 0, 1.4, 0.45, 1.3, red); b(0.55, 3.6, 0, 0.7, 0.3, 1.1, red); b(0.4, 3.1, 0.6, 0.25, 0.25, 0.2, [0.1, 0.1, 0.1])
-  if (p.ham > 0) { const sw = Math.sin(p.anim * 16) * 0.9; b(1, 2.4, 0.7, 0.4, 2, 0.4, [0.5, 0.35, 0.2], sw); b(1 + Math.sin(sw) * 1.5, 3.2 + Math.cos(sw) * 0.8, 0.7, 1.5, 1.2, 1.2, [1.6, 1.6, 1.8]) }
-  else b(0.8, 2.2 + (p.ground ? 0 : 0.5), 0.6, 0.4, 1.3, 0.4, red, p.ground ? 0 : -0.8)
+  const f = p.face, x = p.x, y = p.y, pink = p.color === '#ff6ab8'
+  const red = pink ? [1.8, 0.5, 1] : [2, 0.3, 0.25], blue = pink ? [0.9, 0.4, 1.5] : [0.3, 0.5, 1.6], skin = [1.8, 1.4, 1.1], boot = [0.35, 0.2, 0.12], glove = [2.2, 2.2, 2.2], hair = [0.3, 0.18, 0.1]
+  const dead = p.dead > 0, air = !p.ground && !p.ladder, clim = !!p.ladder
+  const run = clim || air || dead ? 0 : clamp(Math.abs(p.in.dx), 0, 1) * (p.ground ? 1 : 0), ph = p.anim * 15
+  const bob = clim ? 0 : run ? Math.abs(Math.sin(ph)) * 0.2 : air ? 0 : Math.sin(p.anim * 2.4) * 0.05
+  const lean = dead ? 0.6 : run * 0.16
+  const hy = y + 1.5 + bob
+  const A = (a) => a * (clim ? 1 : f), X = (lx) => x + lx * (clim ? 1 : f)
+  const cph = p.y * 2.6 // ladder cycle follows the height climbed
+  // legs
+  for (const side of [-1, 1]) {
+    const z = side * 0.4 * (clim ? 0.7 : 1), q = Math.sin(ph + (side > 0 ? 0 : Math.PI))
+    let th = q * 0.95 * run, kn = Math.max(0, -q) * 1.1 * run, off = clim ? side * 0.5 : 0
+    if (air) { th = side > 0 ? 0.8 : -0.3; kn = side > 0 ? 1.1 : 0.3 }
+    if (clim) { const c = Math.sin(cph + (side > 0 ? 0 : Math.PI)); th = 0; kn = 0; var lift = Math.max(0, c) * 0.9 } else lift = 0
+    if (dead) { th = side * 0.7; kn = 0.3 }
+    const knee = limb(put3, X(off), hy + lift, z, A(clim ? 0 : th) , 0.75, 0.62, 0.62, blue)
+    const ank = limb(put3, knee[0], knee[1] + (clim ? 0 : 0), z, A(clim ? 0 : th - kn), 0.75, 0.56, 0.58, blue, 0.85)
+    put3(ank[0] + (clim ? 0 : f * 0.24), ank[1] + 0.2, z + (clim ? -0.1 : 0), 1.0, 0.45, clim ? 0.7 : 0.8, 0, boot[0], boot[1], boot[2], 0)
+  }
+  // torso: blue dungarees, red shirt, buttons
+  const tor = limb(put3, X(0), hy, 0, A(Math.PI + lean), 1.5, 1.45, 1.05, blue)
+  limb(put3, X(0), hy + 0.7, 0, A(Math.PI + lean), 0.8, 1.52, 1.1, red, 0.9)
+  limb(put3, X(0), hy, 0, A(Math.PI + lean), 0.45, 1.5, 1.08, [0.95, 0.9, 0.2])
+  const cb = clim ? -0.55 : 0.55
+  put3(tor[0] - lean * 0.2, hy + 1.0, cb, 0.28, 0.28, 0.2, 0, 2.4, 2.1, 0.4, 0)
+  // head, cap, moustache
+  const hx = tor[0], hyy = tor[1] + 0.5
+  put3(hx, hyy, 0, 1.15, 1.05, 1.1, 0, skin[0], skin[1], skin[2], 0)
+  if (clim) { put3(hx, hyy + 0.48, 0, 1.35, 0.55, 1.3, 0, red[0], red[1], red[2], 0); put3(hx, hyy + 0.05, -0.6, 1.2, 0.8, 0.2, 0, hair[0], hair[1], hair[2], 0) }
+  else {
+    put3(hx, hyy + 0.5, 0, 1.35, 0.5, 1.3, 0, red[0], red[1], red[2], 0); put3(hx + f * 0.7, hyy + 0.42, 0, 0.7, 0.18, 1.1, 0, red[0], red[1], red[2], 0) // cap and peak
+    put3(hx + f * 0.58, hyy + 0.08, 0.34, 0.14, 0.24, 0.2, 0, 0.1, 0.1, 0.12, 0); put3(hx + f * 0.58, hyy + 0.08, -0.34, 0.14, 0.24, 0.2, 0, 0.1, 0.1, 0.12, 0)
+    put3(hx + f * 0.62, hyy - 0.12, 0, 0.3, 0.3, 0.5, 0, 1.9, 1.1, 0.9, 0); put3(hx + f * 0.58, hyy - 0.27, 0, 0.2, 0.2, 0.9, 0, hair[0], hair[1], hair[2], 0)
+    put3(hx - f * 0.56, hyy + 0.05, 0, 0.2, 0.7, 1.1, 0, hair[0], hair[1], hair[2], 0)
+  }
+  // arms
+  const sh = [tor[0], tor[1] - 0.25]
+  for (const side of [-1, 1]) {
+    const z = side * 0.78 * (clim ? 0.9 : 1), front = side > 0
+    let a1 = -Math.sin(ph + (front ? Math.PI : 0)) * 0.85 * run + Math.sin(p.anim * 2.4 + side) * 0.05, a2 = 0.2 + run * 0.7
+    const ox = clim ? side * 0.4 : 0
+    if (air) { a1 = front ? 2.4 : 1.7; a2 = 0.2 }
+    if (clim) { const c = Math.sin(cph + (front ? Math.PI : 0)); a1 = Math.PI + side * 0.25 - c * 0.3; a2 = 0; var sy = c * 0.5 } else sy = 0
+    if (dead) { a1 = side * 2.2; a2 = 0.2 }
+    const hamHeld = front && p.ham > 0
+    if (hamHeld) { const sw = (Math.sin(p.anim * 16) + 1) / 2; a1 = lerp(2.9, 0.6, sw); a2 = 0.15 }
+    const el = limb(put3, sh[0] + ox, sh[1] + sy, z, A(a1), 0.62, 0.5, 0.5, red, 0.95)
+    const hand = limb(put3, el[0], el[1], z, A(a1 + a2), 0.58, 0.46, 0.46, red, 0.85)
+    put3(hand[0], hand[1] - 0.05, z, 0.62, 0.62, 0.62, 0, glove[0], glove[1], glove[2], 0)
+    if (hamHeld) { const base = a1 + a2 + 0.1, hd = limb(put3, hand[0], hand[1], z, A(base), 1.8, 0.28, 0.28, [0.5, 0.35, 0.2]); limb(put3, hd[0], hd[1], z, A(base), 1.0, 1.6, 1.1, [1.6, 1.6, 1.85]) }
+  }
 }
 function drawKong(api, k, t) {
-  const { put3 } = api, y = surf(k.i, k.x), d = rollDir(k.i), w = k.wind > 0 ? Math.sin((0.6 - k.wind) / 0.6 * Math.PI) : 0
-  const body = [0.55, 0.35, 0.22], face = [1.5, 1.1, 0.8]
-  put3(k.x, y + 4, 0, 6, 6, 4.4, 0, body[0], body[1], body[2], 0); put3(k.x, y + 7.8, 0.6, 3.6, 3, 3, 0, body[0], body[1], body[2], 0); put3(k.x + d * 0.7, y + 7.6, 2.2, 2.4, 1.8, 0.4, 0, face[0], face[1], face[2], 0)
-  put3(k.x + d * 0.6, y + 8.3, 2.5, 0.5, 0.5, 0.3, 0, 2.6, 2.6, 2.6, 0); put3(k.x - d * 0.6, y + 8.3, 2.5, 0.5, 0.5, 0.3, 0, 2.6, 2.6, 2.6, 0)
-  put3(k.x, y + 4.8, 2.2, 4, 2.4, 0.4, 0, face[0], face[1], face[2], 0)
-  put3(k.x - d * 3.6, y + 3.4 + Math.sin(t * 3) * 0.4, 0, 1.6, 4.2, 1.8, 0, body[0], body[1], body[2], 0); put3(k.x + d * 3.6, y + 4.6 + w * 3, 0, 1.6, 3.4, 1.8, 0, body[0], body[1], body[2], 0)
-  put3(k.x - 1.4, y + 0.9, 0, 2, 1.8, 2.4, 0, body[0], body[1], body[2], 0); put3(k.x + 1.4, y + 0.9, 0, 2, 1.8, 2.4, 0, body[0], body[1], body[2], 0)
-  if (k.wind > 0) put3(k.x + d * 4.2, y + 8.4 + w * 2, 0, 1.8, 1.8, 1.8, 0, 1.4, 0.8, 0.3, t * 2)
+  const { put3 } = api, y = surf(k.i, k.x), d = rollDir(k.i), x = k.x
+  const w = k.wind > 0 ? Math.sin((0.6 - k.wind) / 0.6 * Math.PI) : 0 // 0 .. 1 .. 0 while winding up and heaving a barrel
+  const ph = t * 1.6 + k.id * 1.3, br = Math.sin(ph * 1.7) * 0.14
+  const bt = (t + k.id * 1.7) % 7, beat = k.wind <= 0 && bt < 1.5 ? 1 : 0, bs = beat ? Math.abs(Math.sin(bt * Math.PI * 3.4)) : 0 // now and then he pounds his chest
+  const fur = [0.5, 0.32, 0.2], fur2 = [0.36, 0.23, 0.14], skin = [1.45, 1.05, 0.78], dark = [0.1, 0.07, 0.05], silver = [0.85, 0.8, 0.75]
+  const dip = w * -0.5 + (beat ? -0.2 * bs : 0)
+  // legs and feet
+  for (const s of [-1, 1]) { put3(x + s * 1.7, y + 1.7, 0, 2.4, 3.4, 2.8, 0, fur2[0], fur2[1], fur2[2], 0); put3(x + s * 1.8, y + 0.4, 0.7, 2.8, 0.9, 3.6, 0, dark[0] + 0.2, dark[1] + 0.12, dark[2] + 0.1, 0) }
+  // belly, back and chest
+  put3(x, y + 3.9 + dip * 0.4, 0, 5.6, 2.4, 4.2, 0, fur2[0], fur2[1], fur2[2], 0)
+  put3(x, y + 6.0 + br + dip, 0, 7, 3.6, 4.6, 0, fur[0], fur[1], fur[2], 0)
+  put3(x, y + 6.9 + br + dip, -1.6, 5.8, 3.2, 1.6, 0, silver[0], silver[1], silver[2], 0) // silverback saddle
+  put3(x, y + 5.9 + br + dip, 2.3, 4.2, 2.6, 0.5, 0, skin[0], skin[1], skin[2], 0) // bare chest plate
+  put3(x - 1.1, y + 6.1 + br + dip, 2.6, 0.5, 1.6, 0.3, 0, fur2[0] * 0.8, fur2[1] * 0.8, fur2[2] * 0.8, 0); put3(x + 1.1, y + 6.1 + br + dip, 2.6, 0.5, 1.6, 0.3, 0, fur2[0] * 0.8, fur2[1] * 0.8, fur2[2] * 0.8, 0)
+  // head: heavy brow, crest, snout, eyes, nostrils and a mouth that opens for the throw
+  const hy = y + 8.7 + br * 1.2 + dip + w * 0.4, hz = 0.9 + w * 0.2, look = d * (0.4 + w * 0.2)
+  put3(x, hy, hz, 3.6, 3.0, 3.2, 0, fur[0], fur[1], fur[2], 0)
+  put3(x, hy + 1.8, hz - 0.2, 1.4, 1.0, 2.6, 0, fur2[0], fur2[1], fur2[2], 0) // sagittal crest
+  put3(x, hy + 0.9, hz + 1.7, 3.5, 0.7, 1.0, 0, dark[0] + 0.15, dark[1] + 0.1, dark[2] + 0.08, 0) // brow ridge
+  put3(x + look * 0.2, hy - 0.5, hz + 1.8, 2.6, 1.7, 0.9, 0, skin[0], skin[1], skin[2], 0) // muzzle
+  for (const s of [-1, 1]) { put3(x + s * 0.85 + look * 0.1, hy + 0.35, hz + 2.1, 0.8, 0.55, 0.3, 0, 2.6, 2.6, 2.6, 0); put3(x + s * 0.85 + look * 0.4, hy + 0.35, hz + 2.3, 0.35, 0.4, 0.25, 0, 0.3, 0.05, 0.02, 0); put3(x + s * 0.35 + look * 0.2, hy - 0.2, hz + 2.3, 0.3, 0.4, 0.2, 0, dark[0], dark[1], dark[2], 0) }
+  if (w > 0.25) { put3(x + look * 0.2, hy - 1.05, hz + 2.3, 1.7, 0.5 + w * 0.9, 0.3, 0, 0.4, 0.04, 0.04, 0); put3(x + look * 0.2, hy - 0.8, hz + 2.4, 1.4, 0.18, 0.2, 0, 2.6, 2.6, 2.6, 0) } else put3(x + look * 0.2, hy - 1.05, hz + 2.3, 1.7, 0.18, 0.3, 0, dark[0] + 0.2, dark[1] + 0.1, dark[2] + 0.08, 0)
+  // arms: knuckles on the floor, swinging; fists pound the chest; both arms heave the barrel overhead
+  const sy = y + 7.0 + br + dip
+  for (const s of [-1, 1]) {
+    const sw = Math.sin(ph + s) * 0.08
+    let a1 = s * (0.32 + sw), a2 = s * (0.18 - sw * 0.5)
+    if (beat) { const alt = s > 0 ? bs : Math.abs(Math.sin(bt * Math.PI * 3.4 + 1.57)); a1 = s * (0.5 - alt * 1.6); a2 = s * (-alt * 1.5) }
+    if (w > 0) { a1 = s * (0.32 + w * (Math.PI - 1.15)); a2 = s * (0.18 + w * 0.35) }
+    const sx = x + s * 3.7
+    put3(sx, sy + 0.2, 0, 2.4, 2.4, 2.8, 0, fur[0], fur[1], fur[2], 0) // shoulder
+    const el = limb(put3, sx, sy, 0.2, a1, 3.2, 1.9, 2.1, fur)
+    const fist = limb(put3, el[0], el[1], 0.3, a2 + a1, 3.0, 1.7, 1.9, fur2)
+    put3(fist[0], fist[1] - 0.3, 0.5, 2.3, 2.1, 2.3, 0, fur2[0] * 0.8, fur2[1] * 0.8, fur2[2] * 0.8, 0) // fist
+  }
+  // the barrel he is about to throw, carried up from the chest to overhead
+  if (k.wind > 0) { const by = y + 6 + w * 6.4; put3(x, by, 0.8, 2.6, 2.6, 2.8, t * 6, 1.1, 0.55, 0.22, 0); put3(x, by, 2.2, 2.7, 2.7, 0.3, t * 6, 0.3, 0.3, 0.35, 0) }
 }
 function draw3(api) {
   const { put3, putS } = api, t = G.time

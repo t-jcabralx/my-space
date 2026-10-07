@@ -5,6 +5,7 @@ import { G, emit as engineEmit, keys, games, profile, saveProfile, recordScore, 
 import { sfx, music } from './audio.js'
 import { clamp, rng } from './pxl.js'
 import { registerNet, gameEnded } from './online/gnet.js'
+import { limb, lerp, ease } from './rig.js'
 import { pickWeather, timeOf, skyFor, weatherFx } from './env4d.js'
 
 export const BW = 2, FH = 6, THICK = 1.2, SIZES = [1, 2, 4, 8, 12, 20]
@@ -228,7 +229,7 @@ function stepFoes(dt) {
 }
 function stepCam(dt) {
   const live = CL.players.filter((p) => !p.out && !p.gone && p.dead <= 0)
-  if (live.length) { const mean = live.reduce((a, p) => a + p.x, 0) / live.length; const lim = Math.max(0, HALF - 44); CL.camX += (clamp(mean, -lim, lim) - CL.camX) * Math.min(1, dt * 4) }
+  if (live.length) { const mean = live.reduce((a, p) => a + p.x, 0) / live.length; const lim = Math.max(0, HALF - 30); CL.camX += (clamp(mean, -lim, lim) - CL.camX) * Math.min(1, dt * 4) }
 }
 // two climbers share one screen: neither can wander more than 80 m from the other on a wide mountain
 function tether() {
@@ -367,26 +368,66 @@ export function climbEnv() {
 function lights() { const E = climbEnv(); return { sun: { x: CL.camX - 30, y: CL.camTop + 40, z: 50, color: E.sunColor, intensity: E.sunI }, ambient: E.amb, dir: E.dir, shadow: false, lantern: { x: CL.camX, y: CL.camTop - 8, z: 14, color: '#bfe6ff', intensity: 0.7 + E.T.night * 1.4, distance: 90 } } }
 function camera(aspect) {
   const cx = CL.camX, cy = CL.camTop - 12, sk = (G.shake || 0) * 0.5
-  return { x: cx + (Math.random() - 0.5) * sk, y: cy + 4 + (Math.random() - 0.5) * sk, z: 66, tx: cx, ty: cy, tz: 0, fov: 42, far: 500, aspect }
+  return { x: cx + (Math.random() - 0.5) * sk, y: cy + 3 + (Math.random() - 0.5) * sk, z: 46, tx: cx, ty: cy, tz: 0, fov: 42, far: 500, aspect }
 }
 function drawClimber(api, p, t) {
-  const { put3, putM } = api
+  const { put3 } = api
   if (p.out || p.gone) return
   const blink = p.inv > 0 && Math.floor(t * 12) % 2 === 0
   if (blink || (p.dead > 0 && p.dead < 1.5 && Math.floor(t * 20) % 3 === 0)) return
-  const f = p.face, walk = Math.abs(p.vx) > 1 && p.ground ? Math.sin(p.anim * 14) : 0, air = !p.ground
-  const col = p.color === '#ff6ab8' ? [[1.4, 0.4, 0.75], [1.8, 1.1, 1.4]] : [[0.3, 0.55, 1.4], [1.2, 1.5, 2]]
-  const x = p.x, y = p.y
-  const b = (lx, ly, lz, sx, sy, sz, c, rz = 0) => put3(x + lx * f, y + ly, lz, sx, sy, sz, rz * f, c[0], c[1], c[2], 0)
-  b(-0.3 + walk * 0.3, 0.55, 0.3, 0.6, 1.1, 0.7, [0.15, 0.12, 0.2]); b(0.3 - walk * 0.3, 0.55, -0.3, 0.6, 1.1, 0.7, [0.15, 0.12, 0.2]) // boots
-  b(0, 1.8 + (air ? 0.3 : 0), 0, 1.5, 1.7, 1.2, col[0]) // parka
-  b(0, 2.9 + (air ? 0.3 : 0), 0, 1.3, 1.1, 1.2, [1.7, 1.4, 1.2]) // face
-  b(0, 3.5 + (air ? 0.3 : 0), 0, 1.6, 0.9, 1.4, col[0]); b(0.5, 3.0, 0.55, 0.3, 0.3, 0.2, [0.1, 0.1, 0.15]) // hood and eye
-  b(0.4, 3.7, 0, 0.5, 0.5, 0.5, col[1]) // pom-pom
-  b(0, 1.4, -0.8, 0.9, 1.1, 0.5, col[1]) // pack
-  // the hammer swings in an arc
-  const sw = p.swing > 0 ? (1 - p.swing / 0.3) : 0, ang = -1.2 + sw * 2.6
-  b(1.0, 2.2, 0.7, 0.4, 0.4 + 1.6, 0.4, [0.4, 0.28, 0.16], ang); b(1.0 + Math.sin(ang) * 1.3, 2.2 + Math.cos(ang) * 1.3, 0.7, 1.2, 0.9, 0.9, [0.8, 0.8, 0.9])
+  const f = p.face, X = (lx) => p.x + lx * f, A = (a) => a * f
+  const pink = p.color === '#ff6ab8'
+  const parka = pink ? [1.5, 0.3, 0.75] : [0.12, 0.4, 1.55], trim = pink ? [1.9, 1.2, 1.5] : [1.3, 1.6, 2.1], boot = [0.2, 0.14, 0.12], skin = [1.8, 1.4, 1.15], dark = [0.12, 0.1, 0.16], mitt = [2, 1.5, 0.3]
+  const air = !p.ground, dead = p.dead > 0
+  const run = air || dead ? 0 : clamp(Math.abs(p.vx) / 13, 0, 1), ph = p.anim * 15
+  const sk = !air && Math.abs(p.vx) > 5 && Math.sign(p.vx) !== p.face // sliding backwards on the ice
+  const bob = air ? 0 : run > 0.1 ? Math.abs(Math.sin(ph)) * 0.22 * run : Math.sin(p.anim * 2.2) * 0.05
+  const lean = (dead ? 0.5 : sk ? -0.25 : 0.2 * run) + (p.hurt > 0 ? -0.3 : 0)
+  const hy = p.y + 1.45 + bob
+  // legs: swing while running, tuck when jumping, kick when slipping
+  for (const side of [-1, 1]) {
+    const z = side * 0.42, q = Math.sin(ph + (side > 0 ? 0 : Math.PI))
+    let th = q * 0.95 * run, kn = Math.max(0, -q) * 1.1 * run
+    if (air) { th = side > 0 ? 0.9 : -0.25; kn = side > 0 ? 1.2 : 0.4 }
+    if (dead) { th = side * 0.6; kn = 0.4 }
+    if (sk) { th = side * 0.5; kn = 0 }
+    const knee = limb(put3, X(0), hy, z, A(th), 0.72, 0.62, 0.62, parka, 0.85)
+    const ank = limb(put3, knee[0], knee[1], z, A(th - kn), 0.72, 0.56, 0.58, parka, 0.7)
+    put3(ank[0] + f * 0.22, ank[1] + 0.2, z, 1.1, 0.5, 0.78, A(0), boot[0], boot[1], boot[2], 0)
+  }
+  // torso, pack and head
+  const tor = limb(put3, X(0), hy, 0, A(Math.PI + lean), 1.5, 1.5, 1.1, parka)
+  const tx = (tor[0] - p.x) * f
+  limb(put3, X(0), hy + 0.1, 0, A(Math.PI + lean), 0.35, 1.58, 1.14, trim) // belt
+  put3(X(tx * 0.5 - 0.15), hy + 0.85, -0.82, 0.9, 1.1, 0.5, -A(lean), trim[0], trim[1], trim[2], 0) // pack
+  const hx = tor[0] + f * tx * 0.1, hyy = tor[1] + 0.52
+  put3(hx, hyy, 0, 1.25, 1.05, 1.2, 0, skin[0], skin[1], skin[2], 0) // face
+  put3(hx - f * 0.05, hyy + 0.5, 0, 1.55, 0.7, 1.5, 0, parka[0], parka[1], parka[2], 0); put3(hx - f * 0.55, hyy - 0.05, 0, 0.5, 1.2, 1.4, 0, parka[0], parka[1], parka[2], 0) // hood
+  put3(hx + f * 0.7, hyy - 0.02, 0, 0.14, 1.1, 1.3, 0, trim[0], trim[1], trim[2], 0) // fur trim
+  put3(hx + f * 0.62, hyy + 0.1, 0.38, 0.16, 0.24, 0.2, 0, dark[0], dark[1], dark[2], 0); put3(hx + f * 0.62, hyy + 0.1, -0.38, 0.16, 0.24, 0.2, 0, dark[0], dark[1], dark[2], 0) // eyes
+  put3(hx + f * 0.64, hyy - 0.3, 0, 0.12, 0.45, 0.22, 0, 1.9, 0.9, 0.8, 0) // nose
+  put3(hx - f * 0.1, hyy + 1.05 + Math.sin(p.anim * 7) * 0.05, 0, 0.55, 0.55, 0.55, 0, trim[0], trim[1], trim[2], 0) // pom-pom
+  // arms: swing opposite to the legs, raise when jumping, hammer arm winds up and smashes
+  const sh = [tor[0], tor[1] - 0.28]
+  for (const side of [-1, 1]) {
+    const z = side * 0.78, front = side > 0
+    let a1 = -Math.sin(ph + (front ? Math.PI : 0)) * 0.9 * run + side * 0.08 * 0 + Math.sin(p.anim * 2.2 + side) * 0.06, a2 = 0.3 + run * 0.6
+    if (air) { a1 = front ? 2.5 : 1.9; a2 = 0.3 }
+    if (dead || p.hurt > 0) { a1 = side * 1.7 + 0.5; a2 = 0.2 }
+    if (sk) { a1 = front ? -1.3 : -0.9; a2 = 0.3 }
+    let held = null
+    if (front && p.swing > 0) { const u = 1 - p.swing / 0.3, e = u < 0.4 ? -(u / 0.4) * 1.0 : 0; a1 = u < 0.4 ? 2.9 + e * 0 - (u / 0.4) * 0.3 : lerp(2.6, 0.5, ease((u - 0.4) / 0.6)); a2 = u < 0.4 ? 0.2 : 0.1; held = a1 }
+    const el = limb(put3, sh[0], sh[1], z, A(a1), 0.6, 0.5, 0.5, parka, 0.9)
+    const hand = limb(put3, el[0], el[1], z, A(a1 + a2), 0.55, 0.45, 0.46, parka, 0.8)
+    put3(hand[0], hand[1] - 0.05, z, 0.55, 0.55, 0.55, 0, mitt[0], mitt[1], mitt[2], 0)
+    if (front) {
+      // the ice mallet: a long wooden handle and a heavy head, carried on the shoulder and swung down
+      const base = held !== null ? held + 0.15 : a1 + a2 + 0.2
+      const hd = limb(put3, hand[0], hand[1], z, A(base), 1.9, 0.26, 0.26, [0.45, 0.3, 0.17])
+      limb(put3, hd[0], hd[1], z, A(base), 0.9, 1.5, 1.0, [1.3, 1.3, 1.55])
+    }
+  }
+  void dark
 }
 function drawFoe(api, f, t) {
   const { put3 } = api, d = f.dir || 1
@@ -416,7 +457,7 @@ function draw3(api) {
   for (let i = Math.max(0, Math.floor(lo / FH) - 1); i <= Math.min(CL.floors.length - 1, Math.ceil(hi / FH)); i++) {
     const row = CL.floors[i], y = floorY(i)
     if (i === CL.floors.length - 1) for (let mx = Math.round((cx - 60) / 40) * 40; mx < cx + 60; mx += 40) if (Math.abs(mx) < HALF) put3(mx, y + 4, -1, 16, 8, 0.6, 0, 0.5, 0.5, 0.6, 0) // the summit marker walls
-    for (let c = colAt(cx - 62), c1 = colAt(cx + 62); c <= c1; c++) {
+    for (let c = colAt(cx - 50), c1 = colAt(cx + 50); c <= c1; c++) {
       const ty = row[c]; if (!ty) continue
       const x = colX(c)
       if (ty === 1) { const sh = 0.9 + ((c * 7 + i * 3) % 5) * 0.04; put3(x, y - THICK / 2, 0, BW - 0.06, THICK, 4.6, 0, 0.5 * sh, 1.35 * sh, 1.9 * sh, 0); put3(x, y + 0.05, 0.4, BW - 0.2, 0.18, 3.6, 0, 1.9, 2.2, 2.4, 0) }

@@ -48,7 +48,7 @@ export function ClimbHUD({ openHelp }) {
     <div className="hud mg-hud">
       <div className="mg-topbar">
         <span>🏔 {g.name} ({g.lvl}/{g.lvls})</span><span>FLOOR <b>{g.floor}/{g.floors}</b></span>{g.size > 1 && <span>WIDTH <b>x{g.size}</b></span>}<span>SCORE <b>{fmt(g.score)}</b></span>
-        {g.players.map((p, i) => <span key={i} style={{ color: p.c }}>{p.me && g.online ? 'YOU' : p.n.slice(0, 8)} {p.dead && p.lives <= 0 ? '☠' : '♥'.repeat(Math.max(0, p.lives))}</span>)}
+        {g.players.map((p, i) => <span key={i} style={{ color: p.c }}>{p.me && g.online ? 'YOU' : p.n.slice(0, 8)} {p.dead && p.lives <= 0 ? '☠' : (p.lives > 6 ? '♥×' + p.lives : '♥'.repeat(Math.max(0, p.lives)))}</span>)}
         <span className="grow" />{g.env && <span className="dim">{g.night > 0.5 ? '🌙' : '☀'} {g.env}</span>}
         {g.mode === 'play' && !g.paused && !g.online && <button className="mg-btn" onClick={() => climbActions.pause()}>⏸</button>}
       </div>

@@ -85,7 +85,7 @@ export function KongHUD({ openHelp }) {
         <span className="kchip"><small>FLOOR</small><b>{g.floor}/{g.floors}</b></span>
         <span className="kchip"><small>SCORE</small><b>{fmt(g.score)}</b></span>
         <span className="kchip bonus"><small>BONUS</small><b>{fmt(g.timer)}</b><u style={{ width: Math.max(0, Math.min(100, g.timer / (5000 + g.size * 200) * 100)) + '%' }} /></span>
-        {g.players.map((p, i) => <span key={i} className={'kchip pl' + (p.dead ? ' dead' : '')} style={{ '--pc': p.c }}><small>{p.me && g.online ? 'YOU' : p.n.slice(0, 8)}{p.ham ? ' 🔨' : ''}</small><b>{p.dead ? '☠' : '♥'.repeat(Math.max(0, p.lives))}</b></span>)}
+        {g.players.map((p, i) => <span key={i} className={'kchip pl' + (p.dead ? ' dead' : '')} style={{ '--pc': p.c }}><small>{p.me && g.online ? 'YOU' : p.n.slice(0, 8)}{p.ham ? ' 🔨' : ''}</small><b>{p.dead ? '☠' : (p.lives > 6 ? '♥×' + p.lives : '♥'.repeat(Math.max(0, p.lives)))}</b></span>)}
         <span className="grow" />{g.mode === 'play' && !g.paused && !g.online && <button className="mg-btn" onClick={() => kongActions.pause()}>⏸</button>}
       </div>
       {m && g.size > 1 && <div className="kmini" style={{ aspectRatio: '4 / 1.6' }}>{m.l.map((q, i) => <u key={'l' + i} style={{ left: q[0] * 100 + '%', top: (1 - q[1]) * 100 + '%' }} />)}{m.b.map((q, i) => <i key={'b' + i} style={{ left: q[0] * 100 + '%', top: (1 - q[1]) * 100 + '%' }} />)}{m.pr && <em style={{ left: m.pr[0] * 100 + '%', top: '3%' }}>♥</em>}{m.p.map((q, i) => <b key={'p' + i} className={q[2] ? 'me' : ''} style={{ left: q[0] * 100 + '%', top: (1 - q[1]) * 100 + '%' }} />)}</div>}
