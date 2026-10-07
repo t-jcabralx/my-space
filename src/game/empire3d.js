@@ -111,6 +111,129 @@ function drawUnit(api, u, EM, t, TEAM, UDEF) {
   if (u.hp < u.max) { const f = clamp(u.hp / u.max, 0, 1), y = (u.type === 'catapult' ? 4 : u.type === 'knight' ? 5 : 4); for (let q = 0; q < 6; q++) { const on = q / 6 < f; put3(X - 0.9 + (q + 0.5) * 0.3, y, Z, 0.27, 0.3, 0.25, 0, on ? 0.3 : 0.5, on ? 2.2 : 0.1, on ? 0.4 : 0.1, 0) } }
 }
 
+// ---------- villagers at work: woodcutters, miners, farmers, builders, trainees and guards (cosmetic, driven by the clock only) ----------
+const lerp = (a, b, u) => a + (b - a) * u
+const ss = (u) => u * u * (3 - 2 * u)
+// one little person. o: { moving, ph, sw (-1 = no swing, else 0..1 cycle), tool, carry, tint, hat, bend, yo }
+function person(api, X, Z, dir, o) {
+  const { put3, putS } = api, yo = o.yo || 0
+  const ry = Math.atan2(dir[0], dir[1]), ca = Math.cos(ry), sa = Math.sin(ry)
+  const K = 1.35 // villagers are drawn a little larger than soldiers so the work is readable from the default camera
+  const P = (lx, ly, lz, sx, sy, sz, r, g, b) => put3(X + (lx * ca + lz * sa) * K, yo + ly * K, Z + (-lx * sa + lz * ca) * K, sx * K, sy * K, sz * K, 0, r, g, b, ry)
+  const ph = o.ph || 0, mv = o.moving, sw = mv ? Math.sin(ph) * 0.45 : 0, bob = mv ? Math.abs(Math.sin(ph)) * 0.16 : Math.sin(ph * 0.2) * 0.04
+  const tint = o.tint || [0.5, 0.35, 0.2], skin = [0.8, 0.58, 0.45], dark = [0.22, 0.17, 0.14]
+  let up = 0, fw = 0
+  const c = o.sw === undefined ? -1 : o.sw
+  if (c >= 0) { if (c < 0.6) up = ss(c / 0.6); else if (c < 0.75) { const u = (c - 0.6) / 0.15; up = 1 - u * 1.2; fw = u } else { const u = (c - 0.75) / 0.25; up = -0.2 * (1 - u); fw = 1 - u } }
+  const bend = (o.bend || 0) * (0.5 + 0.5 * Math.sin(ph * 0.5))
+  putS(X + 0.15, yo + 0.03, Z + 0.15, 1.5 * K, 0.06, 1.5 * K, 0.01, 0.01, 0.02)
+  P(-0.3, 0.55, sw, 0.4, 1.1, 0.45, dark[0], dark[1], dark[2]); P(0.3, 0.55, -sw, 0.4, 1.1, 0.45, dark[0], dark[1], dark[2])
+  P(0, 1.6 + bob - bend * 0.25, bend * 0.25, 1.0, 1.1, 0.7, tint[0], tint[1], tint[2])
+  P(0, 2.5 + bob - bend * 0.5, bend * 0.55, 0.75, 0.75, 0.75, skin[0], skin[1], skin[2])
+  if (o.hat) { P(0, 3.0 + bob - bend * 0.5, bend * 0.55, 0.9, 0.3, 0.9, o.hat[0], o.hat[1], o.hat[2]); if (o.brim) P(0, 2.85 + bob - bend * 0.5, bend * 0.55, 1.35, 0.1, 1.35, o.hat[0], o.hat[1], o.hat[2]) }
+  P(-0.65, 1.7 + bob, -sw * 0.8, 0.22, 0.9, 0.22, skin[0], skin[1], skin[2])
+  const hy = 1.95 + bob + up * 0.9 - bend * 0.3, hz = 0.5 + fw * 0.9 + bend * 0.5
+  P(0.65, hy - 0.2, hz - 0.3, 0.22, 0.22, 0.9, skin[0], skin[1], skin[2])
+  const tool = o.tool
+  if (tool) {
+    const wood = [0.36, 0.22, 0.1], steel = [0.75, 0.78, 0.85]
+    if (tool === 'sword') { P(0.65, hy, hz + 0.5, 0.12, 0.12, 1.9, steel[0], steel[1], steel[2]); P(0.65, hy, hz - 0.2, 0.5, 0.12, 0.12, 0.9, 0.7, 0.2) }
+    else if (tool === 'bow') { P(0.65, hy, hz + 0.6, 0.12, 1.7, 0.12, wood[0], wood[1], wood[2]) }
+    else { P(0.65, hy, hz + 0.6, 0.14, 0.14, 1.6, wood[0], wood[1], wood[2]); if (tool === 'axe') P(0.65, hy, hz + 1.5, 0.12, 0.7, 0.55, steel[0], steel[1], steel[2]); else if (tool === 'pick') P(0.65, hy, hz + 1.5, 0.12, 1.2, 0.2, steel[0], steel[1], steel[2]); else if (tool === 'hammer') P(0.65, hy, hz + 1.5, 0.5, 0.5, 0.7, 0.45, 0.45, 0.5); else if (tool === 'hoe') P(0.65, hy, hz + 1.5, 0.12, 0.2, 0.8, steel[0], steel[1], steel[2]) }
+  }
+  if (o.carry) { const k = o.carry; if (k.kind === 'log') { P(0, 2.3, -0.7, 1.3, 0.38, 0.38, 0.4, 0.24, 0.1); P(0, 2.7, -0.7, 1.3, 0.38, 0.38, 0.46, 0.28, 0.12) } else if (k.kind === 'stone') P(0, 2.3, -0.75, 0.95, 0.8, 0.8, 0.55, 0.55, 0.6); else if (k.kind === 'gold') putS(X - sa * 0.75 * K, yo + 2.6 * K, Z - ca * 0.75 * K, 0.8 * K, 0.7 * K, 0.8 * K, 3, 2.4, 0.4); else if (k.kind === 'sheaf') P(0, 2.4, -0.7, 0.8, 1.0, 0.5, 1.4, 1.1, 0.3) }
+}
+// walk between two points with pauses at each end
+function pace(t, A, B, walk = 3, pause = 2) {
+  const Pd = 2 * (walk + pause), m = ((t % Pd) + Pd) % Pd
+  let u, f = 1, moving = true
+  if (m < walk) u = ss(m / walk)
+  else if (m < walk + pause) { u = 1; moving = false }
+  else if (m < 2 * walk + pause) { u = 1 - ss((m - walk - pause) / walk); f = -1 }
+  else { u = 0; moving = false }
+  const dx = B[0] - A[0], dz = B[1] - A[1], d = Math.hypot(dx, dz) || 1
+  return { x: A[0] + dx * u, z: A[1] + dz * u, moving, dir: [dx / d * f, dz / d * f] }
+}
+function siteOf(b, EM, kind) {
+  if (b._site !== undefined && b._siteKind === kind) return b._site
+  let best = null, bd = 1e9
+  const mcx = b.x + b.w / 2, mcy = b.y + b.w / 2
+  for (let dj = -5; dj < b.w + 5; dj++) for (let di = -5; di < b.w + 5; di++) {
+    const i = b.x + di, j = b.y + dj
+    if (i < 0 || j < 0 || i >= MWc || j >= MWc) continue
+    if (di >= 0 && di < b.w && dj >= 0 && dj < b.w) continue
+    if (EM.terr[j * MWc + i] !== kind) continue
+    const d = Math.hypot(i + 0.5 - mcx, j + 0.5 - mcy)
+    if (d < bd) { bd = d; best = [(i + 0.5) * T, -((j + 0.5) * T)] }
+  }
+  b._site = best; b._siteKind = kind
+  return best
+}
+// out-and-back gatherer: walk to the work site, swing the tool several times, carry the haul home, rest
+function gatherer(api, b, t, H, S, cfg) {
+  const walk = cfg.walk, per = walk * 2 + cfg.work + cfg.rest, m = (((t + b.id * 1.9 + (cfg.off || 0)) % per) + per) % per
+  const dx = S[0] - H[0], dz = S[1] - H[1], d = Math.hypot(dx, dz) || 1, ux = dx / d, uz = dz / d
+  const stop = Math.max(0, d - 1.7), G2 = [H[0] + ux * stop, H[1] + uz * stop]
+  let x, z, moving = false, sw = -1, carry = null, dir = [ux, uz], hide = false
+  if (m < walk) { const u = ss(m / walk); x = lerp(H[0], G2[0], u); z = lerp(H[1], G2[1], u); moving = true }
+  else if (m < walk + cfg.work) { x = G2[0]; z = G2[1]; sw = ((((m - walk) / cfg.work) * cfg.swings) % 1 + 1) % 1; if (cfg.fx) cfg.fx(api, S, sw, t) }
+  else if (m < 2 * walk + cfg.work) { const u = ss((m - walk - cfg.work) / walk); x = lerp(G2[0], H[0], u); z = lerp(G2[1], H[1], u); moving = true; carry = cfg.carry; dir = [-ux, -uz] }
+  else { x = H[0]; z = H[1]; dir = [-ux, -uz]; carry = cfg.carry && m < 2 * walk + cfg.work + cfg.rest * 0.4 ? cfg.carry : null; hide = !!cfg.hide }
+  if (hide) return
+  person(api, x, z, dir, { moving, ph: t * 11 + b.id, sw, tool: moving && !carry ? cfg.tool : cfg.tool, carry, tint: cfg.tint, hat: cfg.hat, brim: cfg.brim, yo: 0 })
+}
+const chips = (col) => (api, S, sw, t) => { if (sw < 0.72) return; const a = (sw - 0.72) / 0.28; for (let k = 0; k < 4; k++) { const an = k * 1.7 + 0.5; api.putS(S[0] + Math.cos(an) * a * 1.3, 1.4 + a * 1.9 - a * a * 2.2, S[1] + Math.sin(an) * a * 1.3, 0.3, 0.3, 0.3, col[0], col[1], col[2]) } }
+function drawWorkers(api, b, EM, t, TEAM) {
+  const { put3 } = api, tc = hex(TEAM[b.owner][0], 1), W = b.w * T, cx = (b.x + b.w / 2) * T, cz = -((b.y + b.w / 2) * T)
+  const tint = [tc[0] * 0.7 + 0.15, tc[1] * 0.7 + 0.15, tc[2] * 0.7 + 0.15]
+  const H = [cx, cz + W * 0.62]
+  if (!b.built) {
+    // builders hammer away at the frame
+    for (let k = 0; k < 2; k++) {
+      const a = t * 0.6 + k * 3.1 + b.id, px = cx + Math.cos(a) * W * 0.62, pz = cz + Math.sin(a) * W * 0.62
+      person(api, px, pz, [cx - px, cz - pz], { moving: false, ph: t * 4 + k, sw: ((t * 1.1 + k * 0.5) % 1), tool: 'hammer', tint, hat: [0.9, 0.75, 0.2], bend: 0.3 })
+    }
+    return
+  }
+  const wood = [0.4, 0.24, 0.1]
+  switch (b.type) {
+    case 'lumber': { const S = siteOf(b, EM, 1) || [cx + W * 1.3, cz]; for (let k = 0; k < 2; k++) gatherer(api, b, t, [H[0] + (k ? 1.4 : -1.4), H[1]], S, { tool: 'axe', walk: 2.4, work: 3.4, rest: 1.2, swings: 3, carry: { kind: 'log' }, tint: [0.55, 0.14, 0.1], hat: [0.1, 0.35, 0.15], fx: chips([1.8, 1.2, 0.5]), off: k * 2.6 }); break }
+    case 'quarry': { const S = siteOf(b, EM, 2) || [cx + W * 1.3, cz]; for (let k = 0; k < 2; k++) gatherer(api, b, t, [H[0] + (k ? 1.4 : -1.4), H[1]], S, { tool: 'pick', walk: 2.4, work: 3.8, rest: 1.2, swings: 4, carry: { kind: 'stone' }, tint: [0.35, 0.33, 0.3], hat: [1.5, 1.2, 0.2], brim: true, fx: chips([2.2, 2.1, 1.8]), off: k * 3 }); break }
+    case 'mine': { const S = siteOf(b, EM, 3) || [cx + W * 1.2, cz]; gatherer(api, b, t, [cx, cz + W * 0.42], S, { tool: 'pick', walk: 2, work: 3.4, rest: 2.4, swings: 3, carry: { kind: 'gold' }, tint: [0.3, 0.28, 0.35], hat: [1.5, 1.2, 0.2], brim: true, hide: true, fx: chips([3, 2.4, 0.5]) }); break }
+    case 'farm': {
+      for (let k = 0; k < 2; k++) {
+        const row = (k ? 1 : -1) * W * 0.22, p = pace(t * 0.8 + b.id * 1.3 + k * 4, [cx - W * 0.34, cz + row], [cx + W * 0.34, cz + row], 3.2, 0.6)
+        person(api, p.x, p.z, p.dir, { moving: p.moving, ph: t * 8 + k, sw: p.moving ? -1 : ((t * 1.3 + k * 0.4) % 1), tool: 'hoe', bend: 1, tint: [0.7, 0.6, 0.25], hat: [1.5, 1.25, 0.5], brim: true, carry: p.moving && k ? { kind: 'sheaf' } : null })
+      }
+      break
+    }
+    case 'house': {
+      const p = pace(t * 0.7 + b.id * 2.1, [cx - W * 0.55, cz + W * 0.66], [cx + W * 0.55, cz + W * 0.66], 3.5, 3.5)
+      person(api, p.x, p.z, p.dir, { moving: p.moving, ph: t * 7 + b.id, tint, hat: p.moving ? null : [tc[0], tc[1], tc[2]] })
+      break
+    }
+    case 'barracks': {
+      const dx = cx + W * 0.7, dz = cz + W * 0.55
+      put3(dx, 1.3, dz, 0.3, 2.6, 0.3, 0, wood[0], wood[1], wood[2], 0); put3(dx, 2.2, dz, 1, 1.2, 0.6, 0, 1.2, 1, 0.45, 0); put3(dx, 2.9, dz, 0.6, 0.6, 0.6, 0, 1.2, 1, 0.45, 0); put3(dx, 2.5, dz, 1.6, 0.18, 0.18, 0, wood[0], wood[1], wood[2], 0)
+      person(api, dx - 2.1, dz, [1, 0], { moving: false, ph: t * 2, sw: (t * 0.65 + b.id * 0.3) % 1, tool: 'sword', tint: [tc[0], tc[1], tc[2]], hat: [0.7, 0.72, 0.8] })
+      person(api, cx - W * 0.36, cz + W * 0.5, [0, 1], { moving: false, ph: t * 2 + 1, tool: 'sword', tint: [tc[0], tc[1], tc[2]], hat: [0.7, 0.72, 0.8] })
+      break
+    }
+    case 'tower': {
+      const a = Math.sin(t * 0.5 + b.id) * 1.4
+      person(api, cx, cz, [Math.sin(a), Math.cos(a)], { moving: false, ph: t * 2, tool: 'bow', tint: [tc[0], tc[1], tc[2]], hat: [0.7, 0.72, 0.8], yo: 6.9 })
+      break
+    }
+    case 'hall': {
+      const n = Math.min(3, b.lv + 1)
+      for (let k = 0; k < n; k++) { const p = pace(t * 0.6 + b.id + k * 5, [cx - W * 0.55, cz + W * (0.62 + k * 0.1)], [cx + W * 0.55, cz + W * (0.62 + k * 0.1)], 4, 2.5); person(api, p.x, p.z, p.dir, { moving: p.moving, ph: t * 7 + k, tint: k ? tint : [tc[0], tc[1], tc[2]], hat: k === 0 ? [1.5, 1.2, 0.3] : null }) }
+      person(api, cx + W * 0.2, cz + W * 0.36, [0, 1], { moving: false, ph: t * 2, tool: 'sword', tint: [tc[0], tc[1], tc[2]], hat: [0.7, 0.72, 0.8] })
+      break
+    }
+    default: break
+  }
+}
+
 let MWc = 96
 export function drawEmpire3(api, EM, defs) {
   const { put3, putS } = api, t = G.time, { TEAM, UDEF, MW, MH } = defs
@@ -123,7 +246,7 @@ export function drawEmpire3(api, EM, defs) {
   for (let j = j0; j <= j1; j += step) for (let i = i0; i <= i1; i += step) tileDraw(api, EM, i, j, step, t)
   // the map edge: a dark frame so the world has an end
   put3(MW * T / 2, -0.8, -MH * T / 2, MW * T + 16, 0.4, MH * T + 16, 0, 0.02, 0.03, 0.05, 0)
-  for (const b of EM.B) { const bx = (b.x + b.w / 2) * T, by = (b.y + b.w / 2) * T; if (Math.abs(bx - cx) > rx + 6 || by < cy - ry2 - 16 || by > cy + ry2 + 8) continue; drawBuilding(api, b, EM, t, TEAM) }
+  for (const b of EM.B) { const bx = (b.x + b.w / 2) * T, by = (b.y + b.w / 2) * T; if (Math.abs(bx - cx) > rx + 6 || by < cy - ry2 - 16 || by > cy + ry2 + 8) continue; drawBuilding(api, b, EM, t, TEAM); if (z >= 0.55) drawWorkers(api, b, EM, t, TEAM) }
   // placement ghost
   if (EM.build && EM.hover) {
     const d = defs.BDEF[EM.build], i = ((EM.hover.x / T) | 0) - (d.w >> 1), j = ((EM.hover.y / T) | 0) - (d.w >> 1), ok = defs.canPlace(EM.build, i, j, EM.me) && EM.P[EM.me] && defs.costOk(EM.P[EM.me].res, d.cost)
