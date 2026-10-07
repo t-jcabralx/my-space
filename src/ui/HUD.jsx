@@ -1143,8 +1143,8 @@ function JoinBar({ name, onJoined }) {
   return (
     <div className="joinbar">
       <span>🌐 FRIEND SENT YOU A ROOM CODE?</span>
-      <input className="nameIn" value={nm} maxLength={12} placeholder="YOUR NAME" style={{ width: 110 }} onChange={(e) => setNm(e.target.value)} onKeyDown={(e) => e.stopPropagation()} />
-      <input className="nameIn" value={code} maxLength={5} placeholder="CODE" onChange={(e) => setCode(e.target.value.toUpperCase())} onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Enter' && code.length >= 4) go() }} />
+      <input className="nameIn" value={nm} maxLength={12} placeholder="NAME" onChange={(e) => setNm(e.target.value)} onKeyDown={(e) => e.stopPropagation()} />
+      <input className="nameIn code" value={code} maxLength={5} placeholder="CODE" onChange={(e) => setCode(e.target.value.toUpperCase())} onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Enter' && code.length >= 4) go() }} />
       <button className="chip sel" disabled={code.length < 4 || rt.busy} onClick={go}>JOIN</button>
       {err && <small className="joinerr">{err}</small>}
     </div>

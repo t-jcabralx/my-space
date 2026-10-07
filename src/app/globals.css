@@ -803,3 +803,8 @@ li.bonus { border-color: var(--gr); color: var(--gr); } li.fail { border-color: 
 @keyframes sboxIn { from { opacity: 0; transform: translateY(1cqw); } }
 .sdots { position: absolute; left: 2cqw; bottom: .8cqw; display: flex; gap: .4cqw; } .sdots i { width: .6cqw; height: .6cqw; border-radius: 50%; background: #ffffff30; } .sdots i.past { background: #ffffff70; } .sdots i.on { background: var(--c); box-shadow: 0 0 8px var(--c); }
 .storyfull .sbtns { position: absolute; z-index: 5; right: 2cqw; top: 1.4cqw; } .storyfull .sgoal { position: absolute; z-index: 5; bottom: 1.2cqw; left: 50%; transform: translateX(-50%); } .storyfull .schoices { position: absolute; z-index: 5; bottom: 8cqw; }
+
+/* text inputs used in lobbies and the join bar: dark theme, readable on phones, never overflow */
+.nameIn { background: #070c26; color: #fff; border: 2px solid #3de8ff80; border-radius: 4px; padding: .5em .7em; font: inherit; font-size: 1em; min-width: 0; text-transform: uppercase; } .nameIn:focus { outline: none; border-color: #3de8ff; box-shadow: 0 0 10px #3de8ff80; } .nameIn::placeholder { color: #7f8fc0; }
+.joinbar .nameIn { flex: 1 1 7em; width: auto; max-width: 14em; } .joinbar .nameIn.code { flex: 0 1 6em; }
+.chips .nameIn { max-width: 100%; }
