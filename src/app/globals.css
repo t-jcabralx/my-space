@@ -906,3 +906,18 @@ li.bonus { border-color: var(--gr); color: var(--gr); } li.fail { border-color: 
 .glogo-in { display: grid; place-items: center; border-radius: 26%; background: radial-gradient(circle at 30% 25%, color-mix(in srgb, var(--lc) 40%, #1a2050), #0a0f2a 75%); box-shadow: inset 0 2px 0 #ffffff55, inset 0 -3px 6px #0008; position: relative; overflow: hidden; }
 .glogo-in::after { content: ''; position: absolute; left: -20%; top: -40%; width: 140%; height: 70%; background: linear-gradient(180deg, #ffffff55, transparent); border-radius: 50%; transform: rotate(-12deg); }
 .glogo-e { font-size: 1.7em; line-height: 1; filter: drop-shadow(0 3px 2px #000a); position: relative; z-index: 1; }
+
+/* ---- 3D look for the board games (CSS perspective, extruded tiles, lit discs) ---- */
+.c4board { transform: perspective(1000px) rotateX(16deg); transform-origin: 50% 80%; background: linear-gradient(180deg, #2a5ad0, #14307a); box-shadow: 0 14px 0 #0c1d52, 0 26px 40px #000a, 0 0 30px #3de8ff44, inset 0 2px 0 #ffffff44; border-radius: 16px; }
+.c4cell { background: radial-gradient(circle at 50% 60%, #02040f, #0a1230 80%); box-shadow: inset 0 4px 8px #000c, 0 1px 0 #ffffff33; }
+.disc.p1 { background: radial-gradient(circle at 32% 26%, #ffc2c9 0, #ff5a6a 28%, #d01a30 62%, #7a0a18); box-shadow: inset -4px -6px 10px #0006, 0 4px 6px #0008, 0 0 12px #ff4a5a77; }
+.disc.p2 { background: radial-gradient(circle at 32% 26%, #fffbd0 0, #ffe84a 28%, #d8a810 62%, #7a5a00); box-shadow: inset -4px -6px 10px #0006, 0 4px 6px #0008, 0 0 12px #ffe84a77; }
+.mboard { transform: perspective(1100px) rotateX(12deg); transform-origin: 50% 85%; border-radius: 14px; box-shadow: 0 12px 0 #20203a, 0 24px 36px #000a; background: linear-gradient(180deg, #4a4a72, #2a2a46); }
+.mcell { background: linear-gradient(180deg, #34345a, #26263f); box-shadow: inset 0 3px 6px #0008; border-radius: 8px; }
+.mtile { border-radius: 10px; box-shadow: 0 5px 0 rgba(0,0,0,.35), 0 8px 12px rgba(0,0,0,.45), inset 0 2px 0 rgba(255,255,255,.45), inset 0 -4px 0 rgba(0,0,0,.18); text-shadow: 0 2px 0 rgba(0,0,0,.25); }
+.wgrid { transform: perspective(1000px) rotateX(10deg); transform-origin: 50% 90%; }
+.wcell { border-radius: 10px; box-shadow: 0 5px 0 rgba(0,0,0,.45), 0 8px 12px rgba(0,0,0,.4), inset 0 2px 0 rgba(255,255,255,.25); text-shadow: 0 2px 0 rgba(0,0,0,.35); }
+.wkey { border-radius: 8px; box-shadow: 0 4px 0 rgba(0,0,0,.45), inset 0 2px 0 rgba(255,255,255,.2); } .wkey:active { transform: translateY(3px); box-shadow: 0 1px 0 rgba(0,0,0,.45); }
+.mboardx { transform: perspective(1000px) rotateX(14deg); transform-origin: 50% 90%; border-radius: 12px; box-shadow: 0 12px 0 #0e1530, 0 22px 34px #000a; gap: 3px; padding: 6px; background: linear-gradient(180deg, #243064, #141c40); }
+.mcx { border-radius: 6px; box-shadow: 0 3px 0 rgba(0,0,0,.4), inset 0 2px 0 rgba(255,255,255,.2); } .mcx.closed { background: linear-gradient(160deg, #5a6ac8, #26336a); } .mcx.open { background: #070c22; box-shadow: inset 0 3px 6px #000a; }
+.pc { filter: drop-shadow(0 6px 5px #0008); }
