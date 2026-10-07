@@ -1,7 +1,7 @@
 'use client'
 // Lobby, HUD and dawn shop for 13 DAYS OF HELL / WATCH YOUR BACK.
 import { useSyncExternalStore } from 'react'
-import { subscribeHunt, getHuntSnap, huntActions, SHOP, priceOf, HT, DAYS } from '../game/hunt.js'
+import { subscribeHunt, getHuntSnap, huntActions, SHOP, priceOf, HT, DAYS, AW, AH } from '../game/hunt.js'
 import { Surface, PauseScreen } from './MoreGames2.jsx'
 import { useTouchPrimary } from './platform.js'
 
@@ -12,7 +12,7 @@ export function HuntLobby({ s, TopPlayers, onInvite }) {
   const p = s.profile
   return (
     <div className="lobby"><div className="lobbyL">
-      <div className="lobbyinfo"><b>13 DAYS OF HELL</b> · Thirteen nights in the haunted woods. Fight until dawn, spend your scrap in the shop, and face <b>THE HOLLOW KING</b> on night 13. You only see what your flashlight touches; <b>STALKERS</b> creep up from <b>behind</b>, hit twice as hard from there, and freeze when you look at them. <b>WATCH YOUR BACK</b> is one endless night where everything comes from behind. Play solo or with up to 3 hunters online.</div>
+      <div className="lobbyinfo"><b>13 DAYS OF HELL</b> · Thirteen nights across a huge haunted forest: a cabin, a graveyard, a wrecked car and supply crates to smash for loot. Three weapons, six kinds of monsters, a minimap, and a boss. Fight until dawn, spend your scrap in the shop, and face <b>THE HOLLOW KING</b> on night 13. You only see what your flashlight touches; <b>STALKERS</b> creep up from <b>behind</b>, hit twice as hard from there, and freeze when you look at them. <b>WATCH YOUR BACK</b> is one endless night where everything comes from behind. Play solo or with up to 3 hunters online.</div>
       <div className="chips">
         <button className="big" onClick={() => huntActions.start({ kind: 'days' })}>🌙 13 DAYS OF HELL</button>
         <button className="big sec" onClick={() => huntActions.start({ kind: 'back' })}>👁 WATCH YOUR BACK</button>
@@ -49,7 +49,8 @@ export function HuntHUD({ openHelp }) {
         {g.mode === 'play' && !g.paused && !g.online && <button className="mg-btn" onClick={() => huntActions.pause()}>⏸</button>}
       </div>
       <div className="hhp"><i style={{ width: Math.max(0, (m.hp / m.max) * 100) + '%' }} /><span>♥ {Math.ceil(m.hp)}/{m.max}</span></div>
-      <div className="hammo"><b>{m.reload ? 'RELOAD…' : m.mag}</b><small>/ {m.reserve} · 💣 {m.mines} · ⚙ {m.scrap}</small></div>
+      <div className="hammo"><small>{m.wname} · keys 1-3</small><b>{m.reload ? 'RELOAD…' : m.mag}</b><small>/ {m.reserve} · 💣 {m.mines} · ⚙ {m.scrap}</small></div>
+      {g.mini && <div className="hmini">{g.mini.c.map((c, i) => <u key={'c' + i} style={{ left: ((c[0] + AW) / (2 * AW)) * 100 + '%', top: (1 - (c[1] + AH) / (2 * AH)) * 100 + '%' }} />)}{g.mini.m.map((q, i) => <i key={'m' + i} className={q[2] ? 'k' : ''} style={{ left: ((q[0] + AW) / (2 * AW)) * 100 + '%', top: (1 - (q[1] + AH) / (2 * AH)) * 100 + '%' }} />)}{g.mini.p.map((q, i) => <b key={'p' + i} className={(q[2] ? 'me ' : '') + (q[3] ? 'dn' : '')} style={{ left: ((q[0] + AW) / (2 * AW)) * 100 + '%', top: (1 - (q[1] + AH) / (2 * AH)) * 100 + '%' }} />)}</div>}
       {g.team.length > 1 && <div className="hteam">{g.team.map((t, i) => <div key={i} className={t.me ? 'me' : ''} style={{ borderColor: t.c }}>{t.n.slice(0, 8)}<i style={{ width: (t.down ? 0 : (t.hp / t.max) * 100) + '%', background: t.c }} />{t.down ? ' ☠' : ''}</div>)}</div>}
       {g.boss && <div className="hboss"><b>THE HOLLOW KING</b><i><u style={{ width: Math.max(0, (g.boss.hp / g.boss.max) * 100) + '%' }} /></i></div>}
       {g.behind && g.phase === 'night' && <div className="hbehind" style={{ '--r': (-g.behind.rel * 180 / Math.PI) + 'deg', opacity: Math.max(0.35, 1 - g.behind.d / 24) }}><b>▲</b><span>BEHIND YOU!</span></div>}
@@ -58,7 +59,7 @@ export function HuntHUD({ openHelp }) {
       {touch && g.mode === 'play' && !shop && (
         <>
           <div className="sxdpad"><Pad name="left">◀</Pad><div className="sxv"><Pad name="up">▲</Pad><Pad name="down">▼</Pad></div><Pad name="right">▶</Pad></div>
-          <div className="sxacts"><Pad name="dash" cls="a">DASH</Pad><Pad name="reload" cls="b">RELOAD</Pad><Pad name="mine" cls="c">MINE</Pad></div>
+          <div className="sxacts"><Pad name="dash" cls="a">DASH</Pad><Pad name="reload" cls="b">RELOAD</Pad><Pad name="mine" cls="c">MINE</Pad><Pad name="w1" cls="d">1</Pad><Pad name="w2" cls="d">2</Pad><Pad name="w3" cls="d">3</Pad></div>
           <div className="mg-hint">TAP / DRAG TO AIM AND SHOOT</div>
         </>
       )}

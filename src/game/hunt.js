@@ -8,16 +8,20 @@ import { clamp, rng } from './pxl.js'
 import { unprojectGround } from './rogue3d.js'
 import { registerNet, gameEnded } from './online/gnet.js'
 
-export const AW = 46, AH = 25, DAYS = 13
+export const AW = 110, AH = 68, DAYS = 13
 const TAU = Math.PI * 2
 const angDiff = (a, b) => { let d = a - b; while (d > Math.PI) d -= TAU; while (d < -Math.PI) d += TAU; return d }
 export const MONS = {
   crawler: { name: 'CRAWLER', hp: 30, spd: 12, dmg: 8, r: 1.3, cost: 1, scrap: 2 },
+  wraith: { name: 'WRAITH', hp: 38, spd: 10, dmg: 14, r: 1.4, cost: 3, scrap: 5 },
+  howler: { name: 'HOWLER', hp: 80, spd: 6.5, dmg: 12, r: 1.8, cost: 4, scrap: 8 },
   stalker: { name: 'STALKER', hp: 48, spd: 9, dmg: 16, r: 1.5, cost: 2, scrap: 4 },
   spitter: { name: 'SPITTER', hp: 42, spd: 7, dmg: 9, r: 1.5, cost: 3, scrap: 5 },
   brute: { name: 'BRUTE', hp: 240, spd: 5.4, dmg: 30, r: 2.6, cost: 6, scrap: 14 },
   king: { name: 'THE HOLLOW KING', hp: 2400, spd: 6.6, dmg: 40, r: 4.2, cost: 0, scrap: 120 },
 }
+export const WEAPONS = { rifle: { name: 'RIFLE', mag: 12, cd: 0.3, dmg: 24, pellets: 1, spread: 0.05, life: 0.9, snd: 'pistol' }, shotgun: { name: 'SHOTGUN', mag: 6, cd: 0.85, dmg: 11, pellets: 6, spread: 0.3, life: 0.3, snd: 'shotgun' }, smg: { name: 'SMG', mag: 30, cd: 0.085, dmg: 10, pellets: 1, spread: 0.1, life: 0.6, snd: 'hmg' } }
+const WLIST = ['rifle', 'shotgun', 'smg']
 export const SHOP = [
   { k: 'ammo', name: 'AMMO PACK', icon: '🔫', desc: '+36 rounds', base: 30, max: 99 },
   { k: 'medkit', name: 'MEDKIT', icon: '🩹', desc: 'Heal 60', base: 40, max: 99 },
@@ -26,6 +30,8 @@ export const SHOP = [
   { k: 'hp', name: 'TOUGHNESS', icon: '❤', desc: '+25 max health', base: 50, max: 5 },
   { k: 'light', name: 'FLASHLIGHT', icon: '🔦', desc: 'Longer, wider beam', base: 40, max: 4 },
   { k: 'speed', name: 'BOOTS', icon: '👟', desc: '+8% move speed', base: 45, max: 4 },
+  { k: 'shotgun', name: 'SHOTGUN', icon: '💢', desc: 'Key 2 · 6 pellets, brutal up close', base: 120, max: 1 },
+  { k: 'smg', name: 'SMG', icon: '🔥', desc: 'Key 3 · rapid fire', base: 150, max: 1 },
   { k: 'mines', name: 'LANDMINES x2', icon: '💣', desc: 'Press F to plant', base: 50, max: 99 },
 ]
 const COLORS = ['#ff8a2a', '#3de8ff', '#b07aff']
@@ -37,16 +43,28 @@ export const subscribeHunt = (f) => { subs.add(f); return () => subs.delete(f) }
 export const getHuntSnap = () => snap
 
 function mkPlayer(i, name) {
-  return { i, name: name || 'HUNTER ' + (i + 1), x: -6 + i * 6, y: -8, hp: 100, max: 100, a: Math.PI / 2, mag: 12, reserve: 60, reload: 0, fireCd: 0, dashT: 0, dashCd: 0, mines: 2, scrap: 40, kills: 0, down: false, reviveT: 0, hit: 0, up: { dmg: 0, rate: 0, hp: 0, light: 0, speed: 0 }, in: { dx: 0, dy: 0, a: Math.PI / 2, fire: false }, color: COLORS[i % 3], walk: 0, kick: 0, flash: 0 }
+  return { i, name: name || 'HUNTER ' + (i + 1), x: -6 + i * 6, y: -8, hp: 100, max: 100, a: Math.PI / 2, mag: 12, reserve: 60, reload: 0, fireCd: 0, dashT: 0, dashCd: 0, mines: 2, scrap: 40, kills: 0, down: false, reviveT: 0, hit: 0, up: { dmg: 0, rate: 0, hp: 0, light: 0, speed: 0, shotgun: 0, smg: 0 }, wp: 'rifle', mags: { rifle: 12, shotgun: 0, smg: 0 }, in: { dx: 0, dy: 0, a: Math.PI / 2, fire: false }, color: COLORS[i % 3], walk: 0, kick: 0, flash: 0 }
 }
 function buildWorld(seed) {
   const r = rng(seed)
   HT.obst = [{ x: 0, y: 0, r: 7.5, cabin: true }]
-  for (let i = 0; i < 38; i++) {
-    const x = (r() * 2 - 1) * (AW - 3), y = (r() * 2 - 1) * (AH - 3)
-    if (Math.hypot(x, y) < 11 || HT.obst.some((o) => Math.hypot(o.x - x, o.y - y) < 5)) continue
-    HT.obst.push({ x, y, r: r() < 0.7 ? 1.6 : 2.4, rock: r() < 0.3, h: 0.8 + r() * 0.9 })
+  HT.decor = [{ x: 10, y: -10, fire: true }]
+  const free = (x, y, rr) => Math.hypot(x, y) > 14 && !HT.obst.some((o) => Math.hypot(o.x - x, o.y - y) < o.r + rr + 2)
+  // a graveyard in one corner and a wrecked car in the other
+  for (let i = 0; i < 4; i++) for (let j = 0; j < 3; j++) HT.obst.push({ x: -AW + 26 + i * 6, y: AH - 24 + j * 6, r: 1.1, tomb: true })
+  HT.obst.push({ x: AW - 28, y: -AH + 22, r: 3.2, car: true })
+  for (let i = 0; i < 230; i++) {
+    const x = (r() * 2 - 1) * (AW - 3), y = (r() * 2 - 1) * (AH - 3), rock = r() < 0.28, rr = rock ? 1.8 : r() < 0.7 ? 1.6 : 2.4
+    if (!free(x, y, rr)) continue
+    HT.obst.push({ x, y, r: rr, rock, h: 0.8 + r() * 0.9 })
   }
+  let crates = 0
+  for (let i = 0; i < 400 && crates < 30; i++) {
+    const x = (r() * 2 - 1) * (AW - 6), y = (r() * 2 - 1) * (AH - 6)
+    if (!free(x, y, 1.6)) continue
+    HT.obst.push({ x, y, r: 1.6, crate: true, hp: 40 }); crates++
+  }
+  HT.obst.forEach((o, i) => { o.i = i })
 }
 function start(o = {}) {
   HT.kind = o.kind === 'back' ? 'back' : 'days'
@@ -57,7 +75,7 @@ function start(o = {}) {
   HT.players = Array.from({ length: n }, (_, i) => mkPlayer(i, o.net ? o.net.players[i].name : (profile.name || 'HUNTER')))
   HT.me = o.net ? o.net.me : 0
   HT.day = 1; HT.t = 0; HT.phaseT = 0; HT.mons = []; HT.bul = []; HT.spit = []; HT.pick = []; HT.mines = []; HT.fx = []; HT.id = 1; HT.score = 0; HT.kills = 0; HT.over = null; HT.paused = false; HT.ready = {}; HT.bossSpawned = false; HT.spawnQ = []; HT.net = o.net || null; HT.boss = null
-  HT.msg = null
+  HT.msg = null; HT.mouse.sx = undefined; CAMP.x = 0; CAMP.y = 0
   G.mode = 'hunt'; engineEmit(); G.parts = []; G.pops = []; HT.mode = 'play'
   music.set('boss', 0); sfx('mission')
   if (HT.kind === 'back') startNight(); else { HT.phase = 'dawn'; HT.phaseT = 0; HT.msg = { text: 'DAY 1', sub: 'Get ready. The sun is going down.', t: 3 } }
@@ -74,7 +92,9 @@ function startNight() {
   const budget = Math.round((6 + d * 4.2) * (1 + 0.45 * (HT.players.length - 1)))
   const types = ['crawler']
   if (d >= 2 || HT.kind === 'back') types.push('stalker')
+  if (d >= 3) types.push('wraith')
   if (d >= 4) types.push('spitter')
+  if (d >= 5) types.push('howler')
   if (d >= 6) types.push('brute')
   const q = []
   let spent = 0
@@ -96,8 +116,8 @@ function spawnMon(type) {
   const D = MONS[type]
   let x, y
   const behind = type === 'stalker' || HT.kind === 'back' ? HT.rnd() < (HT.kind === 'back' ? 0.92 : 0.8) : HT.rnd() < 0.15
-  if (behind) { const a = tgt.a + Math.PI + (HT.rnd() - 0.5) * 1.1, d = 22 + HT.rnd() * 6; x = tgt.x + Math.cos(a) * d; y = tgt.y + Math.sin(a) * d }
-  else { const side = (HT.rnd() * 4) | 0; x = side < 2 ? (side ? AW : -AW) : (HT.rnd() * 2 - 1) * AW; y = side >= 2 ? (side === 3 ? AH : -AH) : (HT.rnd() * 2 - 1) * AH }
+  if (behind) { const a = tgt.a + Math.PI + (HT.rnd() - 0.5) * 1.1, d = 30 + HT.rnd() * 8; x = tgt.x + Math.cos(a) * d; y = tgt.y + Math.sin(a) * d }
+  else { const a = HT.rnd() * TAU, d = 42 + HT.rnd() * 14; x = tgt.x + Math.cos(a) * d; y = tgt.y + Math.sin(a) * d }
   x = clamp(x, -AW + 1, AW - 1); y = clamp(y, -AH + 1, AH - 1)
   const sc = 1 + (HT.kind === 'back' ? Math.min(1.2, HT.t / 120) * 0.6 : HT.day * 0.05)
   const m = { id: HT.id++, type, x, y, hp: D.hp * sc, max: D.hp * sc, a: 0, atkT: 0, hit: 0, t: Math.random() * 6, spitT: 2 + Math.random() * 2, sumT: 6, charge: 0, vx: 0, vy: 0, seen: 0 }
@@ -108,7 +128,7 @@ function spawnMon(type) {
 // ---------- the simulation ----------
 const nearestPlayer = (x, y) => { let b = null, bd = 1e9; for (const p of HT.players) { if (p.down) continue; const d = Math.hypot(p.x - x, p.y - y); if (d < bd) { bd = d; b = p } } return b }
 function push(e, r) {
-  for (const o of HT.obst) { const dx = e.x - o.x, dy = e.y - o.y, d = Math.hypot(dx, dy), m = o.r + r; if (d < m && d > 0.001) { e.x = o.x + (dx / d) * m; e.y = o.y + (dy / d) * m } }
+  for (const o of HT.obst) { if (o.dead) continue; const dx = e.x - o.x, dy = e.y - o.y, d = Math.hypot(dx, dy), m = o.r + r; if (d < m && d > 0.001) { e.x = o.x + (dx / d) * m; e.y = o.y + (dy / d) * m } }
   e.x = clamp(e.x, -AW, AW); e.y = clamp(e.y, -AH, AH)
 }
 const lightR = (p) => 17 + p.up.light * 3.2, lightHalf = (p) => 0.42 + p.up.light * 0.06
@@ -140,16 +160,19 @@ function stepPlayer(p, dt) {
   if (I.dash && p.dashCd <= 0 && l > 0.1) { p.dashT = 0.2; p.dashCd = 1.5; I.dash = false; fx(p.x, p.y, 6, [0.8, 0.8, 1], 6, 0.3, 0.4); sfx('rgDash') }
   p.dashT = Math.max(0, p.dashT - dt)
   if (I.mine && p.mines > 0) { I.mine = false; p.mines--; HT.mines.push({ id: HT.id++, x: p.x, y: p.y, owner: p.i, t: 0.8 }); sfx('bombPlace') }
-  // reload and fire
-  if (I.reload && p.reload <= 0 && p.mag < 12 && p.reserve > 0) { p.reload = 1.3; I.reload = false; sfx('reload') }
-  if (p.reload > 0) { p.reload -= dt; if (p.reload <= 0) { const take = Math.min(12 - p.mag, p.reserve); p.mag += take; p.reserve -= take } }
+  const W = WEAPONS[p.wp]
+  if (I.sw) { const k = WLIST[I.sw - 1]; I.sw = 0; if (k && k !== p.wp && (k === 'rifle' || p.up[k] > 0)) { p.mags[p.wp] = p.mag; p.wp = k; p.mag = p.mags[k]; p.reload = 0; sfx('select') } }
+  if (I.reload && p.reload <= 0 && p.mag < W.mag && p.reserve > 0) { p.reload = 1.3; I.reload = false; sfx('reload') }
+  if (p.reload > 0) { p.reload -= dt; if (p.reload <= 0) { const take = Math.min(W.mag - p.mag, p.reserve); p.mag += take; p.reserve -= take } }
   if (I.fire && p.fireCd <= 0 && p.reload <= 0) {
     if (p.mag > 0) {
-      p.mag--; p.fireCd = 0.3 / (1 + p.up.rate * 0.15); p.kick = 0.12
-      const a = p.a + (Math.random() - 0.5) * 0.05
-      HT.bul.push({ x: p.x + Math.cos(a) * 3, y: p.y + Math.sin(a) * 3, vx: Math.cos(a) * 95, vy: Math.sin(a) * 95, dmg: 24 * (1 + p.up.dmg * 0.2), owner: p.i, life: 0.7 })
-      fx(p.x + Math.cos(a) * 3.6, p.y + Math.sin(a) * 3.6, 3, [2.6, 2, 0.6], 8, 0.15, 0.4)
-      if (p.i === HT.me || HT.net) sfx('pistol')
+      p.mag--; p.fireCd = W.cd / (1 + p.up.rate * 0.15); p.kick = 0.12
+      for (let k = 0; k < W.pellets; k++) {
+        const a = p.a + (Math.random() - 0.5) * W.spread * 2
+        HT.bul.push({ x: p.x + Math.cos(a) * 3, y: p.y + Math.sin(a) * 3, vx: Math.cos(a) * 95, vy: Math.sin(a) * 95, dmg: W.dmg * (1 + p.up.dmg * 0.2), owner: p.i, life: W.life })
+      }
+      fx(p.x + Math.cos(p.a) * 3.6, p.y + Math.sin(p.a) * 3.6, 3, [2.6, 2, 0.6], 8, 0.15, 0.4)
+      if (p.i === HT.me || HT.net) sfx(W.snd)
       if (p.mag === 0 && p.reserve > 0) { p.reload = 1.3; sfx('reload') }
     } else if (p.reserve > 0) { p.reload = 1.3 } else if (p.i === HT.me && p.fireCd <= 0) { p.fireCd = 0.4; sfx('deny') }
   }
@@ -170,6 +193,13 @@ function stepMon(m, dt) {
     if (d < 9) ang += Math.PI; else if (d < 14) ang += Math.PI / 2
     m.spitT -= dt
     if (m.spitT <= 0 && d < 24) { m.spitT = 2.2; const a = Math.atan2(dy, dx); HT.spit.push({ x: m.x, y: m.y, vx: Math.cos(a) * 24, vy: Math.sin(a) * 24, life: 2.4, dmg: 10 + HT.day * 0.5 }); sfx('rgMagic') }
+  } else if (m.type === 'wraith') {
+    m.blink = (m.blink === undefined ? 2 + Math.random() * 2 : m.blink) - dt
+    if (m.blink <= 0 && d > 10) { m.blink = 3.5 + Math.random() * 2; fx(m.x, m.y, 8, [1.2, 0.6, 2], 8, 0.4, 0.5); m.x += Math.cos(ang) * 9; m.y += Math.sin(ang) * 9; fx(m.x, m.y, 8, [1.2, 0.6, 2], 8, 0.4, 0.5) }
+  } else if (m.type === 'howler') {
+    if (d < 16) ang += Math.PI; else if (d < 24) ang += Math.PI / 2
+    m.sumT -= dt
+    if (m.sumT <= 0 && d < 34) { m.sumT = 7; for (const o of HT.mons) if (Math.hypot(o.x - m.x, o.y - m.y) < 45) o.rage = 4; sfx('roar'); shake(0.4); if (tgt.i === HT.me) G.flash = Math.max(G.flash || 0, 0.3) }
   } else if (m.type === 'king') {
     m.sumT -= dt
     if (m.sumT <= 0) { m.sumT = 5.5; for (let i = 0; i < 3; i++) spawnAround(m, 'crawler'); sfx('rgBoss'); shake(0.6) }
@@ -178,8 +208,9 @@ function stepMon(m, dt) {
     if (m.charge > 0) spd *= 3.2
   }
   if (m.slow > 0) { m.slow -= dt; spd *= 0.5 }
+  if (m.rage > 0) { m.rage -= dt; spd *= 1.5 }
   // steer around the cabin and trees
-  for (const o of HT.obst) { const ox = o.x - m.x, oy = o.y - m.y, od = Math.hypot(ox, oy); if (od < o.r + D.r + 3 && Math.abs(angDiff(Math.atan2(oy, ox), ang)) < 1.2) { ang += (angDiff(Math.atan2(oy, ox), ang) > 0 ? -1 : 1) * 1.0 } }
+  for (const o of HT.obst) { if (o.dead) continue; const ox = o.x - m.x, oy = o.y - m.y, od = Math.hypot(ox, oy); if (od < o.r + D.r + 3 && Math.abs(angDiff(Math.atan2(oy, ox), ang)) < 1.2) { ang += (angDiff(Math.atan2(oy, ox), ang) > 0 ? -1 : 1) * 1.0 } }
   m.a = ang
   if (!(m.type === 'spitter' && d > 9 && d < 14)) { m.x += Math.cos(ang) * spd * dt; m.y += Math.sin(ang) * spd * dt }
   else { m.x += Math.cos(ang) * spd * dt * 0.6; m.y += Math.sin(ang) * spd * dt * 0.6 }
@@ -234,7 +265,7 @@ function update(dtRaw) {
   while (HT.spawnQ.length && HT.spawnQ[0].t <= HT.phaseT) spawnMon(HT.spawnQ.shift().type)
   if (HT.kind === 'back') { // it never ends: the pace keeps rising
     HT.rate = (HT.rate || 0) - dt
-    if (HT.rate <= 0) { HT.rate = Math.max(0.9, 3.4 - HT.t / 45); spawnMon(HT.t > 40 && Math.random() < 0.18 ? 'brute' : Math.random() < 0.6 ? 'stalker' : 'crawler') }
+    if (HT.rate <= 0) { HT.rate = Math.max(0.7, 3.0 - HT.t / 45); spawnMon(HT.t > 40 && Math.random() < 0.16 ? 'brute' : HT.t > 25 && Math.random() < 0.15 ? 'wraith' : HT.t > 70 && Math.random() < 0.1 ? 'howler' : Math.random() < 0.6 ? 'stalker' : 'crawler') }
     if (Math.floor(HT.t) % 60 === 59 && Math.floor(HT.t - dt) % 60 === 58) HT.score += 100
   }
   for (const m of HT.mons) stepMon(m, dt)
@@ -245,7 +276,7 @@ function update(dtRaw) {
       if (m.dead) continue
       if (Math.hypot(m.x - b.x, m.y - b.y) < MONS[m.type].r + 0.7) { m.hp -= b.dmg; m.hit = 0.12; m.lastHit = b.owner; b.life = 0; fx(b.x, b.y, 3, [0.6, 1.4, 0.4], 8, 0.3, 0.4); if (m.hp <= 0) killMon(m); break }
     }
-    for (const o of HT.obst) if (Math.hypot(o.x - b.x, o.y - b.y) < o.r) b.life = 0
+    for (const o of HT.obst) { if (o.dead || Math.hypot(o.x - b.x, o.y - b.y) >= o.r) continue; b.life = 0; if (o.crate) { o.hp -= b.dmg; if (o.hp <= 0) { o.dead = true; fx(o.x, o.y, 10, [1.6, 1.1, 0.4], 12, 0.5, 0.6); sfx('crate'); for (let q = 0; q < 3; q++) HT.pick.push({ id: HT.id++, k: 'scrap', v: 6, x: o.x + (Math.random() - 0.5) * 3, y: o.y + (Math.random() - 0.5) * 3, life: 40 }); HT.pick.push({ id: HT.id++, k: Math.random() < 0.6 ? 'ammo' : 'med', v: 18, x: o.x, y: o.y, life: 40 }) } } }
     if (Math.abs(b.x) > AW + 4 || Math.abs(b.y) > AH + 4) b.life = 0
   }
   HT.bul = HT.bul.filter((b) => b.life > 0)
@@ -309,7 +340,7 @@ function buy(pi, k) {
   if (k === 'ammo') p.reserve += 36
   else if (k === 'medkit') p.hp = Math.min(p.max, p.hp + 60)
   else if (k === 'mines') p.mines += 2
-  else { p.up[k] = lv + 1; if (k === 'hp') { p.max += 25; p.hp += 25 } }
+  else { p.up[k] = lv + 1; if (k === 'hp') { p.max += 25; p.hp += 25 }; if (k === 'shotgun' || k === 'smg') { p.mags[p.wp] = p.mag; p.wp = k; p.mag = WEAPONS[k].mag } }
   sfx('buy')
   return true
 }
@@ -322,9 +353,11 @@ function readLocal(p) {
   const I = p.in
   I.dx = (dn('KeyD', 'ArrowRight') || TK.right ? 1 : 0) - (dn('KeyA', 'ArrowLeft') || TK.left ? 1 : 0)
   I.dy = (dn('KeyW', 'ArrowUp') || TK.up ? 1 : 0) - (dn('KeyS', 'ArrowDown') || TK.down ? 1 : 0)
+  if (HT.mouse.sx !== undefined) { const g = unprojectGround(camNow(), HT.mouse.sx / 50, HT.mouse.sy / 28); if (g) { HT.mouse.x = g.x; HT.mouse.y = g.y } }
   I.a = Math.atan2(HT.mouse.y - p.y, HT.mouse.x - p.x)
   I.fire = HT.mouse.down || !!TK.fire
   if (dn('KeyR') || TK.reload) I.reload = true
+  for (let w = 1; w <= 3; w++) if (dn('Digit' + w) || TK['w' + w]) { if (!p['wh' + w]) { I.sw = w; p['wh' + w] = true } } else p['wh' + w] = false
   if (dn('Space') || TK.dash) I.dash = true
   if (dn('KeyF') || TK.mine) { if (!p.fHeld) { I.mine = true; p.fHeld = true } } else p.fHeld = false
 }
@@ -334,13 +367,20 @@ function onKey(code) {
   if (HT.mode === 'over' && code === 'Enter') return huntActions.rematch()
 }
 function pointer(type, ax, ay) {
-  const g = unprojectGround(camHunt(), ax / 50, ay / 28)
-  if (!g) return
-  HT.mouse.x = g.x; HT.mouse.y = g.y
+  HT.mouse.sx = ax; HT.mouse.sy = ay
+  const g = unprojectGround(camNow(), ax / 50, ay / 28)
+  if (g) { HT.mouse.x = g.x; HT.mouse.y = g.y }
   if (type === 'down') HT.mouse.down = true
   else if (type === 'up') HT.mouse.down = false
 }
-const camHunt = () => ({ x: 0, y: 72, z: 42, tx: 0, ty: 0, tz: -2, fov: 45, far: 400, aspect: 100 / 56 })
+const CAMP = { x: 0, y: 0 }
+const camNow = () => ({ x: CAMP.x, y: 66, z: -CAMP.y + 38, tx: CAMP.x, ty: 0, tz: -CAMP.y - 2, fov: 45, far: 400, aspect: 100 / 56 })
+const camHunt = () => {
+  const p = HT.players[HT.me]
+  if (p) { CAMP.x += (clamp(p.x, -AW + 40, AW - 40) - CAMP.x) * 0.18; CAMP.y += (clamp(p.y, -AH + 24, AH - 24) - CAMP.y) * 0.18 }
+  const sk = (G.shake || 0) * 0.6
+  return { x: CAMP.x + (Math.random() - 0.5) * sk, y: 66, z: -CAMP.y + 38 + (Math.random() - 0.5) * sk, tx: CAMP.x, ty: 0, tz: -CAMP.y - 2, fov: 45, far: 400, aspect: 100 / 56 }
+}
 export const huntActions = {
   start, stop, quit() { toMenu() }, resume() { HT.paused = false; emitH() }, pause() { if (HT.mode === 'play' && !HT.paused && !HT.net) { HT.paused = true; emitH(); return true } return false },
   rematch() { if (HT.net) { if (HT.net.role === 'host') HT.net.restart(); else HT.net.sendHost({ k: 'rematch' }); return } start({ kind: HT.kind }) },
@@ -357,10 +397,10 @@ function sendSnap(dt) {
   HT.netT = 0.066
   HT.net.send({
     k: 'st', ph: HT.phase, d: HT.day, t: r2(HT.t), pt: r2(HT.phaseT), nl: r2(HT.nightLen), sc: HT.score, kl: HT.kills, rd: HT.ready, left: HT.spawnQ.length,
-    p: HT.players.map((p) => [r2(p.x), r2(p.y), r2(p.a), p.hp | 0, p.max, p.mag, p.reserve, p.down ? 1 : 0, r2(p.reload), p.scrap, p.mines, p.kills, r2(p.reviveT), p.hit > 0 ? 1 : 0, p.dashT > 0 ? 1 : 0, p.up.dmg, p.up.rate, p.up.hp, p.up.light, p.up.speed, p.kick > 0 ? 1 : 0]),
+    p: HT.players.map((p) => [r2(p.x), r2(p.y), r2(p.a), p.hp | 0, p.max, p.mag, p.reserve, p.down ? 1 : 0, r2(p.reload), p.scrap, p.mines, p.kills, r2(p.reviveT), p.hit > 0 ? 1 : 0, p.dashT > 0 ? 1 : 0, p.up.dmg, p.up.rate, p.up.hp, p.up.light, p.up.speed, p.kick > 0 ? 1 : 0, WLIST.indexOf(p.wp), p.up.shotgun, p.up.smg]),
     m: HT.mons.map((m) => [m.id, m.type, r2(m.x), r2(m.y), m.hp | 0, r2(m.a), m.hit > 0 ? 1 : 0, m.seen]),
     b: HT.bul.map((b) => [r2(b.x), r2(b.y), r2(b.vx), r2(b.vy)]), s: HT.spit.map((s) => [r2(s.x), r2(s.y)]),
-    pk: HT.pick.map((k) => [k.id, k.k, r2(k.x), r2(k.y)]), mn: HT.mines.map((m) => [r2(m.x), r2(m.y)]), msg: HT.msg,
+    dc: HT.obst.filter((o) => o.dead).map((o) => o.i), pk: HT.pick.map((k) => [k.id, k.k, r2(k.x), r2(k.y)]), mn: HT.mines.map((m) => [r2(m.x), r2(m.y)]), msg: HT.msg,
   })
 }
 function applySnap(d) {
@@ -371,12 +411,13 @@ function applySnap(d) {
     if (!mine || Math.hypot(p.x - a[0], p.y - a[1]) > 8) { p.x = a[0]; p.y = a[1] } else { p.x += (a[0] - p.x) * 0.2; p.y += (a[1] - p.y) * 0.2 }
     if (!mine) p.a = a[2]
     Object.assign(p, { hp: a[3], max: a[4], mag: a[5], reserve: a[6], down: !!a[7], reload: a[8], scrap: a[9], mines: a[10], kills: a[11], reviveT: a[12], hit: a[13] ? 0.2 : 0, dashT: a[14] ? 0.1 : 0, kick: a[20] ? 0.1 : 0 })
-    p.up = { dmg: a[15], rate: a[16], hp: a[17], light: a[18], speed: a[19] }
+    p.up = { dmg: a[15], rate: a[16], hp: a[17], light: a[18], speed: a[19], shotgun: a[22] || 0, smg: a[23] || 0 }; p.wp = WLIST[a[21]] || 'rifle'
   })
   const old = new Map(HT.mons.map((m) => [m.id, m]))
   HT.mons = d.m.map((a) => { const o = old.get(a[0]) || { t: Math.random() * 6, x: a[2], y: a[3] }; return Object.assign(o, { id: a[0], type: a[1], tx: a[2], ty: a[3], hp: a[4], max: MONS[a[1]].hp, a: a[5], hit: a[6] ? 0.1 : 0, seen: a[7] }) })
   HT.bul = d.b.map((a) => ({ x: a[0], y: a[1], vx: a[2], vy: a[3] }))
   HT.spit = d.s.map((a) => ({ x: a[0], y: a[1] }))
+  for (const i of d.dc || []) if (HT.obst[i]) HT.obst[i].dead = true
   HT.pick = d.pk.map((a) => ({ id: a[0], k: a[1], x: a[2], y: a[3] }))
   HT.mines = d.mn.map((a) => ({ x: a[0], y: a[1] }))
   if (d.msg && (!HT.msg || HT.msg.text !== d.msg.text)) HT.msg = d.msg
@@ -410,8 +451,9 @@ function emitH() {
   snap = {
     mode: HT.mode, paused: HT.paused, kind: HT.kind, phase: HT.phase, day: HT.day, days: DAYS, score: HT.score, kills: HT.kills, t: HT.t, left: HT.net && HT.net.role === 'guest' ? HT.left : HT.spawnQ.length + HT.mons.length,
     nightLeft: HT.kind === 'days' ? Math.max(0, Math.ceil(HT.nightLen - HT.phaseT)) : 0, shopLeft: Math.max(0, Math.ceil(40 - HT.phaseT)),
-    me: me ? { hp: me.hp, max: me.max, mag: me.mag, reserve: me.reserve, reload: me.reload > 0, scrap: me.scrap, mines: me.mines, down: me.down, revive: me.reviveT, up: { ...me.up }, kills: me.kills, dashCd: Math.max(0, me.dashCd || 0) } : null,
+    me: me ? { hp: me.hp, max: me.max, mag: me.mag, reserve: me.reserve, reload: me.reload > 0, scrap: me.scrap, mines: me.mines, down: me.down, revive: me.reviveT, up: { ...me.up }, wp: me.wp, wname: WEAPONS[me.wp].name, mags: WEAPONS[me.wp].mag, kills: me.kills, dashCd: Math.max(0, me.dashCd || 0) } : null,
     team: HT.players.map((p, i) => ({ n: p.name, hp: p.hp, max: p.max, down: p.down, c: p.color, me: i === HT.me, ready: !!HT.ready[i] })),
+    mini: { p: HT.players.map((p, i) => [p.x, p.y, i === HT.me ? 1 : 0, p.down ? 1 : 0]), m: HT.mons.filter((m) => me && (Math.hypot(m.x - me.x, m.y - me.y) < 40 || HT.players.some((q) => !q.down && lit(q, m.x, m.y)))).slice(0, 50).map((m) => [m.x, m.y, m.type === 'king' ? 1 : 0]), c: HT.obst.filter((o) => o.cabin).map((o) => [o.x, o.y]) },
     behind, boss: HT.boss ? { hp: HT.boss.hp, max: HT.boss.max } : null, msg: HT.msg, over: HT.over, online: !!HT.net, ready: !!HT.ready[HT.me],
   }
   subs.forEach((f) => f())
@@ -461,7 +503,7 @@ function drawHunter(api, p, t) {
   part(4.6 + k, 3.4, 0.7, 0.4, 0.4, 0.4, [2.6, 2.4, 1.2]) // flashlight lens
   if (p.i === HT.me) { putS(p.x, 8.4, -p.y, 0.9, 0.9, 0.9, 0.3, 2.4, 1.0) }
 }
-const MCOL = { crawler: [0.5, 0.65, 0.4], stalker: [0.3, 0.3, 0.45], spitter: [0.5, 0.7, 0.2], brute: [0.65, 0.35, 0.3], king: [0.5, 0.2, 0.7] }
+const MCOL = { wraith: [0.18, 0.2, 0.42], howler: [0.55, 0.5, 0.3], crawler: [0.5, 0.65, 0.4], stalker: [0.3, 0.3, 0.45], spitter: [0.5, 0.7, 0.2], brute: [0.65, 0.35, 0.3], king: [0.5, 0.2, 0.7] }
 function drawMon(api, m, t, visible) {
   const { put3, putM, putS } = api
   const D = MONS[m.type], z = -m.y
@@ -472,6 +514,8 @@ function drawMon(api, m, t, visible) {
   const sw = Math.sin(m.t * (m.type === 'crawler' ? 16 : 9))
   if (m.type === 'crawler') { part(0, 0.9, 0, 3, 1.2, 1.8, c); part(1.7, 1.0, 0, 1.2, 1, 1.2, c); part(-1 + sw * 0.5, 0.5, 1.2, 1.6, 0.4, 0.4, c); part(-1 - sw * 0.5, 0.5, -1.2, 1.6, 0.4, 0.4, c) }
   else if (m.type === 'stalker') { part(0, 2.6, 0, 1.4, 4.4, 2.0, c); part(0.2, 5.3, 0, 1.6, 1.6, 1.6, [0.7, 0.7, 0.8]); part(0, 3.8, 1.8 + sw * 0.4, 3.6, 0.45, 0.45, c); part(0, 3.8, -1.8 - sw * 0.4, 3.6, 0.45, 0.45, c) }
+  else if (m.type === 'wraith') { part(0, 3.4, 0, 1.6, 6, 2.2, c); part(0.3, 6.8, 0, 1.8, 1.8, 1.8, [0.5, 0.55, 0.9]); part(0, 2.6 + sw * 0.4, 1.8, 0.5, 5, 0.5, c); part(0, 2.6 - sw * 0.4, -1.8, 0.5, 5, 0.5, c); part(-1, 1.2, 0, 1.2, 2.4, 1.6, [0.1, 0.12, 0.3]) }
+  else if (m.type === 'howler') { part(0, 2.4, 0, 3, 3.6, 3.6, c); part(1.0, 5.0, 0, 3.4, 3.2, 3.8, [0.7, 0.62, 0.4]); part(2.4, 4.4 - Math.abs(sw) * 0.8, 0, 1.6, 1.4 + Math.abs(sw), 2.6, [0.12, 0.04, 0.04]); part(0, 3.4 + sw * 0.4, 2.6, 0.9, 3.4, 0.9, c); part(0, 3.4 - sw * 0.4, -2.6, 0.9, 3.4, 0.9, c) }
   else if (m.type === 'spitter') { part(0, 2.2, 0, 2.4, 3.2, 2.4, c); part(0.4, 4.4 + Math.abs(sw) * 0.3, 0, 2.2, 1.6, 2.2, [0.7, 0.9, 0.3]); part(1.4, 4.4, 0, 1.2, 0.8, 0.8, [0.2, 0.4, 0.1]) }
   else if (m.type === 'brute') { part(0, 3, 0, 3.4, 4.4, 3.8, c); part(0.6, 6.0, 0, 2, 1.8, 2, [0.75, 0.5, 0.4]); part(1.4, 3.2 + sw * 0.5, 2.6, 1.2, 3, 1.4, c); part(1.4, 3.2 - sw * 0.5, -2.6, 1.2, 3, 1.4, c) }
   else { part(0, 4, 0, 4.4, 6.4, 4.8, c); part(0.6, 8.2, 0, 2.6, 2.4, 2.6, [0.8, 0.8, 0.9]); part(0.6, 10.2, 0, 3.6, 0.8, 3.6, [1.8, 1.4, 0.3]); for (let i = -1; i <= 1; i++) part(0.6, 11, i * 1.2, 0.5, 1.6, 0.5, [1.8, 1.4, 0.3]); part(1.6, 4.4 + sw * 0.6, 3.4, 1.6, 4.2, 1.6, c); part(1.6, 4.4 - sw * 0.6, -3.4, 1.6, 4.2, 1.6, c) }
@@ -480,16 +524,31 @@ function drawMon(api, m, t, visible) {
 }
 function draw3(api) {
   const { put3, putS } = api, t = G.time
-  const me = HT.players[HT.me]
-  // forest floor, cabin, trees
-  put3(0, -1.4, 0, 120, 1.6, 70, 0, 0.04, 0.08, 0.04, 0)
-  put3(0, -0.4, 0, 100, 0.5, 56, 0, 0.07, 0.14, 0.06, 0)
-  for (let i = 0; i < 60; i++) { const a = i * 2.399, r = 6 + (i * 7) % 40; put3(Math.cos(a) * r * 1.2, -0.1, Math.sin(a) * r * 0.7, 1.6 + (i % 3), 0.2, 1.2 + (i % 2), 0, 0.05, 0.12 + (i % 4) * 0.02, 0.05, a) }
+  const cx = CAMP.x, cy = CAMP.y
+  const near = (x, y, pad = 0) => Math.abs(x - cx) < 66 + pad && Math.abs(y - cy) < 44 + pad
+  // forest floor that follows the camera, with tufts and glowing mushrooms scattered by cell
+  put3(cx, -1.4, -cy, 150, 1.6, 100, 0, 0.04, 0.08, 0.04, 0)
+  put3(0, -1.5, 0, 2 * AW + 40, 1.4, 2 * AH + 40, 0, 0.03, 0.06, 0.03, 0)
+  const c0 = Math.floor(cx / 9), r0 = Math.floor(cy / 9)
+  for (let i = c0 - 8; i <= c0 + 8; i++) for (let j = r0 - 5; j <= r0 + 5; j++) {
+    const h1 = hash2(i, j), h2 = hash2(j, i + 7), x = (i + h1) * 9, y = (j + h2) * 9
+    if (Math.abs(x) > AW || Math.abs(y) > AH) continue
+    put3(x, 0.15, -y, 1.4 + h1 * 2, 0.5, 1.2 + h2 * 2, 0, 0.05, 0.13 + h1 * 0.06, 0.05, h1 * 6)
+    if (h1 > 0.9) { putS(x + 1, 0.7, -(y + 1), 0.9, 0.9, 0.9, 0.2, 1.4 + Math.sin(t * 2 + i) * 0.4, 1.2) }
+  }
+  // the boundary: dead trees and a stone wall
+  for (let k = -AW; k <= AW; k += 7) for (const sy of [-AH - 2, AH + 2]) if (near(k, sy, 8)) { put3(k, 2, -sy, 5, 4, 1.6, 0, 0.1, 0.1, 0.12, 0); put3(k, 4.6, -sy, 1, 1.6, 1, 0, 0.07, 0.05, 0.05, 0) }
+  for (let k = -AH; k <= AH; k += 7) for (const sx of [-AW - 2, AW + 2]) if (near(sx, k, 8)) { put3(sx, 2, -k, 1.6, 4, 5, 0, 0.1, 0.1, 0.12, 0); put3(sx, 4.6, -k, 1, 1.6, 1, 0, 0.07, 0.05, 0.05, 0) }
   for (const o of HT.obst) {
-    if (o.cabin) { put3(o.x, 3.2, -o.y, 11, 6.4, 8, 0, 0.32, 0.2, 0.12, 0); put3(o.x, 7.4, -o.y, 12.6, 1.8, 9.4, 0, 0.22, 0.1, 0.08, 0); put3(o.x, 9.2, -o.y, 8, 1.8, 7, 0, 0.2, 0.09, 0.07, 0); put3(o.x + 3.2, 4, -o.y + 4.1, 1.8, 2, 0.3, 0, HT.phase === 'dawn' ? 1 : 2.4, HT.phase === 'dawn' ? 1 : 1.8, 0.5, 0); put3(o.x - 3, 4, -o.y + 4.1, 1.8, 2, 0.3, 0, 2.4, 1.8, 0.5, 0); continue }
+    if (o.dead || !near(o.x, o.y, 6)) continue
+    if (o.cabin) { put3(o.x, 3.2, -o.y, 11, 6.4, 8, 0, 0.32, 0.2, 0.12, 0); put3(o.x, 7.4, -o.y, 12.6, 1.8, 9.4, 0, 0.22, 0.1, 0.08, 0); put3(o.x, 9.2, -o.y, 8, 1.8, 7, 0, 0.2, 0.09, 0.07, 0); put3(o.x + 3.2, 4, -o.y + 4.1, 1.8, 2, 0.3, 0, HT.phase === 'dawn' ? 1 : 2.4, HT.phase === 'dawn' ? 1 : 1.8, 0.5, 0); put3(o.x - 3, 4, -o.y + 4.1, 1.8, 2, 0.3, 0, 2.4, 1.8, 0.5, 0); put3(o.x + 4, 9.8, -o.y, 1.4, 3.4, 1.4, 0, 0.18, 0.12, 0.1, 0); continue }
+    if (o.tomb) { put3(o.x, 1.4, -o.y, 1.6, 2.8, 0.6, 0, 0.3, 0.3, 0.34, o.x); put3(o.x, 0.3, -o.y + 1.2, 2, 0.5, 2.6, 0, 0.06, 0.05, 0.04, 0); continue }
+    if (o.car) { put3(o.x, 1.3, -o.y, 7, 1.8, 3.6, 0, 0.3, 0.1, 0.08, 0.3); put3(o.x - 0.5, 2.8, -o.y, 3.6, 1.4, 3, 0, 0.2, 0.08, 0.07, 0.3); put3(o.x + 1.4, 0.6, -o.y + 2, 1.2, 1.2, 0.5, 0, 0.05, 0.05, 0.05, 0); continue }
+    if (o.crate) { put3(o.x, 1.4, -o.y, 2.8, 2.8, 2.8, 0, 0.45, 0.3, 0.12, o.x); put3(o.x, 1.4, -o.y, 3, 0.4, 3, 0, 0.3, 0.2, 0.08, o.x); put3(o.x, 3.1, -o.y, 0.8, 0.5, 0.8, 0, 2.2, 1.8, 0.4, t * 2); continue }
     if (o.rock) { put3(o.x, o.r * 0.5, -o.y, o.r * 2.1, o.r * 1.2, o.r * 1.8, 0, 0.2, 0.2, 0.24, o.x); continue }
     put3(o.x, 1, -o.y, 0.7, 2, 0.7, 0, 0.18, 0.1, 0.06, 0); put3(o.x, 3 * o.h, -o.y, 3.6 * o.h, 2.2, 3.6 * o.h, 0, 0.05, 0.16, 0.07, o.x); put3(o.x, 5 * o.h, -o.y, 2.4 * o.h, 2.2, 2.4 * o.h, 0, 0.05, 0.2, 0.08, o.x + 0.4); put3(o.x, 6.8 * o.h, -o.y, 1.2 * o.h, 1.6, 1.2 * o.h, 0, 0.06, 0.22, 0.09, o.x + 0.8)
   }
+  for (const d of HT.decor || []) if (d.fire && near(d.x, d.y)) { put3(d.x, 0.5, -d.y, 3, 0.6, 3, 0, 0.1, 0.08, 0.06, 0); for (let i = 0; i < 4; i++) put3(d.x + Math.sin(t * 9 + i) * 0.5, 1.2 + i * 0.7 + Math.sin(t * 12 + i * 2) * 0.2, -d.y + Math.cos(t * 7 + i) * 0.4, 1.2 - i * 0.2, 0.9, 1.2 - i * 0.2, 0, 2.8, 1.2 + i * 0.4, 0.15, t * 3 + i) }
   // the beam on the ground
   for (const p of HT.players) {
     if (p.down || HT.phase === 'dawn') continue
@@ -498,15 +557,16 @@ function draw3(api) {
   }
   for (const p of HT.players) drawHunter(api, p, t)
   for (const m of HT.mons) {
+    if (!near(m.x, m.y, 4)) continue
     const vis = HT.phase === 'dawn' || HT.players.some((p) => !p.down && lit(p, m.x, m.y))
     drawMon(api, m, t, vis)
   }
   for (const b of HT.bul) { putS(b.x, 3.4, -b.y, 0.9, 0.9, 0.9, 3, 2.6, 1.2); putS(b.x - b.vx * 0.012, 3.4, -(b.y - b.vy * 0.012), 0.6, 0.6, 0.6, 2, 1.6, 0.6) }
   for (const s of HT.spit) putS(s.x, 3, -s.y, 1.6, 1.6, 1.6, 0.6, 2.4, 0.3)
-  for (const k of HT.pick) { const c = k.k === 'scrap' ? [2.2, 1.8, 0.4] : k.k === 'ammo' ? [1.6, 1.6, 2.2] : [2.4, 0.3, 0.4]; put3(k.x, 1.2 + Math.sin(t * 4 + k.id) * 0.3, -k.y, 1.3, 1.3, 1.3, 0, c[0], c[1], c[2], t * 2) }
-  for (const mn of HT.mines) put3(mn.x, 0.4, -mn.y, 1.8, 0.5, 1.8, 0, 0.3, 0.3, 0.32, 0), put3(mn.x, 0.8, -mn.y, 0.5, 0.4, 0.5, 0, 2.6 * (0.5 + 0.5 * Math.sin(t * 8)), 0.1, 0.1, 0)
-  for (const q of HT.fx) { const f = q.life / q.max, s = q.s * (0.3 + 0.7 * f); putS(q.x, q.h, -q.y, s, s, s, q.c[0], q.c[1], q.c[2]) }
-  void me
+  for (const k of HT.pick) { if (!near(k.x, k.y)) continue; const c = k.k === 'scrap' ? [2.2, 1.8, 0.4] : k.k === 'ammo' ? [1.6, 1.6, 2.2] : [2.4, 0.3, 0.4]; put3(k.x, 1.2 + Math.sin(t * 4 + k.id) * 0.3, -k.y, 1.3, 1.3, 1.3, 0, c[0], c[1], c[2], t * 2) }
+  for (const mn of HT.mines) { put3(mn.x, 0.4, -mn.y, 1.8, 0.5, 1.8, 0, 0.3, 0.3, 0.32, 0); put3(mn.x, 0.8, -mn.y, 0.5, 0.4, 0.5, 0, 2.6 * (0.5 + 0.5 * Math.sin(t * 8)), 0.1, 0.1, 0) }
+  for (const q of HT.fx) { if (!near(q.x, q.y)) continue; const f = q.life / q.max, s = q.s * (0.3 + 0.7 * f); putS(q.x, q.h, -q.y, s, s, s, q.c[0], q.c[1], q.c[2]) }
 }
+const hash2 = (a, b) => { let h = Math.imul(a | 0, 374761393) ^ Math.imul(b | 0, 668265263); h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296 }
 if (typeof window !== 'undefined') { window.__HT = HT; window.__hunt = huntActions }
 games.hunt = { update, onKey, draw() {}, draw3, camera: () => camHunt(), lights, fog: () => ({ fog: '#02040a', fogNear: 55, fogFar: 125 }), stop, sky: () => '#02040a' }

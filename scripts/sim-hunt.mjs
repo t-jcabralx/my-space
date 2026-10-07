@@ -15,7 +15,7 @@ function bot(p) {
   huntActions.press('reload', p.mag === 0)
 }
 const reset = () => { for (const k of ['left', 'right', 'up', 'down', 'reload']) huntActions.press(k, false); HT.mouse.down = false }
-check('monsters and shop exist', Object.keys(MONS).length === 5 && SHOP.length === 8)
+check('monsters and shop exist', Object.keys(MONS).length === 7 && SHOP.length === 10)
 // a full day cycle: night, dawn, shop
 huntActions.start({ kind: 'days', seed: 7 })
 check('day 1 starts at dawn with a shop', HT.phase === 'dawn' && HT.day === 1)
@@ -45,6 +45,24 @@ p0.scrap = 200; huntActions.buy('mines'); check('mines can be bought', p0.mines 
   HT.mons = [{ id: 3, type: 'stalker', x: -2, y: 0, hp: 48, max: 48, a: 0, atkT: 0, hit: 0, t: 0, spitT: 9, sumT: 9, charge: 0, vx: 0, vy: 0, seen: 0 }]
   const hp0 = p.hp; step(2)
   check('a bite from behind does double damage', hp0 - p.hp >= 30, 'lost ' + (hp0 - p.hp).toFixed(0))
+}
+// weapons, crates and the new monsters
+{
+  reset(); huntActions.start({ kind: 'back', seed: 11 })
+  const p = HT.players[0]; HT.spawnQ = []; HT.rate = 999; HT.phase = 'night'
+  check('the world is big and full of things to find', AW >= 100 && HT.obst.filter((o) => o.crate).length >= 20 && HT.obst.some((o) => o.tomb) && HT.obst.length > 150, `obstacles ${HT.obst.length}`)
+  HT.obst.forEach((o) => { if (!o.crate && Math.hypot(o.x - 30, o.y - 30) < 25) o.dead = true })
+  p.x = 30; p.y = 30; p.up.shotgun = 1; p.wp = 'shotgun'; p.mag = 6; p.mags.shotgun = 6; p.a = 0; HT.mouse.sx = undefined; HT.mouse.x = 99; HT.mouse.y = 30; HT.mouse.down = true
+  const b0 = HT.bul.length; step(1); HT.mouse.down = false
+  check('the shotgun fires a spread of pellets', HT.bul.length - b0 >= 5, 'bullets ' + HT.bul.length)
+  const cr = HT.obst.find((o) => o.crate); p.x = cr.x - 12; p.y = cr.y; p.wp = 'rifle'; p.mag = 12; p.a = 0; HT.mouse.x = cr.x; HT.mouse.y = cr.y; HT.mouse.down = true; step(20 * 4); HT.mouse.down = false
+  check('crates can be shot open for loot', cr.dead && HT.pick.length >= 2, 'dead ' + cr.dead + ' pickups ' + HT.pick.length)
+  HT.mons = [{ id: 50, type: 'wraith', x: p.x + 40, y: p.y, hp: 38, max: 38, a: 0, atkT: 0, hit: 0, t: 0, spitT: 9, sumT: 9, charge: 0, vx: 0, vy: 0, seen: 0, blink: 0.1 }]
+  const wx = HT.mons[0].x; step(10)
+  check('a wraith blinks toward you', wx - HT.mons[0].x > 9 + 8, 'moved ' + (wx - HT.mons[0].x).toFixed(1))
+  HT.mons = [{ id: 51, type: 'howler', x: p.x + 20, y: p.y, hp: 80, max: 80, a: 0, atkT: 0, hit: 0, t: 0, spitT: 9, sumT: 0.1, charge: 0, vx: 0, vy: 0, seen: 0 }, { id: 52, type: 'crawler', x: p.x + 50, y: p.y, hp: 30, max: 30, a: 0, atkT: 0, hit: 0, t: 0, spitT: 9, sumT: 9, charge: 0, vx: 0, vy: 0, seen: 0 }]
+  step(6)
+  check('a howler screams and enrages nearby monsters', HT.mons.some((m) => m.rage > 0 || m.type === 'crawler' && m.x < p.x + 50 - 20))
 }
 // down, revive and game over
 {
