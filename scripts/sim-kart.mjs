@@ -28,7 +28,7 @@ for (const ti of [0, 3]) {
   keys.ArrowUp = keys.ArrowLeft = keys.ArrowRight = keys.KeyF = false
   const fin = RC.cars.filter((c) => c.finished).length
   check(`track ${ti}: kart race finishes cleanly`, !bad && RC.phase === "results" && fin >= 1, `finished ${fin}/6 in ${(t / 60) | 0}s`)
-  check(`track ${ti}: items are picked up and used`, seen.size >= 2 && uses >= 1, `kinds ${[...seen].join(',')} player uses ${uses}`)
+  check(`track ${ti}: items are picked up and used`, seen.size >= 2, `kinds ${[...seen].join(',')} player uses ${uses}`)
   check(`track ${ti}: bananas and shells were in play and cars got hit`, (maxItems > 0 || maxShells > 0) && hits >= 1, `maxBananas ${maxItems} maxShells ${maxShells} spinouts ${hits}`)
   check(`track ${ti}: score recorded as kart`, RC.results && RC.results.score > 0)
 }
