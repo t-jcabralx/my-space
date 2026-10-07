@@ -5,6 +5,7 @@ import { Canvas } from '@react-three/fiber'
 import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing'
 import { World, Stars, Planet, Rig, FlashPlane, Fighters3D, SnowTerrain } from './game/Scene.jsx'
 import HUD, { openHelp } from './ui/HUD.jsx'
+import VoiceDock from './ui/VoiceDock.jsx'
 import './game/slug.js'
 import './game/pickle.js'
 import { onKey, G, dragShip, setTouchFire, togglePause, subscribe, getSnap } from './game/engine.js'
@@ -164,6 +165,7 @@ export default function GameApp() {
           )}
         </Canvas>
         <HUD />
+        <VoiceDock />
       </div>
     </div>
   )

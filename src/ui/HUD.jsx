@@ -1137,11 +1137,13 @@ function JoinBar({ name, onJoined }) {
   const rt = useSyncExternalStore(subscribeRt, getRt, getRt)
   const [code, setCode] = useState('')
   const [err, setErr] = useState('')
+  const [nm, setNm] = useState(name && name !== 'PLAYER' ? name : '')
   if (rt.room) return <div className="joinbar"><span>🌐 You are in room <b>{rt.room.code}</b></span><button className="chip sel" onClick={() => onJoined()}>OPEN ROOM ▶</button></div>
-  const go = async () => { setErr(''); try { await joinRoom(code, name || 'PLAYER'); onJoined() } catch (e) { setErr(e.message) } }
+  const go = async () => { setErr(''); const n = nm.replace(/[^\w ]/g, '').trim().slice(0, 12).toUpperCase(); if (!n || n === 'PLAYER') { setErr('Enter your name first'); return } try { await joinRoom(code, n); onJoined() } catch (e) { setErr(e.message) } }
   return (
     <div className="joinbar">
       <span>🌐 FRIEND SENT YOU A ROOM CODE?</span>
+      <input className="nameIn" value={nm} maxLength={12} placeholder="YOUR NAME" style={{ width: 110 }} onChange={(e) => setNm(e.target.value)} onKeyDown={(e) => e.stopPropagation()} />
       <input className="nameIn" value={code} maxLength={5} placeholder="CODE" onChange={(e) => setCode(e.target.value.toUpperCase())} onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Enter' && code.length >= 4) go() }} />
       <button className="chip sel" disabled={code.length < 4 || rt.busy} onClick={go}>JOIN</button>
       {err && <small className="joinerr">{err}</small>}
