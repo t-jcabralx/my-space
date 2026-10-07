@@ -90,7 +90,7 @@ function start(cfg = {}) {
   const sc = cfg.scen !== undefined && cfg.scen !== null && !online ? EMCAMP[clamp(cfg.scen | 0, 0, EMCAMP.length - 1)] : null
   EM.scen = sc; EM.scenIdx = sc ? EMCAMP.indexOf(sc) : -1
   if (sc) { cfg = { ...cfg, ai: sc.ai, diff: sc.diff, seed: sc.seed } }
-  EM.cfg = { ai: sc ? sc.ai : clamp(cfg.ai | 0 || 3, 0, 3), diff: clamp(cfg.diff | 0 || 2, 1, 3), speed: 1, type: online ? 'online' : 'solo', seed: cfg.seed }
+  EM.cfg = { ai: sc ? sc.ai : clamp(cfg.ai === 0 ? 0 : (cfg.ai | 0 || 3), 0, 3), diff: clamp(cfg.diff | 0 || 2, 1, 3), speed: 1, type: online ? 'online' : 'solo', seed: cfg.seed }
   if (!online) EM.net = null
   EM.seed = cfg.seed || ((Math.random() * 1e6) | 0) + 1
   { const wr = rng(EM.seed * 17 + 3); EM.tod0 = 0.3 + wr() * 0.3; EM.weather = pickWeather(EM.seed, { clear: 0.55, rain: 0.2, fog: 0.15, snow: 0.1 }) }
@@ -334,8 +334,11 @@ function stepRaiders(dt) {
     const target = pool[(Math.random() * pool.length) | 0], h = hall(target.i), hc = bCenter(h)
     const n = Math.max(2, Math.round((3 + Math.floor(EM.raidN * 1.8) + (EM.cfg.diff - 1) * 2) * EM.raidScale))
     // raiders appear at most ~140 world units from the village they attack, so a huge map does not mean a ten-minute walk
-    const RD = 140, sx = clamp(EM.raidDir === 'WEST' ? hc.x - RD : EM.raidDir === 'EAST' ? hc.x + RD : hc.x + R(-70, 70), 4, WORLD - 4), sy = clamp(EM.raidDir === 'SOUTH' ? hc.y - RD : EM.raidDir === 'NORTH' ? hc.y + RD : hc.y + R(-70, 70), 4, WORLD - 4)
-    for (let i = 0; i < n; i++) { const type = EM.raidN >= 3 && i % 5 === 0 ? 'rbrute' : i % 4 === 3 ? 'rarcher' : 'raider'; const u = spawnUnit(type, -1, sx + R(-6, 6), sy + R(-6, 6)); u.order = { x: hc.x + R(-6, 6), y: hc.y + R(-6, 6) } }
+    // raiders must stand on land: walk the spawn point back toward the village until the tile is not water
+    const landFix = (x, y) => { for (let k = 0; k <= 40; k++) { const px = x + (hc.x - x) * (k / 40), py = y + (hc.y - y) * (k / 40), i = (px / T) | 0, j = (py / T) | 0; if (inMap(i, j) && EM.terr[ix(i, j)] !== 4) return [px, py] } return [hc.x, hc.y] }
+    const RD = 140, sx0 = clamp(EM.raidDir === 'WEST' ? hc.x - RD : EM.raidDir === 'EAST' ? hc.x + RD : hc.x + R(-70, 70), 4, WORLD - 4), sy0 = clamp(EM.raidDir === 'SOUTH' ? hc.y - RD : EM.raidDir === 'NORTH' ? hc.y + RD : hc.y + R(-70, 70), 4, WORLD - 4)
+    const [sx, sy] = landFix(sx0, sy0)
+    for (let i = 0; i < n; i++) { const type = EM.raidN >= 3 && i % 5 === 0 ? 'rbrute' : i % 4 === 3 ? 'rarcher' : 'raider'; const [ux, uy] = landFix(sx + R(-6, 6), sy + R(-6, 6)); const u = spawnUnit(type, -1, ux, uy); u.order = { x: hc.x + R(-6, 6), y: hc.y + R(-6, 6) } }
   }
 }
 function stepAI(dt) {

@@ -114,7 +114,7 @@ function build(c, len, seed, reps = 1) {
 
 // ------------------------------------------------------------------ riders
 function makeRider(def, i, isP) {
-  return { i, def, st: def, isP, name: def.name, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, hd: 0, spin: 0, spinV: 0, spinAcc: 0, pitch: 0, pitchV: 0, pitchAcc: 0, roll: 0, tilt: 0, cr: 0, charge: 0, grounded: true, air: 0, maxH: 0, grabT: 0, grabStyle: null, grabIdx: -1, uber: null, crash: 0, tumble: 0, inv: 0, boostT: 0, boosting: false, meter: 0, tricky: 0, grind: null, crashes: 0, fin: null, jumpPrev: false, boostPrev: false, spray: 0, lane: 0, aiDir: 1, aiSpin: 0, aiBoost: 3 + Math.random() * 6, aiMul: 1, sk: 1, bo: 0, pts: 0, t: 0 }
+  return { i, def, st: def, isP, name: def.name, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, hd: 0, spin: 0, spinV: 0, spinAcc: 0, pitch: 0, pitchV: 0, pitchAcc: 0, roll: 0, tilt: 0, cr: 0, charge: 0, grounded: true, air: 0, maxH: 0, grabT: 0, grabStyle: null, grabIdx: -1, uber: null, crash: 0, tumble: 0, inv: 0, boostT: 0, boosting: false, meter: 0, tricky: 0, grind: null, crashes: 0, fin: null, jumpPrev: false, boostPrev: false, spray: 0, lane: 0, aiDir: 1, aiSpin: 0, aiJT: 0, aiBoost: 3 + Math.random() * 6, aiMul: 1, sk: 1, bo: 0, pts: 0, t: 0 }
 }
 function spawnFx(x, y, z, n, c, spd = 6, up = 4, life = 0.6, s = 0.32) {
   const L = SX.fx
@@ -444,7 +444,7 @@ function finishRace(timeUp) {
   const time = SX.t
   let place = 1, placePts = 0, timeBonus = 0
   if (SX.kind === 'race') {
-    place = SX.net ? 1 + SX.riders.filter((r) => r.remote && r.fin !== null && P.fin !== null && r.fin < P.fin).length : 1 + SX.riders.filter((r) => !r.isP && r.fin !== null).length
+    place = SX.net ? 1 + SX.riders.filter((r) => r.remote && r.fin !== null && P.fin !== null && r.fin < P.fin).length : (SX.place || 1 + SX.riders.filter((r) => !r.isP && r.fin !== null).length)
     placePts = [10000, 6000, 3500, 1800, 800, 300][place - 1] || 0
     timeBonus = Math.max(0, Math.round((CUR.par - time) * 150))
   }
@@ -526,12 +526,12 @@ function emitTick(dt) { SX.emitT -= dt; if (SX.emitT <= 0) { SX.emitT = 0.1; emi
 function emitS() {
   const P = SX.P
   if (!P) { snap = { mode: SX.mode, paused: SX.paused }; subs.forEach((f) => f()); return }
-  const order = [...SX.riders].sort((a, b) => b.z - a.z)
+  const order = SX.riders.filter((r) => !r.gone).sort((a, b) => b.z - a.z)
   snap = {
     mode: SX.mode, paused: SX.paused, kind: SX.kind, course: CUR.name, count: Math.max(0, Math.ceil(SX.count)), speed: Math.round(Math.hypot(P.vx, P.vz) * 3.3), boost: Math.round(P.meter), tricky: P.tricky > 0 ? Math.ceil(P.tricky) : 0, boosting: P.boosting,
     place: order.indexOf(P) + 1, total: SX.riders.length, time: SX.t, timeLeft: SX.timeLeft, score: SX.score, toks: SX.toks, msg: SX.msg, text: SX.text, crash: P.crash > 0, air: !P.grounded && !P.grind && P.air > 0.15,
     board: SX.net ? SX.riders.map((r) => ({ n: r.isP ? 'YOU' : r.name, c: r.def.jacket, sc: r.isP ? SX.score : r.sc | 0, f: r.fin, z: Math.round(r.z) })).sort((a, b) => (SX.kind === 'trick' ? b.sc - a.sc : b.z - a.z)) : null, online: !!SX.net, envLabel: ssxEnv().label, night: ssxEnv().T.night,
-    airPts: 0, grind: !!P.grind, over: SX.over, prog: SX.riders.map((r) => ({ p: clamp(r.z / SX.len, 0, 1), me: r.isP, c: r.def.jacket })), pct: clamp(P.z / SX.len, 0, 1), rider: P.name,
+    airPts: 0, grind: !!P.grind, over: SX.over, prog: SX.riders.filter((r) => !r.gone).map((r) => ({ p: clamp(r.z / SX.len, 0, 1), me: r.isP, c: r.def.jacket })), pct: clamp(P.z / SX.len, 0, 1), rider: P.name,
   }
   subs.forEach((f) => f())
 }
@@ -560,6 +560,7 @@ function sendState(dt) {
   SX.net.send({ k: 'p', s: [r2(r.x), r2(r.y), r2(r.z), r2(r.vx), r2(r.vy), r2(r.vz), r2(r.hd), r2(r.spin), r2(r.pitch), r2(r.roll), r2(r.cr), r.grounded ? 1 : 0, r.grind ? 1 : 0, r.crash > 0 ? 1 : 0, r.fin === null ? -1 : r2(r.fin), SX.score, r2(r.tumble), r.boosting ? 1 : 0] })
 }
 function remoteStep(r, dt) {
+  if (r.gone) return
   const t = r.tgt
   if (t) {
     const k = Math.min(1, dt * 12)

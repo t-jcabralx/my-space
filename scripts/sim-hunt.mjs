@@ -66,6 +66,17 @@ p0.scrap = 200; huntActions.buy('mines'); check('mines can be bought', p0.mines 
   step(6)
   check('a howler screams and enrages nearby monsters', HT.mons.some((m) => m.rage > 0 || m.type === 'crawler' && m.x < p.x + 50 - 20))
 }
+// review fixes: one-shot input is not saved for later, a player who left stays gone
+{
+  reset(); huntActions.start({ kind: 'days', seed: 12 }); const p = HT.players[0]
+  p.in.reload = true; p.mag = 12; step(2)
+  check('a reload request with a full magazine is dropped, not saved', p.in.reload === false && p.reload <= 0)
+  HT.players.push({ ...HT.players[0], i: 1, name: 'GONE', x: 20, y: 12, in: { dx: 1, dy: 0, a: 0, fire: true }, up: { dmg: 0, rate: 0, hp: 0, light: 0, speed: 0, shotgun: 0, smg: 0 }, mags: { rifle: 12, shotgun: 0, smg: 0 } })
+  HT.players[1].down = true; HT.players[1].hp = 0; HT.players[1].gone = true
+  HT.phase = 'night'; HT.spawnQ = []; HT.mons = [{ id: 5, type: 'crawler', x: 400, y: 400, hp: 1, max: 1, a: 0, atkT: 0, hit: 0, t: 0, spitT: 9, sumT: 9, charge: 0, vx: 0, vy: 0, seen: 0 }]
+  HT.phaseT = 10; HT.mons[0].hp = 0; HT.mons = []; step(40)
+  check('a departed hunter is not revived at dawn and does not keep walking', HT.players[1].down === true && Math.abs(HT.players[1].x - 20) < 0.5, 'x ' + HT.players[1].x)
+}
 // down, revive and game over
 {
   reset(); huntActions.start({ kind: 'days', seed: 5 })

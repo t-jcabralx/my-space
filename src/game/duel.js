@@ -1,6 +1,6 @@
 // SCORE DUELS: any solo score game becomes a head-to-head online match. Both players start the same game at once, see each
 // other's live score, and the higher result wins. (Snake, Neon Breaker, 2048, Neon Beat, Neon Defense, Maze Chomp, Mine Sweep, Word Hunt.)
-import { G, profile, tickHooks, toMenu } from './engine.js'
+import { G, profile, tickHooks, toMenu, saveProfile } from './engine.js'
 import { sfx } from './audio.js'
 import { registerNet, gameEnded } from './online/gnet.js'
 import { snakeActions, SN } from './snake.js'
@@ -67,9 +67,9 @@ for (const id of Object.keys(DUELS)) {
       if (!d || !D.on) return
       if (d.k === 'sc') { D.foeScore = +d.m || 0; emit() }
       else if (d.k === 'done') { D.foeScore = +d.m || 0; D.foeDone = true; conclude(); emit() }
-      else if (d.k === 'rematch' && D.ctx && D.ctx.role === 'host') D.ctx.restart()
+      else if (d.k === 'rematch' && D.ctx && D.ctx.role === 'host' && D.result) D.ctx.restart()
     },
-    onLeave() { if (D.on && !D.result) { D.foeDone = true; D.foeScore = -1; if (!D.mineDone) { D.mineDone = true } D.result = { win: true, tie: false, mine: D.mine, theirs: 0, forfeit: true }; emit() } },
+    onLeave() { if (D.on && !D.result) { D.foeDone = true; D.foeScore = -1; if (!D.mineDone) { D.mineDone = true } D.result = { win: true, tie: false, mine: D.mine, theirs: 0, forfeit: true }; profile.duelGames = (profile.duelGames || 0) + 1; profile.duelWins = (profile.duelWins || 0) + 1; saveProfile(); emit() } },
   })
 }
 export const duelActions = {

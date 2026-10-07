@@ -164,11 +164,13 @@ function hurtPlayer(p, dmg, from) {
 }
 function stepPlayer(p, dt) {
   const I = p.in
+  if (p.gone) { I.dx = I.dy = 0; I.fire = false; I.reload = I.dash = I.mine = false; I.sw = 0 }
   p.hit = Math.max(0, p.hit - dt); p.inv = Math.max(0, (p.inv || 0) - dt); p.fireCd -= dt; p.dashCd -= dt; p.kick = Math.max(0, p.kick - dt)
   if (p.down) {
     // a teammate standing close revives you
     const mate = HT.players.find((q) => q !== p && !q.down && Math.hypot(q.x - p.x, q.y - p.y) < 4)
-    if (mate) { p.reviveT += dt; if (p.reviveT >= 3) { p.down = false; p.hp = p.max * 0.5; p.inv = 2; sfx('rgPerk'); fx(p.x, p.y, 14, [0.4, 1.6, 0.6], 12, 0.6, 0.5) } } else p.reviveT = Math.max(0, p.reviveT - dt)
+    I.reload = I.dash = I.mine = false
+    if (mate && !p.gone) { p.reviveT += dt; if (p.reviveT >= 3) { p.down = false; p.hp = p.max * 0.5; p.inv = 2; sfx('rgPerk'); fx(p.x, p.y, 14, [0.4, 1.6, 0.6], 12, 0.6, 0.5) } } else p.reviveT = Math.max(0, p.reviveT - dt)
     return
   }
   const sp = 15 * (1 + p.up.speed * 0.08) * (p.dashT > 0 ? 2.6 : 1)
@@ -197,6 +199,7 @@ function stepPlayer(p, dt) {
       if (p.mag === 0 && p.reserve > 0) { p.reload = 1.3; sfx('reload') }
     } else if (p.reserve > 0) { p.reload = 1.3 } else if (p.i === HT.me && p.fireCd <= 0) { p.fireCd = 0.4; sfx('deny') }
   }
+  I.reload = I.dash = I.mine = false // one-shot requests are used up (or dropped) this step, never saved for later
 }
 function stepMon(m, dt) {
   const D = MONS[m.type]
@@ -278,7 +281,7 @@ function update(dtRaw) {
   if (HT.players.every((p) => p.down)) return finish(false)
   if (HT.phase === 'dawn') {
     // the shop: wait until everyone is ready (or 40 s)
-    if (HT.kind === 'days' && (HT.phaseT > 40 || HT.players.every((p) => HT.ready[p.i]))) { HT.ready = {}; startNight() }
+    if (HT.kind === 'days' && (HT.phaseT > 40 || HT.players.every((p) => p.gone || HT.ready[p.i]))) { HT.ready = {}; startNight() }
     emitTick(dt)
     return
   }
@@ -327,7 +330,7 @@ function update(dtRaw) {
 }
 function dawn() {
   const bonus = 30 + HT.day * 8
-  for (const p of HT.players) { p.scrap += bonus; if (p.down) { p.down = false; p.hp = p.max * 0.5 } else p.hp = Math.min(p.max, p.hp + 30) }
+  for (const p of HT.players) { if (p.gone) continue; p.scrap += bonus; if (p.down) { p.down = false; p.hp = p.max * 0.5 } else p.hp = Math.min(p.max, p.hp + 30) }
   HT.score += HT.day * 200
   if (HT.day >= DAYS) return finish(true)
   HT.day++; HT.phase = 'dawn'; HT.phaseT = 0; HT.mons = []; HT.spit = []; HT.bul = []; HT.ready = {}
@@ -419,7 +422,7 @@ function sendSnap(dt) {
   HT.net.send({
     k: 'st', ph: HT.phase, d: HT.day, t: r2(HT.t), pt: r2(HT.phaseT), nl: r2(HT.nightLen), sc: HT.score, kl: HT.kills, rd: HT.ready, left: HT.spawnQ.length,
     p: HT.players.map((p) => [r2(p.x), r2(p.y), r2(p.a), p.hp | 0, p.max, p.mag, p.reserve, p.down ? 1 : 0, r2(p.reload), p.scrap, p.mines, p.kills, r2(p.reviveT), p.hit > 0 ? 1 : 0, p.dashT > 0 ? 1 : 0, p.up.dmg, p.up.rate, p.up.hp, p.up.light, p.up.speed, p.kick > 0 ? 1 : 0, WLIST.indexOf(p.wp), p.up.shotgun, p.up.smg]),
-    m: HT.mons.map((m) => [m.id, m.type, r2(m.x), r2(m.y), m.hp | 0, r2(m.a), m.hit > 0 ? 1 : 0, m.seen]),
+    m: HT.mons.map((m) => [m.id, m.type, r2(m.x), r2(m.y), m.hp | 0, r2(m.a), m.hit > 0 ? 1 : 0, m.seen, Math.round(m.max)]),
     b: HT.bul.map((b) => [r2(b.x), r2(b.y), r2(b.vx), r2(b.vy)]), s: HT.spit.map((s) => [r2(s.x), r2(s.y)]),
     dc: HT.deadKeys, pk: HT.pick.map((k) => [k.id, k.k, r2(k.x), r2(k.y)]), mn: HT.mines.map((m) => [r2(m.x), r2(m.y)]), msg: HT.msg,
   })
@@ -435,7 +438,7 @@ function applySnap(d) {
     p.up = { dmg: a[15], rate: a[16], hp: a[17], light: a[18], speed: a[19], shotgun: a[22] || 0, smg: a[23] || 0 }; p.wp = WLIST[a[21]] || 'rifle'
   })
   const old = new Map(HT.mons.map((m) => [m.id, m]))
-  HT.mons = d.m.map((a) => { const o = old.get(a[0]) || { t: Math.random() * 6, x: a[2], y: a[3] }; return Object.assign(o, { id: a[0], type: a[1], tx: a[2], ty: a[3], hp: a[4], max: MONS[a[1]].hp, a: a[5], hit: a[6] ? 0.1 : 0, seen: a[7] }) })
+  HT.mons = d.m.map((a) => { const o = old.get(a[0]) || { t: Math.random() * 6, x: a[2], y: a[3] }; return Object.assign(o, { id: a[0], type: a[1], tx: a[2], ty: a[3], hp: a[4], max: a[8] || MONS[a[1]].hp, a: a[5], hit: a[6] ? 0.1 : 0, seen: a[7] }) })
   HT.bul = d.b.map((a) => ({ x: a[0], y: a[1], vx: a[2], vy: a[3] }))
   HT.spit = d.s.map((a) => ({ x: a[0], y: a[1] }))
   for (const k of d.dc || []) { if (!HT.deadSet.has(k)) { HT.deadSet.add(k); const o = HT.byKey.get(k); if (o) o.dead = true } }
@@ -457,7 +460,7 @@ function guestStep(dt) {
   for (const m of HT.mons) { if (m.tx !== undefined) { m.x += (m.tx - m.x) * Math.min(1, dt * 14); m.y += (m.ty - m.y) * Math.min(1, dt * 14) } m.t += dt }
   for (const b of HT.bul) { b.x += b.vx * dt; b.y += b.vy * dt }
   inT -= dt
-  if (inT <= 0 && me) { inT = 0.05; const I = me.in; HT.net.sendHost({ k: 'in', dx: r2(I.dx), dy: r2(I.dy), a: r2(I.a), f: I.fire ? 1 : 0, r: I.reload ? 1 : 0, d: I.dash ? 1 : 0, m: I.mine ? 1 : 0 }); I.reload = I.dash = I.mine = false }
+  if (inT <= 0 && me) { inT = 0.05; const I = me.in; HT.net.sendHost({ k: 'in', dx: r2(I.dx), dy: r2(I.dy), a: r2(I.a), f: I.fire ? 1 : 0, r: I.reload ? 1 : 0, d: I.dash ? 1 : 0, m: I.mine ? 1 : 0, w: I.sw || 0 }); I.reload = I.dash = I.mine = false; I.sw = 0 }
   for (const p of HT.players) { p.hit = Math.max(0, p.hit - dt); p.kick = Math.max(0, p.kick - dt) }
 }
 function emitTick(dt) {
@@ -501,12 +504,12 @@ registerNet('hunt', {
     if (HT.net.role === 'host') {
       const i = HT.net.players.findIndex((p) => p.id === from), p = HT.players[i]
       if (!p) return
-      if (d.k === 'in') { const I = p.in; I.dx = clamp(+d.dx || 0, -1, 1); I.dy = clamp(+d.dy || 0, -1, 1); I.a = +d.a || 0; I.fire = !!d.f; if (d.r) I.reload = true; if (d.d) I.dash = true; if (d.m) I.mine = true }
+      if (d.k === 'in') { const I = p.in; I.dx = clamp(+d.dx || 0, -1, 1); I.dy = clamp(+d.dy || 0, -1, 1); I.a = +d.a || 0; I.fire = !!d.f; if (d.r) I.reload = true; if (d.d) I.dash = true; if (d.m) I.mine = true; if (d.w) I.sw = clamp(d.w | 0, 1, 3) }
       else if (d.k === 'buy') buy(i, String(d.item))
       else if (d.k === 'ready') setReady(i)
       else if (d.k === 'rematch' && HT.mode === 'over') HT.net.restart()
     } else if (d.k === 'st') applySnap(d)
-    else if (d.k === 'end') { HT.mode = 'over'; HT.over = d.over; music.stop(); sfx(d.over.win ? 'win' : 'over'); profile.huntGames = (profile.huntGames || 0) + 1; profile.huntBest = Math.max(profile.huntBest || 0, d.over.score); saveProfile(); emitH() }
+    else if (d.k === 'end') { HT.mode = 'over'; HT.over = { ...d.over, mine: HT.players[HT.me] ? HT.players[HT.me].kills : 0 }; music.stop(); sfx(d.over.win ? 'win' : 'over'); profile.huntGames = (profile.huntGames || 0) + 1; profile.huntBest = Math.max(profile.huntBest || 0, d.over.score); saveProfile(); emitH() }
   },
   onLeave(cid) { if (!HT.net) return; const i = HT.net.players.findIndex((p) => p.id === cid); if (HT.net.role === 'host' && HT.players[i]) { HT.players[i].down = true; HT.players[i].hp = 0; HT.players[i].gone = true } else if (HT.net.role === 'guest' && HT.mode === 'play' && cid === null) { finish(false) } },
 })

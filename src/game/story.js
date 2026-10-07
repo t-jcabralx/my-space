@@ -370,7 +370,7 @@ function retry() { if (S.ch >= 0) { S.phase = 'intro'; S.lines = resolve(CHAPTER
 function abandon() { S.phase = 'idle'; S.result = null; G.story = null; try { toMenu() } catch { /* ignore */ } emitS(); try { window.dispatchEvent(new CustomEvent('si-open-tab', { detail: 'story' })) } catch { /* ignore */ } }
 // watch the running mission: when it reports a result, show the outro
 function watch(dt) {
-  if (S.phase === 'coopwait') { if (G.mode !== 'menu') { S.phase = 'playing'; S.tick = 0; G.story = S.ch; emitS() } return }
+  if (S.phase === 'coopwait') { const want = { kart: 'race', race: 'race', garden: 'garden', orb: 'orb', ssx: 'ssx', fight: 'fight', rogue: 'rogue', hunt: 'hunt', space: 'playing' }[CHAPTERS[S.ch].coop] || null; if (G.mode !== 'menu' && (!want || G.mode === want)) { S.phase = 'playing'; S.tick = 0; G.story = S.ch; emitS() } return }
   if (S.phase !== 'playing') return
   S.tick += dt
   if (G.mode === 'menu' && S.tick > 2.5) { abandon(); return } // the player left the mission

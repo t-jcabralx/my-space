@@ -89,7 +89,9 @@ const fx = (x, y, z, n, c, sp = 10, life = 0.6, s = 0.5) => { for (let i = 0; i 
 
 // ---------- actions (validated, host side) ----------
 const plantAt = (r, c) => GD.plants.find((p) => p.r === r && p.c === c)
+const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k)
 function canPlant(side, type, r, c) {
+  if (!own(PLANTS, type)) return false
   const d = PLANTS[type]
   if (!d || r < 0 || r >= ROWS || c < 0 || c >= COLS || plantAt(r, c)) return false
   if (side === 'me') { if (GD.sun < d.cost || (GD.cd[type] || 0) > 0) return false }
@@ -110,6 +112,7 @@ function placePlant(type, r, c) { // human gardener
   return true
 }
 function spawnZombie(type, r, x, byHuman) {
+  if (!own(ZOMBIES, type)) return null
   const d = ZOMBIES[type]
   if (!d || r < 0 || r >= ROWS) return null
   const z = { id: GD.id++, type, r, x: x === undefined ? SPAWN_X + Math.random() * 3 : x, hp: d.hp, max: d.hp, slow: 0, eating: 0, hit: 0, t: Math.random() * 6, by: byHuman ? 1 : 0, dead: false }
@@ -117,6 +120,7 @@ function spawnZombie(type, r, x, byHuman) {
   return z
 }
 function dropZombie(type, r) { // human horde
+  if (!own(ZOMBIES, type)) return false
   const d = ZOMBIES[type]
   if (!d || GD.brain < d.cost || (GD.cd[type] || 0) > 0 || r < 0 || r >= ROWS) return false
   GD.brain -= d.cost; GD.cd[type] = d.cd
@@ -297,13 +301,13 @@ function netSnapshot() {
     p: GD.plants.map((p) => [p.id, p.type, p.r, p.c, Math.round(p.hp), r2(p.armed), r2(p.chew), r2(p.fuse), p.kick > 0 ? 1 : 0]),
     z: GD.zombies.map((z) => [z.id, z.type, z.r, r2(z.x), Math.round(z.hp), z.slow > 0 ? 1 : 0, z.eating > 0 ? 1 : 0, z.hit > 0 ? 1 : 0]),
     pe: GD.peas.map((p) => [p.id, p.r, r2(p.x), p.snow ? 1 : 0]), su: GD.suns.map((s) => [s.id, r2(s.x), r2(s.y), s.v, r2(s.fall)]),
-    m: GD.mowers.map((m) => (m.used ? 2 : m.run ? 1 : 0) + ':' + r2(m.x)), k: GD.kills,
+    m: GD.mowers.map((m) => (m.used ? 2 : m.run ? 1 : 0) + ':' + r2(m.x)), k: GD.kills, sc: GD.score,
   }
 }
 let netT = 0
 function hostNet(dt) { netT -= dt; if (netT <= 0 && GD.net) { netT = 0.09; GD.net.send({ k: 'st', s: netSnapshot(), msg: GD.msg ? { ...GD.msg } : null }) } }
 function applySnapshot(s) {
-  GD.t = s.t; GD.sun = s.sun; GD.brain = s.brain; GD.cd = s.cd || {}; GD.kills = s.k
+  GD.t = s.t; GD.sun = s.sun; GD.brain = s.brain; GD.cd = s.cd || {}; GD.kills = s.k; GD.score = s.sc | 0
   const pm = new Map(GD.plants.map((p) => [p.id, p]))
   GD.plants = s.p.map((a) => { const o = pm.get(a[0]) || { t: Math.random() * 3 }; return Object.assign(o, { id: a[0], type: a[1], r: a[2], c: a[3], hp: a[4], max: PLANTS[a[1]].hp, armed: a[5], chew: a[6], fuse: a[7], kick: a[8] ? 0.15 : 0 }) })
   const zm = new Map(GD.zombies.map((z) => [z.id, z]))
@@ -318,7 +322,7 @@ function guestStep(dt) {
   for (const pe of GD.peas) pe.x += 56 * dt
   for (const m of GD.mowers) if (m.run) m.x += 42 * dt
 }
-function emitTick(dt) { if (GD.net && GD.net.role === 'host') hostNet(dt); GD.emitT -= dt; if (GD.emitT <= 0) { GD.emitT = 0.1; emitG() } }
+function emitTick(dt) { if (GD.net && GD.net.role === 'host' && GD.mode === 'play') hostNet(dt); GD.emitT -= dt; if (GD.emitT <= 0) { GD.emitT = 0.1; emitG() } }
 function emitG() {
   const L = LEVELS[GD.lvl] || LEVELS[0]
   const mySide = GD.kind === 'plants' ? 'plants' : GD.kind === 'zombies' ? 'zombies' : GD.net ? (GD.net.me === 0 ? 'plants' : 'zombies') : 'plants'
@@ -405,7 +409,7 @@ registerNet('garden', {
       if (d.k === 'act') hostAct(d.a, GD.net.me === 0 ? 'zombies' : 'plants')
       else if (d.k === 'rematch' && GD.mode === 'over') GD.net.restart()
     } else if (d.k === 'st') { applySnapshot(d.s); if (d.msg && !GD.msg) GD.msg = d.msg }
-    else if (d.k === 'end') { const me0 = GD.net.me === 0, pw = d.over.plantsWon; GD.mode = 'over'; GD.over = { ...d.over, win: me0 ? pw : !pw, side: me0 ? 'plants' : 'zombies' }; sfx(GD.over.win ? 'win' : 'over'); profile.gardenGames = (profile.gardenGames || 0) + 1; if (GD.over.win) profile.gardenWins = (profile.gardenWins || 0) + 1; saveProfile(); music.stop(); emitG() }
+    else if (d.k === 'end') { const me0 = GD.net.me === 0, pw = d.over.plantsWon; GD.mode = 'over'; GD.over = { ...d.over, win: me0 ? pw : !pw, side: me0 ? 'plants' : 'zombies' }; sfx(GD.over.win ? 'win' : 'over'); profile.gardenGames = (profile.gardenGames || 0) + 1; if (GD.over.win) profile.gardenWins = (profile.gardenWins || 0) + 1; profile.gardenKills = (profile.gardenKills || 0) + GD.kills; profile.gardenBest = Math.max(profile.gardenBest || 0, GD.score); recordScore('garden', GD.score); saveProfile(); music.stop(); emitG() }
   },
   onLeave() {
     if (GD.mode !== 'play' || !GD.net) return

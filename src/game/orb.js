@@ -333,7 +333,7 @@ registerNet('orb', {
     else if (d.k === 'st' && OB.foe) { OB.foe.p = +d.p || 0; OB.foe.left = d.left | 0; OB.foe.score = d.score | 0 }
     else if (d.k === 'dead' && OB.mode === 'play') { if (OB.foe) OB.foe.dead = true; OB.score += 1000; finish(true, 'Your rival was swallowed by the hole') }
     else if (d.k === 'clear' && OB.mode === 'play') finish(false, 'Your rival cleared the board first')
-    else if (d.k === 'rematch' && OB.ctx && OB.ctx.role === 'host') OB.ctx.restart()
+    else if (d.k === 'rematch' && OB.ctx && OB.ctx.role === 'host' && OB.mode === 'over') OB.ctx.restart()
   },
   onLeave() { if (OB.mode === 'play') finish(true, 'Your rival left the match') },
 })

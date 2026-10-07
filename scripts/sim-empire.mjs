@@ -55,6 +55,11 @@ for (let i = 0; i < EMCAMP.length; i++) {
   if (EM.mode === 'over' && EM.over.win) ok((profile.empireCamp && profile.empireCamp.cleared) >= i + 1, 'winning saves the campaign')
   empireActions.stop()
 }
+// review fixes: "no rivals" means no rivals; raiders never spawn in the water
+empireActions.start({ ai: 0, diff: 1, size: 1, seed: 3 }); ok(EM.cfg.ai === 0, 'ai: 0 is respected as a setting')
+{ let wet = 0
+  for (let k = 0; k < 6; k++) { empireActions.start({ ai: 3, diff: 2, size: 1, seed: 20 + k }); for (const dir of ['EAST', 'NORTH', 'WEST', 'SOUTH']) { EM.raidDir = dir; EM.raidT = 0.01; EM.raidWarn = 0; const n0 = EM.U.length; update(0.1); for (const u of EM.U.slice(n0)) { const i = (u.x / 2) | 0, j = (u.y / 2) | 0; if (u.owner < 0 && EM.terr[j * MW + i] === 4) wet++ } } }
+  ok(wet === 0, 'no raider starts in the water (' + wet + ')') }
 // map sizes: x4 and x20 (1920 x 1920 tiles) build, run and keep raiders close to the village
 import { setMapSize } from '../src/game/empire.js'
 for (const k of [4, 20]) {

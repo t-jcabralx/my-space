@@ -139,6 +139,7 @@ export function startRace(cfg = {}) {
   RC.cans = []
   const r = rng(c.track * 977 + 13)
   for (let k = 0; k < 9; k++) { const j = Math.floor(((k + 0.5) / 9) * N); RC.cans.push({ idx: j, lat: (r() - 0.5) * W * 0.6, t: 0 }) }
+  ENVC = null
   RC.boxes = []; RC.items = []; RC.shells = []; RC.kid = 1; RC.deadIds = {}
   if (c.kart) {
     RC.cans = []
