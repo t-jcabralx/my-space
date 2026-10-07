@@ -64,6 +64,7 @@ export default function CardsHUD({ SoundBtn, openHelp, TopPlayersMini }) {
           <div className="ct-right"><div className="ct-chips">🪙 {Number(s.chips || 0).toLocaleString()}</div><SoundBtn /></div>
         </div>
         {s.msg && <div className="ct-mid" style={s.id === 'lucky9' || s.id === 'baccarat' ? { top: '31%' } : s.id === 'poker' ? { top: '57%' } : undefined}><div className="ct-msg" key={s.msg}>{s.msg}</div></div>}
+        {s.id === 'uno' && s.timer != null && <div className={'uno-timer' + (s.timer <= 5 ? ' low' : '')}>⏱ {s.timer}</div>}
         {/* UNO centre decorations */}
         {s.id === 'uno' && s.center && (
           <div className="uno-center" style={{ '--c': UCOL[color] }}>

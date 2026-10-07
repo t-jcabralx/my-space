@@ -41,6 +41,19 @@ for (const count of [2, 3, 4]) {
   check('UNO ' + count + 'p completes', r.over, `secs ${(r.frames / 60) | 0} title ${CS.over && CS.over.title}`)
 }
 
+// idle human: after 15s UNO auto-draws one card (or passes)
+{
+  cardsActions.start('uno', { count: 2, stack: false, target: 120 })
+  for (let i = 0; i < 60 * 6; i++) update(1 / 60)
+  notify(); const s0 = getCardsSnap()
+  const before = s0.cards.filter((c) => c.mine).length
+  const idle = s0.seats[0].turn
+  for (let i = 0; i < 60 * 16; i++) update(1 / 60)
+  notify(); const s1 = getCardsSnap()
+  const after = s1.cards.filter((c) => c.mine).length
+  check('UNO idle human auto-draws after 15s', !idle || after > before || !s1.seats[0].turn, `before ${before} after ${after}`)
+}
+
 // ---- Pusoy Dos hand evaluation unit tests ----
 const C = (r, su) => ({ id: r + su, kind: 'std', rank: r, suit: su })
 const ev = (...a) => evalCombo(a.map(([r, s]) => C(r, s)))

@@ -772,3 +772,5 @@ li.bonus { border-color: var(--gr); color: var(--gr); } li.fail { border-color: 
 .kchip.site b { color: #ffd98a; } .kchip.bonus u { position: absolute; left: 0; bottom: 0; height: 4px; background: linear-gradient(90deg, #ffd23a, #ff6a2a); transition: width .3s; }
 .kchip.pl { border-color: var(--pc, #fff); } .kchip.pl small { color: var(--pc, #fff); } .kchip.pl b { color: #ff5a6a; letter-spacing: .1em; } .kchip.pl.dead { opacity: .6; }
 .kmini { top: auto; bottom: 7cqw; border-radius: 6px; border-width: 2px; box-shadow: 0 0 14px #ff8a2a55; }
+
+.uno-timer { position: absolute; left: 50%; top: 14cqw; transform: translateX(-50%); z-index: 90; pointer-events: none; background: #04160fcc; border: 1px solid #ffffff30; padding: .4cqw 1.4cqw; border-radius: 99px; font-weight: 800; font-size: .85em; } .uno-timer.low { color: #ff6a6a; border-color: #ff6a6a; animation: pop .3s; }

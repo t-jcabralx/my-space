@@ -7,6 +7,7 @@ const COLORS = ['R', 'Y', 'G', 'B']
 export const UCOL = { R: '#e8384a', Y: '#f2c21a', G: '#2fb85a', B: '#2f6df0', W: '#20242c' }
 const NAMES = ['YOU', 'MAYA', 'JUN', 'BEA']
 const AVATAR = ['😎', '🦊', '🐼', '🐸']
+const TURN_SECS = 15 // a human who doesn't lay a card in time auto-draws one
 const pts = (c) => (/^\d$/.test(c.value) ? +c.value : c.color === 'W' ? 50 : 20)
 function deck() {
   const d = []
@@ -18,7 +19,7 @@ function deck() {
   for (let k = 0; k < 4; k++) { d.push({ id: newId('u'), kind: 'uno', color: 'W', value: 'W' }); d.push({ id: newId('u'), kind: 'uno', color: 'W', value: 'W4' }) }
   return d
 }
-const U = { players: [], deck: [], discard: [], dir: 1, turn: 0, color: 'R', top: null, pend: 0, pendKind: null, phase: 'idle', msg: '', scores: [], opts: { count: 3, stack: true, target: 200 }, drawn: null, pick: null, round: 1, rot: {}, think: -1, roundInfo: null, uno: {} }
+const U = { players: [], deck: [], discard: [], dir: 1, turn: 0, color: 'R', top: null, pend: 0, pendKind: null, phase: 'idle', msg: '', scores: [], opts: { count: 3, stack: true, target: 200 }, drawn: null, pick: null, round: 1, rot: {}, think: -1, roundInfo: null, uno: {}, turnT: 1e9 }
 const rotOf = (c) => U.rot[c.id] || (U.rot[c.id] = rnd(-16, 16))
 let ACTOR = 0
 const actor = () => U.players[ACTOR]
@@ -76,6 +77,7 @@ function beginTurn() {
   if (U.phase !== 'play') return
   U.drawn = null
   const p = cur()
+  U.turnT = p.human ? TURN_SECS : 1e9
   notify()
   if (!p.human) after(rnd(0.9, 1.6), botTurn)
 }
@@ -207,7 +209,7 @@ function drawFor(h) {
   if (U.pend) { forceDraw(h); return }
   const c = drawCard(h, 1)
   notify()
-  if (c && canPlay(c)) { U.drawn = c; notify() }
+  if (c && canPlay(c)) { U.drawn = c; U.turnT = TURN_SECS; notify() }
   else { toast('No match: turn passes', '#9fd'); after(0.8, () => { U.turn = nextIdx(U.turn); beginTurn() }) }
 }
 function button(name, arg) {
@@ -230,6 +232,14 @@ function button(name, arg) {
   if (name === 'next') { if (ACTOR === 0 && U.phase === 'roundOver' && !U.roundInfo.matchWin) { U.round++; newRound() } }
 }
 function tick(dt) {
+  if (U.phase === 'play' && cur().human && !U.pick && !U.swapFrom && U.turnT < 1e8) {
+    U.turnT -= dt
+    if (U.turnT <= 0) {
+      const h = cur(); U.turnT = 1e9
+      if (U.drawn) { toast(`${h.name} ran out of time: pass`, '#9fd'); U.drawn = null; U.turn = nextIdx(U.turn); beginTurn() }
+      else { toast(`${h.name} ran out of time: draws a card`, '#ff8a96'); drawFor(h) }
+    }
+  }
   for (const k of Object.keys(U.uno)) {
     const st = U.uno[k]
     if (!st) continue
@@ -282,7 +292,7 @@ function snap(v = 0) {
   return {
     phase: U.phase, msg: viewerMsg(v), seats, cards, buttons, deckClick: true, viewer: v,
     center: { color: U.color, dir: U.dir, pend: U.pend, top: U.top && { id: U.top.id, color: U.top.color, value: U.top.value } },
-    prompt,
+    prompt, timer: myTurn ? Math.max(0, Math.ceil(U.turnT)) : null,
     info: `ROUND ${U.round} · FIRST TO ${U.opts.target}${U.opts.sevenZero ? ' · SEVEN-0' : ''}${CS.online ? ' · ONLINE' : ''}`,
     scores: U.players.map((p) => [p.name, p.score]),
   }

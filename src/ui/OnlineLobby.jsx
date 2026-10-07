@@ -82,12 +82,13 @@ export default function OnlineLobby({ s, TopPlayers, initGame }) {
     const t = setInterval(() => listRooms(game), 4000)
     return () => clearInterval(t)
   }, [game, room])
+  const [invite, setInvite] = useState('')
   const autoJoined = useRef(false)
   useEffect(() => {
     if (autoJoined.current || room) return
     let c = ''
     try { c = (new URLSearchParams(location.search).get('join') || '').toUpperCase().slice(0, 5) } catch { /* ignore */ }
-    if (c.length >= 4) { autoJoined.current = true; join(c) }
+    if (c.length >= 4) { autoJoined.current = true; setInvite(c) }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   const [copied, setCopied] = useState(false)
@@ -99,7 +100,11 @@ export default function OnlineLobby({ s, TopPlayers, initGame }) {
 
   const run = async (fn) => { setMsg(''); try { await fn() } catch (e) { setMsg(e.message || 'Something went wrong') } }
   const create = () => run(async () => { setName && setName(cleanN()); await createRoom(game, cleanN(), game === 'uno' ? { target, stack, sevenZero: seven } : game === 'lucky9' ? { bots: lbots } : {}) })
-  const join = (c) => run(async () => { setName && setName(cleanN()); await joinRoom(c, cleanN()) })
+  const hasName = () => { const n = cleanN(); return !!(name || '').trim() && n !== 'PLAYER' }
+  const join = (c) => run(async () => {
+    if (!hasName()) throw new Error('Enter your name first')
+    setName && setName(cleanN()); setInvite(''); await joinRoom(c, cleanN())
+  })
   const isHost = !!room && room.host === rt.cid
   const g = room ? GAMES.find((x) => x[0] === room.game) : null
   const start = () => run(async () => {
@@ -125,6 +130,21 @@ export default function OnlineLobby({ s, TopPlayers, initGame }) {
   })
   const share = room ? `${room.code}` : ''
 
+  if (!room && invite) {
+    return (
+      <div className="lobby">
+        <div className="lobbyL">
+          <h4>ENTER YOUR NAME TO JOIN ROOM {invite}</h4>
+          <form className="chips" onSubmit={(e) => { e.preventDefault(); join(invite) }}>
+            <input className="nameIn" autoFocus value={name === 'PLAYER' ? '' : name} maxLength={12} onChange={(e) => setNm(e.target.value)} placeholder="NAME" />
+            <button className="big" type="submit" disabled={rt.busy}>JOIN</button>
+            <button className="big sec" type="button" onClick={() => setInvite('')}>CANCEL</button>
+          </form>
+          {(msg || rt.error) && <div className="lobbyinfo" style={{ color: '#ff8a96' }}>{msg || rt.error}</div>}
+        </div>
+      </div>
+    )
+  }
   if (!room) {
     return (
       <div className="lobby">
