@@ -14,7 +14,7 @@ export const metadata = {
   twitter: { card: 'summary_large_image', title: `${SITE_NAME}: free online games with friends`, description: SITE_DESC },
   category: 'games',
 }
-export const viewport = { width: 'device-width', initialScale: 1, maximumScale: 1, userScalable: false }
+export const viewport = { width: 'device-width', initialScale: 1, maximumScale: 1, userScalable: false, viewportFit: 'cover' }
 
 export default function RootLayout({ children }) {
   return (

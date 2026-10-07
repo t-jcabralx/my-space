@@ -808,3 +808,12 @@ li.bonus { border-color: var(--gr); color: var(--gr); } li.fail { border-color: 
 .nameIn { background: #070c26; color: #fff; border: 2px solid #3de8ff80; border-radius: 4px; padding: .5em .7em; font: inherit; font-size: 1em; min-width: 0; text-transform: uppercase; } .nameIn:focus { outline: none; border-color: #3de8ff; box-shadow: 0 0 10px #3de8ff80; } .nameIn::placeholder { color: #7f8fc0; }
 .joinbar .nameIn { flex: 1 1 7em; width: auto; max-width: 14em; } .joinbar .nameIn.code { flex: 0 1 6em; }
 .chips .nameIn { max-width: 100%; }
+
+/* ---- phones: keep controls clear of notches/home bar, keep HUD text legible ---- */
+@media (pointer: coarse) {
+  .touchpad { padding-left: max(3cqw, env(safe-area-inset-left)); padding-right: max(3cqw, env(safe-area-inset-right)); bottom: max(2cqw, env(safe-area-inset-bottom)); }
+  .hud { font-size: max(9px, 1.05cqw); }
+  .touchpad button, .ftouch button { -webkit-touch-callout: none; }
+  .rotatefull .big { margin-top: 6px; }
+}
+.rotatefull h2, .rotatefull p { line-height: 1.6; }

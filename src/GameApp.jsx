@@ -77,6 +77,13 @@ export default function GameApp() {
     try { const el = document.documentElement; const p = el.requestFullscreen ? el.requestFullscreen() : null; Promise.resolve(p).then(() => screen.orientation && screen.orientation.lock && screen.orientation.lock('landscape')).catch(() => {}) } catch { /* ignore */ }
   }, [snap && snap.mode])
 
+  // a tiny buzz on on-screen buttons makes touch controls feel like real buttons (where the browser allows it)
+  useEffect(() => {
+    if (!isTouchPrimary() || !navigator.vibrate) return
+    const buzz = (e) => { const t = e.target; if (t && t.closest && t.closest('.touchpad button, .ftouch button, .sxpad, .mg-stick')) { try { navigator.vibrate(10) } catch { /* ignore */ } } }
+    window.addEventListener('pointerdown', buzz, true)
+    return () => window.removeEventListener('pointerdown', buzz, true)
+  }, [])
   useEffect(() => {
     const down = (e) => {
       if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault()
