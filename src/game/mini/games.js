@@ -1,4 +1,4 @@
-// MINI GAMES: twenty-two quick original canvas games in the classic browser-arcade genres (stacker, flappy, bubble shooter,
+// MINI GAMES: twenty-four quick original canvas games in the classic browser-arcade genres (stacker, flappy, bubble shooter,
 // runner, slicer, match-3, memory, whack-a-mole, idle miner, traffic dodger). Each game is a small object the shell drives:
 //   reset(), update(dt), draw(g), down(x, y), move(x, y), up(x, y), key(code)  +  score, over, label
 // Logical canvas is W x H; the shell scales it to the screen and maps touch/mouse into these coordinates.
@@ -1136,6 +1136,110 @@ function archery() {
   return o
 }
 
+// ---------------------------------------------------------------- 23. TIME RIFT RUNNER (the 4th dimension is time: rewind it)
+function timeRift() {
+  const o = { score: 0, over: false, label: 'TAP TO JUMP · WHEN YOU CRASH, TIME REWINDS 3 SECONDS · 3 REWINDS', rewinds: 3 }
+  const GY = H - 120
+  let p, obs, coins, dist, speed, nextSpawn, jumps, fx, coinN, hist, histT, rew, ghost
+  const snap = () => ({ p: { ...p }, obs: obs.map((a) => ({ ...a })), coins: coins.map((c) => ({ ...c })), dist, speed, nextSpawn, jumps, coinN })
+  const load = (h) => { p = { ...h.p }; obs = h.obs.map((a) => ({ ...a })); coins = h.coins.map((c) => ({ ...c })); dist = h.dist; speed = h.speed; nextSpawn = h.nextSpawn; jumps = h.jumps; coinN = h.coinN }
+  o.reset = () => { p = { y: GY, vy: 0 }; obs = []; coins = []; dist = 0; speed = 250; nextSpawn = 400; jumps = 0; fx = []; coinN = 0; hist = []; histT = 0; rew = 0; ghost = null; o.rewinds = 3; o.score = 0; o.over = false }
+  const jump = () => { if (o.over || rew > 0 || jumps >= 2) return; p.vy = -640; jumps++; puff(fx, 80, p.y, 5, '#3de8ff', 80) }
+  o.down = jump; o.key = (c) => { if (c === 'Space' || c === 'ArrowUp') jump() }
+  o.update = (dt) => {
+    stepFx(fx, dt)
+    if (o.over) return
+    if (rew > 0) {
+      // time runs backwards: replay the recorded frames in reverse, fast
+      rew -= dt; const steps = Math.max(1, Math.ceil(hist.length / Math.max(1, rew / dt))); for (let k = 0; k < steps && hist.length > 1; k++) hist.pop()
+      if (hist.length) load(hist[hist.length - 1])
+      if (rew <= 0 || hist.length <= 1) { rew = 0; p.y = GY; p.vy = 0; jumps = 0; obs = obs.filter((a) => a.x > 260 || a.x < -60); for (const a of obs) if (a.x < 200 && a.x > -40) a.x += 260; ghost = 1.2 }
+      return
+    }
+    ghost = ghost ? Math.max(0, ghost - dt) : 0
+    speed = Math.min(540, 250 + dist * 0.012); dist += speed * dt
+    p.vy += 1900 * dt; p.y += p.vy * dt; if (p.y >= GY) { p.y = GY; p.vy = 0; jumps = 0 }
+    nextSpawn -= speed * dt
+    if (nextSpawn <= 0) { const k = pick(['spike', 'spike', 'block', 'double', 'wall']); obs.push({ x: W + 40, k, w: k === 'block' ? 34 : k === 'double' ? 52 : k === 'wall' ? 22 : 28, h: k === 'block' ? 48 : k === 'wall' ? 74 : 30 }); if (Math.random() < 0.7) for (let q = 0; q < 3; q++) coins.push({ x: W + 40 + q * 28, y: GY - rnd(70, 160) }); nextSpawn = rnd(300, 470) + speed * 0.25 }
+    for (const a of obs) a.x -= speed * dt
+    for (const c of coins) c.x -= speed * dt
+    while (obs.length && obs[0].x < -80) obs.shift()
+    while (coins.length && coins[0].x < -40) coins.shift()
+    histT += dt; if (histT >= 0.05) { histT = 0; hist.push(snap()); if (hist.length > 60) hist.shift() }
+    if (!ghost) for (const a of obs) if (a.x < 80 + 12 && a.x + a.w > 80 - 12 && p.y > GY - a.h + 6) {
+      if (o.rewinds > 0 && hist.length > 8) { o.rewinds--; rew = 0.7; puff(fx, 80, p.y - 14, 22, '#7af0ff', 200); break }
+      o.over = true; puff(fx, 80, p.y - 14, 20, '#ff4d6d'); break
+    }
+    for (let i = coins.length - 1; i >= 0; i--) if (Math.hypot(coins[i].x - 80, coins[i].y - (p.y - 16)) < 24) { puff(fx, coins[i].x, coins[i].y, 5, '#ffe84a', 90); coins.splice(i, 1); coinN++; if (coinN % 12 === 0 && o.rewinds < 5) { o.rewinds++ } }
+    o.score = Math.floor(dist / 12) + coinN * 10
+  }
+  o.draw = (g) => { sky(g, '#0a2a4a', '#021018'); txt(g, 'TIME RIFT', W / 2, 40, 16, '#7af0ff') }
+  o.draw3 = (r, g) => {
+    r.look(-20, 330, -640, -20, 262, 0, 45)
+    const back = rew > 0
+    r.begin(back ? '#0a4a6a' : '#1a0a4a', back ? '#021a2a' : '#06021a')
+    for (let i = 0; i < 9; i++) { const x = ((i * 90 - dist * 0.15) % 720 + 720) % 720 - 360, h = 60 + (i * 37) % 110; r.box(x, 114 + h / 2, 150 + (i % 3) * 40, 44, h, 34, back ? hsl(190 + i * 6, 60, 26) : hsl(250 + i * 14, 60, 22), { edge: false }) }
+    r.box(0, 100, 0, 800, 28, 150, back ? '#0a2a3a' : '#16093a'); r.box(0, 114, -75, 800, 4, 5, back ? '#7af0ff' : '#ff4de1', { glow: 1.3, edge: false })
+    for (let k = -6; k < 12; k++) { const x = k * 40 - (dist % 40) - 200; r.box(x, 114.5, 0, 3, 1, 148, back ? '#7af0ff' : '#ff4de1', { alpha: 0.3, edge: false }) }
+    for (const a of obs) {
+      const x = a.x + a.w / 2 - W / 2
+      if (a.k === 'block') r.box(x, 114 + a.h / 2, 0, a.w, a.h, 36, '#7a3cff')
+      else if (a.k === 'wall') r.box(x, 114 + a.h / 2, 0, a.w, a.h, 40, '#ff9a3a', { glow: 1.1 })
+      else { const n = a.k === 'double' ? 2 : 1; for (let q = 0; q < n; q++) r.pyramid(a.x + 13 + q * 26 - W / 2, 114, 0, 26, a.h, 26, '#ff4d6d') }
+    }
+    for (const c of coins) r.sphere(c.x - W / 2, H - c.y, 0, 8, '#ffe84a', { glow: 1.1 })
+    if (!o.over) { const px = 80 - W / 2, py = H - p.y; r.shadow(px, 0, 15, 0.35, 114); r.box(px, py + 15, 0, 28, 30, 24, back ? '#a8f4ff' : '#3de8ff', { alpha: ghost ? 0.55 : 1 }); r.box(px + 8, py + 22, -13, 9, 9, 4, '#ffffff'); if (back) for (let q = 1; q <= 4; q++) r.box(px - q * 14, py + 15, 0, 28, 30, 24, '#7af0ff', { alpha: 0.18 / q, edge: false }) }
+    r.fx(fx); r.flush()
+    for (let q = 0; q < 5; q++) txt(g, '⏪', 28 + q * 22, 28, 14, q < o.rewinds ? '#7af0ff' : '#334')
+    if (back) { g.fillStyle = 'rgba(122,240,255,0.12)'; g.fillRect(0, 0, W, H); txt(g, '⏪ REWINDING', W / 2, 120, 16, '#7af0ff') }
+  }
+  return o
+}
+
+// ---------------------------------------------------------------- 24. TESSERACT TAP (a rotating 4D hypercube)
+function tesseractTap() {
+  const o = { score: 0, over: false, label: 'TAP THE GLOWING CORNER OF THE 4D CUBE BEFORE IT FADES', lives: 3 }
+  const V = []; for (let i = 0; i < 16; i++) V.push([(i & 1) ? 1 : -1, (i & 2) ? 1 : -1, (i & 4) ? 1 : -1, (i & 8) ? 1 : -1])
+  const E = []; for (let i = 0; i < 16; i++) for (let b = 0; b < 4; b++) { const j = i ^ (1 << b); if (j > i) E.push([i, j]) }
+  let ang, tgt, tleft, time, fx, pts, lives, streak, spawnGap
+  const rot2 = (a, b, th) => { const c = Math.cos(th), s = Math.sin(th); return [a * c - b * s, a * s + b * c] }
+  const project = () => V.map((v) => {
+    let [x, y, z, w] = v
+    ;[x, w] = rot2(x, w, ang * 0.9); [y, z] = rot2(y, z, ang * 0.55); [z, w] = rot2(z, w, ang * 0.7); [x, y] = rot2(x, y, ang * 0.3)
+    const k = 1 / (2.3 - w * 0.55), X = x * k, Y = y * k, Z = z * k, k3 = 1 / (3.4 - Z * 0.5)
+    return { x: X * 86, y: Y * 86, z: Z * 86, w, s: k3 }
+  })
+  o.reset = () => { ang = 0; tgt = -1; tleft = 0; time = 0; fx = []; pts = []; lives = 3; o.lives = 3; streak = 0; spawnGap = 0.5; o.score = 0; o.over = false }
+  o.down = (x, y) => {
+    if (o.over || tgt < 0 || !pts.length) return
+    const q = pts[tgt]; if (!q.sx) return
+    if (Math.hypot(x - q.sx, y - q.sy) < 40) { streak++; o.score += 10 + Math.min(40, streak * 3); puff(fx, q.sx, q.sy, 12, '#ffe84a', 200); tgt = -1; spawnGap = 0.25; tleft = 0 }
+  }
+  o.update = (dt) => {
+    stepFx(fx, dt); ang += dt * (0.55 + Math.min(0.9, o.score / 400)); time += dt
+    pts = pts.length ? pts : project()
+    if (o.over) return
+    if (tgt >= 0) { tleft -= dt; if (tleft <= 0) { tgt = -1; streak = 0; lives--; o.lives = lives; spawnGap = 0.5; if (lives <= 0) o.over = true } }
+    else { spawnGap -= dt; if (spawnGap <= 0) { tgt = ri(0, 15); tleft = Math.max(0.9, 2.2 - o.score / 250) } }
+  }
+  o.draw = (g) => { sky(g, '#0a1030', '#02030a'); txt(g, 'TESSERACT', W / 2, 40, 16, '#b27aff') }
+  o.draw3 = (r, g) => {
+    r.look(0, 0, -330, 0, 0, 0, 45); r.begin('#0c0828', '#020108')
+    for (let i = 0; i < 40; i++) r.sphere(((i * 61) % 400) - 200, ((i * 97) % 520) - 260, 160 + (i % 5) * 20, 1, '#ffffff', { shine: false, alpha: 0.5 })
+    const P = project()
+    P.forEach((q, i) => { const sp = r.proj([q.x, q.y, q.z]); q.sx = sp ? sp.x : 0; q.sy = sp ? sp.y : 0 })
+    pts = P
+    for (const [a, b] of E) { const hot = a === tgt || b === tgt; r.line([P[a].x, P[a].y, P[a].z], [P[b].x, P[b].y, P[b].z], hot ? '#ffe84a' : hsl(250 + (P[a].w + 1) * 40, 80, 60), hot ? 3 : 2) }
+    P.forEach((q, i) => { const w = (q.w + 1) / 2; r.sphere(q.x, q.y, q.z, 5 + 3 * w + (i === tgt ? 2 + Math.sin(time * 14) * 1.2 : 0), i === tgt ? '#ffe84a' : hsl(250 + w * 90, 80, 58), { glow: i === tgt ? 1.7 : 1 }) })
+    r.fx(fx, (p) => [p.x - W / 2, 270 - p.y, -40]); r.flush()
+    if (tgt >= 0 && pts[tgt].sx) { g.strokeStyle = '#ffe84a'; g.lineWidth = 3; g.beginPath(); g.arc(pts[tgt].sx, pts[tgt].sy, 26 * (tleft / Math.max(0.9, 2.2 - o.score / 250)) + 10, 0, TAU); g.stroke(); g.lineWidth = 1 }
+    for (let q = 0; q < 3; q++) txt(g, q < lives ? '♥' : '♡', 30 + q * 28, 24, 18, q < lives ? '#ff5a6a' : '#664')
+    if (streak >= 3) txt(g, 'STREAK x' + streak, W / 2, 60, 12, '#ffe84a')
+    txt(g, '4D ROTATION', W / 2, H - 30, 9, '#7a6aff')
+  }
+  return o
+}
+
 export const MINI = [
   { id: 'stack', icon: '🏗️', name: 'STACK TOWER', desc: 'Time your taps and build the tallest tower', make: wrapR3(stackTower) },
   { id: 'wing', icon: '🐤', name: 'WING DASH', desc: 'Flap through the pipes without a single touch', make: wrapR3(wingDash) },
@@ -1159,4 +1263,6 @@ export const MINI = [
   { id: 'ttt', icon: '❌', name: 'TIC-TAC-TOE', desc: 'Beat a bot that gets smarter every round', make: wrapR3(ticTacToe, true) },
   { id: 'pong', icon: '🏓', name: 'PONG DUEL', desc: 'Classic paddle duel against a speeding bot', make: wrapR3(pongDuel) },
   { id: 'archery', icon: '🏹', name: 'ARCHERY', desc: 'Pull back, read the wind, hit the bullseye', make: wrapR3(archery) },
+  { id: 'rift', icon: '⏪', name: 'TIME RIFT', desc: '4D runner: crash and time rewinds, three times', make: wrapR3(timeRift) },
+  { id: 'tess', icon: '🧊', name: 'TESSERACT TAP', desc: '4D hypercube: tap the glowing corner in time', make: wrapR3(tesseractTap) },
 ]
