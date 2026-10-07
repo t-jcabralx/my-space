@@ -1,5 +1,5 @@
 import { update, G, games } from '../src/game/engine.js'
-import { HT, huntActions, MONS, SHOP, AW, AH } from '../src/game/hunt.js'
+import { HT, huntActions, MONS, SHOP, AW, AH, worldNear } from '../src/game/hunt.js'
 let failures = 0
 const check = (n, c, i) => { if (!c) failures++; console.log(c ? 'PASS' : 'FAIL', n, i || '') }
 const api = { put3: (...a) => { if (a.slice(0, 10).some((v) => !Number.isFinite(v))) throw new Error('NaN put3 ' + a) }, putS: (...a) => { if (a.slice(0, 9).some((v) => !Number.isFinite(v))) throw new Error('NaN putS ' + a) }, putM: (...a) => { if (a.slice(0, 6).some((v) => !Number.isFinite(v))) throw new Error('NaN putM') } }
@@ -50,14 +50,15 @@ p0.scrap = 200; huntActions.buy('mines'); check('mines can be bought', p0.mines 
 {
   reset(); huntActions.start({ kind: 'back', seed: 11 })
   const p = HT.players[0]; HT.spawnQ = []; HT.rate = 999; HT.phase = 'night'
-  check('the world is big and full of things to find', AW >= 100 && HT.obst.filter((o) => o.crate).length >= 20 && HT.obst.some((o) => o.tomb) && HT.obst.length > 150, `obstacles ${HT.obst.length}`)
-  HT.obst.forEach((o) => { if (!o.crate && Math.hypot(o.x - 30, o.y - 30) < 25) o.dead = true })
+  const around = []; for (let x = -240; x <= 240; x += 48) for (let y = -240; y <= 240; y += 48) around.push(...worldNear(x, y, 0))
+  check('the world is huge and full of things to find', AW >= 4000 && AH >= 2400 && around.filter((o) => o.crate).length >= 15 && around.some((o) => o.tomb) && around.some((o) => o.tower) && around.length > 150, `obstacles near the cabin ${around.length}`)
+  worldNear(30, 30).forEach((o) => { if (!o.crate && Math.hypot(o.x - 30, o.y - 30) < 25) o.dead = true })
   p.x = 30; p.y = 30; p.up.shotgun = 1; p.wp = 'shotgun'; p.mag = 6; p.mags.shotgun = 6; p.a = 0; HT.mouse.sx = undefined; HT.mouse.x = 99; HT.mouse.y = 30; HT.mouse.down = true
   const b0 = HT.bul.length; step(1); HT.mouse.down = false
   check('the shotgun fires a spread of pellets', HT.bul.length - b0 >= 5, 'bullets ' + HT.bul.length)
-  const cr = HT.obst.find((o) => o.crate); p.x = cr.x - 12; p.y = cr.y; p.wp = 'rifle'; p.mag = 12; p.a = 0; HT.mouse.x = cr.x; HT.mouse.y = cr.y; HT.mouse.down = true; step(20 * 4); HT.mouse.down = false
+  const cr = around.find((o) => o.crate && !o.dead); worldNear(cr.x, cr.y).forEach((o) => { if (o !== cr && Math.hypot(o.x - cr.x, o.y - cr.y) < 16) o.dead = true }); p.x = cr.x - 12; p.y = cr.y; p.wp = 'rifle'; p.mag = 12; p.a = 0; HT.mouse.x = cr.x; HT.mouse.y = cr.y; HT.mouse.down = true; step(20 * 4); HT.mouse.down = false
   check('crates can be shot open for loot', cr.dead && HT.pick.length >= 2, 'dead ' + cr.dead + ' pickups ' + HT.pick.length)
-  HT.obst.forEach((o) => { if (!o.crate && Math.hypot(o.x - p.x, o.y - p.y) < 70) o.dead = true })
+  worldNear(p.x, p.y, 2).forEach((o) => { if (!o.crate && Math.hypot(o.x - p.x, o.y - p.y) < 70) o.dead = true })
   HT.mons = [{ id: 50, type: 'wraith', x: p.x + 40, y: p.y, hp: 38, max: 38, a: 0, atkT: 0, hit: 0, t: 0, spitT: 9, sumT: 9, charge: 0, vx: 0, vy: 0, seen: 0, blink: 0.1 }]
   const wx = HT.mons[0].x; step(10)
   check('a wraith blinks toward you', wx - HT.mons[0].x > 12, 'moved ' + (wx - HT.mons[0].x).toFixed(1))

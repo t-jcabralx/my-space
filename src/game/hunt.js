@@ -8,7 +8,8 @@ import { clamp, rng } from './pxl.js'
 import { unprojectGround } from './rogue3d.js'
 import { registerNet, gameEnded } from './online/gnet.js'
 
-export const AW = 230, AH = 135, DAYS = 13
+export const AW = 4600, AH = 2700, DAYS = 13 // 20x the old map, generated chunk by chunk
+export const CH = 48
 const TAU = Math.PI * 2
 const angDiff = (a, b) => { let d = a - b; while (d > Math.PI) d -= TAU; while (d < -Math.PI) d += TAU; return d }
 export const MONS = {
@@ -45,38 +46,52 @@ export const getHuntSnap = () => snap
 function mkPlayer(i, name) {
   return { i, name: name || 'HUNTER ' + (i + 1), x: -6 + i * 6, y: -8, hp: 100, max: 100, a: Math.PI / 2, mag: 12, reserve: 60, reload: 0, fireCd: 0, dashT: 0, dashCd: 0, mines: 2, scrap: 40, kills: 0, down: false, reviveT: 0, hit: 0, up: { dmg: 0, rate: 0, hp: 0, light: 0, speed: 0, shotgun: 0, smg: 0 }, wp: 'rifle', mags: { rifle: 12, shotgun: 0, smg: 0 }, in: { dx: 0, dy: 0, a: Math.PI / 2, fire: false }, color: COLORS[i % 3], walk: 0, kick: 0, flash: 0 }
 }
-function buildWorld(seed) {
-  const r = rng(seed)
-  HT.obst = [{ x: 0, y: 0, r: 7.5, cabin: true }]
-  HT.decor = [{ x: 10, y: -10, fire: true }]
-  const free = (x, y, rr) => Math.hypot(x, y) > 14 && !HT.obst.some((o) => Math.hypot(o.x - x, o.y - y) < o.r + rr + 2)
-  // a graveyard in one corner and a wrecked car in the other
-  for (let i = 0; i < 4; i++) for (let j = 0; j < 3; j++) HT.obst.push({ x: -AW + 26 + i * 6, y: AH - 24 + j * 6, r: 1.1, tomb: true })
-  HT.obst.push({ x: AW - 28, y: -AH + 22, r: 3.2, car: true })
-  // outposts with a campfire and a ring of crates, and ruined watchtowers, spread over the wide map
-  for (const [ox, oy] of [[-120, -60], [120, 60], [-110, 70], [115, -70], [0, 100], [0, -105], [-190, 0], [190, 0]]) {
-    HT.decor.push({ x: ox, y: oy, fire: true })
-    for (let k = 0; k < 4; k++) HT.obst.push({ x: ox + Math.cos(k * 1.57 + 0.6) * 7, y: oy + Math.sin(k * 1.57 + 0.6) * 7, r: 1.6, crate: true, hp: 40 })
-    HT.obst.push({ x: ox + 14, y: oy + 6, r: 2.4, tower: true })
+// The world is made of 48x48 chunks that are generated the first time anybody gets near them. Everything is a pure function of
+// the seed and the chunk coordinates, so every online player builds exactly the same forest.
+const h3 = (a, b, c) => { let h = Math.imul(a | 0, 374761393) ^ Math.imul(b | 0, 668265263) ^ Math.imul(c | 0, 2246822519); h = Math.imul(h ^ (h >>> 13), 1274126177); return (h ^ (h >>> 16)) >>> 0 }
+function genChunk(cx, cy) {
+  const obs = [], decor = []
+  const r = rng(h3(cx, cy, HT.seed))
+  const x0 = cx * CH, y0 = cy * CH
+  const ok = (x, y, rr) => Math.hypot(x, y) > 16 && !obs.some((o) => Math.hypot(o.x - x, o.y - y) < o.r + rr + 2)
+  const add = (o) => { o.key = cx + ',' + cy + ',' + obs.length; if (HT.deadSet.has(o.key)) o.dead = true; obs.push(o); HT.byKey.set(o.key, o) }
+  if (cx === 0 && cy === 0) { add({ x: 0, y: 0, r: 7.5, cabin: true }); decor.push({ x: 10, y: -10, fire: true }) }
+  if (cx === -2 && cy === 0) for (let i = 0; i < 4; i++) for (let j = 0; j < 3; j++) add({ x: -90 + i * 6, y: 10 + j * 6, r: 1.1, tomb: true })
+  if (cx === 2 && cy === -1) add({ x: 100, y: -30, r: 3.2, car: true })
+  // an outpost (campfire, crates, a ruined watchtower) in roughly one chunk in seven
+  if (Math.abs(cx) + Math.abs(cy) > 1 && r() < 0.14) {
+    const ox = x0 + 12 + r() * (CH - 24), oy = y0 + 12 + r() * (CH - 24)
+    decor.push({ x: ox, y: oy, fire: true })
+    for (let k = 0; k < 4; k++) add({ x: ox + Math.cos(k * 1.57 + 0.6) * 7, y: oy + Math.sin(k * 1.57 + 0.6) * 7, r: 1.6, crate: true, hp: 40 })
+    add({ x: ox + 14, y: oy + 6, r: 2.4, tower: true })
   }
-  for (let i = 0; i < 1100; i++) {
-    const x = (r() * 2 - 1) * (AW - 3), y = (r() * 2 - 1) * (AH - 3), rock = r() < 0.28, rr = rock ? 1.8 : r() < 0.7 ? 1.6 : 2.4
-    if (!free(x, y, rr)) continue
-    HT.obst.push({ x, y, r: rr, rock, h: 0.8 + r() * 0.9 })
+  const trees = 12 + ((r() * 8) | 0)
+  for (let i = 0; i < trees; i++) {
+    const x = x0 + r() * CH, y = y0 + r() * CH, rock = r() < 0.28, rr = rock ? 1.8 : r() < 0.7 ? 1.6 : 2.4
+    if (!ok(x, y, rr)) continue
+    add({ x, y, r: rr, rock, h: 0.8 + r() * 0.9 })
   }
-  let crates = 0
-  for (let i = 0; i < 1500 && crates < 60; i++) {
-    const x = (r() * 2 - 1) * (AW - 6), y = (r() * 2 - 1) * (AH - 6)
-    if (!free(x, y, 1.6)) continue
-    HT.obst.push({ x, y, r: 1.6, crate: true, hp: 40 }); crates++
-  }
-  HT.obst.forEach((o, i) => { o.i = i })
+  const crates = r() < 0.7 ? 1 + ((r() * 2) | 0) : 0
+  for (let i = 0; i < crates; i++) { const x = x0 + r() * CH, y = y0 + r() * CH; if (ok(x, y, 1.6)) add({ x, y, r: 1.6, crate: true, hp: 40 }) }
+  return { obs, decor }
 }
+const chunk = (cx, cy) => {
+  const k = cx + ',' + cy
+  let c = HT.chunks.get(k)
+  if (!c) { if (HT.chunks.size > 900) { HT.chunks.clear(); HT.byKey.clear() } c = genChunk(cx, cy); HT.chunks.set(k, c) }
+  return c
+}
+// every obstacle in the chunks within reach of (x, y)
+function near3(x, y, reach = 1) { const out = [], ci = Math.floor(x / CH), cj = Math.floor(y / CH); for (let i = ci - reach; i <= ci + reach; i++) for (let j = cj - reach; j <= cj + reach; j++) out.push(...chunk(i, j).obs); return out }
+export const worldNear = near3
+function viewChunks(x, y, hw, hh) { const out = []; for (let i = Math.floor((x - hw) / CH); i <= Math.floor((x + hw) / CH); i++) for (let j = Math.floor((y - hh) / CH); j <= Math.floor((y + hh) / CH); j++) out.push(chunk(i, j)); return out }
+function buildWorld(seed) { HT.seed = seed; HT.chunks = new Map(); HT.byKey = new Map(); HT.deadSet = new Set(); HT.deadKeys = [] }
+
 function start(o = {}) {
   HT.kind = o.kind === 'back' ? 'back' : 'days'
-  HT.seed = o.seed || ((Math.random() * 1e9) | 0)
-  HT.rnd = rng(HT.seed)
-  buildWorld(HT.seed)
+  const seed = o.seed || ((Math.random() * 1e9) | 0)
+  HT.rnd = rng(seed)
+  buildWorld(seed)
   const n = o.net ? o.net.players.length : 1
   HT.players = Array.from({ length: n }, (_, i) => mkPlayer(i, o.net ? o.net.players[i].name : (profile.name || 'HUNTER')))
   HT.me = o.net ? o.net.me : 0
@@ -134,7 +149,7 @@ function spawnMon(type) {
 // ---------- the simulation ----------
 const nearestPlayer = (x, y) => { let b = null, bd = 1e9; for (const p of HT.players) { if (p.down) continue; const d = Math.hypot(p.x - x, p.y - y); if (d < bd) { bd = d; b = p } } return b }
 function push(e, r) {
-  for (const o of HT.obst) { if (o.dead) continue; const dx = e.x - o.x, dy = e.y - o.y, d = Math.hypot(dx, dy), m = o.r + r; if (d < m && d > 0.001) { e.x = o.x + (dx / d) * m; e.y = o.y + (dy / d) * m } }
+  for (const o of near3(e.x, e.y)) { if (o.dead) continue; const dx = e.x - o.x, dy = e.y - o.y, d = Math.hypot(dx, dy), m = o.r + r; if (d < m && d > 0.001) { e.x = o.x + (dx / d) * m; e.y = o.y + (dy / d) * m } }
   e.x = clamp(e.x, -AW, AW); e.y = clamp(e.y, -AH, AH)
 }
 const lightR = (p) => 17 + p.up.light * 3.2, lightHalf = (p) => 0.42 + p.up.light * 0.06
@@ -216,7 +231,7 @@ function stepMon(m, dt) {
   if (m.slow > 0) { m.slow -= dt; spd *= 0.5 }
   if (m.rage > 0) { m.rage -= dt; spd *= 1.5 }
   // steer around the cabin and trees
-  for (const o of HT.obst) { if (o.dead) continue; const ox = o.x - m.x, oy = o.y - m.y, od = Math.hypot(ox, oy); if (od < o.r + D.r + 3 && Math.abs(angDiff(Math.atan2(oy, ox), ang)) < 1.2) { ang += (angDiff(Math.atan2(oy, ox), ang) > 0 ? -1 : 1) * 1.0 } }
+  for (const o of near3(m.x, m.y)) { if (o.dead) continue; const ox = o.x - m.x, oy = o.y - m.y, od = Math.hypot(ox, oy); if (od < o.r + D.r + 3 && Math.abs(angDiff(Math.atan2(oy, ox), ang)) < 1.2) { ang += (angDiff(Math.atan2(oy, ox), ang) > 0 ? -1 : 1) * 1.0 } }
   m.a = ang
   if (!(m.type === 'spitter' && d > 9 && d < 14)) { m.x += Math.cos(ang) * spd * dt; m.y += Math.sin(ang) * spd * dt }
   else { m.x += Math.cos(ang) * spd * dt * 0.6; m.y += Math.sin(ang) * spd * dt * 0.6 }
@@ -282,7 +297,7 @@ function update(dtRaw) {
       if (m.dead) continue
       if (Math.hypot(m.x - b.x, m.y - b.y) < MONS[m.type].r + 0.7) { m.hp -= b.dmg; m.hit = 0.12; m.lastHit = b.owner; b.life = 0; fx(b.x, b.y, 3, [0.6, 1.4, 0.4], 8, 0.3, 0.4); if (m.hp <= 0) killMon(m); break }
     }
-    for (const o of HT.obst) { if (o.dead || Math.hypot(o.x - b.x, o.y - b.y) >= o.r) continue; b.life = 0; if (o.crate) { o.hp -= b.dmg; if (o.hp <= 0) { o.dead = true; fx(o.x, o.y, 10, [1.6, 1.1, 0.4], 12, 0.5, 0.6); sfx('crate'); for (let q = 0; q < 3; q++) HT.pick.push({ id: HT.id++, k: 'scrap', v: 6, x: o.x + (Math.random() - 0.5) * 3, y: o.y + (Math.random() - 0.5) * 3, life: 40 }); HT.pick.push({ id: HT.id++, k: Math.random() < 0.6 ? 'ammo' : 'med', v: 18, x: o.x, y: o.y, life: 40 }) } } }
+    for (const o of near3(b.x, b.y, 0)) { if (o.dead || Math.hypot(o.x - b.x, o.y - b.y) >= o.r) continue; b.life = 0; if (o.crate) { o.hp -= b.dmg; if (o.hp <= 0) { o.dead = true; HT.deadSet.add(o.key); HT.deadKeys.push(o.key); fx(o.x, o.y, 10, [1.6, 1.1, 0.4], 12, 0.5, 0.6); sfx('crate'); for (let q = 0; q < 3; q++) HT.pick.push({ id: HT.id++, k: 'scrap', v: 6, x: o.x + (Math.random() - 0.5) * 3, y: o.y + (Math.random() - 0.5) * 3, life: 40 }); HT.pick.push({ id: HT.id++, k: Math.random() < 0.6 ? 'ammo' : 'med', v: 18, x: o.x, y: o.y, life: 40 }) } } }
     if (Math.abs(b.x) > AW + 4 || Math.abs(b.y) > AH + 4) b.life = 0
   }
   HT.bul = HT.bul.filter((b) => b.life > 0)
@@ -406,7 +421,7 @@ function sendSnap(dt) {
     p: HT.players.map((p) => [r2(p.x), r2(p.y), r2(p.a), p.hp | 0, p.max, p.mag, p.reserve, p.down ? 1 : 0, r2(p.reload), p.scrap, p.mines, p.kills, r2(p.reviveT), p.hit > 0 ? 1 : 0, p.dashT > 0 ? 1 : 0, p.up.dmg, p.up.rate, p.up.hp, p.up.light, p.up.speed, p.kick > 0 ? 1 : 0, WLIST.indexOf(p.wp), p.up.shotgun, p.up.smg]),
     m: HT.mons.map((m) => [m.id, m.type, r2(m.x), r2(m.y), m.hp | 0, r2(m.a), m.hit > 0 ? 1 : 0, m.seen]),
     b: HT.bul.map((b) => [r2(b.x), r2(b.y), r2(b.vx), r2(b.vy)]), s: HT.spit.map((s) => [r2(s.x), r2(s.y)]),
-    dc: HT.obst.filter((o) => o.dead).map((o) => o.i), pk: HT.pick.map((k) => [k.id, k.k, r2(k.x), r2(k.y)]), mn: HT.mines.map((m) => [r2(m.x), r2(m.y)]), msg: HT.msg,
+    dc: HT.deadKeys, pk: HT.pick.map((k) => [k.id, k.k, r2(k.x), r2(k.y)]), mn: HT.mines.map((m) => [r2(m.x), r2(m.y)]), msg: HT.msg,
   })
 }
 function applySnap(d) {
@@ -423,7 +438,7 @@ function applySnap(d) {
   HT.mons = d.m.map((a) => { const o = old.get(a[0]) || { t: Math.random() * 6, x: a[2], y: a[3] }; return Object.assign(o, { id: a[0], type: a[1], tx: a[2], ty: a[3], hp: a[4], max: MONS[a[1]].hp, a: a[5], hit: a[6] ? 0.1 : 0, seen: a[7] }) })
   HT.bul = d.b.map((a) => ({ x: a[0], y: a[1], vx: a[2], vy: a[3] }))
   HT.spit = d.s.map((a) => ({ x: a[0], y: a[1] }))
-  for (const i of d.dc || []) if (HT.obst[i]) HT.obst[i].dead = true
+  for (const k of d.dc || []) { if (!HT.deadSet.has(k)) { HT.deadSet.add(k); const o = HT.byKey.get(k); if (o) o.dead = true } }
   HT.pick = d.pk.map((a) => ({ id: a[0], k: a[1], x: a[2], y: a[3] }))
   HT.mines = d.mn.map((a) => ({ x: a[0], y: a[1] }))
   if (d.msg && (!HT.msg || HT.msg.text !== d.msg.text)) HT.msg = d.msg
@@ -450,6 +465,17 @@ function emitTick(dt) {
   HT.emitT -= dt
   if (HT.emitT <= 0) { HT.emitT = 0.1; emitH() }
 }
+const MWIN = [130, 78]
+function miniMap(me) {
+  const f = (x, y) => [(x - me.x + MWIN[0]) / (2 * MWIN[0]), 1 - (y - me.y + MWIN[1]) / (2 * MWIN[1])]
+  const inWin = (x, y) => Math.abs(x - me.x) < MWIN[0] && Math.abs(y - me.y) < MWIN[1]
+  const c = []
+  for (const ch of viewChunks(me.x, me.y, MWIN[0], MWIN[1])) { for (const d of ch.decor) if (inWin(d.x, d.y)) c.push(f(d.x, d.y)); for (const o of ch.obs) if (o.cabin && inWin(o.x, o.y)) c.push(f(o.x, o.y)) }
+  return {
+    p: HT.players.filter((p) => inWin(p.x, p.y)).map((p) => [...f(p.x, p.y), p === HT.players[HT.me] ? 1 : 0, p.down ? 1 : 0]),
+    m: HT.mons.filter((m) => inWin(m.x, m.y) && (Math.hypot(m.x - me.x, m.y - me.y) < 40 || HT.players.some((q) => !q.down && lit(q, m.x, m.y)))).slice(0, 50).map((m) => [...f(m.x, m.y), m.type === 'king' ? 1 : 0]), c,
+  }
+}
 function emitH() {
   const me = HT.players[HT.me]
   let behind = null
@@ -459,7 +485,7 @@ function emitH() {
     nightLeft: HT.kind === 'days' ? Math.max(0, Math.ceil(HT.nightLen - HT.phaseT)) : 0, shopLeft: Math.max(0, Math.ceil(40 - HT.phaseT)),
     me: me ? { hp: me.hp, max: me.max, mag: me.mag, reserve: me.reserve, reload: me.reload > 0, scrap: me.scrap, mines: me.mines, down: me.down, revive: me.reviveT, up: { ...me.up }, wp: me.wp, wname: WEAPONS[me.wp].name, mags: WEAPONS[me.wp].mag, kills: me.kills, dashCd: Math.max(0, me.dashCd || 0) } : null,
     team: HT.players.map((p, i) => ({ n: p.name, hp: p.hp, max: p.max, down: p.down, c: p.color, me: i === HT.me, ready: !!HT.ready[i] })),
-    mini: { p: HT.players.map((p, i) => [p.x, p.y, i === HT.me ? 1 : 0, p.down ? 1 : 0]), m: HT.mons.filter((m) => me && (Math.hypot(m.x - me.x, m.y - me.y) < 40 || HT.players.some((q) => !q.down && lit(q, m.x, m.y)))).slice(0, 50).map((m) => [m.x, m.y, m.type === 'king' ? 1 : 0]), c: HT.obst.filter((o) => o.cabin).map((o) => [o.x, o.y]) },
+    mini: me ? miniMap(me) : null,
     behind, boss: HT.boss ? { hp: HT.boss.hp, max: HT.boss.max } : null, msg: HT.msg, over: HT.over, online: !!HT.net, ready: !!HT.ready[HT.me],
   }
   subs.forEach((f) => f())
@@ -534,7 +560,6 @@ function draw3(api) {
   const near = (x, y, pad = 0) => Math.abs(x - cx) < 66 + pad && Math.abs(y - cy) < 44 + pad
   // forest floor that follows the camera, with tufts and glowing mushrooms scattered by cell
   put3(cx, -1.4, -cy, 150, 1.6, 100, 0, 0.04, 0.08, 0.04, 0)
-  put3(0, -1.5, 0, 2 * AW + 40, 1.4, 2 * AH + 40, 0, 0.03, 0.06, 0.03, 0)
   const c0 = Math.floor(cx / 9), r0 = Math.floor(cy / 9)
   for (let i = c0 - 8; i <= c0 + 8; i++) for (let j = r0 - 5; j <= r0 + 5; j++) {
     const h1 = hash2(i, j), h2 = hash2(j, i + 7), x = (i + h1) * 9, y = (j + h2) * 9
@@ -542,10 +567,12 @@ function draw3(api) {
     put3(x, 0.15, -y, 1.4 + h1 * 2, 0.5, 1.2 + h2 * 2, 0, 0.05, 0.13 + h1 * 0.06, 0.05, h1 * 6)
     if (h1 > 0.9) { putS(x + 1, 0.7, -(y + 1), 0.9, 0.9, 0.9, 0.2, 1.4 + Math.sin(t * 2 + i) * 0.4, 1.2) }
   }
-  // the boundary: dead trees and a stone wall
-  for (let k = -AW; k <= AW; k += 7) for (const sy of [-AH - 2, AH + 2]) if (near(k, sy, 8)) { put3(k, 2, -sy, 5, 4, 1.6, 0, 0.1, 0.1, 0.12, 0); put3(k, 4.6, -sy, 1, 1.6, 1, 0, 0.07, 0.05, 0.05, 0) }
-  for (let k = -AH; k <= AH; k += 7) for (const sx of [-AW - 2, AW + 2]) if (near(sx, k, 8)) { put3(sx, 2, -k, 1.6, 4, 5, 0, 0.1, 0.1, 0.12, 0); put3(sx, 4.6, -k, 1, 1.6, 1, 0, 0.07, 0.05, 0.05, 0) }
-  for (const o of HT.obst) {
+  // the edge of the world: a stone wall
+  if (Math.abs(cy) > AH - 60) for (let k = Math.floor((cx - 70) / 7) * 7; k <= cx + 70; k += 7) for (const sy of [-AH - 2, AH + 2]) if (near(k, sy, 8)) { put3(k, 2, -sy, 5, 4, 1.6, 0, 0.1, 0.1, 0.12, 0); put3(k, 4.6, -sy, 1, 1.6, 1, 0, 0.07, 0.05, 0.05, 0) }
+  if (Math.abs(cx) > AW - 80) for (let k = Math.floor((cy - 46) / 7) * 7; k <= cy + 46; k += 7) for (const sx of [-AW - 2, AW + 2]) if (near(sx, k, 8)) { put3(sx, 2, -k, 1.6, 4, 5, 0, 0.1, 0.1, 0.12, 0); put3(sx, 4.6, -k, 1, 1.6, 1, 0, 0.07, 0.05, 0.05, 0) }
+  const vch = viewChunks(cx, cy, 72, 48)
+  const vobs = vch.flatMap((c) => c.obs)
+  for (const o of vobs) {
     if (o.dead || !near(o.x, o.y, 6)) continue
     if (o.cabin) { put3(o.x, 3.2, -o.y, 11, 6.4, 8, 0, 0.32, 0.2, 0.12, 0); put3(o.x, 7.4, -o.y, 12.6, 1.8, 9.4, 0, 0.22, 0.1, 0.08, 0); put3(o.x, 9.2, -o.y, 8, 1.8, 7, 0, 0.2, 0.09, 0.07, 0); put3(o.x + 3.2, 4, -o.y + 4.1, 1.8, 2, 0.3, 0, HT.phase === 'dawn' ? 1 : 2.4, HT.phase === 'dawn' ? 1 : 1.8, 0.5, 0); put3(o.x - 3, 4, -o.y + 4.1, 1.8, 2, 0.3, 0, 2.4, 1.8, 0.5, 0); put3(o.x + 4, 9.8, -o.y, 1.4, 3.4, 1.4, 0, 0.18, 0.12, 0.1, 0); continue }
     if (o.tomb) { put3(o.x, 1.4, -o.y, 1.6, 2.8, 0.6, 0, 0.3, 0.3, 0.34, o.x); put3(o.x, 0.3, -o.y + 1.2, 2, 0.5, 2.6, 0, 0.06, 0.05, 0.04, 0); continue }
@@ -555,7 +582,7 @@ function draw3(api) {
     if (o.rock) { put3(o.x, o.r * 0.5, -o.y, o.r * 2.1, o.r * 1.2, o.r * 1.8, 0, 0.2, 0.2, 0.24, o.x); continue }
     put3(o.x, 1, -o.y, 0.7, 2, 0.7, 0, 0.18, 0.1, 0.06, 0); put3(o.x, 3 * o.h, -o.y, 3.6 * o.h, 2.2, 3.6 * o.h, 0, 0.05, 0.16, 0.07, o.x); put3(o.x, 5 * o.h, -o.y, 2.4 * o.h, 2.2, 2.4 * o.h, 0, 0.05, 0.2, 0.08, o.x + 0.4); put3(o.x, 6.8 * o.h, -o.y, 1.2 * o.h, 1.6, 1.2 * o.h, 0, 0.06, 0.22, 0.09, o.x + 0.8)
   }
-  for (const d of HT.decor || []) if (d.fire && near(d.x, d.y)) { put3(d.x, 0.5, -d.y, 3, 0.6, 3, 0, 0.1, 0.08, 0.06, 0); for (let i = 0; i < 4; i++) put3(d.x + Math.sin(t * 9 + i) * 0.5, 1.2 + i * 0.7 + Math.sin(t * 12 + i * 2) * 0.2, -d.y + Math.cos(t * 7 + i) * 0.4, 1.2 - i * 0.2, 0.9, 1.2 - i * 0.2, 0, 2.8, 1.2 + i * 0.4, 0.15, t * 3 + i) }
+  for (const d of vch.flatMap((c) => c.decor)) if (d.fire && near(d.x, d.y)) { put3(d.x, 0.5, -d.y, 3, 0.6, 3, 0, 0.1, 0.08, 0.06, 0); for (let i = 0; i < 4; i++) put3(d.x + Math.sin(t * 9 + i) * 0.5, 1.2 + i * 0.7 + Math.sin(t * 12 + i * 2) * 0.2, -d.y + Math.cos(t * 7 + i) * 0.4, 1.2 - i * 0.2, 0.9, 1.2 - i * 0.2, 0, 2.8, 1.2 + i * 0.4, 0.15, t * 3 + i) }
   // the beam on the ground
   for (const p of HT.players) {
     if (p.down || HT.phase === 'dawn') continue
