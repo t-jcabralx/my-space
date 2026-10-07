@@ -19,15 +19,23 @@ const LIGHT = norm([-0.45, 0.85, -0.55])
 const BOXF = [[[0, 4, 5, 1], [0, -1, 0]], [[3, 2, 6, 7], [0, 1, 0]], [[0, 1, 2, 3], [0, 0, -1]], [[4, 7, 6, 5], [0, 0, 1]], [[0, 3, 7, 4], [-1, 0, 0]], [[1, 5, 6, 2], [1, 0, 0]]]
 
 export function makeR3(g, W = 360, H = 540) {
-  const r = { g, q: [], cam: null, E: [0, 0, 0], R: [1, 0, 0], U: [0, 1, 0], F: [0, 0, 1], focal: 600 }
+  const r = { g, q: [], cam: null, E: [0, 0, 0], R: [1, 0, 0], U: [0, 1, 0], F: [0, 0, 1], focal: 600, clock: 0, phase: Math.random(), weather: 'clear', indoor: false, flat: false, info: { tod: 'DAY', weather: 'CLEAR' } }
+  let lastNow = 0
+  r.setWeather = (w) => { r.weather = w }
   r.look = (ex, ey, ez, tx, ty, tz, fov = 45) => {
-    r.E = [ex, ey, ez]; r.F = norm([tx - ex, ty - ey, tz - ez]); r.R = norm(cross([0, 1, 0], r.F)); r.U = cross(r.F, r.R); r.focal = (H / 2) / Math.tan((fov * Math.PI) / 360)
+    const sw = Math.sin(r.clock * 0.7) * 1.4, sh = Math.cos(r.clock * 0.5) * 0.8; r.E = [ex + sw, ey + sh, ez]; r.F = norm([tx - ex - sw, ty - ey - sh, tz - ez]); r.R = norm(cross([0, 1, 0], r.F)); r.U = cross(r.F, r.R); r.focal = (H / 2) / Math.tan((fov * Math.PI) / 360)
   }
   r.proj = (p) => { const d = sub(p, r.E), zc = dot(d, r.F); if (zc < 4) return null; const k = r.focal / zc; return { x: W / 2 + dot(d, r.R) * k, y: H / 2 - dot(d, r.U) * k, z: zc, k } }
   const key = (p) => { const d = sub(p, r.E); return dot(d, d) }
   // rotation about z (roll) then y (yaw) around the centre
   const rot = (v, rz, ry) => { let [x, y, z] = v; if (rz) { const c = Math.cos(rz), s = Math.sin(rz); [x, y] = [x * c - y * s, x * s + y * c] } if (ry) { const c = Math.cos(ry), s = Math.sin(ry); [x, z] = [x * c + z * s, -x * s + z * c] } return [x, y, z] }
-  r.begin = (top = '#1b2a6b', bottom = '#0a1030') => { const gr = g.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, top); gr.addColorStop(1, bottom); g.fillStyle = gr; g.fillRect(0, 0, W, H); r.q.length = 0 }
+  r.begin = (top = '#1b2a6b', bottom = '#0a1030') => {
+    const now = typeof performance !== 'undefined' ? performance.now() : 0; if (lastNow) r.clock += Math.min(0.1, (now - lastNow) / 1000); lastNow = now
+    if (top === null) g.clearRect(0, 0, W, H); else { const gr = g.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, top); gr.addColorStop(1, bottom); g.fillStyle = gr; g.fillRect(0, 0, W, H) }
+    r.q.length = 0
+    // a sun or moon crosses the sky as the day goes by
+    if (!r.indoor && !r.flat) { const tod = (r.phase + r.clock / 100) % 1, day = tod < 0.5, u = (day ? tod : tod - 0.5) / 0.5, x = 30 + u * (W - 60), y = 80 - Math.sin(u * Math.PI) * 48; g.globalAlpha = 0.55; g.fillStyle = day ? '#fff2b0' : '#dfe8ff'; g.beginPath(); g.arc(x, y, day ? 16 : 11, 0, Math.PI * 2); g.fill(); g.globalAlpha = 1 }
+  }
   const shade = (n, base = 0.5) => base + (1 - base) * Math.max(0, dot(n, LIGHT))
   function polys(center, verts, faces, color, o) {
     const out = []
@@ -87,14 +95,30 @@ export function makeR3(g, W = 360, H = 540) {
   r.line = (a, b, color = '#fff', w = 2) => { const p = r.proj(a), q = r.proj(b); if (!p || !q) return; r.q.push({ d: key([(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2]), draw() { g.strokeStyle = rgb(color); g.lineWidth = w * Math.min(2, (p.k + q.k) / 2); g.beginPath(); g.moveTo(p.x, p.y); g.lineTo(q.x, q.y); g.stroke(); g.lineWidth = 1 } }) }
   r.text = (x, y, z, s, size, color = '#fff') => { const p = r.proj([x, y, z]); if (!p) return; r.q.push({ d: key([x, y, z]) - 1, draw() { g.font = `bold ${Math.max(8, size * p.k)}px "Press Start 2P", monospace`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = color; g.fillText(s, p.x, p.y) } }) }
   r.emoji = (x, y, z, s, size) => { const p = r.proj([x, y, z]); if (!p) return; r.q.push({ d: key([x, y, z]) - 1, draw() { g.font = `${Math.max(8, size * p.k)}px serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#000'; g.fillText(s, p.x, p.y + 1) } }) }
-  r.flush = () => { r.q.sort((a, b) => b.d - a.d); for (const it of r.q) it.draw(); r.q.length = 0 }
+  r.flush = () => {
+    r.q.sort((a, b) => b.d - a.d); for (const it of r.q) it.draw(); r.q.length = 0
+    if (r.flat) return
+    // 4th dimension: time of day tints the whole scene, and weather drifts through it
+    const tod = (r.phase + r.clock / 100) % 1, d = clamp(Math.sin(tod * Math.PI * 2) * 1.4 + 0.35, 0, 1), k = r.indoor ? 0.35 : 1
+    const warm = clamp(1 - Math.abs(d - 0.35) * 3.2, 0, 1) * (tod > 0.4 && tod < 0.6 || tod > 0.93 || tod < 0.07 ? 1 : 0)
+    const lerp = (a, b, u) => a + (b - a) * u
+    const cr = lerp(255, lerp(95, 255, d), k), cg = lerp(255, lerp(110, 255, d), k), cb = lerp(255, lerp(175, 255, d), k)
+    g.globalCompositeOperation = 'multiply'; g.fillStyle = `rgb(${Math.round(lerp(cr, 255, warm * 0.4))},${Math.round(lerp(cg, 215, warm * 0.45 * k))},${Math.round(lerp(cb, 175, warm * 0.5 * k))})`; g.fillRect(0, 0, W, H); g.globalCompositeOperation = 'source-over'
+    const wx = r.indoor ? 'clear' : r.weather, t = r.clock
+    if (wx === 'rain') { g.strokeStyle = 'rgba(190,215,255,0.5)'; g.lineWidth = 1; g.beginPath(); for (let i = 0; i < 70; i++) { const x = ((i * 53 + t * 140) % (W + 40)) - 20, y = ((i * 97 + t * 520) % (H + 40)) - 20; g.moveTo(x, y); g.lineTo(x - 5, y + 14) } g.stroke(); if (Math.sin(t * 0.7) > 0.985) { g.fillStyle = 'rgba(255,255,255,0.35)'; g.fillRect(0, 0, W, H) } }
+    else if (wx === 'snow') { g.fillStyle = 'rgba(255,255,255,0.85)'; for (let i = 0; i < 60; i++) { const x = ((i * 61 + Math.sin(t + i) * 14 + t * 10) % (W + 20)) - 10, y = ((i * 89 + t * (30 + (i % 4) * 14)) % (H + 20)) - 10; g.fillRect(x, y, 2.4, 2.4) } }
+    else if (wx === 'fog') { const gr = g.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, 'rgba(210,225,240,0.05)'); gr.addColorStop(0.55, 'rgba(210,225,240,0.32)'); gr.addColorStop(1, 'rgba(210,225,240,0.1)'); g.fillStyle = gr; g.fillRect(0, 0, W, H) }
+    r.info = { tod: d > 0.75 ? 'DAY' : d > 0.3 ? (tod < 0.5 ? 'DAWN' : 'DUSK') : 'NIGHT', weather: wx.toUpperCase() }
+  }
   // particles stored in 2D logical coordinates are lifted into the scene as small lit cubes
   r.fx = (arr, lift = (p) => [p.x - W / 2, H - p.y, -8]) => { for (const p of arr) { const [x, y, z] = lift(p); r.box(x, y, z, p.s * 1.4, p.s * 1.4, p.s * 1.4, p.c, { alpha: clamp(p.l * 2, 0, 1), edge: false }) } }
   r.X = (x) => x - W / 2; r.Y = (y) => H - y
   return r
 }
-export const wrapR3 = (make) => () => {
-  const o = make(), old = o.draw; let r = null
-  o.draw = (g) => { if (!o.draw3) { old(g); return } if (!r || r.g !== g) r = makeR3(g); o.draw3(r, g) }
+const WEATHERS = ['clear', 'clear', 'clear', 'rain', 'snow', 'fog']
+export const wrapR3 = (make, indoor = false) => () => {
+  const o = make(), old = o.draw, reset = o.reset; let r = null, wx = WEATHERS[(Math.random() * WEATHERS.length) | 0]
+  o.reset = (...a) => { wx = WEATHERS[(Math.random() * WEATHERS.length) | 0]; return reset(...a) }
+  o.draw = (g) => { if (!o.draw3) { old(g); return } if (!r || r.g !== g) { r = makeR3(g); r.indoor = indoor } r.weather = wx; o.draw3(r, g); o.env4d = r.info }
   return o
 }

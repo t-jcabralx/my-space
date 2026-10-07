@@ -943,3 +943,7 @@ li.bonus { border-color: var(--gr); color: var(--gr); } li.fail { border-color: 
 .rp-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px; max-height: 120px; overflow: auto; } .rp-grid button { font-size: 20px; background: transparent; border: 0; border-radius: 8px; padding: 3px; cursor: pointer; } .rp-grid button:hover { background: #ffffff22; transform: scale(1.15); }
 .rp-row { display: flex; gap: 6px; align-items: center; } .rp-row input { flex: 1; min-width: 0; background: #070c26; color: #fff; border: 2px solid #3de8ff66; border-radius: 8px; padding: 6px 8px; font: inherit; font-size: 12px; }
 .rp-mine { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; } .rp-mine span { position: relative; font-size: 22px; background: #ffffff12; border-radius: 8px; padding: 2px 6px; } .rp-mine i { position: absolute; top: -6px; right: -6px; font-style: normal; font-size: 9px; background: #7a1c28; border-radius: 50%; width: 14px; height: 14px; display: grid; place-items: center; cursor: pointer; } .rp-cur { font-size: 18px; }
+
+.mini-env { color: #9fd8ff !important; }
+
+.glogo3d { flex: 0 0 auto; width: 5em; height: 5em; margin: -.4em -.2em -.4em -.4em; display: block; filter: drop-shadow(0 4px 6px #000a); }

@@ -14,6 +14,7 @@ function MiniPlayer({ def, onBack }) {
   const [over, setOver] = useState(false)
   const [extra, setExtra] = useState('')
   const [newBest, setNewBest] = useState(false)
+  const [env, setEnv] = useState('')
   const [run, setRun] = useState(0)
 
   useEffect(() => {
@@ -24,6 +25,7 @@ function MiniPlayer({ def, onBack }) {
     const c = cv.current, ctx = c.getContext('2d')
     const dpr = Math.min(2, window.devicePixelRatio || 1)
     c.width = W * dpr; c.height = H * dpr
+    const buzz = (p) => { try { if (navigator.vibrate && matchMedia('(pointer: coarse)').matches) navigator.vibrate(p) } catch { /* ignore */ } }
     let raf = 0, last = performance.now(), done = false, prev = 0, ui = 0
     const finish = () => {
       done = true
@@ -34,7 +36,7 @@ function MiniPlayer({ def, onBack }) {
       profile.miniGames = (profile.miniGames || 0) + 1
       saveProfile()
       if (sc > 0 && def.id !== 'miner') recordScore('mini_' + def.id, sc)
-      setNewBest(nb && sc > 0); setScore(sc); setOver(true); sfx('over')
+      setNewBest(nb && sc > 0); setScore(sc); setOver(true); sfx('over'); buzz([60, 40, 90])
     }
     const loop = (now) => {
       const dt = Math.min(0.05, (now - last) / 1000); last = now
@@ -42,10 +44,10 @@ function MiniPlayer({ def, onBack }) {
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
       g.draw(ctx)
       const sc = Math.floor(g.score)
-      if (sc > prev && def.id !== 'miner') sfx('coin')
+      if (sc > prev && def.id !== 'miner') { sfx('coin'); buzz(8) }
       prev = sc
       ui -= dt
-      if (ui <= 0) { ui = 0.1; setScore(sc); setExtra(g.moves !== undefined ? 'MOVES ' + g.moves : g.time !== undefined && g.time !== 0 && def.id === 'mole' ? g.time + 's' : '') }
+      if (ui <= 0) { ui = 0.1; setScore(sc); if (g.env4d) setEnv((g.env4d.tod === 'NIGHT' ? '🌙 ' : g.env4d.tod === 'DAY' ? '☀ ' : '🌅 ') + g.env4d.tod + (g.env4d.weather !== 'CLEAR' ? ' · ' + ({ RAIN: '🌧', SNOW: '❄', FOG: '🌫' }[g.env4d.weather] || '') + ' ' + g.env4d.weather : '')); setExtra(g.moves !== undefined ? 'MOVES ' + g.moves : g.time !== undefined && g.time !== 0 && def.id === 'mole' ? g.time + 's' : '') }
       if (g.over && !done) finish()
       raf = requestAnimationFrame(loop)
     }
@@ -68,7 +70,7 @@ function MiniPlayer({ def, onBack }) {
     <div className="mini-play">
       <div className="mini-top">
         <button className="big sec" onClick={onBack}>◀ ALL GAMES</button>
-        <div className="mini-title"><b>{def.icon} {def.name}</b><small>{def.make === undefined ? '' : ''}BEST {best(def.id)}</small></div>
+        <div className="mini-title"><b>{def.icon} {def.name}</b><small>BEST {best(def.id)}</small>{env && <small className="mini-env">{env}</small>}</div>
         <div className="mini-score"><small>SCORE</small><b>{score}</b>{extra && <small>{extra}</small>}</div>
       </div>
       <div className="mini-stage">
