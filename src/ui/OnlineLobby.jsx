@@ -61,9 +61,10 @@ const GAMES = [
 ]
 const useRt = () => useSyncExternalStore(subscribeRt, getRt, getRt)
 
-export default function OnlineLobby({ s, TopPlayers, initGame }) {
+export default function OnlineLobby({ s, TopPlayers, initGame, lockGame }) {
   const rt = useRt()
   const [game, setGame] = useState(initGame || 'tetris')
+  const [showAll, setShowAll] = useState(false)
   const [name, setNm] = useState((s.profile && s.profile.name) || 'PLAYER')
   const [code, setCode] = useState('')
   const [msg, setMsg] = useState('')
@@ -152,7 +153,8 @@ export default function OnlineLobby({ s, TopPlayers, initGame }) {
           <h4>1 · YOUR NAME</h4>
           <div className="chips"><input className="nameIn" value={name} maxLength={12} onChange={(e) => setNm(e.target.value)} placeholder="NAME" /></div>
           <h4>2 · PICK A GAME</h4>
-          <div className="gamepick">{GAMES.map(([k, ico, n, d]) => <button key={k} className={game === k ? 'sel' : ''} onClick={() => setGame(k)}><span className="ico">{ico}</span><strong>{n}</strong><small>{d}</small></button>)}</div>
+          <div className="gamepick">{(lockGame && !showAll && GAMES.some((x) => x[0] === game) ? GAMES.filter((x) => x[0] === game) : GAMES).map(([k, ico, n, d]) => <button key={k} className={game === k ? 'sel' : ''} onClick={() => setGame(k)}><span className="ico">{ico}</span><strong>{n}</strong><small>{d}</small></button>)}</div>
+          {lockGame && !showAll && GAMES.some((x) => x[0] === game) && <div className="chips"><button className="chip" onClick={() => setShowAll(true)}>↔ CHOOSE A DIFFERENT GAME</button></div>}
           {game === 'uno' && (
             <div className="lobbyopts">
               <div><h4>STACKING +2/+4</h4><div className="chips">{[[true, 'ON'], [false, 'OFF']].map(([v, n]) => <button key={n} className={'chip ' + (stack === v ? 'sel' : '')} onClick={() => setStack(v)}>{n}</button>)}</div></div>
