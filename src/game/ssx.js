@@ -3,6 +3,7 @@
 import { G, emit as engineEmit, keys, games, profile, saveProfile, recordScore, toMenu, shake, flash } from './engine.js'
 import { sfx, music, rev } from './audio.js'
 import { col, clamp, rng } from './pxl.js'
+import { registerNet, gameEnded } from './online/gnet.js'
 
 const TAU = Math.PI * 2
 const GRAV = 31, GS = 34, GL = 24, KD = 0.0105, RAIL_H = 1.05, DZ = 1.8
@@ -398,14 +399,17 @@ function start(o = {}) {
   SX.riders = []; SX.fx = []; SX.score = 0; SX.toks = 0; SX.bestTrick = 0; SX.tricks = 0; SX.over = null; SX.msg = null; SX.text = null; SX.paused = false; SX.t = 0; SX.clock = 0; SX.finishT = 0; SX.place = 0
   SX.timeLeft = SX.kind === 'trick' ? 90 : 0
   const others = RIDERS.filter((d) => d.id !== SX.rid)
-  const n = SX.kind === 'race' ? 6 : 1
+  const NET = o.net || null
+  SX.net = NET
+  const n = NET ? NET.players.length : SX.kind === 'race' ? 6 : 1
   const slots = Array.from({ length: n }, (_, i) => i)
-  const mine = SX.kind === 'race' ? 2 + ((Math.random() * 2) | 0) : 0
+  const mine = NET ? NET.me : SX.kind === 'race' ? 2 + ((Math.random() * 2) | 0) : 0
   const w = Math.min(CUR.hw - 2, 8)
   for (let i = 0; i < n; i++) {
     const isP = i === mine
-    const def = isP ? RIDERS[SX.rid] : others[(i - (i > mine ? 1 : 0)) % others.length]
+    const def = isP ? RIDERS[SX.rid] : NET ? RIDERS[(NET.picks[NET.players[i].id] ?? (i + 1)) % RIDERS.length] : others[(i - (i > mine ? 1 : 0)) % others.length]
     const r = makeRider(def, i, isP)
+    if (NET && !isP) { r.remote = true; r.pid = NET.players[i].id; r.name = (NET.players[i].name || 'P' + (i + 1)).slice(0, 8).toUpperCase(); r.tgt = null; r.sc = 0 }
     const col_ = n === 1 ? 0 : (slots[i] / (n - 1)) * 2 - 1
     r.x = xc(0) + col_ * w; r.z = -(i % 2) * 2.5; r.y = ground(r.x, r.z); r.lane = col_ * w * 0.8
     r.sk = isP ? 1 : CUR.ai * (0.97 + Math.random() * 0.06); r.aiDir = Math.random() < 0.5 ? -1 : 1
@@ -420,7 +424,7 @@ function start(o = {}) {
   say(CUR.name, '#3de8ff', 2.6)
   emitS()
 }
-function stop() { SX.mode = 'idle'; SX.paused = false; try { rev.off() } catch { /* ignore */ } music.set('menu'); emitS() }
+function stop() { if (SX.net) { gameEnded('ssx'); SX.net = null } SX.mode = 'idle'; SX.paused = false; try { rev.off() } catch { /* ignore */ } music.set('menu'); emitS() }
 function finishRace(timeUp) {
   const P = SX.P
   SX.mode = 'over'
@@ -429,13 +433,14 @@ function finishRace(timeUp) {
   const time = SX.t
   let place = 1, placePts = 0, timeBonus = 0
   if (SX.kind === 'race') {
-    place = 1 + SX.riders.filter((r) => !r.isP && r.fin !== null).length
+    place = SX.net ? 1 + SX.riders.filter((r) => r.remote && r.fin !== null && P.fin !== null && r.fin < P.fin).length : 1 + SX.riders.filter((r) => !r.isP && r.fin !== null).length
     placePts = [10000, 6000, 3500, 1800, 800, 300][place - 1] || 0
     timeBonus = Math.max(0, Math.round((CUR.par - time) * 150))
   }
+  if (SX.net && SX.kind === 'trick') { place = 1 + SX.riders.filter((r) => r.remote && !r.gone && r.sc > SX.score).length; placePts = [6000, 3500, 1800, 800][place - 1] || 0 }
   const total = SX.score + placePts + timeBonus
   profile.ssxGames = (profile.ssxGames || 0) + 1
-  if (SX.kind === 'race' && place === 1) profile.ssxWins = (profile.ssxWins || 0) + 1
+  if ((SX.kind === 'race' || SX.net) && place === 1) profile.ssxWins = (profile.ssxWins || 0) + 1
   const newBest = total > (profile.ssxBest || 0)
   profile.ssxBest = Math.max(profile.ssxBest || 0, total)
   profile.ssxTrick = Math.max(profile.ssxTrick || 0, SX.bestTrick)
@@ -479,24 +484,30 @@ function update(dtRaw) {
   const lead = SX.riders.reduce((a, r) => (r.z > a.z ? r : a), SX.riders[0])
   for (const r of SX.riders) {
     if (r.isP) stepRider(r, inp, dt)
+    else if (r.remote) remoteStep(r, dt)
     else {
       r.aiMul = clamp(1 + (P.z - r.z) * 0.0012, 0.95, 1.07)
       stepRider(r, aiInput(r, dt), dt)
     }
     if (r.z >= SX.len && r.fin === null) {
       r.fin = SX.t
-      if (r.isP && SX.kind === 'race') { SX.mode = 'finish'; SX.finishT = 2.6; SX.place = 1 + SX.riders.filter((q) => !q.isP && q.fin !== null).length; sfx('rFinish'); say(SX.place === 1 ? 'YOU WIN!' : 'FINISH!  ' + SX.place + (['', 'ST', 'ND', 'RD'][SX.place] || 'TH'), '#ffe84a', 2.6) }
+      if (r.isP && SX.kind === 'race') { SX.mode = 'finish'; SX.finishT = 2.6; SX.waitT = 0; SX.place = 1 + SX.riders.filter((q) => !q.isP && q.fin !== null).length; sfx('rFinish'); say(SX.place === 1 ? 'YOU WIN!' : 'FINISH!  ' + SX.place + (['', 'ST', 'ND', 'RD'][SX.place] || 'TH'), '#ffe84a', 2.6) }
     }
   }
   void lead
   if (SX.kind === 'trick' && SX.mode === 'play') {
     SX.timeLeft -= dt
-    if (SX.timeLeft <= 0) { SX.timeLeft = 0; SX.mode = 'finish'; SX.finishT = 2; sfx('rFinish'); say("TIME'S UP!", '#ffe84a', 2) }
+    if (SX.timeLeft <= 0) { SX.timeLeft = 0; SX.mode = 'finish'; SX.finishT = 2; SX.waitT = 0; sfx('rFinish'); say("TIME'S UP!", '#ffe84a', 2) }
   }
-  if (SX.mode === 'finish') { SX.finishT -= dt; if (SX.finishT <= 0) { finishRace(SX.kind === 'trick'); return } }
+  if (SX.mode === 'finish') {
+    SX.finishT -= dt
+    if (SX.net) { SX.waitT = (SX.waitT || 0) + dt; const others = SX.riders.filter((q) => q.remote && !q.gone); const allDone = SX.kind === 'trick' ? SX.waitT > 4 : others.every((q) => q.fin !== null); if (SX.finishT <= 0 && (allDone || SX.waitT > 14)) { finishRace(SX.kind === 'trick'); return } }
+    else if (SX.finishT <= 0) { finishRace(SX.kind === 'trick'); return }
+  }
   // wind and board sound
   const spd = Math.hypot(P.vx, P.vz)
   try { rev.set(clamp(spd / 55, 0, 1) * (P.grounded ? 1 : 0.6), P.boosting ? 1 : 0, P.grounded && spd > 8 ? Math.abs(P.roll) * 1.4 + 0.15 : 0) } catch { /* ignore */ }
+  sendState(dt)
   emitTick(dt)
 }
 function emitTick(dt) { SX.emitT -= dt; if (SX.emitT <= 0) { SX.emitT = 0.1; emitS() } }
@@ -507,6 +518,7 @@ function emitS() {
   snap = {
     mode: SX.mode, paused: SX.paused, kind: SX.kind, course: CUR.name, count: Math.max(0, Math.ceil(SX.count)), speed: Math.round(Math.hypot(P.vx, P.vz) * 3.3), boost: Math.round(P.meter), tricky: P.tricky > 0 ? Math.ceil(P.tricky) : 0, boosting: P.boosting,
     place: order.indexOf(P) + 1, total: SX.riders.length, time: SX.t, timeLeft: SX.timeLeft, score: SX.score, toks: SX.toks, msg: SX.msg, text: SX.text, crash: P.crash > 0, air: !P.grounded && !P.grind && P.air > 0.15,
+    board: SX.net ? SX.riders.map((r) => ({ n: r.isP ? 'YOU' : r.name, c: r.def.jacket, sc: r.isP ? SX.score : r.sc | 0, f: r.fin, z: Math.round(r.z) })).sort((a, b) => (SX.kind === 'trick' ? b.sc - a.sc : b.z - a.z)) : null, online: !!SX.net,
     airPts: 0, grind: !!P.grind, over: SX.over, prog: SX.riders.map((r) => ({ p: clamp(r.z / SX.len, 0, 1), me: r.isP, c: r.def.jacket })), pct: clamp(P.z / SX.len, 0, 1), rider: P.name,
   }
   subs.forEach((f) => f())
@@ -518,11 +530,53 @@ function onKey(code) {
 }
 export const ssxActions = {
   start, stop, quit() { toMenu() }, resume() { SX.paused = false; emitS() },
-  pause() { if ((SX.mode === 'play' || SX.mode === 'ready') && !SX.paused) { SX.paused = true; emitS(); return true } return false },
-  rematch() { start({ course: SX.ci, kind: SX.kind, rider: SX.rid }) },
+  pause() { if (!SX.net && (SX.mode === 'play' || SX.mode === 'ready') && !SX.paused) { SX.paused = true; emitS(); return true } return false },
+  rematch() { if (SX.net) { if (SX.net.role === 'host') SX.net.restart(); else SX.net.sendHost({ k: 'rematch' }); return } start({ course: SX.ci, kind: SX.kind, rider: SX.rid }) },
   press(name, on) { TK[name] = on },
+  setPrefs(o) { if (o.course !== undefined) profile.ssxCourse = o.course; if (o.kind) profile.ssxKind = o.kind; if (o.rider !== undefined) profile.ssxPick = o.rider; saveProfile() },
 }
 
+// ------------------------------------------------------------------ online: every rider is simulated on their own device; the others are shown as live ghosts
+let netT = 0
+const r2 = (v) => Math.round(v * 100) / 100
+function sendState(dt) {
+  if (!SX.net || !SX.P) return
+  netT -= dt
+  if (netT > 0) return
+  netT = 0.066
+  const r = SX.P
+  SX.net.send({ k: 'p', s: [r2(r.x), r2(r.y), r2(r.z), r2(r.vx), r2(r.vy), r2(r.vz), r2(r.hd), r2(r.spin), r2(r.pitch), r2(r.roll), r2(r.cr), r.grounded ? 1 : 0, r.grind ? 1 : 0, r.crash > 0 ? 1 : 0, r.fin === null ? -1 : r2(r.fin), SX.score, r2(r.tumble), r.boosting ? 1 : 0] })
+}
+function remoteStep(r, dt) {
+  const t = r.tgt
+  if (t) {
+    const k = Math.min(1, dt * 12)
+    if (Math.hypot(r.x - t[0], r.z - t[2]) > 30) { r.x = t[0]; r.y = t[1]; r.z = t[2] } else { r.x += (t[0] - r.x) * k + t[3] * dt * 0.4; r.y += (t[1] - r.y) * k; r.z += (t[2] - r.z) * k + t[5] * dt * 0.4 }
+    r.vx = t[3]; r.vy = t[4]; r.vz = t[5]; r.hd = t[6]; r.spin = t[7]; r.pitch = t[8]; r.roll = t[9]; r.cr = t[10]; r.grounded = !!t[11]; r.grind = t[12] ? {} : null; r.crash = t[13] ? 1 : 0; r.tumble = t[16]; r.boosting = !!t[17]
+    if (t[14] >= 0 && r.fin === null) r.fin = t[14]
+    r.sc = t[15]
+  }
+  r.t += dt
+  if (r.grounded && Math.hypot(r.vx, r.vz) > 8 && Math.random() < dt * 14) spawnFx(r.x, r.y + 0.1, r.z, 1, CUR.night ? [0.8, 0.9, 1.4] : [1, 1, 1.1], 3, 2, 0.5, 0.26)
+}
+registerNet('ssx', {
+  min: 2,
+  begin(ctx) {
+    const picks = {}
+    picks[ctx.players[ctx.me].id] = profile.ssxPick | 0
+    start({ course: ctx.opts.course | 0, kind: ctx.opts.kind === 'trick' ? 'trick' : 'race', rider: profile.ssxPick | 0, net: { players: ctx.players, me: ctx.me, picks, role: ctx.role, send: (d) => ctx.send(d), sendHost: (d) => ctx.sendHost(d), restart: () => ctx.restart() } })
+    ctx.send({ k: 'hi', rid: profile.ssxPick | 0 })
+  },
+  active: () => !!SX.net && SX.mode !== 'idle',
+  onMsg(d, from) {
+    if (!d || !SX.net) return
+    const r = SX.riders.find((q) => q.pid === from)
+    if (d.k === 'hi' && r) { SX.net.picks[from] = clamp(d.rid | 0, 0, RIDERS.length - 1); r.def = RIDERS[SX.net.picks[from]]; r.st = r.def }
+    else if (d.k === 'p' && r && Array.isArray(d.s) && d.s.length >= 17) r.tgt = d.s.map((v) => (Number.isFinite(+v) ? +v : 0))
+    else if (d.k === 'rematch' && SX.net.role === 'host' && SX.mode === 'over') SX.net.restart()
+  },
+  onLeave(cid) { const r = SX.riders.find((q) => q.pid === cid); if (r) { r.gone = true; r.fin = r.fin === null ? 1e9 : r.fin; r.z = -9999 } },
+})
 // ------------------------------------------------------------------ camera, lights, terrain
 const CAM = { x: 0, y: 10, z: 0, hd: 0 }
 function camReset() {

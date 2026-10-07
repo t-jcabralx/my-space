@@ -1670,7 +1670,7 @@ function Hub({ s }) {
       {tab === 'snake' && <SnakeLobby s={s} TopPlayers={TopPlayers} />}
       {tab === 'garden' && <GardenLobby s={s} TopPlayers={TopPlayers} onInvite={() => { setOgame('garden'); setTab('online') }} />}
       {tab === 'orb' && <OrbLobby s={s} TopPlayers={TopPlayers} onInvite={() => { setOgame('orb'); setTab('online') }} />}
-      {tab === 'ssx' && <SsxLobby s={s} TopPlayers={TopPlayers} />}
+      {tab === 'ssx' && <SsxLobby s={s} TopPlayers={TopPlayers} onInvite={() => { setOgame('ssx'); setTab('online') }} />}
       {tab === 'breaker' && <BreakerLobby s={s} TopPlayers={TopPlayers} />}
       {tab === 'mines' && <MinesLobby s={s} TopPlayers={TopPlayers} />}
       {tab === 'fight' && <FightLobby s={s} />}

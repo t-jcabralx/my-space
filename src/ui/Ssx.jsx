@@ -9,20 +9,21 @@ const clock = (t) => { t = Math.max(0, t || 0); const m = Math.floor(t / 60), s 
 const ord = (n) => n + (['TH', 'ST', 'ND', 'RD'][n % 10 > 3 || (n % 100 >= 11 && n % 100 <= 13) ? 0 : n % 10] || 'TH')
 const Bar = ({ v, c }) => <i className="sxbar"><b style={{ width: Math.round(v * 100) + '%', background: c }} /></i>
 
-export function SsxLobby({ s, TopPlayers }) {
-  const [ci, setCi] = useState(0), [kind, setKind] = useState('race'), [rid, setRid] = useState(0)
+export function SsxLobby({ s, TopPlayers, onInvite }) {
+  const [ci, setCi] = useState(s.profile.ssxCourse | 0), [kind, setKind] = useState(s.profile.ssxKind || 'race'), [rid, setRid] = useState(s.profile.ssxPick | 0)
+  const pick = (o) => { if (o.course !== undefined) setCi(o.course); if (o.kind) setKind(o.kind); if (o.rider !== undefined) setRid(o.rider); ssxActions.setPrefs(o) }
   const p = s.profile, times = p.ssxTimes || {}
   const R = RIDERS[rid]
   return (
     <div className="lobby"><div className="lobbyL">
       <div className="lobbyinfo"><b>SNOW RUSH</b> · Race five riders down the mountain, or go for the biggest trick score. Hit the kickers, grind the rails, fill your boost with tricks and land clean. Wipe out and you lose the combo.</div>
       <div className="sxrow">
-        <button className={'mg-btn ' + (kind === 'race' ? 'on' : '')} onClick={() => setKind('race')}>🏁 RACE</button>
-        <button className={'mg-btn ' + (kind === 'trick' ? 'on' : '')} onClick={() => setKind('trick')}>⭐ TRICK ATTACK · 90s</button>
+        <button className={'mg-btn ' + (kind === 'race' ? 'on' : '')} onClick={() => pick({ kind: 'race' })}>🏁 RACE</button>
+        <button className={'mg-btn ' + (kind === 'trick' ? 'on' : '')} onClick={() => pick({ kind: 'trick' })}>⭐ TRICK ATTACK · 90s</button>
       </div>
       <div className="sxcourses">
         {COURSES.map((c, i) => (
-          <button key={c.id} className={'sxcourse ' + c.id + (ci === i ? ' sel' : '')} onClick={() => setCi(i)}>
+          <button key={c.id} className={'sxcourse ' + c.id + (ci === i ? ' sel' : '')} onClick={() => pick({ course: i })}>
             <b>{c.name}</b><small>{c.sub}</small>
             {times[c.id] ? <em>BEST {clock(times[c.id])}</em> : <em>NO TIME YET</em>}
           </button>
@@ -30,7 +31,7 @@ export function SsxLobby({ s, TopPlayers }) {
       </div>
       <div className="sxriders">
         {RIDERS.map((r) => (
-          <button key={r.id} className={'sxrider ' + (rid === r.id ? 'sel' : '')} onClick={() => setRid(r.id)} style={{ '--c': r.jacket }}>
+          <button key={r.id} className={'sxrider ' + (rid === r.id ? 'sel' : '')} onClick={() => pick({ rider: r.id })} style={{ '--c': r.jacket }}>
             <span className="sxface" style={{ background: r.jacket }}>🏂</span><b>{r.name}</b>
           </button>
         ))}
@@ -40,7 +41,7 @@ export function SsxLobby({ s, TopPlayers }) {
         <div><span>TRICKS</span><Bar v={(R.trk - 0.85) / 0.4} c="#ff4a8a" /></div>
         <div><span>BALANCE</span><Bar v={(R.bal - 0.85) / 0.4} c="#6aff9a" /></div>
       </div>
-      <button className="big" onClick={() => ssxActions.start({ course: ci, kind, rider: rid })}>▶ DROP IN</button>
+      <div className="chips"><button className="big" onClick={() => ssxActions.start({ course: ci, kind, rider: rid })}>▶ DROP IN</button>{onInvite && <button className="big sec" onClick={onInvite}>🌐 RACE FRIENDS ONLINE</button>}</div>
     </div><div className="lobbyR">
       <div className="panel"><h4>MY SNOW RUSH STATS</h4><div className="kv"><span>RUNS</span><b>{p.ssxGames || 0}</b><span>WINS</span><b>{p.ssxWins || 0}</b><span>BEST SCORE</span><b>{fmt(p.ssxBest)}</b><span>BEST TRICK</span><b>{fmt(p.ssxTrick)}</b></div></div>
       <TopPlayers s={s} initial="ssx" compact fixed />
@@ -67,6 +68,7 @@ export function SsxHUD({ openHelp }) {
         <span className="grow" />
         {g.mode !== 'over' && <button className="mg-btn" onClick={() => ssxActions.pause()}>⏸</button>}
       </div>
+      {g.online && g.board && <div className="sxboard">{g.board.map((b, i) => <div key={i} className={b.n === 'YOU' ? 'me' : ''}><i style={{ background: b.c }} />{i + 1}. {b.n}<em>{g.kind === 'trick' ? fmt(b.sc) : b.f !== null && b.f >= 0 ? clock(b.f) : b.z + 'm'}</em></div>)}</div>}
       {race && <div className="sxprog">{g.prog.map((r, i) => <i key={i} className={r.me ? 'me' : ''} style={{ left: (r.p * 100) + '%', background: r.c }} />)}<u /></div>}
       {!race && <div className="sxprog"><u /><i className="me" style={{ left: (g.pct * 100) + '%', background: '#fff' }} /></div>}
       <div className="sxspeed"><b>{g.speed}</b><small>KM/H</small></div>
@@ -74,6 +76,7 @@ export function SsxHUD({ openHelp }) {
       {g.text && <div className={'sxtrick' + (g.text.bad ? ' bad' : '')} style={{ '--c': g.text.c }}><b>{g.text.text}</b>{g.text.pts > 0 && <em>+{fmt(g.text.pts)}</em>}</div>}
       {g.msg && <div className="mg-banner" style={{ '--c': g.msg.c }}><h2>{g.msg.text}</h2></div>}
       {g.mode === 'ready' && g.count > 0 && <div className="sxcount">{g.count}</div>}
+      {g.online && g.mode === 'finish' && <div className="mg-hint">WAITING FOR THE OTHER RIDERS…</div>}
       {g.mode === 'play' && g.time < 6 && !touch && <div className="mg-hint">← → STEER · SPACE HOLD+RELEASE JUMP · IN AIR: ← → SPIN, ↑ ↓ FLIP, J / K GRAB · SHIFT BOOST</div>}
       {touch && g.mode !== 'over' && !g.paused && (
         <>

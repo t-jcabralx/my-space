@@ -1117,9 +1117,9 @@ function drawFinisher(put3, F) {
   if (F.kind === 'ice') {
     if (shatter < 0) {
       const u = Math.min(1, tt / 0.8)
-      put3(vx, by + 4.5, 0, 15 * u, 9 * u, 9, 0, 0.5, 1.4, 2.0)
-      put3(vx, by + 4.5, 0, 12 * u, 6.5 * u, 6.5, 0, 1.2, 2.2, 2.6)
-      for (let i = 0; i < 6; i++) put3(vx - 6 + i * 2.4, by + 9.5 * u, 0, 0.8, 3 * u, 0.8, 0, 2, 2.4, 2.8, i)
+      put3(vx, by + 3.2, 0, 14 * u, 7.4 * u, 7.5, 0, 0.18, 0.55, 0.9)
+      put3(vx, by + 3.2, 0, 11.5 * u, 5.2 * u, 5.5, 0, 0.35, 0.9, 1.35)
+      for (let i = 0; i < 6; i++) put3(vx - 5.5 + i * 2.2, by + 7.2 * u, 0, 0.8, 2.4 * u, 0.8, 0, 1.2, 1.9, 2.4, i)
     } else for (let i = 0; i < 70; i++) { const a = hsh(i, 1) * 6.283, sp = 6 + hsh(i, 2) * 26, u = shatter; put3(vx + Math.cos(a) * sp * u, by + 4 + Math.abs(Math.sin(a)) * sp * u * 0.8 - 22 * u * u, (hsh(i, 3) - 0.5) * 10 * u, 1.2 + hsh(i, 4) * 1.6, 1.2 + hsh(i, 5) * 1.6, 1.2, 0, 0.8 * (1 - u * 0.3), 1.8, 2.4, a + u * 6) }
   } else if (F.kind === 'fire') {
     if (shatter < 0) for (let i = 0; i < 16; i++) { const a = hsh(i, 1) * 6.283, hgt = (4 + hsh(i, 2) * 12) * (0.6 + 0.4 * Math.sin(tt * 14 + i)) * Math.min(1, tt / 0.6), r = 1 + hsh(i, 3) * 5; put3(vx + Math.cos(a) * r, by + hgt / 2, Math.sin(a) * 2.5, 2.2, hgt, 2.2, 0, 2.6, 1.0 + hsh(i, 4) * 1.2, 0.1, tt * 3 + i) }

@@ -376,7 +376,7 @@ function onKey(code) {
   if (code === 'KeyX') { GD.shovel = !GD.shovel; GD.sel = null; emitG() }
 }
 const camGarden = () => ({ x: 0, y: 70, z: 40, tx: 0, ty: 0, tz: -2, fov: 45, far: 400, aspect: 100 / 56 })
-export const gardenTest = { place: placePlant, drop: dropZombie, hostAct, snapshot: netSnapshot, apply: applySnapshot, collectSun }
+export const gardenTest = { act, place: placePlant, drop: dropZombie, hostAct, snapshot: netSnapshot, apply: applySnapshot, collectSun }
 export const gardenActions = {
   start, stop, quit() { toMenu() }, resume() { GD.paused = false; emitG() }, pause() { if (GD.mode === 'play' && !GD.paused && !GD.net) { GD.paused = true; emitG(); return true } return false },
   rematch() { if (GD.net) { if (GD.net.role === 'host') GD.net.restart(); else GD.net.sendHost({ k: 'rematch' }); return } start({ kind: GD.kind, level: GD.kind === 'plants' && GD.over && GD.over.win ? Math.min(LEVELS.length - 1, GD.lvl + 1) : GD.lvl }) },
