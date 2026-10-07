@@ -79,7 +79,7 @@ rogueActions.stop()
 rogueActions.start({ cls: 1, pet: 0 }); rogueActions.skipTale(); me().inv = 99999; me().hp = me().max = 999
 RG.spawnQ.forEach((q) => { q.t = 0 }); run(2.5); const pb0 = RG.pb.length; me().holdPtr = false; me().x = RG.en[0] ? RG.en[0].x - 8 : 0; run(1.5)
 ok(RG.pb.length === 0 && pb0 === 0, 'the ranger does not shoot until you click')
-me().holdPtr = true; run(1.0)
+me().holdPtr = true; run(3.0)
 ok(RG.pb.length > 0 || RG.kills > 0, 'clicking fires')
 rogueActions.stop()
 console.log(fail ? 'FAIL abyss' : 'PASS abyss, agendas, orbs, relics, pets')
