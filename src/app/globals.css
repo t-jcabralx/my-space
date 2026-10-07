@@ -817,3 +817,39 @@ li.bonus { border-color: var(--gr); color: var(--gr); } li.fail { border-color: 
   .rotatefull .big { margin-top: 6px; }
 }
 .rotatefull h2, .rotatefull p { line-height: 1.6; }
+
+/* ---- phones: menus/lobbies sized in real pixels so text and buttons are readable and easy to tap ---- */
+@media (max-width: 700px) {
+  .stage.menu .hud { font-size: 14px; }
+  .stage.menu .screen.hub { padding: 12px 12px 72px; gap: 12px; }
+  .stage.menu .tabs { gap: 6px; }
+  .stage.menu .tab { font-size: 11px; padding: 10px 12px; min-height: 38px; }
+  .stage.menu .chip { font-size: 11px; padding: 9px 12px; min-height: 38px; }
+  .stage.menu .big { font-size: 15px; padding: 13px 18px; min-height: 46px; }
+  .stage.menu .gcard .big { font-size: 14px; padding: 12px; }
+  .stage.menu .joinbar { padding: 10px 12px; font-size: 11px; gap: 8px; }
+  .stage.menu .nameIn { font-size: 14px; min-height: 40px; }
+  .stage.menu .lobby { gap: 14px; }
+  .stage.menu .helpbtn { padding: 12px 16px; font-size: 13px; }
+}
+@media (max-width: 700px) {
+  .stage.menu .tabs { flex-wrap: nowrap; overflow-x: auto; flex-basis: 100%; padding-bottom: 4px; -webkit-overflow-scrolling: touch; scrollbar-width: none; } .stage.menu .tabs::-webkit-scrollbar { display: none; } .stage.menu .tab { flex: 0 0 auto; }
+  .stage.menu .hud { line-height: 1.4; }
+}
+@media (max-width: 700px) {
+  .stage.menu .hud small, .stage.menu .hud em { font-size: max(10px, .72em); }
+  .stage.menu .lobby > *, .stage.menu .lobbyL, .stage.menu .lobbyR { min-width: 0; max-width: 100%; }
+  .stage.menu .chips { flex-wrap: wrap; }
+  .stage.menu h4 { overflow-wrap: anywhere; }
+}
+@media (max-width: 700px) { .stage.menu .chapgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* ---- card tables on a phone held upright: bigger cards, seat labels kept on screen ---- */
+@container (max-width: 520px) {
+  .pc { --cw: 17cqw; }
+  .seat { font-size: 11px; padding: 4px 9px 4px 5px; gap: 5px; white-space: normal; max-width: 32cqw; left: clamp(16cqw, calc(var(--sx) * 1%), 84cqw) !important; }
+  .seat .sn small { font-size: 9px; }
+  .ct-msg { font-size: 12px; padding: 6px 12px; }
+  .ct-chips { font-size: 12px; padding: 4px 10px; }
+  .ct-title b { font-size: 16px; } .ct-title small { font-size: 9px; }
+}

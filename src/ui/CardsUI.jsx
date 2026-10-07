@@ -87,7 +87,7 @@ export default function CardsHUD({ SoundBtn, openHelp, TopPlayersMini }) {
         {s.cards.map((c) => <PCard key={c.id} c={c} onClick={click} />)}
         {/* seat plates */}
         {s.seats.map((p) => (
-          <div key={p.id} className={'seat' + (p.turn ? ' turn' : '') + (p.human ? ' me' : '') + (p.danger ? ' danger' : '')} style={{ left: p.x + '%', top: p.y + '%' }}>
+          <div key={p.id} className={'seat' + (p.turn ? ' turn' : '') + (p.human ? ' me' : '') + (p.danger ? ' danger' : '')} style={{ left: p.x + '%', top: p.y + '%', '--sx': p.x }}>
             <div className="av">{p.avatar}</div>
             <div className="sn"><b>{p.name}</b>
               <small>{s.id === 'lucky9' || s.id === 'tongits' || s.id === 'baccarat' || s.id === 'poker' ? `🪙 ${Number(p.chips).toLocaleString()}` : s.id === 'pusoy' ? `${p.score} pts · ${p.count} cards` : `${p.score} pts · ${p.count} cards`}{s.id === 'tongits' ? ` · ${p.count} cards` : ''}</small>
