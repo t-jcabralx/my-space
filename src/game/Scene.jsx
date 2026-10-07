@@ -178,6 +178,16 @@ function put3(x, y, z, sx, sy, sz, rz, r, g, b, ry = 0) {
   C3[c] = r; C3[c + 1] = g; C3[c + 2] = b
   n3++
 }
+function putM(x, y, z, sx, sy, sz, m, r, g, b) {
+  if (n3 >= MAX3) return
+  const o = n3 * 16
+  A3[o] = m[0] * sx; A3[o + 1] = m[3] * sx; A3[o + 2] = m[6] * sx; A3[o + 3] = 0
+  A3[o + 4] = m[1] * sy; A3[o + 5] = m[4] * sy; A3[o + 6] = m[7] * sy; A3[o + 7] = 0
+  A3[o + 8] = m[2] * sz; A3[o + 9] = m[5] * sz; A3[o + 10] = m[8] * sz; A3[o + 11] = 0
+  A3[o + 12] = x; A3[o + 13] = y; A3[o + 14] = z; A3[o + 15] = 1
+  const c = n3 * 3; C3[c] = r; C3[c + 1] = g; C3[c + 2] = b
+  n3++
+}
 const MAXS = 3200
 let nS = 0, AS = null, CS = null
 function putS(x, y, z, sx, sy, sz, r, g, b) {
@@ -188,8 +198,8 @@ function putS(x, y, z, sx, sy, sz, r, g, b) {
   const c = nS * 3; CS[c] = r; CS[c + 1] = g; CS[c + 2] = b
   nS++
 }
-export const LIT3 = new Set(['rogue', 'td', 'hockey', 'pool', 'snake', 'breaker', 'rhythm', 'empire'])
-const api3 = { put3, putS, bulk(A, C, count) { if (!A3) return; A3.set(A.subarray(0, count * 16)); C3.set(C.subarray(0, count * 3)); n3 = count } }
+export const LIT3 = new Set(['rogue', 'td', 'hockey', 'pool', 'snake', 'breaker', 'rhythm', 'empire', 'ssx'])
+const api3 = { put3, putM, putS, bulk(A, C, count) { if (!A3) return; A3.set(A.subarray(0, count * 16)); C3.set(C.subarray(0, count * 3)); n3 = count } }
 export function Fighters3D() {
   const ref = useRef()
   const sph = useRef()
@@ -244,6 +254,37 @@ export function Fighters3D() {
         <meshStandardMaterial roughness={0.35} metalness={0.2} />
       </instancedMesh>
     </group>
+  )
+}
+
+// smooth low-poly mountain for SNOW RUSH: the game fills vertex heights and colours every frame
+const TNX = 44, TNZ = 84
+export function SnowTerrain() {
+  const ref = useRef()
+  const geo = useMemo(() => {
+    const g = new THREE.BufferGeometry()
+    g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(TNX * TNZ * 3), 3))
+    g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(TNX * TNZ * 3), 3))
+    const idx = []
+    for (let j = 0; j < TNZ - 1; j++) for (let i = 0; i < TNX - 1; i++) { const a = j * TNX + i, b = a + 1, c = a + TNX, d = c + 1; idx.push(a, b, c, b, d, c) }
+    g.setIndex(idx)
+    return g
+  }, [])
+  useFrame(() => {
+    const m = ref.current
+    if (!m) return
+    const on = G.mode === 'ssx' && games.ssx && games.ssx.terrain
+    m.visible = !!on
+    if (!on) return
+    games.ssx.terrain(geo.attributes.position.array, geo.attributes.color.array, TNX, TNZ)
+    geo.attributes.position.needsUpdate = true; geo.attributes.color.needsUpdate = true
+    geo.computeVertexNormals()
+    geo.computeBoundingSphere()
+  })
+  return (
+    <mesh ref={ref} geometry={geo} frustumCulled={false} receiveShadow>
+      <meshStandardMaterial vertexColors roughness={0.85} metalness={0} flatShading />
+    </mesh>
   )
 }
 

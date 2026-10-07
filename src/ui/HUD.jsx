@@ -16,6 +16,8 @@ import { subscribeChomp, getChompSnap, chompActions, MODES as CMODES } from '../
 import { subscribeFlames, getFlamesSnap, flamesActions, OUTCOMES as FOUT } from '../game/flames.js'
 import CardsHUD from './CardsUI.jsx'
 import { EmpireLobby, EmpireHUD } from './EmpireUI.jsx'
+import { SsxLobby, SsxHUD } from './Ssx.jsx'
+import { ssxActions } from '../game/ssx.js'
 import { More2HUD, MORE2_MODES, C4Lobby, SnakeLobby, BreakerLobby, MinesLobby } from './MoreGames2.jsx'
 import { MoreHUD, MORE_MODES, HockeyLobby, PoolLobby, TdLobby, RogueLobby, RhythmLobby, WordLobby, MergeLobby } from './MoreGames.jsx'
 import { StoryTab, StoryOverlay } from './StoryUI.jsx'
@@ -55,6 +57,7 @@ export function openHelp(tab) {
   else if (snap && snap.mode === 'rogue') resume = rogueActions.pause() ? 'rogue' : null
   else if (snap && snap.mode === 'snake') resume = snakeActions.pause() ? 'snake' : null
   else if (snap && snap.mode === 'breaker') resume = breakerActions.pause() ? 'breaker' : null
+  else if (snap && snap.mode === 'ssx') resume = ssxActions.pause() ? 'ssx' : null
   else if (snap && snap.mode === 'rhythm') resume = rhythmActions.pause() ? 'rhythm' : null
   help = { open: true, tab: tab || help.tab, resume }
   helpEmit()
@@ -63,7 +66,7 @@ export function closeHelp() {
   const r = help.resume
   help = { ...help, open: false, resume: null }
   helpEmit()
-  if (r === 'space') togglePause(); else if (r === 'slug') slugActions.resume(); else if (r === 'pickle') pickleActions.resume(); else if (r === 'bomber') bomberActions.resume(); else if (r === 'tetris') tetrisActions.resume(); else if (r === 'chomp') chompActions.resume(); else if (r === 'cards') cardsActions.resume(); else if (r === 'hockey') hockeyActions.resume(); else if (r === 'pool') poolActions.resume(); else if (r === 'td') tdActions.resume(); else if (r === 'rogue') rogueActions.resume(); else if (r === 'rhythm') rhythmActions.resume(); else if (r === 'snake') snakeActions.resume(); else if (r === 'breaker') breakerActions.resume()
+  if (r === 'space') togglePause(); else if (r === 'slug') slugActions.resume(); else if (r === 'pickle') pickleActions.resume(); else if (r === 'bomber') bomberActions.resume(); else if (r === 'tetris') tetrisActions.resume(); else if (r === 'chomp') chompActions.resume(); else if (r === 'cards') cardsActions.resume(); else if (r === 'hockey') hockeyActions.resume(); else if (r === 'pool') poolActions.resume(); else if (r === 'td') tdActions.resume(); else if (r === 'rogue') rogueActions.resume(); else if (r === 'rhythm') rhythmActions.resume(); else if (r === 'snake') snakeActions.resume(); else if (r === 'breaker') breakerActions.resume(); else if (r === 'ssx') ssxActions.resume()
 }
 const K = ({ children }) => <kbd>{children}</kbd>
 const HELP = {
@@ -390,6 +393,7 @@ const HELP = {
   c4: { name: '🔴 CONNECT FOUR', body: () => (<><p>Drop discs into the 7x6 grid; the first to line up <b>four</b> (across, up or diagonal) wins. Click a column or press <K>1</K>-<K>7</K>. Online: invite a friend; the host keeps the board.</p></>) },
   snake: { name: '🐍 NEON SNAKE', body: () => (<><p>Steer with <K>WASD</K> / <K>ARROWS</K> (swipe on a phone). Eat red apples to grow (+10) and golden apples (+50). Walls, rocks and snakes are deadly. Solo mode speeds up and adds rocks; 2P: P1 <K>WASD</K>, P2 <K>ARROWS</K>.</p></>) },
   breaker: { name: '🧱 NEON BREAKER', body: () => (<><p>Move the paddle with the mouse, finger or <K>←</K> <K>→</K>; <K>SPACE</K> / click launches. Break all bricks in 5 levels. Capsules: wide paddle, multi-ball, slow, extra life. Where the ball hits the paddle sets its angle.</p></>) },
+  ssx: { name: '🏂 SNOW RUSH', body: () => (<><p>Race five riders down the mountain or chase the biggest trick score in <b>Trick Attack</b>. <K>←</K> <K>→</K> / <K>A</K> <K>D</K> steer. Hold <K>SPACE</K> to crouch and release it to jump (longer hold = higher). Hit a <b>kicker</b> (glowing chevron ramp) for big air.</p><p><b>In the air:</b> <K>←</K> <K>→</K> spin, <K>↑</K> <K>↓</K> flip, hold <K>J</K> or <K>K</K> to grab (add a direction for a different grab). Land when the board is pointing downhill: any half-turn counts, a bad angle is a <b>wipeout</b>. Longer tricks and mixing spin + flip + grab multiply the points.</p><p><b>Rails:</b> jump onto a rail to grind it for points. <b>Boost:</b> hold <K>SHIFT</K> / <K>B</K>; tricks and coins fill the meter. When it is full you are <b>TRICKY</b>: unlimited boost, double points, and in the air tapping boost performs an <b>UBER TRICK</b>. Avoid rocks, grab the gold coins and use blue boost pads. On a phone use the on-screen pad and buttons.</p></>) },
   mines: { name: '💣 MINE SWEEP', body: () => (<><p>Open every safe square. A number shows how many mines touch it. <b>Right-click</b> or <b>long-press</b> flags a mine (or use FLAG MODE, <K>F</K>). Click a number with enough flags around it to open its neighbours. The first click is always safe.</p></>) },
   empire: { name: '🏰 EMPIRE RISE', body: () => (<><p><b>Goal:</b> grow your village into a <b>city and an empire</b> and defeat the rival kingdoms (AI or friends). Raiders from the map edges attack everyone, so build towers and an army.</p><h5>BUILD</h5><ul><li>Pick a building (<K>1</K>-<K>9</K> or the bar) and click free grass near your town. Lumber camps, quarries and mines produce more when built <b>next to forest, rock and gold</b>.</li><li>Houses raise your population cap. Barracks train soldiers (<K>T</K> sword, <K>Y</K> archer). Click the Town Hall (or press <K>U</K>) to upgrade it: <b>Village → Town → City → Empire</b>, unlocking mines, knights, catapults and the Wonder.</li></ul><h5>FIGHT</h5><ul><li><b>Right-click</b> (or <K>G</K>, then click) sends your whole army to a point or target. <K>H</K> recalls it to defend. Idle soldiers guard your hall.</li><li>Walls block enemies until they break through. Towers shoot anything in range.</li></ul><h5>WIN</h5><ul><li>Destroy every rival Town Hall, <b>or</b> build the Wonder (Empire level) and keep it alive for 2.5 minutes. If your hall falls, you are out.</li></ul><p><K>WASD</K> / drag scroll · wheel zoom · <K>SPACE</K> jump home · <K>F</K> speed (solo).</p></>) },
   sound: {
@@ -425,7 +429,7 @@ function HelpModal() {
     </div>
   )
 }
-const FIRST = { race: 'race', fight: 'fight', flames: 'flames', playing: 'space', slug: 'slug', pickle: 'pickle', bomber: 'bomber', tetris: 'tetris', chomp: 'chomp', cards: 'cards', hockey: 'hockey', pool: 'pool', td: 'td', rogue: 'rogue', rhythm: 'rhythm', word: 'word', merge: 'merge', c4: 'c4', empire: 'empire', snake: 'snake', breaker: 'breaker', mines: 'mines' }
+const FIRST = { race: 'race', fight: 'fight', flames: 'flames', playing: 'space', slug: 'slug', pickle: 'pickle', bomber: 'bomber', tetris: 'tetris', chomp: 'chomp', cards: 'cards', hockey: 'hockey', pool: 'pool', td: 'td', rogue: 'rogue', rhythm: 'rhythm', word: 'word', merge: 'merge', c4: 'c4', empire: 'empire', snake: 'snake', breaker: 'breaker', mines: 'mines', ssx: 'ssx' }
 function HelpLayer({ s }) {
   const g = FIRST[s.mode]
   useEffect(() => {
@@ -1517,7 +1521,7 @@ function Hub({ s }) {
   const next = RANKS[ri + 1]
   const pct = next ? ((xp - RANKS[ri][0]) / (next[0] - RANKS[ri][0])) * 100 : 100
   const doneAch = ACH.filter(([, , g, goal]) => g(p, s.unlocked) >= goal).length
-  const GAME_TABS = { pickle: '🏓 PICKLEBALL', bomber: '💣 BOMBER', tetris: '🧱 TETRIS', chomp: '🟡 CHOMP', cards: '🃏 CARDS', race: '🏁 RACE', fight: '🥊 FIGHT', flames: '🔥 FLAMES', hockey: '🏒 AIR HOCKEY', pool: '🎱 BILLIARDS', td: '🛡 DEFENSE', rogue: '🗡 DEPTHS', rhythm: '🎵 BEAT', word: '🔤 WORD HUNT', merge: '🔢 2048', c4: '🔴 CONNECT 4', snake: '🐍 SNAKE', breaker: '🧱 BREAKER', mines: '💣 SWEEP', empire: '🏰 EMPIRE' }
+  const GAME_TABS = { pickle: '🏓 PICKLEBALL', bomber: '💣 BOMBER', tetris: '🧱 TETRIS', chomp: '🟡 CHOMP', cards: '🃏 CARDS', race: '🏁 RACE', fight: '🥊 FIGHT', flames: '🔥 FLAMES', hockey: '🏒 AIR HOCKEY', pool: '🎱 BILLIARDS', td: '🛡 DEFENSE', rogue: '🗡 DEPTHS', rhythm: '🎵 BEAT', word: '🔤 WORD HUNT', merge: '🔢 2048', c4: '🔴 CONNECT 4', snake: '🐍 SNAKE', breaker: '🧱 BREAKER', mines: '💣 SWEEP', empire: '🏰 EMPIRE', ssx: '🏂 SNOW RUSH' }
   // the tab bar stays short: dashboard, the game you opened (if any), and the utility tabs. Games are opened from the dashboard cards.
   const TABS = [['home', 'DASHBOARD'], ...(GAME_TABS[tab] ? [[tab, GAME_TABS[tab]]] : []), ['online', '🌐 ONLINE'], ['story', '📖 STORY'], ['top', '🏆 TOP PLAYERS'], ['ship', 'CUSTOMIZE SHIP'], ['levels', 'SPACE LEVELS'], ['skills', 'CONTROLS'], ['settings', '⚙ SETTINGS'], ['awards', `AWARDS ${doneAch}/${ACH.length}`]]
   const CATS = [['all', 'ALL GAMES'], ['action', '⚔ ACTION'], ['sports', '🏅 SPORTS'], ['strategy', '🧠 STRATEGY'], ['puzzle', '🧩 PUZZLE'], ['cards', '🃏 CARDS'], ['music', '🎵 MUSIC']]
@@ -1576,6 +1580,9 @@ function Hub({ s }) {
             {show('action') && <GameCard cls="snake" title="🐍 NEON SNAKE" tag="Solo · vs bot · 2 players" hiLabel="BEST" hi={p.snakeBest || 0}
               art={<div className="miniSnake"><i /><i /><i /><i /><b>🍎</b></div>} label="SELECT MODE ▶" onPlay={() => setTab('snake')}
               sub={<><span>GAMES</span><b>{p.snakeGames || 0}</b></>} />}
+            {show('action', 'sports') && <GameCard cls="ssx" title="🏂 SNOW RUSH" tag="3D snowboarding · race · tricks · rails" hiLabel="BEST" hi={fmtN(p.ssxBest || 0)}
+              art={<div className="miniSsx"><i /><b>🏂</b></div>} label="DROP IN ▶" onPlay={() => setTab('ssx')}
+              sub={<><span>WINS</span><b>{p.ssxWins || 0}</b></>} />}
             {show('action') && <GameCard cls="breaker" title="🧱 NEON BREAKER" tag="5 levels · power-ups" hiLabel="BEST" hi={fmtN(p.breakerBest || 0)}
               art={<div className="miniBreaker"><i /><i /><i /><i /><i /><i /></div>} label="PLAY ▶" onPlay={() => setTab('breaker')}
               sub={<><span>GAMES</span><b>{p.breakerGames || 0}</b></>} />}
@@ -1641,6 +1648,7 @@ function Hub({ s }) {
       {tab === 'empire' && <EmpireLobby s={s} TopPlayers={TopPlayers} onInvite={() => { setOgame('empire'); setTab('online') }} />}
       {tab === 'c4' && <C4Lobby s={s} TopPlayers={TopPlayers} onInvite={() => { setOgame('c4'); setTab('online') }} />}
       {tab === 'snake' && <SnakeLobby s={s} TopPlayers={TopPlayers} />}
+      {tab === 'ssx' && <SsxLobby s={s} TopPlayers={TopPlayers} />}
       {tab === 'breaker' && <BreakerLobby s={s} TopPlayers={TopPlayers} />}
       {tab === 'mines' && <MinesLobby s={s} TopPlayers={TopPlayers} />}
       {tab === 'fight' && <FightLobby s={s} />}
@@ -1667,7 +1675,7 @@ function TopPlayers({ s, initial = 'space', compact = false, fixed = false }) {
   const lim = compact ? 5 : 10
   useEffect(() => { let on = true; setRows(null); fetchTop(game, lim).then((r) => on && setRows(r)); return () => { on = false } }, [game, lim])
   const me = (s.profile.name || '').toUpperCase()
-  const GAMES = [['space', 'SPACE IMPACT'], ['slug', 'GROUND ZERO'], ['pickle', 'PICKLEBALL'], ['bomber', 'BOMBER BLAST'], ['tetris', 'TETRA BLAST'], ['chomp', 'MAZE CHOMP'], ['uno', 'UNO'], ['pusoy', 'PUSOY DOS'], ['lucky9', 'LUCKY 9'], ['tongits', 'TONG-ITS'], ['race', 'TURBO RUSH'], ['hockey', 'AIR HOCKEY'], ['pool', 'BILLIARDS'], ['td', 'NEON DEFENSE'], ['rogue', 'NEON DEPTHS'], ['rhythm', 'NEON BEAT'], ['word', 'WORD HUNT'], ['merge', '2048 MERGE'], ['baccarat', 'BACCARAT'], ['poker', 'POKER'], ['c4', 'CONNECT FOUR'], ['snake', 'NEON SNAKE'], ['breaker', 'NEON BREAKER'], ['mines', 'MINE SWEEP'], ['empire', 'EMPIRE RISE']]
+  const GAMES = [['space', 'SPACE IMPACT'], ['slug', 'GROUND ZERO'], ['pickle', 'PICKLEBALL'], ['bomber', 'BOMBER BLAST'], ['tetris', 'TETRA BLAST'], ['chomp', 'MAZE CHOMP'], ['uno', 'UNO'], ['pusoy', 'PUSOY DOS'], ['lucky9', 'LUCKY 9'], ['tongits', 'TONG-ITS'], ['race', 'TURBO RUSH'], ['hockey', 'AIR HOCKEY'], ['pool', 'BILLIARDS'], ['td', 'NEON DEFENSE'], ['rogue', 'NEON DEPTHS'], ['rhythm', 'NEON BEAT'], ['word', 'WORD HUNT'], ['merge', '2048 MERGE'], ['baccarat', 'BACCARAT'], ['poker', 'POKER'], ['c4', 'CONNECT FOUR'], ['snake', 'NEON SNAKE'], ['breaker', 'NEON BREAKER'], ['mines', 'MINE SWEEP'], ['empire', 'EMPIRE RISE'], ['ssx', 'SNOW RUSH']]
   return (
     <div className="topboard">
       <h4>🏆 TOP PLAYERS{fixed ? ' · ' + (GAMES.find(([k]) => k === game) || [0, game])[1] : ''}</h4>
@@ -2003,6 +2011,7 @@ function HUDInner({ s }) {
   if (s.mode === 'race') return <RaceHUD />
   if (MORE_MODES.includes(s.mode)) return <MoreHUD mode={s.mode} openHelp={openHelp} />
   if (MORE2_MODES.includes(s.mode)) return <More2HUD mode={s.mode} openHelp={openHelp} />
+  if (s.mode === 'ssx') return <SsxHUD openHelp={openHelp} />
   if (s.mode === 'empire') return <EmpireHUD openHelp={openHelp} />
   if (s.mode === 'cards') return <CardsHUD SoundBtn={SoundBtn} openHelp={openHelp} TopPlayersMini={TopPlayersMini} />
   const playing = s.mode === 'playing' || s.mode === 'paused'

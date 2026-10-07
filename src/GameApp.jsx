@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing'
-import { World, Stars, Planet, Rig, FlashPlane, Fighters3D } from './game/Scene.jsx'
+import { World, Stars, Planet, Rig, FlashPlane, Fighters3D, SnowTerrain } from './game/Scene.jsx'
 import HUD, { openHelp } from './ui/HUD.jsx'
 import './game/slug.js'
 import './game/pickle.js'
@@ -27,6 +27,7 @@ import './game/snake.js'
 import './game/breaker.js'
 import './game/mines.js'
 import './game/empire.js'
+import './game/ssx.js'
 import './game/cards/uno.js'
 import './game/cards/pusoy.js'
 import './game/cards/lucky9.js'
@@ -146,6 +147,7 @@ export default function GameApp() {
           <Planet />
           <World />
           <Fighters3D />
+          <SnowTerrain />
           <FlashPlane />
           <Rig />
           {!low && (
