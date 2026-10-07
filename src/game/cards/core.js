@@ -40,10 +40,17 @@ function stepQ(dt) {
 export function banner(text, sub, color = '#ffe84a', sec = 1.6) { CS.banner = { id: ++uid, text, sub, color }; notify(); after(sec, () => { if (CS.banner && CS.banner.text === text) { CS.banner = null; notify() } }) }
 export function toast(text, color = '#fff') { const t = { id: ++uid, text, color, t: 2.2 }; CS.toasts.push(t); if (CS.toasts.length > 4) CS.toasts.shift(); notify() }
 // ---- table reactions: laughs and thrown bananas (seat ids are the game's own seat ids) ----
-export const REACTS = ['laugh', 'rofl', 'tease', 'banana']
-export function addReact(from, kind, to) {
+export const REACTS = ['laugh', 'rofl', 'tease', 'banana', 'sticker']
+// players can send any emoji or a small uploaded picture; everything is re-checked on the host
+export function cleanExtra(x) {
+  const o = {}
+  if (x && typeof x.g === 'string') { const g = Array.from(x.g.replace(/[\u0000-\u001f<>&"']/g, '')).slice(0, 6).join(''); if (g) o.g = g }
+  if (x && typeof x.img === 'string' && /^data:image\/(png|webp|jpeg);base64,[A-Za-z0-9+/=]+$/.test(x.img) && x.img.length <= 12000) o.img = x.img
+  return o
+}
+export function addReact(from, kind, to, extra) {
   if (!REACTS.includes(kind)) return
-  CS.reacts.push({ id: ++uid, kind, from, to: typeof to === 'number' ? to : -1, t: 2.6 })
+  CS.reacts.push({ id: ++uid, kind, from, to: typeof to === 'number' ? to : -1, t: 2.6, ...cleanExtra(extra) })
   if (CS.reacts.length > 8) CS.reacts.shift()
   notify()
 }
@@ -118,11 +125,12 @@ export const cardsActions = {
   pause() { if (CS.mode === 'play' && !CS.paused) { CS.paused = true; notify(); return true } return false },
   resume() { CS.paused = false; notify() },
   // kind: laugh | rofl | tease | banana; to: a seat id (or -1 for the whole table)
-  react(kind, to = -1) {
+  react(kind, to = -1, extra = {}) {
     if (!REACTS.includes(kind)) return
-    if (CS.remote) { CS.remote.send('react', { kind, to }); return }
+    const ex = cleanExtra(extra)
+    if (CS.remote) { CS.remote.send('react', { kind, to, ...ex }); return }
     if (CS.mode !== 'play') return
-    addReact(0, kind, to)
+    addReact(0, kind, to, ex)
     if (CS.online) return
     // the bots answer back
     const s = snap && snap.seats ? snap.seats : []

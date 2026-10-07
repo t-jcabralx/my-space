@@ -1,6 +1,6 @@
 // Online card games over Redis pub/sub. The HOST simulates the game; every other human is a thin client that
 // renders their own private view and forwards clicks. No separate server: all messages go through /api/rt/*.
-import { CS, cardsActions, buildSnap, notify, addReact, REACTS } from '../cards/core.js'
+import { CS, cardsActions, buildSnap, notify, addReact, REACTS, cleanExtra } from '../cards/core.js'
 import { unoApi } from '../cards/uno.js'
 import { pusoyApi } from '../cards/pusoy.js'
 import { lucky9Api } from '../cards/lucky9.js'
@@ -127,7 +127,7 @@ export function installCardsOnline() {
     const now = Date.now(); if (now - (lastReact[env.f] || 0) < 700) return; lastReact[env.f] = now
     const idx = unoPlayers().findIndex((p) => p.cid === env.f && p.human); if (idx < 0) return
     const to = Number.isInteger(d.to) && d.to >= 0 && d.to < unoPlayers().length ? d.to : -1
-    addReact(idx, d.kind, to)
+    addReact(idx, d.kind, to, cleanExtra(d))
   })
   onMsg('sync', (d, env) => { if (isHost() && HOSTED.current) { HOSTED.current.last = {}; push(true) } })
   onMsg('state', (d, env) => { if (!isHost() && RT.room) applyState(d) })

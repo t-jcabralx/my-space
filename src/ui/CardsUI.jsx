@@ -50,9 +50,58 @@ function Confetti({ id }) {
   return <div className="confetti" key={id}>{bits.map((b, i) => <i key={i} style={{ left: b.l + '%', animationDelay: b.d + 's', animationDuration: b.t + 's', background: b.c, width: b.w, height: b.w * 1.6, '--rx': b.r + 'deg', '--dx': b.x + 'cqw' }} />)}</div>
 }
 
+const EMOJIS = '😂 🤣 😜 😎 😍 😡 😱 😭 🥵 🥶 🤡 💀 👻 🙈 🙊 🤔 😴 🤯 🥳 😏 👍 👎 👏 🙏 💪 🔥 ❤️ 💔 ✨ 💥 ⭐ 🎉 🎯 🏆 🍌 🍕 🍔 🍟 🍺 🥚 🍅 🍉 🥾 🧦 💩 🐔 🐸 🐒 🦄 🐢 🐍 🐙 ⚽ 🏀 💣 🪓 🔨 🧱 🚀 👑 💎 💸 🐟 🪃 🥊 🎲 🃏'.split(' ')
+const lsGet = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k)); return v ?? d } catch { return d } }
+const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)) } catch { /* ignore */ } }
+// shrink an uploaded picture to a tiny square so it can be sent to the table
+function toSticker(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file), im = new Image()
+    im.onload = () => {
+      try {
+        for (const [size, q] of [[64, 0.8], [56, 0.7], [48, 0.6], [40, 0.5]]) {
+          const c = document.createElement('canvas'); c.width = c.height = size; const g = c.getContext('2d')
+          const k = Math.max(size / im.width, size / im.height), w = im.width * k, h = im.height * k; g.drawImage(im, (size - w) / 2, (size - h) / 2, w, h)
+          let d = c.toDataURL('image/webp', q); if (!d.startsWith('data:image/webp')) d = c.toDataURL('image/jpeg', q)
+          if (d.length <= 11000) { URL.revokeObjectURL(url); resolve(d); return }
+        }
+        reject(new Error('too big'))
+      } catch (e) { reject(e) }
+    }
+    im.onerror = () => reject(new Error('bad image')); im.src = url
+  })
+}
+const Glyph = ({ it, cls }) => (it && it.img ? <img className={'rimg ' + (cls || '')} src={it.img} alt="" draggable={false} /> : <>{(it && it.g) || '🍌'}</>)
+function ReactPicker({ onSend, onThrow, onClose, favs, setFavs, thr }) {
+  const [mode, setMode] = useState('send')
+  const [txt, setTxt] = useState('')
+  const [err, setErr] = useState('')
+  const pick = (it) => { if (mode === 'send') { onSend(it); setFavs((f) => { const n = [it, ...f.filter((x) => (x.img || x.g) !== (it.img || it.g))].slice(0, 6); lsSet('si_react_fav', n); return n }) } else onThrow(it) }
+  const up = async (e) => { const f = e.target.files && e.target.files[0]; e.target.value = ''; if (!f) return; setErr(''); try { pick({ img: await toSticker(f) }) } catch { setErr('Could not use that picture') } }
+  return (
+    <div className="react-pick" onPointerDown={(e) => e.stopPropagation()}>
+      <div className="rp-head"><b>REACTIONS</b><button onClick={onClose}>✕</button></div>
+      <div className="rp-tabs"><button className={mode === 'send' ? 'on' : ''} onClick={() => setMode('send')}>😂 SEND</button><button className={mode === 'throw' ? 'on' : ''} onClick={() => setMode('throw')}>🎯 THROW</button></div>
+      <small>{mode === 'send' ? 'Pick any emoji or upload a picture to show it to the table. It is added to your bar.' : 'Pick what you throw at slow players: any emoji or your own picture.'}</small>
+      <div className="rp-grid">{EMOJIS.map((e) => <button key={e} onClick={() => pick({ g: e })}>{e}</button>)}</div>
+      <div className="rp-row">
+        <input value={txt} maxLength={8} placeholder="Type or paste any emoji" onChange={(e) => setTxt(e.target.value)} onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Enter' && txt.trim()) { pick({ g: txt.trim() }); setTxt('') } }} />
+        <button onClick={() => { if (txt.trim()) { pick({ g: txt.trim() }); setTxt('') } }}>USE</button>
+        <label className="rp-up">📷 UPLOAD<input type="file" accept="image/*" onChange={up} hidden /></label>
+      </div>
+      {err && <small style={{ color: '#ff8a96' }}>{err}</small>}
+      {favs.length > 0 && <div className="rp-mine"><small>MY STICKERS</small>{favs.map((f, i) => <span key={i}><Glyph it={f} /><i onClick={() => setFavs((x) => { const n = x.filter((_, j) => j !== i); lsSet('si_react_fav', n); return n })}>✕</i></span>)}</div>}
+      <small>Throwing now: <span className="rp-cur"><Glyph it={thr} /></span></small>
+    </div>
+  )
+}
+
 export default function CardsHUD({ SoundBtn, openHelp, TopPlayersMini }) {
   const s = useSyncExternalStore(subscribeCards, getCardsSnap)
   const [aim, setAim] = useState(false)
+  const [pickOpen, setPickOpen] = useState(false)
+  const [favs, setFavs] = useState(() => lsGet('si_react_fav', []))
+  const [thr, setThr] = useState(() => lsGet('si_react_throw', { g: '🍌' }))
   const seen = useRef(null)
   useEffect(() => {
     const rs = (s && s.reacts) || []
@@ -101,7 +150,7 @@ export default function CardsHUD({ SoundBtn, openHelp, TopPlayersMini }) {
         {s.cards.map((c) => <PCard key={c.id} c={c} onClick={click} />)}
         {/* seat plates */}
         {s.seats.map((p) => (
-          <div key={p.id} className={'seat' + (p.turn ? ' turn' : '') + (p.human ? ' me' : '') + (p.danger ? ' danger' : '') + (aim && !p.human ? ' aimable' : '') + ((s.reacts || []).some((r) => r.kind === 'banana' && r.to === p.id && r.t < 2.1 && r.t > 1.2) ? ' hit' : '')} style={{ left: p.x + '%', top: p.y + '%', '--sx': p.x }} onClick={aim && !p.human ? () => { cardsActions.react('banana', p.id); setAim(false) } : undefined}>
+          <div key={p.id} className={'seat' + (p.turn ? ' turn' : '') + (p.human ? ' me' : '') + (p.danger ? ' danger' : '') + (aim && !p.human ? ' aimable' : '') + ((s.reacts || []).some((r) => r.kind === 'banana' && r.to === p.id && r.t < 2.1 && r.t > 1.2) ? ' hit' : '')} style={{ left: p.x + '%', top: p.y + '%', '--sx': p.x }} onClick={aim && !p.human ? () => { cardsActions.react('banana', p.id, thr); setAim(false) } : undefined}>
             <div className="av">{p.avatar}</div>
             <div className="sn"><b>{p.name}</b>
               <small>{s.id === 'lucky9' || s.id === 'tongits' || s.id === 'baccarat' || s.id === 'poker' ? `🪙 ${Number(p.chips).toLocaleString()}` : s.id === 'pusoy' ? `${p.score} pts · ${p.count} cards` : `${p.score} pts · ${p.count} cards`}{s.id === 'tongits' ? ` · ${p.count} cards` : ''}</small>
@@ -118,14 +167,17 @@ export default function CardsHUD({ SoundBtn, openHelp, TopPlayersMini }) {
         {(s.reacts || []).map((r) => {
           const from = s.seats.find((x) => x.id === r.from), to = r.to >= 0 ? s.seats.find((x) => x.id === r.to) : null
           if (!from) return null
-          if (r.kind === 'banana' && to) return <div key={r.id} className="react-layer"><i className="banana-fly" style={{ '--x0': from.x + '%', '--y0': from.y + '%', '--x1': to.x + '%', '--y1': to.y + '%' }}>🍌</i><i className="banana-hit" style={{ left: to.x + '%', top: to.y + '%' }}>💥</i></div>
-          return <div key={r.id} className="laugh" style={{ left: from.x + '%', top: from.y + '%' }}><span>{r.kind === 'rofl' ? '🤣' : r.kind === 'tease' ? '😜' : '😂'}</span><small>{r.kind === 'tease' ? 'TIRA NA!' : 'HAHAHA'}</small></div>
+          if (r.kind === 'banana' && to) return <div key={r.id} className="react-layer"><i className="banana-fly" style={{ '--x0': from.x + '%', '--y0': from.y + '%', '--x1': to.x + '%', '--y1': to.y + '%' }}><Glyph it={r} cls="big" /></i><i className="banana-hit" style={{ left: to.x + '%', top: to.y + '%' }}>💥</i></div>
+          return <div key={r.id} className="laugh" style={{ left: from.x + '%', top: from.y + '%' }}><span>{r.kind === 'sticker' ? <Glyph it={r} cls="big" /> : r.kind === 'rofl' ? '🤣' : r.kind === 'tease' ? '😜' : '😂'}</span>{r.kind !== 'sticker' && <small>{r.kind === 'tease' ? 'TIRA NA!' : 'HAHAHA'}</small>}</div>
         })}
         {s.mode === 'play' && s.seats.length > 1 && (
           <div className="react-bar">
             {[['laugh', '😂'], ['rofl', '🤣'], ['tease', '😜']].map(([k, e]) => <button key={k} title="React" onClick={() => cardsActions.react(k, -1)}>{e}</button>)}
-            <button className={aim ? 'on' : ''} title="Throw a banana at someone who is too slow" onClick={() => setAim((v) => !v)}>🍌</button>
+            {favs.map((f, i) => <button key={i} title="Send" onClick={() => cardsActions.react('sticker', -1, f)}><Glyph it={f} cls="sm" /></button>)}
+            <button className={aim ? 'on' : ''} title="Throw something at someone who is too slow" onClick={() => setAim((v) => !v)}><Glyph it={thr} cls="sm" /></button>
+            <button title="Pick any emoji or upload a picture" onClick={() => setPickOpen((v) => !v)}>＋</button>
             {aim && <small>PICK A PLAYER TO HIT</small>}
+            {pickOpen && <ReactPicker favs={favs} setFavs={setFavs} thr={thr} onClose={() => setPickOpen(false)} onSend={(it) => { cardsActions.react('sticker', -1, it) }} onThrow={(it) => { setThr(it); lsSet('si_react_throw', it); setAim(true); setPickOpen(false) }} />}
           </div>
         )}
         {/* buttons */}
