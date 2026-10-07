@@ -135,7 +135,10 @@ function stepPlayer(p, dt) {
   if (I.dx) p.face = Math.sign(I.dx)
   p.x = clamp(p.x + p.vx * dt, -HALF + 2.6, HALF - 2.6)
   // jump (on press) and hammer
-  if (I.jump && !p.jumpHeld && p.ground) { p.vy = 34; p.ground = false; if (!CL.net || p.i === CL.me) sfx('jump') }
+  // forgiving jumps: 0.1s of coyote time after leaving a ledge, 0.12s of input buffer before landing
+  p.coy = p.ground ? 0.1 : Math.max(0, (p.coy || 0) - dt)
+  p.jbuf = I.jump && !p.jumpHeld ? 0.12 : Math.max(0, (p.jbuf || 0) - dt)
+  if (p.jbuf > 0 && p.coy > 0 && I.jump) { p.coy = 0; p.jbuf = 0; p.vy = 34; p.ground = false; if (!CL.net || p.i === CL.me) sfx('jump') }
   p.jumpHeld = !!I.jump
   if (I.hit && !p.hitHeld && p.swing <= 0) { p.swing = 0.3; sfx('rgSwing'); hammer(p) }
   p.hitHeld = !!I.hit
@@ -170,7 +173,7 @@ function stepPlayer(p, dt) {
 }
 function hammer(p) {
   const x0 = p.x, x1 = p.x + p.face * 3.6, lo = Math.min(x0, x1) - 0.4, hi = Math.max(x0, x1) + 0.4
-  for (const f of CL.foes) if (!f.dead && f.x > lo && f.x < hi && Math.abs(f.y - p.y) < 3.6) { f.dead = true; const pts = f.type === 'bird' ? 400 : 800; p.score += pts; CL.score += pts; fx(f.x, f.y + 1, 14, [2, 2, 2.4], 16, 0.7, 0.5); sfx('rgKill') }
+  for (const f of CL.foes) if (!f.dead && f.x > lo && f.x < hi && Math.abs(f.y - p.y) < 3.6) { f.dead = true; shake(0.25); const pts = f.type === 'bird' ? 400 : 800; p.score += pts; CL.score += pts; fx(f.x, f.y + 1, 14, [2, 2, 2.4], 16, 0.7, 0.5); sfx('rgKill') }
   for (const ic of CL.icicles) if (!ic.dead && ic.x > lo && ic.x < hi && Math.abs(ic.y - p.y - 2) < 3) { ic.dead = true; p.score += 50; CL.score += 50; fx(ic.x, ic.y, 8, [1, 1.8, 2.4], 12, 0.5, 0.35) }
 }
 function foeFloor(f) { return Math.round(f.y / FH) }

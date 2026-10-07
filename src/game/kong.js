@@ -114,10 +114,11 @@ function stepPlayer(p, dt) {
   p.vx = I.dx * spd
   if (I.dx) p.face = Math.sign(I.dx)
   const nx = clamp(p.x + p.vx * dt, -KG.W / 2 + 1.5, KG.W / 2 - 1.5)
+  p.jbuf = I.jump && !p.jumpHeld ? 0.12 : Math.max(0, (p.jbuf || 0) - dt)
   if (p.ground) {
     p.x = nx
     if (!hasFloor(p.fl, p.x)) { p.ground = false; p.vy = 0 } else p.y = surf(p.fl, p.x)
-    if (I.jump && !p.jumpHeld && p.ham <= 0) { p.vy = 27; p.ground = false; p.jumped = new Set(); if (!KG.net || p.i === KG.me) sfx('jump') }
+    if (I.jump && p.jbuf > 0 && p.ham <= 0) { p.jbuf = 0; p.vy = 27; p.ground = false; p.jumped = new Set(); if (!KG.net || p.i === KG.me) sfx('jump') }
     // grab a ladder: up from its foot, down from its top
     if (I.dy && p.ham <= 0) {
       for (const lad of KG.ladders) {
@@ -150,8 +151,8 @@ function stepPlayer(p, dt) {
 }
 function smash(p) {
   const x0 = p.x, x1 = p.x + p.face * 3.4, lo = Math.min(x0, x1) - 0.6, hi = Math.max(x0, x1) + 0.6
-  for (const b of KG.barrels) if (!b.dead && b.i === p.fl && b.x > lo && b.x < hi) { b.dead = true; p.score += 300; KG.score += 300; fx(b.x, surf(b.i, b.x) + 1, 14, [2, 1.2, 0.4], 16, 0.6, 0.5); sfx('crate') }
-  for (const f of KG.fires) if (!f.dead && f.i === p.fl && f.x > lo && f.x < hi) { f.dead = true; p.score += 500; KG.score += 500; fx(f.x, surf(f.i, f.x) + 1, 14, [2.6, 1.4, 0.3], 16, 0.6, 0.5); sfx('rgKill') }
+  for (const b of KG.barrels) if (!b.dead && b.i === p.fl && b.x > lo && b.x < hi) { b.dead = true; shake(0.15); p.score += 300; KG.score += 300; fx(b.x, surf(b.i, b.x) + 1, 14, [2, 1.2, 0.4], 16, 0.6, 0.5); sfx('crate') }
+  for (const f of KG.fires) if (!f.dead && f.i === p.fl && f.x > lo && f.x < hi) { f.dead = true; shake(0.2); p.score += 500; KG.score += 500; fx(f.x, surf(f.i, f.x) + 1, 14, [2.6, 1.4, 0.3], 16, 0.6, 0.5); sfx('rgKill') }
 }
 function throwBarrels(dt) {
   const L = L0()
