@@ -1,5 +1,6 @@
 'use client'
-import { memo, useMemo, useSyncExternalStore } from 'react'
+import { memo, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { sfx, speak } from '../game/audio.js'
 import { subscribeCards, getCardsSnap, cardsActions } from '../game/cards/core.js'
 
 const SYM = { C: '♣', S: '♠', H: '♥', D: '♦' }
@@ -51,6 +52,19 @@ function Confetti({ id }) {
 
 export default function CardsHUD({ SoundBtn, openHelp, TopPlayersMini }) {
   const s = useSyncExternalStore(subscribeCards, getCardsSnap)
+  const [aim, setAim] = useState(false)
+  const seen = useRef(null)
+  useEffect(() => {
+    const rs = (s && s.reacts) || []
+    if (seen.current === null) { seen.current = new Set(rs.map((r) => r.id)); return }
+    for (const r of rs) {
+      if (seen.current.has(r.id)) continue
+      seen.current.add(r.id)
+      if (r.kind === 'banana') { sfx('slip'); setTimeout(() => sfx('splat'), 560) }
+      else if (r.kind === 'tease') sfx('slip')
+      else { sfx('ha'); if (r.kind === 'rofl') speak('Hahahaha!', 1.5, 1.3) }
+    }
+  }, [s])
   if (!s || s.mode === 'idle' || !s.cards) return null
   const click = (id) => cardsActions.click(id)
   const over = s.mode === 'over' && s.over
@@ -87,7 +101,7 @@ export default function CardsHUD({ SoundBtn, openHelp, TopPlayersMini }) {
         {s.cards.map((c) => <PCard key={c.id} c={c} onClick={click} />)}
         {/* seat plates */}
         {s.seats.map((p) => (
-          <div key={p.id} className={'seat' + (p.turn ? ' turn' : '') + (p.human ? ' me' : '') + (p.danger ? ' danger' : '')} style={{ left: p.x + '%', top: p.y + '%', '--sx': p.x }}>
+          <div key={p.id} className={'seat' + (p.turn ? ' turn' : '') + (p.human ? ' me' : '') + (p.danger ? ' danger' : '') + (aim && !p.human ? ' aimable' : '') + ((s.reacts || []).some((r) => r.kind === 'banana' && r.to === p.id && r.t < 2.1 && r.t > 1.2) ? ' hit' : '')} style={{ left: p.x + '%', top: p.y + '%', '--sx': p.x }} onClick={aim && !p.human ? () => { cardsActions.react('banana', p.id); setAim(false) } : undefined}>
             <div className="av">{p.avatar}</div>
             <div className="sn"><b>{p.name}</b>
               <small>{s.id === 'lucky9' || s.id === 'tongits' || s.id === 'baccarat' || s.id === 'poker' ? `🪙 ${Number(p.chips).toLocaleString()}` : s.id === 'pusoy' ? `${p.score} pts · ${p.count} cards` : `${p.score} pts · ${p.count} cards`}{s.id === 'tongits' ? ` · ${p.count} cards` : ''}</small>
@@ -100,6 +114,20 @@ export default function CardsHUD({ SoundBtn, openHelp, TopPlayersMini }) {
             {(s.id === 'lucky9' || s.id === 'baccarat' || s.id === 'poker') && p.bet > 0 && <div className="betstack" key={p.bet}>{Array.from({ length: Math.min(5, 1 + Math.floor(p.bet / 100)) }, (_, i) => <i key={i} style={{ bottom: i * 4 }} />)}<span>{p.bet}</span></div>}
           </div>
         ))}
+        {/* thrown bananas and laughs */}
+        {(s.reacts || []).map((r) => {
+          const from = s.seats.find((x) => x.id === r.from), to = r.to >= 0 ? s.seats.find((x) => x.id === r.to) : null
+          if (!from) return null
+          if (r.kind === 'banana' && to) return <div key={r.id} className="react-layer"><i className="banana-fly" style={{ '--x0': from.x + '%', '--y0': from.y + '%', '--x1': to.x + '%', '--y1': to.y + '%' }}>🍌</i><i className="banana-hit" style={{ left: to.x + '%', top: to.y + '%' }}>💥</i></div>
+          return <div key={r.id} className="laugh" style={{ left: from.x + '%', top: from.y + '%' }}><span>{r.kind === 'rofl' ? '🤣' : r.kind === 'tease' ? '😜' : '😂'}</span><small>{r.kind === 'tease' ? 'TIRA NA!' : 'HAHAHA'}</small></div>
+        })}
+        {s.mode === 'play' && s.seats.length > 1 && (
+          <div className="react-bar">
+            {[['laugh', '😂'], ['rofl', '🤣'], ['tease', '😜']].map(([k, e]) => <button key={k} title="React" onClick={() => cardsActions.react(k, -1)}>{e}</button>)}
+            <button className={aim ? 'on' : ''} title="Throw a banana at someone who is too slow" onClick={() => setAim((v) => !v)}>🍌</button>
+            {aim && <small>PICK A PLAYER TO HIT</small>}
+          </div>
+        )}
         {/* buttons */}
         <div className={'ct-buttons' + (s.id === 'lucky9' || s.id === 'baccarat' || s.id === 'poker' ? ' low' : '')}>
           {s.buttons.map((b, i) => (

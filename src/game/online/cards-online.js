@@ -1,6 +1,6 @@
 // Online card games over Redis pub/sub. The HOST simulates the game; every other human is a thin client that
 // renders their own private view and forwards clicks. No separate server: all messages go through /api/rt/*.
-import { CS, cardsActions, buildSnap, notify } from '../cards/core.js'
+import { CS, cardsActions, buildSnap, notify, addReact, REACTS } from '../cards/core.js'
 import { unoApi } from '../cards/uno.js'
 import { pusoyApi } from '../cards/pusoy.js'
 import { lucky9Api } from '../cards/lucky9.js'
@@ -30,6 +30,7 @@ export async function hostCardGame(game, opts) {
   if (game === 'poker') opts = { ...opts, bots: Math.max(0, 4 - humans.length) }
   if (game === 'baccarat') opts = { ...opts, bots: Math.max(0, 3 - humans.length) }
   CS.online = { host: true, game, onEnd: () => { send('gend', {}).catch(() => {}); if (isHost()) roomAction('finish').catch(() => {}); HOSTED.current = null } }
+  CS.online.isHuman = (id) => { const p = APIS[game].players()[id]; return !!(p && p.human) }
   CS.onNotify = () => push(false)
   HOSTED.current = { game, humans, last: {}, lastSend: 0, pending: false }
   cardsActions.start(game, { ...opts, count, humans, online: true })
@@ -120,6 +121,14 @@ export function installCardsOnline() {
   onMsg('click', (d, env) => { if (isHost() && env.f !== RT.cid) hostHandle(env.f, 'click', d) })
   onMsg('btn', (d, env) => { if (isHost() && env.f !== RT.cid) hostHandle(env.f, 'btn', d) })
   onMsg('rematch', (d, env) => { if (isHost() && HOSTED.current && CS.mode === 'over') { const h = HOSTED.current; cardsActions.start(h.game, { ...LASTOPTS, count: unoPlayers().length, humans: h.humans.filter((x) => alive(x.cid, 15000) || x.cid === RT.cid), online: true }); h.last = {}; push(true) } })
+  const lastReact = {}
+  onMsg('react', (d, env) => {
+    if (!isHost() || env.f === RT.cid || !HOSTED.current || !d || !REACTS.includes(d.kind)) return
+    const now = Date.now(); if (now - (lastReact[env.f] || 0) < 700) return; lastReact[env.f] = now
+    const idx = unoPlayers().findIndex((p) => p.cid === env.f && p.human); if (idx < 0) return
+    const to = Number.isInteger(d.to) && d.to >= 0 && d.to < unoPlayers().length ? d.to : -1
+    addReact(idx, d.kind, to)
+  })
   onMsg('sync', (d, env) => { if (isHost() && HOSTED.current) { HOSTED.current.last = {}; push(true) } })
   onMsg('state', (d, env) => { if (!isHost() && RT.room) applyState(d) })
   onMsg('gend', (d, env) => { if (!isHost()) clientEnd('The host ended the game') })
