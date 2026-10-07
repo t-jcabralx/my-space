@@ -1,5 +1,5 @@
 import { update, G } from '../src/game/engine.js'
-import { EM, empireActions, BDEF, UDEF, canPlace, doBuild, doTrain, doUpgrade, doMove, MW, MH } from '../src/game/empire.js'
+import { EM, empireActions, BDEF, UDEF, canPlace, doBuild, doTrain, doUpgrade, doMove, doAuto, MW, MH } from '../src/game/empire.js'
 let fail = 0
 const ok = (c, m) => { if (!c) { fail++; console.log('FAIL', m) } }
 const step = (sec, dt = 0.1) => { for (let i = 0; i < sec / dt && EM.mode === 'play'; i++) update(dt) }
@@ -75,6 +75,21 @@ empireActions.stop()
     ok(EM.cleared && EM.cleared.length > 0 && EM.cleared.every((i) => EM.terr[i] === 0), 'cleared tiles become grass')
     const ob = EM.B.find((b) => b.type === 'hall'); ok(!doMove(0, ob.id, ob.x + 6, ob.y), 'the hall cannot be moved')
   }
+  empireActions.stop()
+}
+// ---- barracks auto training ----
+{
+  empireActions.start({ ai: 1, diff: 1, speed: 1 })
+  EM.P[0].res = { food: 5000, wood: 5000, stone: 5000, gold: 5000 }
+  const h2 = EM.B.find((b) => b.owner === 0 && b.type === 'hall')
+  let bk = null
+  for (let r = 4; r < 14 && !bk; r++) for (let a = 0; a < 60 && !bk; a++) { const i = Math.round(h2.x + 1 + Math.cos(a / 9) * r), j = Math.round(h2.y + 1 + Math.sin(a / 9) * r); bk = doBuild(0, 'barracks', i, j) }
+  if (bk) { bk.built = 1; bk.bt = 0 }
+  const n0 = EM.U.filter((u) => u.owner === 0).length
+  ok(bk && doAuto(0, bk.id, 'sword') && bk.auto === 'sword', 'a barracks can be set to auto train')
+  for (let k = 0; k < 400; k++) update(0.2)
+  ok(EM.U.filter((u) => u.owner === 0).length > n0 + 3, 'auto training keeps producing soldiers')
+  ok(bk && doAuto(0, bk.id, null) && !bk.auto, 'auto training can be switched off')
   empireActions.stop()
 }
 // ---- the campaign: every scenario starts with a story, has goals, and the first ones can be won by an auto-pilot ----

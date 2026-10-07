@@ -130,6 +130,9 @@ export function EmpireHUD({ openHelp }) {
             </>
           )}
           {sel.type === 'barracks' && sel.built && (
+            <button className={'mg-btn ' + (sel.auto ? 'go' : '')} onClick={empireActions.autoTrain} title="Keep training automatically (click to change the unit)">🔁 AUTO TRAIN: {sel.auto ? (UDEF[sel.auto] ? UDEF[sel.auto].ico + ' ' + UDEF[sel.auto].name : sel.auto) : 'OFF'}</button>
+          )}
+          {sel.type === 'barracks' && sel.built && (
             <div className="em-train">{Object.entries(UDEF).filter(([k, u]) => u.cost).map(([k, u]) => <button key={k} className="mg-btn" disabled={!canPay(g.res, u.cost) || g.hallLv < u.lv} onClick={() => empireActions.train(k)} title={u.name}>{u.ico} {u.name}<small>{g.hallLv < u.lv ? 'NEEDS ' + HALL_NAME[u.lv] : costStr(u.cost)}</small></button>)}
               {sel.q.length > 0 && <small>TRAINING: {sel.q.map((u) => UDEF[u].ico).join(' ')}</small>}</div>
           )}

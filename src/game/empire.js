@@ -239,6 +239,14 @@ export function doMove(pi, bid, i, j) {
   ring((b.x + b.w / 2) * T, (b.y + b.w / 2) * T, 10, 20, [col('#ffffff')])
   return true
 }
+// barracks can keep training one kind of soldier on their own while there is food, wood and room for more people
+export function doAuto(pi, bid, u) {
+  const b = bById(bid)
+  if (!b || b.owner !== pi || b.type !== 'barracks') return false
+  if (u && (!UDEF[u] || !UDEF[u].cost)) return false
+  b.auto = u || null
+  return true
+}
 export function doAttack(pi, x, y, tid) {
   for (const u of EM.U) if (u.owner === pi) { u.order = { x, y, tid: tid || 0 }; u.tgt = 0 }
   return true
@@ -250,6 +258,7 @@ function command(pi, c) {
   if (c.k === 'train') return doTrain(pi, c.b | 0, c.u)
   if (c.k === 'up') return doUpgrade(pi, c.b | 0)
   if (c.k === 'mv') return doMove(pi, c.b | 0, c.i | 0, c.j | 0)
+  if (c.k === 'auto') return doAuto(pi, c.b | 0, c.u || null)
   if (c.k === 'atk') return doAttack(pi, +c.x, +c.y, c.t | 0)
   if (c.k === 'rec') return doRecall(pi)
 }
@@ -372,6 +381,7 @@ function stepBuildings(dt) {
     if (!b.built) { b.bt -= dt; b.hp = Math.min(b.max, b.hp + b.max * 0.6 * dt / Math.max(1, (b.type === 'wonder' ? 40 : 4 + b.w * 2))); if (b.bt <= 0) { b.built = 1; b.hp = b.max; if (b.owner === EM.me) sfx('emDone'); ring((b.x + b.w / 2) * T, (b.y + b.w / 2) * T, 14, 24, [col(TEAM[b.owner][0])]) } continue }
     const d = BDEF[b.type]
     if (d.rate) { const m = d.res ? clamp(resNear(b, d.res) / 10, 0.3, 1.6) : 1; const lm = prodMul(b.owner) * (1 + 0.5 * ((b.lv || 1) - 1)); for (const k in d.rate) pl.res[k] += d.rate[k] * m * lm * dt; if (d.res) depleteNear(b, d.res, Object.values(d.rate)[0] * m * lm * dt) }
+    if (b.type === 'barracks' && b.auto && b.q.length < 2) { const hh = hall(b.owner); if (hh && UDEF[b.auto] && hh.lv >= UDEF[b.auto].lv) doTrain(b.owner, b.id, b.auto) }
     if (b.type === 'barracks' && b.q.length) { b.qt += dt; const q = b.q[0], ud = UDEF[q.u]; if (b.qt >= ud.t * (1 - 0.15 * ((b.lv || 1) - 1))) { b.qt = 0; b.q.shift(); const h = hall(b.owner); const sx = (b.x + 1.5) * T, sy = (b.y - 0.8) * T; spawnUnit(q.u, b.owner, sx + R(-2, 2), sy); if (h && b.owner === EM.me) sfx('emReady') } }
     if (b.type === 'tower' || b.type === 'hall') {
       b.atkT -= dt
@@ -550,7 +560,7 @@ function emitE() {
     mode: EM.mode, paused: EM.paused, t: Math.floor(EM.t), res: me ? { food: Math.floor(me.res.food), wood: Math.floor(me.res.wood), stone: Math.floor(me.res.stone), gold: Math.floor(me.res.gold) } : null, pop: used, cap,
     hallLv: h ? h.lv : 0, hallName: h ? HALL_NAME[h.lv] : '', hallId: h ? h.id : 0, up: h && h.lv < 4 ? HALL_UP[h.lv] : null, build: EM.build, atk: EM.atk, msg: EM.msg ? { ...EM.msg } : null, over: EM.over, speed: EM.speed, net: EM.net ? EM.net.role : null,
     army: EM.U.filter((u) => u.owner === EM.me).length, bcount: EM.B.filter((b) => b.owner === EM.me).length, bcap: bldCap(EM.me),
-    sel: sb ? { id: sb.id, type: sb.type, name: BDEF[sb.type].name, hp: Math.round(sb.hp), max: sb.max, lv: sb.lv, q: sb.q.map((q) => q.u), qt: sb.qt, built: !!sb.built, mine: sb.owner === EM.me, bup: sb.owner === EM.me && UPGRADABLE.includes(sb.type) && sb.built ? { lv: sb.lv, max: BLV_MAX, locked: sb.lv >= upCap(EM.me), cost: sb.lv < BLV_MAX ? upCost(sb) : null, desc: UP_DESC[sb.type] || '' } : null, rate: BDEF[sb.type].rate ? Object.entries(BDEF[sb.type].rate).map(([k, v]) => k + ' +' + (v * (BDEF[sb.type].res ? clamp(resNear(sb, BDEF[sb.type].res) / 10, 0.3, 1.6) : 1) * prodMul(sb.owner)).toFixed(1) + '/s').join(' ') : '' } : null,
+    sel: sb ? { id: sb.id, type: sb.type, name: BDEF[sb.type].name, hp: Math.round(sb.hp), max: sb.max, lv: sb.lv, q: sb.q.map((q) => q.u), qt: sb.qt, built: !!sb.built, auto: sb.auto || '', mine: sb.owner === EM.me, bup: sb.owner === EM.me && UPGRADABLE.includes(sb.type) && sb.built ? { lv: sb.lv, max: BLV_MAX, locked: sb.lv >= upCap(EM.me), cost: sb.lv < BLV_MAX ? upCost(sb) : null, desc: UP_DESC[sb.type] || '' } : null, rate: BDEF[sb.type].rate ? Object.entries(BDEF[sb.type].rate).map(([k, v]) => k + ' +' + (v * (BDEF[sb.type].res ? clamp(resNear(sb, BDEF[sb.type].res) / 10, 0.3, 1.6) : 1) * prodMul(sb.owner)).toFixed(1) + '/s').join(' ') : '' } : null,
     players: EM.P.map((p) => ({ i: p.i, name: p.name, alive: p.alive, lv: p.hallLv, color: TEAM[p.i][0], kind: p.kind, army: EM.U.filter((u) => u.owner === p.i).length, me: p.i === EM.me })),
     env: EM.mode === 'idle' ? '' : empireEnv(EM).label, night: EM.mode === 'idle' ? 0 : empireEnv(EM).T.night,
     scen: EM.scen ? { name: EM.scen.name, sub: EM.scen.sub, idx: EM.scenIdx } : null, obj: EM.obj.map((o) => ({ text: o.text, done: o.done, hint: o.hint })), hint: (EM.obj.find((o) => !o.done) || {}).hint || '', beat: EM.beat ? { ...EM.beat } : null, tale: EM.tale ? { who: EMWHO[EM.tale.lines[EM.tale.i][0]], text: EM.tale.lines[EM.tale.i][1], i: EM.tale.i, n: EM.tale.lines.length, kind: EM.tale.kind } : null, raid: EM.raidWarn > 0 ? Math.ceil(Math.max(0, EM.raidT)) : 0, raidDir: EM.raidDir, nextRaid: Math.max(0, Math.ceil(EM.raidT)), wave: EM.raidN, wonder: EM.wonder ? { t: Math.max(0, Math.ceil(EM.wonder.t)), owner: EM.P[EM.wonder.owner].name, mine: EM.wonder.owner === EM.me } : null, ver: ++EM.minimap,
@@ -593,6 +603,11 @@ export const empireActions = {
   setBuild(t) { if (!BDEF[t]) return; EM.build = EM.build === t ? null : t; EM.atk = false; EM.sel = null; sfx('ui'); emitE() },
   upgrade() { const sb = EM.sel ? bById(EM.sel) : null; const t = sb && sb.owner === EM.me ? sb : hall(EM.me); if (t && localCmd({ k: 'up', b: t.id })) { sfx('ui'); emitE() } else sfx('cBad') },
   train(u) { const b = EM.sel ? bById(EM.sel) : EM.B.find((x) => x.owner === EM.me && x.type === 'barracks' && x.built); if (b && localCmd({ k: 'train', b: b.id, u })) { sfx('ui'); emitE() } else sfx('cBad') },
+  autoTrain() {
+    const b = EM.sel ? bById(EM.sel) : null; if (!b || b.type !== 'barracks' || b.owner !== EM.me) { sfx('cBad'); return }
+    const h = hall(EM.me), opts = [null, ...Object.keys(UDEF).filter((k) => UDEF[k].cost && h && h.lv >= UDEF[k].lv && !UDEF[k].siege)], i = opts.indexOf(b.auto || null), nx = opts[(i + 1) % opts.length]
+    if (localCmd({ k: 'auto', b: b.id, u: nx })) { sfx('ui'); emitE() }
+  },
   attackMode() { EM.atk = !EM.atk; EM.build = null; sfx('ui'); emitE() },
   recall() { localCmd({ k: 'rec' }); sfx('ui') },
   zoom(f) { EM.cam.z = clamp(EM.cam.z * f, 0.55, 2.4) },
@@ -656,7 +671,7 @@ export const empireNet = {
     lastN = s.n
     if (s.cl) for (const idx of s.cl) if (EM.terr[idx] !== 0 && EM.terr[idx] !== 4) EM.terr[idx] = 0
     if (s.b) { // full building list
-      const occ = new Int32Array(MW * MH); EM.B = s.b.map((q) => { const d = BDEF[q[2]]; const b = { id: q[0], owner: q[1], type: q[2], x: q[3], y: q[4], w: d.w, hp: q[5], max: q[6], lv: q[7], q: Array.from({ length: q[8] }, () => ({ u: 'sword' })), built: q[9], hit: 0, qt: q[10] || 0 }; for (let y = 0; y < b.w; y++) for (let x = 0; x < b.w; x++) if (inMap(b.x + x, b.y + y)) occ[ix(b.x + x, b.y + y)] = b.id; return b }); EM.occ = occ
+      const occ = new Int32Array(MW * MH); EM.B = s.b.map((q) => { const d = BDEF[q[2]]; const b = { id: q[0], owner: q[1], type: q[2], x: q[3], y: q[4], w: d.w, hp: q[5], max: q[6], lv: q[7], q: Array.from({ length: q[8] }, () => ({ u: 'sword' })), built: q[9], hit: 0, qt: q[10] || 0, auto: q[11] || null }; for (let y = 0; y < b.w; y++) for (let x = 0; x < b.w; x++) if (inMap(b.x + x, b.y + y)) occ[ix(b.x + x, b.y + y)] = b.id; return b }); EM.occ = occ
       const bb = s.b.filter((q) => q[1] === EM.me && q[2] === 'hall')[0]; if (bb) { EM.P[EM.me].hallLv = bb[7] }
     }
     const old = new Map(EM.U.map((u) => [u.id, u]))
@@ -677,7 +692,7 @@ function netTick(dt) {
   const pk = { n: ++nSeq, t: Math.round(EM.t), rt: Math.round(EM.raidT), rw: EM.raidWarn, rd: EM.raidDir, rn: EM.raidN, wo: EM.wonder ? [EM.wonder.owner, Math.round(EM.wonder.t)] : 0,
     u: EM.U.map((u) => [u.id, u.owner, u.type, r1(u.x), r1(u.y), Math.round(u.hp)]), r: EM.P.map((p) => [Math.floor(p.res.food), Math.floor(p.res.wood), Math.floor(p.res.stone), Math.floor(p.res.gold), p.alive ? 1 : 0, p.kills]), msg: EM.msg, over: EM.over, wn: EM.warn }
   if (full) pk.cl = EM.cleared || []
-  if (full) pk.b = EM.B.map((b) => [b.id, b.owner, b.type, b.x, b.y, Math.round(b.hp), b.max, b.lv, b.q.length, b.built, Math.round(b.qt * 10) / 10])
+  if (full) pk.b = EM.B.map((b) => [b.id, b.owner, b.type, b.x, b.y, Math.round(b.hp), b.max, b.lv, b.q.length, b.built, Math.round(b.qt * 10) / 10, b.auto || ''])
   for (const pl of EM.P) if (pl.kind === 'human' && pl.pid) EM.net.state(pl.pid, pk)
 }
 function guestStep(dt) {
