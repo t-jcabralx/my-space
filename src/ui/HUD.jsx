@@ -1537,8 +1537,9 @@ function Hub({ s }) {
   const [cat, setCat] = useState('all')
   const [ogame, setOgameRaw] = useState('tetris')
   const [olock, setOlock] = useState(false) // opened from one game's own PLAY WITH FRIENDS button: show only that game
-  const setOgame = (g) => { setOgameRaw(g); setOlock(true) }
-  useEffect(() => { const h = (e) => { const [t, g] = String(e.detail || '').split(':'); if (g) { setOgameRaw(g); setOlock(true) } if (t) setTab(t) }; window.addEventListener('si-open-tab', h); return () => window.removeEventListener('si-open-tab', h) }, [])
+  const [onon, setOnon] = useState(0) // bumps every time an invite opens the lobby, so it always starts on that game
+  const setOgame = (g) => { setOgameRaw(g); setOlock(true); setOnon((n) => n + 1) }
+  useEffect(() => { const h = (e) => { const [t, g] = String(e.detail || '').split(':'); if (g) { setOgameRaw(g); setOlock(true); setOnon((n) => n + 1) } if (t) setTab(t) }; window.addEventListener('si-open-tab', h); return () => window.removeEventListener('si-open-tab', h) }, [])
   useEffect(() => { try { const q = new URLSearchParams(location.search); if (q.get('join')) setTab('online'); else { const g = GAMES_SEO.find((x) => x.slug === q.get('play')); if (g && g.tab !== 'space') setTab(g.tab) } } catch { /* ignore */ } }, [])
   const [pmode, setPmode] = useState('bot')
   const [pdiff, setPdiff] = useState(2)
@@ -1567,7 +1568,7 @@ function Hub({ s }) {
     <div className="screen hub">
       <div className="hubtop">
         <div className="logo2"><img className="logoimg" src="/logo.svg" alt="My Space Arcade" /></div>
-        <div className="tabs">{TABS.map(([k, n]) => <button key={k} className={'tab ' + (tab === k ? 'sel' : '')} onClick={() => { if (k === 'online') setOlock(false); setTab(k) }}>{n}</button>)}</div>
+        <div className="tabs">{TABS.map(([k, n]) => <button key={k} className={'tab ' + (tab === k ? 'sel' : '')} onClick={() => { if (k === 'online') { setOlock(false); setOnon((n) => n + 1) } setTab(k) }}>{n}</button>)}</div>
         <SoundBtn />
         <button className="tab" title="Fullscreen" onClick={() => { try { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen() } catch { /* ignore */ } }}>⛶</button>
       </div>
@@ -1711,7 +1712,7 @@ function Hub({ s }) {
       {tab === 'fight' && <FightLobby s={s} />}
       {tab === 'flames' && <FlamesLobby s={s} />}
       {tab === 'cards' && <CardRoomLobby s={s} onOnline={(g) => { setOgame(g || 'uno'); setTab('online') }} />}
-      {tab === 'online' && <OnlineLobby s={s} TopPlayers={TopPlayers} initGame={ogame} lockGame={olock} />}
+      {tab === 'online' && <OnlineLobby key={onon} s={s} TopPlayers={TopPlayers} initGame={ogame} lockGame={olock} />}
       {tab === 'chomp' && <ChompLobby s={s} mode={cmode} setMode={setCmode} level={clevel} setLevel={setClevel} />}
       {tab === 'tetris' && <TetrisLobby s={s} mode={tmode} setMode={setTmode} diff={tdiff} setDiff={setTdiff} level={tlevel} setLevel={setTlevel} />}
       {tab === 'bomber' && <BomberLobby s={s} mode={bmode} setMode={setBmode} diff={bdiff} setDiff={setBdiff} rounds={brounds} setRounds={setBrounds} />}

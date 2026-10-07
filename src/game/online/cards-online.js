@@ -74,7 +74,7 @@ function hostWatch() {
 let prev = null
 function applyState(s) {
   const mine = RT.cid
-  if (!CS.remote) cardsActions.startRemote(s.id, (kind, d) => { if (RT.room) send(kind, d, RT.room.host).catch(() => {}) })
+  if (!CS.remote || CS.id !== s.id) { prev = null; applyState.done = null; cardsActions.startRemote(s.id, (kind, d) => { if (RT.room) send(kind, d, RT.room.host).catch(() => {}) }) }
   CS.mode = s.mode === 'over' ? 'over' : 'play'
   CS.onlineClient = true
   let snap = s
