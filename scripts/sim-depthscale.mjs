@@ -20,7 +20,7 @@ for (const k of [1, 4, 20]) {
   let f = 0, bad = false
   while (!(RG.open || RG.mode === 'over') && f < 60 * 400) {
     const e = RG.en.filter((q) => !q.dead).sort((a, b) => Math.hypot(a.x - p.x, a.y - p.y) - Math.hypot(b.x - p.x, b.y - p.y))[0]
-    if (e) { const d = Math.hypot(e.x - p.x, e.y - p.y); p.aimPt = { x: e.x, y: e.y }; p.aimT = 1e9; if (d > 14) { p.x = e.x - 5; p.y = e.y } } else if (RG.spawnQ.length) { /* wait for the rest */ }
+    if (e) { const d = Math.hypot(e.x - p.x, e.y - p.y); p.aimPt = { x: e.x, y: e.y }; p.aimT = 1e9; if (d > 6) { p.x = e.x - 4; p.y = e.y } } else if (RG.spawnQ.length) { /* wait for the rest */ }
     update(1 / 60); G.time += 1 / 60; f++
     if (f % 120 === 0) { if (!Number.isFinite(p.x)) { bad = true; break } games.rogue.draw3(api) }
   }
