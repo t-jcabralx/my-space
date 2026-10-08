@@ -41,9 +41,13 @@ export function makeR3(g, W = 360, H = 540) {
   let lastNow = 0
   r.setWeather = (w) => { r.weather = w }
   r.look = (ex, ey, ez, tx, ty, tz, fov = 45) => {
+    r.orthographic = false
     const sw = Math.sin(r.clock * 0.7) * 1.4, sh = Math.cos(r.clock * 0.5) * 0.8; r.E = [ex + sw, ey + sh, ez]; r.F = norm([tx - ex - sw, ty - ey - sh, tz - ez]); r.R = norm(cross([0, 1, 0], r.F)); r.U = cross(r.F, r.R); r.focal = (H / 2) / Math.tan((fov * Math.PI) / 360)
   }
-  r.proj = (p) => { const d = sub(p, r.E), zc = dot(d, r.F); if (zc < 4) return null; const k = r.focal / zc; return { x: W / 2 + dot(d, r.R) * k, y: H / 2 - dot(d, r.U) * k, z: zc, k } }
+  r.screen = (offsetY = 0) => { r.orthographic=true; r.E=[0,H/2+offsetY,-1000]; r.R=[1,0,0]; r.U=[0,1,0]; r.F=[0,0,1] }
+  r.proj = (p) => { const d = sub(p, r.E), zc = dot(d, r.F); if (zc < 4) return null; const k = r.orthographic ? 1 : r.focal / zc; return { x: W / 2 + dot(d, r.R) * k, y: H / 2 - dot(d, r.U) * k, z: zc, k } }
+  r.pickGround = (x,y,height=0) => { const dx=(x-W/2)/r.focal, dy=(H/2-y)/r.focal, ray=r.F.map((v,i)=>v+dx*r.R[i]+dy*r.U[i]), t=(height-r.E[1])/ray[1]; return Number.isFinite(t)&&t>0?[r.E[0]+ray[0]*t,r.E[2]+ray[2]*t]:null }
+  r.ellipsoid = (x,y,z,sx,sy,sz,c,o={}) => { const p=parse(c); r.modelApi.putShape('organic',x,y,z,sx*2,sy*2,sz*2,o.rz||0,p[0]/255,p[1]/255,p[2]/255,o.ry||0) }
   const key = (p) => { const d = sub(p, r.E); return dot(d, d) }
   // rotation about z (roll) then y (yaw) around the centre
   const rot = (v, rz, ry) => { let [x, y, z] = v; if (rz) { const c = Math.cos(rz), s = Math.sin(rz); [x, y] = [x * c - y * s, x * s + y * c] } if (ry) { const c = Math.cos(ry), s = Math.sin(ry); [x, z] = [x * c + z * s, -x * s + z * c] } return [x, y, z] }
@@ -174,6 +178,8 @@ export function makeR3(g, W = 360, H = 540) {
 const WEATHERS = ['clear', 'clear', 'clear', 'rain', 'snow', 'fog']
 export const wrapR3 = (make, indoor = false) => () => {
   const o = make(), old = o.draw, reset = o.reset; let r = null, wx = WEATHERS[(Math.random() * WEATHERS.length) | 0]
+  o.attachRenderer = (renderer) => { r = renderer; r.indoor = indoor }
+  o.toGamePoint = (x,y) => r?.boardPoint?.(x,y) || [x,y]
   o.reset = (...a) => { wx = WEATHERS[(Math.random() * WEATHERS.length) | 0]; return reset(...a) }
   o.draw = (g) => { if (!o.draw3) { old(g); return } if (!r || r.g !== g) { r = makeR3(g); r.indoor = indoor } r.weather = wx; o.draw3(r, g); o.env4d = r.info }
   return o

@@ -997,3 +997,117 @@ li.bonus { border-color: var(--gr); color: var(--gr); } li.fail { border-color: 
 .chapterland.snow i { background:#d8e4e9; }.chapterland.track i { background:#485961; }
 @media(max-width:600px) { .storyfull .stitle { top:11cqw; } .storyfull .stitle h2 { font-size:22px; } .storyfull .sbox { padding:12px 14px 25px; margin-bottom:10cqw; } .scene-caption { display:none; } .storyfull .sgoal { bottom:2cqw; } .storyscene { object-position:center top; } }
 @media(prefers-reduced-motion:reduce) { .storyfull * { animation:none!important; } }
+
+/* The mini arcade uses its own readable cabinet UI and a real WebGL stage. */
+.mini-gallery,.mini-play { max-width: 1260px; font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif; color:#edf2fa; font-size:16px; }
+.mini-gallery-head { display:flex; align-items:flex-end; justify-content:space-between; gap:28px; margin:12px 0 28px; }
+.mini-eyebrow { display:block; color:#a8bad3; font-size:10px; font-weight:750; letter-spacing:.15em; line-height:1.5; }
+.mini-gallery h2 { color:#f4f5fa; font-size:clamp(30px,4vw,48px); font-weight:750; line-height:1.07; letter-spacing:-.045em; margin:12px 0; }
+.mini-gallery h2 span { display:block; color:#9babc3; }
+.mini-gallery-head p { color:#aab9ce; margin:14px 0 0; font-size:14px; line-height:1.6; }
+.mini-search { display:flex; flex-direction:column; gap:7px; min-width:230px; font-size:11px; color:#9aafc9; }
+.mini-search input { width:100%; border:1px solid #35445f; border-radius:12px; padding:13px 16px; background:#111d31; color:#f1f5fa; font:14px ui-sans-serif,system-ui,sans-serif; }
+.mini-filters { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:24px; }
+.mini-filters button { display:flex; align-items:center; gap:9px; border:1px solid #2f3b52; border-radius:100px; padding:10px 17px; background:#111a2b; color:#9dafc7; font:600 12px ui-sans-serif,system-ui,sans-serif; cursor:pointer; }
+.mini-filters button[aria-pressed=true] { background:#e1eae8; border-color:#e1eae8; color:#182837; }
+.mini-filters button span { opacity:.6; font-size:10px; }
+.mini-grid { grid-template-columns:repeat(auto-fill,minmax(242px,1fr)); gap:20px; }
+.mini-card { padding:0; gap:0; overflow:hidden; border:1px solid #303e55; border-radius:16px; background:#152136; box-shadow:0 8px 22px #0002; transition:transform .18s,border-color .18s,box-shadow .18s; }
+.mini-card:hover { transform:translateY(-4px); border-color:var(--mini-accent); box-shadow:0 12px 26px #0005; }
+.mini-card:focus-visible,.mini-back:focus-visible,.mini-primary:focus-visible,.mini-filters button:focus-visible { outline:3px solid #cee9e4; outline-offset:4px; }
+.mini-card-art { width:100%; aspect-ratio:16/10; position:relative; overflow:hidden; background:#8babc0; }
+.mini-card-art canvas { width:100%; height:100%; object-fit:cover; }
+.mini-category { position:absolute; left:12px; top:12px; padding:5px 9px; border-radius:6px; background:#142039ba; color:#f5f5fa; font-size:10px; font-weight:600; backdrop-filter:blur(8px); }
+.mini-launch { position:absolute; bottom:12px; right:12px; border-radius:50%; width:29px; height:29px; display:grid; place-items:center; background:#edf1e9de; color:#233747; font-size:18px; }
+.mini-card-copy { display:flex; flex-direction:column; width:100%; flex:1; box-sizing:border-box; padding:18px; gap:9px; }
+.mini-card b { font-size:15px; font-weight:750; letter-spacing:.015em; }
+.mini-card small { font:400 12px/1.6 ui-sans-serif,system-ui,sans-serif; color:#a5b5ca; min-height:39px; }
+.mini-card-footer { display:flex; justify-content:space-between; gap:10px; margin-top:10px; padding-top:13px; border-top:1px solid #ffffff12; font-size:11px; align-items:center; }
+.mini-card em { color:#a3b0c4; font-size:10px; margin:0; font-weight:400; }
+.mini-card-footer > span { color:var(--mini-accent); font-weight:700; }
+.mini-top { margin-bottom:20px; padding-bottom:16px; border-bottom:1px solid #ffffff16; flex-wrap:nowrap; }
+.mini-back { display:inline-flex; align-items:center; justify-content:center; gap:9px; padding:10px 12px; background:transparent; border:1px solid #3b4860; border-radius:9px; color:#c8d5e7; font:600 12px ui-sans-serif,system-ui,sans-serif; cursor:pointer; }
+.mini-back:disabled { opacity:.4; cursor:default; }.mini-back kbd { color:#97a7be; font-size:9px; border:1px solid #556078; padding:2px 4px; border-radius:3px; }
+.mini-engine { color:#97cec0; font-size:10px; font-weight:700; letter-spacing:.08em; }
+.mini-layout { display:grid; grid-template-columns:minmax(220px,340px) minmax(260px,1fr); align-items:start; gap:48px; max-width:1000px; margin:auto; }
+.mini-guide { padding-top:22px; }.mini-guide h2 { font-family:inherit; font-size:clamp(27px,3vw,39px); line-height:1.1; letter-spacing:-.025em; margin:15px 0; color:#f3f5f8; }
+.mini-guide > p { font-size:15px; line-height:1.7; color:#a9b9ce; margin:0 0 28px; }
+.mini-stats { display:flex; gap:38px; border-block:1px solid #ffffff18; padding:22px 0; }
+.mini-stats div { display:flex; flex-direction:column; gap:7px; }.mini-stats span { color:#99acc4; font-size:11px; }.mini-stats strong { color:#fff; font-size:30px; font-variant-numeric:tabular-nums; }
+.mini-stats div+div strong { color:var(--mini-accent); }
+.mini-instructions { margin:25px 0; }.mini-instructions h3 { font:700 12px ui-sans-serif,system-ui,sans-serif; letter-spacing:.03em; margin:0 0 10px; color:#dfe9f4; }
+.mini-instructions p { font-size:13px; line-height:1.7; color:#b3c2d6; margin:8px 0; }.mini-instructions .mini-goal { color:#89a0bd; }.mini-session { font-size:12px; color:var(--mini-accent); margin:22px 0; min-height:16px; }
+.mini-stage { width:min(100%,440px); aspect-ratio:2/3; max-height:calc(100svh - 195px); justify-self:center; border:1px solid #556681; border-radius:18px; overflow:hidden; background:#17253c; box-shadow:0 20px 70px #0007; isolation:isolate; }
+.mini-webgl,.mini-canvas { position:absolute; inset:0; width:100%; height:100%; max-width:none; aspect-ratio:2/3; border:0; border-radius:0; box-shadow:none; }
+.mini-canvas { background:transparent; touch-action:none; outline:none; }.mini-canvas:focus-visible { box-shadow:inset 0 0 0 2px #ffffff88; }.mini-canvas.fallback { background:#17253c; }
+.mini-overlay { position:absolute; z-index:2; inset:0; display:flex; flex-direction:column; justify-content:center; align-items:center; gap:17px; padding:28px; background:linear-gradient(#142238a8,#0c162cec); text-align:center; backdrop-filter:blur(3px); }
+.mini-overlay h2 { font:750 30px/1.1 ui-sans-serif,system-ui,sans-serif; letter-spacing:-.03em; margin:0; color:#fff; }.mini-overlay p { font:400 14px/1.7 ui-sans-serif,system-ui,sans-serif; color:#c5d2e2; margin:0; max-width:290px; }
+.mini-primary { padding:14px 22px; border:0; border-radius:10px; background:var(--mini-accent); color:#172539; font:750 14px ui-sans-serif,system-ui,sans-serif; cursor:pointer; margin-top:8px; }.mini-primary:disabled { opacity:.5; }.mini-empty { padding:40px 0; }
+@media(min-width:760px) { .mini-stage { width:min(100%,440px,calc((100svh - 195px)*2/3)); } }
+@media(max-width:759px) { .mini-gallery-head { align-items:stretch; flex-direction:column; gap:20px; }.mini-gallery h2 { font-size:34px; }.mini-search { min-width:0; }.mini-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }.mini-card-copy { padding:13px; }.mini-card b { font-size:12px; }.mini-card small { font-size:11px; }.mini-card-footer { flex-wrap:wrap; }.mini-category { font-size:8px; top:8px; left:8px; }.mini-layout { display:flex; flex-direction:column; gap:16px; align-items:center; }.mini-guide { width:100%; padding:0; }.mini-guide h2 { font-size:25px; margin:8px 0; }.mini-guide>p,.mini-instructions,.mini-guide>.mini-back,.mini-guide>.mini-eyebrow { display:none; }.mini-stats { padding:12px 0; gap:28px; }.mini-stats div { flex-direction:row; align-items:center; gap:12px; }.mini-stats strong { font-size:21px; }.mini-session { margin:10px 0; }.mini-top { margin-bottom:12px; }.mini-stage { max-height:none; width:min(100%,400px); }.mini-back { padding:8px; font-size:11px; }.mini-overlay h2 { font-size:25px; } }
+@media(prefers-reduced-motion:reduce) { .mini-card { transition:none; }.mini-card:hover { transform:none; } }
+/* Give an active cabinet the full viewport; Back returns to the complete hub. */
+.screen.hub:has(.mini-play) .hubtop { display:none; }
+.screen.hub:has(.mini-play) { padding-bottom:20px; }
+.mini-play { text-align:left; }
+.mini-play .mini-top { position:sticky; top:0; z-index:4; background:#0b1222; padding:10px 12px; border-radius:12px; }
+@media(min-width:760px) { .mini-stage { width:min(100%,440px,calc((100svh - 130px)*2/3)); max-height:calc(100svh - 130px); } }
+
+/* Supplied cover art sets the arcade's gold, cyan and midnight visual language. */
+.game-artwork { display:block; width:100%; height:auto; object-fit:contain; image-rendering:auto; }
+.arcade-brand { display:flex; align-items:center; gap:12px; flex-shrink:0; }
+.arcade-brand>.game-artwork { width:70px; height:70px; border-radius:15px; }
+.arcade-brand>span { color:#fff; font:900 17px/1.15 ui-sans-serif,system-ui,sans-serif; letter-spacing:.04em; }
+.arcade-brand small { display:block; color:#ffcf55; font-size:12px; letter-spacing:.32em; margin-top:4px; }
+.cards4 { grid-template-columns:repeat(auto-fill,minmax(225px,1fr)); gap:22px; }
+.gcard { padding:12px; gap:12px; background:linear-gradient(155deg,#17233b,#090f20); border:1px solid #36415b; box-shadow:0 8px 24px #0005; font-family:ui-sans-serif,system-ui,sans-serif; }
+.gcard:hover { border-color:var(--brand-accent); box-shadow:0 12px 28px #0008,0 0 18px color-mix(in srgb,var(--brand-accent) 17%,transparent); }
+.gcard>.gart { order:-1; height:auto; aspect-ratio:1; border-radius:12px; overflow:hidden; margin:0; background:#0a1021; }
+.gcard>.gart>.game-artwork { width:100%; height:100%; object-fit:contain; }
+.gcard .gtitle { gap:0; min-height:64px; }
+.gcard .gtitle>.glogo3d { display:none; }
+.gcard h4 { font:800 17px/1.2 ui-sans-serif,system-ui,sans-serif; letter-spacing:.025em; margin:0 0 6px; }
+.gcard .gtitle small { font:400 12px/1.45 ui-sans-serif,system-ui,sans-serif; color:#aab9d3; }
+.gcard>.big { font:800 12px/1.2 ui-sans-serif,system-ui,sans-serif; padding:13px; border-radius:9px; }
+.gcard .kv { font:600 11px/1.7 ui-sans-serif,system-ui,sans-serif; }
+.game-brand-banner { max-width:1260px; margin:22px auto; padding:22px; display:flex; align-items:center; gap:28px; border:1px solid #35415e; border-radius:22px; background:radial-gradient(ellipse at top left,color-mix(in srgb,var(--brand-accent) 14%,transparent),transparent 65%),#0b1428; font-family:ui-sans-serif,system-ui,sans-serif; }
+.game-brand-banner>.artwork-picker { width:180px; flex-shrink:0; }
+.artwork-picker>.game-artwork { border-radius:15px; }
+.game-brand-banner h2 { color:#fff; font-size:clamp(24px,3.5vw,44px); line-height:1.1; margin:9px 0; }
+.game-brand-banner>div>span { color:var(--brand-accent); font:750 10px/1.5 ui-sans-serif,system-ui,sans-serif; letter-spacing:.16em; }
+.game-brand-banner p { color:#aabbd3; font-size:13px; line-height:1.6; }
+.artwork-editions { display:flex; gap:6px; flex-wrap:wrap; margin-top:10px; }
+.artwork-editions button { flex:1; padding:7px; border:1px solid #455371; border-radius:6px; background:#111d33; color:#b7c6dd; font:600 10px/1.3 ui-sans-serif,system-ui,sans-serif; cursor:pointer; }
+.artwork-editions button[aria-pressed=true] { color:#ffda70; border-color:#d2a74d; background:#3b3022; }
+.artwork-editions button:focus-visible { outline:2px solid #ffe092; outline-offset:3px; }
+.game-brand-banner>.brand-mode-art { margin-left:auto; width:145px; text-align:center; }
+.brand-mode-art img { border-radius:14px; margin-bottom:8px; }
+.mini-grid { grid-template-columns:repeat(auto-fill,minmax(225px,1fr)); }
+.mini-card-art { aspect-ratio:1; background:radial-gradient(circle at 50% 40%,#22316a,#080d20); }
+.mini-card-art .game-artwork { width:100%; height:100%; object-fit:contain; }
+.mini-card-art.has-logo .mini-category { top:auto; bottom:10px; left:10px; background:#090f24e8; color:#ffe49b; border:1px solid #b2914d77; }
+.mini-card-art.has-logo .mini-launch { top:10px; bottom:auto; background:#0b142be8; color:#ffe092; }
+.mini-card { border-color:#394258; background:linear-gradient(145deg,#17223b,#0c1326); }
+.mini-card:hover { box-shadow:0 14px 35px #0008,0 0 20px color-mix(in srgb,var(--mini-accent) 18%,transparent); }
+.mini-game-cover { width:190px; margin-bottom:20px; }
+.mini-guide:has(.mini-game-cover) { padding-top:0; }
+.mini-guide:has(.mini-game-cover) h2 { font-size:28px; margin-top:8px; }
+.mini-stage { border-color:#645039; box-shadow:0 0 0 1px #ffc74c18,0 20px 65px #0008; }
+.mini-primary { background:linear-gradient(135deg,#ffe08a,#ffbd47); color:#281d18; }
+.seo-cover { width:100%; height:auto; border-radius:12px; margin-bottom:12px; object-fit:contain; }
+@media(max-width:759px) { .arcade-brand>.game-artwork { width:48px;height:48px; }.arcade-brand>span { font-size:13px; }.cards4 { grid-template-columns:repeat(2,minmax(0,1fr));gap:12px; }.gcard { padding:9px; }.gcard h4 { font-size:13px; }.gcard .gtitle small { font-size:10px; }.game-brand-banner { padding:15px;gap:16px; }.game-brand-banner>.artwork-picker { width:100px; }.game-brand-banner>.brand-mode-art { width:85px; }.game-brand-banner p { font-size:11px; }.mini-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }.mini-game-cover { display:none; } }
+.future-art { margin:48px 0 24px; border-top:1px solid #39425b; padding-top:30px; }
+.future-art-heading h3 { color:#fff; font-size:26px; margin:10px 0; }.future-art-heading p { color:#9caec8;font-size:13px; }
+.future-art-grid { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:22px;margin-top:22px;max-width:850px; }
+.future-art-grid article { border:1px solid #38445e;border-radius:16px;padding:10px;background:#101a2d; }
+.future-art-grid img { border-radius:12px; }.future-art-grid article>div { padding:14px 4px 5px; }.future-art-grid h4 { font-size:16px;margin:0 0 5px; }.future-art-grid span { font-size:11px;color:#9bacc8; }
+@media(max-width:600px) { .future-art-grid { gap:10px; }.future-art-grid article { padding:5px; }.future-art-grid h4 { font-size:12px; }.future-art-grid span { font-size:9px; } }
+
+/* Keep the cover and controls within the same desktop viewport as the cabinet. */
+@media(min-width:760px) { .mini-game-cover { width:136px;margin-bottom:12px; }.mini-guide:has(.mini-game-cover)>p { font-size:13px;line-height:1.55;margin-bottom:16px; }.mini-guide:has(.mini-game-cover) .mini-stats { padding:14px 0; }.mini-guide:has(.mini-game-cover) .mini-instructions { margin:16px 0; }.mini-guide:has(.mini-game-cover) .mini-session { margin:12px 0; } }
+.gcard .gart canvas { object-fit:contain; }
+.seo-game-cover { width:220px;height:220px;object-fit:contain;border-radius:18px;float:right;margin:0 0 22px 25px; }
+@media(max-width:600px) { .seo-game-cover { float:none;margin:0 0 24px;width:180px;height:180px; } }
+.mini-card-art.has-logo .mini-category,.mini-card-art.has-logo .mini-launch { display:none; }
+.mini-cover-category { color:var(--mini-accent);font:750 9px/1 ui-sans-serif,system-ui,sans-serif;text-transform:uppercase;letter-spacing:.12em; }
+.hubtop { background:#080c1b; border-bottom:1px solid #263149; }

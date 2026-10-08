@@ -1,7 +1,8 @@
 // Shared anime art language. Models use world units and never change simulation state.
 import { ConeGeometry, CylinderGeometry, IcosahedronGeometry, SphereGeometry, LatheGeometry, Vector2 } from 'three'
 
-export const ART_CAPACITY = { leaf: 8192, cone: 8192, branch: 8192, organic: 8192, cloth: 8192 }
+// Dense Empire Rise forests can exceed 8k branch pieces in a single view.
+export const ART_CAPACITY = { leaf: 8192, cone: 8192, branch: 16384, organic: 8192, cloth: 8192 }
 export function artGeometries() {
   return {
     leaf: new IcosahedronGeometry(0.5, 1),

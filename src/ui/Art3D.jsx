@@ -3,10 +3,16 @@
 import { useEffect, useRef } from 'react'
 import { ART } from '../game/mini/art.js'
 import { makeR3 } from '../game/mini/r3.js'
+import { GAME_ART } from '../game/branding.js'
+import { GameArtwork } from './GameArtwork.jsx'
 
-export const hasArt = (id) => !!ART[id]
+export const hasArt = (id) => !!GAME_ART[id] || !!ART[id]
 
 export function Art3D({ id }) {
+  return GAME_ART[id] ? <GameArtwork id={id} decorative/> : <ScenePreview id={id}/>
+}
+
+function ScenePreview({ id }) {
   const ref = useRef(null)
   useEffect(() => {
     const c = ref.current, scene = ART[id]
@@ -32,6 +38,10 @@ const LOGO = { space: '#3de8ff', empire: '#ffd23a', cards: '#3dff7a', slug: '#7d
 const shade = (hex, k) => { const n = parseInt(hex.slice(1), 16); return '#' + [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => Math.max(0, Math.min(255, Math.round(v * k))).toString(16).padStart(2, '0')).join('') }
 // the game's emblem: a small spinning 3D plaque with a coloured rim, a lit face and the game's icon
 export function GameLogo({ emoji, cls }) {
+  return GAME_ART[cls] ? <GameArtwork id={cls} className="glogo3d" decorative/> : <ProceduralLogo emoji={emoji} cls={cls}/>
+}
+
+function ProceduralLogo({ emoji, cls }) {
   const ref = useRef(null)
   const c0 = LOGO[cls] || '#3de8ff'
   useEffect(() => {

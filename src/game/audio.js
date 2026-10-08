@@ -94,6 +94,9 @@ const SFX = {
   boom: () => { noise(0.32, 0.38, 2200, 90); tone('sawtooth', 160, 40, 0.25, 0.14) },
   bigBoom: () => { noise(0.9, 0.55, 1800, 40); tone('sawtooth', 120, 25, 0.8, 0.28); tone('square', 70, 20, 0.7, 0.14) },
   hurt: () => { noise(0.35, 0.4, 1200, 80); tone('sawtooth', 300, 40, 0.4, 0.2) },
+  fruitDrop: () => tone('sine',340,190,.08,.045),
+  fruitLand: (strength=.5) => tone('sine',140,70,.075,.025+strength*.025),
+  fruitMerge: (tier=1) => arp([440,554,660].map(f=>f*Math.pow(2,tier/12)),'triangle',.11,.07,.035),
   // pickups / rewards
   pickup: () => arp([660, 880, 1320], 'square', 0.09, 0.09, 0.06),
   power: () => arp([440, 554, 659, 880, 1109], 'square', 0.1, 0.09, 0.05),

@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { GAME_ART } from '../../../game/branding.js'
 import { notFound } from 'next/navigation'
 import { GAMES, bySlug, SITE, SITE_NAME, FLAMES_FAQ } from '../../../lib/seo'
 
@@ -9,10 +10,12 @@ export async function generateMetadata({ params }) {
   const g = bySlug(slug)
   if (!g) return {}
   const title = g.slug === 'flames' ? 'FLAMES game online: Friends, Lovers, Affection, Marriage, Enemies, Siblings (free)' : `${g.name}: free online ${g.genre.toLowerCase()} game`
+  const cover=GAME_ART[g.tab]?.covers[0]
+  const images=cover?[{url:cover.src,width:768,height:768,alt:g.name}]:undefined
   return {
     title, description: g.desc, keywords: g.keys, alternates: { canonical: `/games/${g.slug}` },
-    openGraph: { title, description: g.desc, url: `/games/${g.slug}`, siteName: SITE_NAME, type: 'website' },
-    twitter: { card: 'summary_large_image', title, description: g.desc },
+    openGraph: { title, description: g.desc, url: `/games/${g.slug}`, siteName: SITE_NAME, type: 'website', ...(images?{images}:{}) },
+    twitter: { card: 'summary_large_image', title, description: g.desc, ...(images?{images}:{}) },
   }
 }
 export default async function GamePage({ params }) {
@@ -31,6 +34,7 @@ export default async function GamePage({ params }) {
       {ld.map((o, i) => <script key={i} type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(o) }} />)}
       <nav className="seo-crumbs"><Link href="/">{SITE_NAME}</Link> › <Link href="/games">Games</Link> › {g.name}</nav>
       <header>
+        {GAME_ART[g.tab]&&<img className="seo-game-cover" src={GAME_ART[g.tab].covers[0].src} alt={g.name+" cover artwork"} width="768" height="768"/>}
         <Link href={`/?play=${g.slug}`} className="seo-play">▶ PLAY {g.name.split(':')[0].toUpperCase()} NOW (FREE)</Link>
         <h1>{g.slug === 'flames' ? 'FLAMES game online: find out if you are Friends, Lovers, Affection, Marriage, Enemies or Siblings' : `${g.name}: free online ${g.genre.toLowerCase()} game`}</h1>
         <p className="seo-lead">{g.desc}</p>

@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { GAME_ART } from '../../game/branding.js'
 import { GAMES, SITE, SITE_NAME } from '../../lib/seo'
 
 export const metadata = {
@@ -14,7 +15,7 @@ export default function GamesIndex() {
       <header><Link href="/" className="seo-play">▶ PLAY NOW</Link><h1>{SITE_NAME}: free online games</h1><p>{GAMES.length} games in your browser. No download, works on phones and computers, and most of them play online with friends.</p></header>
       <div className="seo-grid">
         {GAMES.map((g) => (
-          <Link key={g.slug} href={`/games/${g.slug}`} className="seo-card"><b>{g.name}</b><small>{g.genre}</small><span>{g.tag}</span></Link>
+          <Link key={g.slug} href={`/games/${g.slug}`} className="seo-card">{GAME_ART[g.tab]&&<img className="seo-cover" src={GAME_ART[g.tab].covers[0].small} alt="" width="320" height="320" loading="lazy"/>}<b>{g.name}</b><small>{g.genre}</small><span>{g.tag}</span></Link>
         ))}
       </div>
     </main>

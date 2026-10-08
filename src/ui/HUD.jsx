@@ -3,6 +3,8 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import OnlineLobby from './OnlineLobby.jsx'
 import MiniArcade from './MiniArcade.jsx'
+import { GAME_ART } from '../game/branding.js'
+import { GameArtwork, GameBrandBanner } from './GameArtwork.jsx'
 import { Art3D, GameLogo, splitTitle, hasArt } from './Art3D.jsx'
 import { joinRoom, leaveRoom, subscribeRt, getRt } from '../game/online/rt.js'
 import { onKey as engineKey, setSquad, subscribe, getSnap, startGame, toShop, launchNext, buy, retryMission, toMenu, togglePause, useSkill, startGameAt, setShip, setName, markSeen, claimDaily } from '../game/engine.js'
@@ -93,7 +95,7 @@ const HELP = {
     name: '👋 START HERE',
     body: () => (
       <>
-        <p><b>Welcome to My Space Arcade.</b> Three games, one dashboard. Pick a game, learn it in a minute, beat your score, and climb the <b>TOP PLAYERS</b> board.</p>
+        <p><b>Welcome to My Space Arcade.</b> One arcade, dozens of worlds. Pick a game, learn it in a minute, beat your score, and climb the <b>TOP PLAYERS</b> board.</p>
         <ol>
           <li>Type your <b>name</b> in the Pilot Profile so your scores show on the leaderboard.</li>
           <li>Press <b>PLAY</b> on a game card. The first time you play a game, this guide opens automatically.</li>
@@ -1526,7 +1528,7 @@ function GameCard({ cls, title, tag, hi, hiLabel, art, onPlay, label, sub, onInv
   if (q && !(String(title) + ' ' + String(tag)).toLowerCase().includes(q)) return null
   const [logo, name] = splitTitle(title)
   return (
-    <div className={'gcard ' + cls}>
+    <div className={'gcard ' + cls + (GAME_ART[cls] ? ' has-cover' : '')} style={{'--brand-accent':GAME_ART[cls]?.color}}>
       <div className="gtitle">{logo && <GameLogo emoji={logo} cls={cls} />}<div><h4>{name}</h4><small>{tag}</small></div></div>
       <div className="gart">{hasArt(cls) ? <Art3D id={cls} /> : art}</div>
       <div className="kv"><span>{hiLabel}</span><b>{hi}</b>{sub}</div>
@@ -1577,7 +1579,7 @@ function Hub({ s }) {
   return (
     <div className="screen hub">
       <div className="hubtop">
-        <div className="logo2"><img className="logoimg" src="/logo.svg" alt="My Space Arcade" /></div>
+        <div className="logo2 arcade-brand"><GameArtwork id="brand" eager/><span>MY SPACE<small>ARCADE</small></span></div>
         <div className="tabs">{TABS.map(([k, n]) => <button key={k} className={'tab ' + (tab === k ? 'sel' : '')} onClick={() => { if (k === 'online') { setOlock(false); setOnon((n) => n + 1) } setTab(k) }}>{n}</button>)}</div>
         <SoundBtn />
         <button className="tab" title="Fullscreen" onClick={() => { try { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen() } catch { /* ignore */ } }}>⛶</button>
@@ -1643,7 +1645,7 @@ function Hub({ s }) {
             {show('puzzle', 'sports') && <GameCard cls="c4" title="🔴 CONNECT FOUR" tag="Bot · 2P · online 1v1" hiLabel="WINS" hi={p.c4Wins || 0}
               art={<div className="miniC4"><i /><i /><i /><i /><i /></div>} label="SELECT MODE ▶" onPlay={() => setTab('c4')} onInvite={() => { openOnline('c4') }}
               sub={<><span>GAMES</span><b>{p.c4Games || 0}</b></>} />}
-            {show('action', 'puzzle') && <GameCard cls="mini" title="🕹 MINI GAMES" tag="24 quick games · 3D & 4D · phone friendly" hiLabel="PLAYED" hi={p.miniGames || 0}
+            {show('action', 'puzzle') && <GameCard cls="mini" title="🕹 MINI GAMES" tag="24 quick games · 3D worlds · phone friendly" hiLabel="PLAYED" hi={p.miniGames || 0}
               art={<div className="miniSnake"><b>🏗️</b><b>🐤</b><b>🍉</b><b>💎</b><b>🎣</b></div>} label="PICK A GAME ▶" onPlay={() => setTab('mini')} />}
             {show('action') && <GameCard cls="snake" title="🐍 NEON SNAKE" tag="Solo · vs bot · 2 players" hiLabel="BEST" hi={p.snakeBest || 0}
               art={<div className="miniSnake"><i /><i /><i /><i /><b>🍎</b></div>} label="SELECT MODE ▶" onPlay={() => setTab('snake')} onInvite={() => { openOnline('snake') }}
@@ -1719,6 +1721,7 @@ function Hub({ s }) {
           </div>
         </SearchCtx.Provider>
       )}
+      {tab !== 'home' && tab !== 'mini' && <GameBrandBanner id={tab==='top'?'topcard':tab==='ship'?'shipcard':tab==='levels'?'space':tab}/> }
       {tab === 'pickle' && <PickleLobby s={s} mode={pmode} setMode={setPmode} diff={pdiff} setDiff={setPdiff} target={ptarget} setTarget={setPtarget} />}
       {tab === 'race' && <RaceLobby s={s} />}
       {tab === 'hockey' && <HockeyLobby s={s} TopPlayers={TopPlayers} onInvite={() => { openOnline('hockey') }} />}
