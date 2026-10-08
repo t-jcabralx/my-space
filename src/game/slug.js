@@ -1,3 +1,4 @@
+import { animePortrait } from './artDirection.js'
 // Operation Ground Zero v2: Metal Slug-style run & gun. Pure JS; drawing goes through an api passed in by Scene.jsx.
 import { G, keys, games, profile, saveProfile, recordScore, boom, ring, part, shake, flash, popup, COLS, stepParticles, toMenu } from './engine.js'
 import { SP, rgb } from './sprites.js'
@@ -800,6 +801,7 @@ function drawHero(api, px, fy, face, sx, sy, k, flashed) {
   let key = 'heroS'
   if (!p.ground) key = 'heroJ'; else if (Math.abs(p.vx) > 1) key = 'hero' + (Math.floor(p.anim) & 3)
   api.sprite(SP[key], px, fy + 5.5 * sy, { sx: face, sy, k, flash: flashed })
+  animePortrait(api,px+face*.25,fy+9*sy,1.2,2.6*Math.abs(sy),{hair:[.2,.17,.095],iris:[.18,.42,.22]})
 }
 function drawGun(api, px, pcy, p, wn) {
   const { put } = api

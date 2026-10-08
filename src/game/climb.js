@@ -1,3 +1,5 @@
+import { animeHead } from './artDirection.js'
+import { modelApi } from './modeling.js'
 // FROST CLIMBERS: a 3D mountain-climbing platformer in the spirit of the classic ice-climbing arcade game.
 // Jump up into the ice above you to smash a hole, climb through it, whack the yetis and birds with your hammer, dodge icicles,
 // and reach the summit before you fall off the bottom of the screen. 1 or 2 climbers (same keyboard, or a friend online).
@@ -374,6 +376,7 @@ function camera(aspect) {
   return { x: cx + (Math.random() - 0.5) * sk, y: cy + 3 + (Math.random() - 0.5) * sk, z: 46, tx: cx, ty: cy, tz: 0, fov: 42, far: 500, aspect }
 }
 function drawClimber(api, p, t) {
+  api = modelApi(api)
   const { put3 } = api
   if (p.out || p.gone) return
   const blink = p.inv > 0 && Math.floor(t * 12) % 2 === 0
@@ -404,12 +407,8 @@ function drawClimber(api, p, t) {
   limb(put3, X(0), hy + 0.1, 0, A(Math.PI + lean), 0.35, 1.58, 1.14, trim) // belt
   put3(X(tx * 0.5 - 0.15), hy + 0.85, -0.82, 0.9, 1.1, 0.5, -A(lean), trim[0], trim[1], trim[2], 0) // pack
   const hx = tor[0] + f * tx * 0.1, hyy = tor[1] + 0.52
-  put3(hx, hyy, 0, 1.25, 1.05, 1.2, 0, skin[0], skin[1], skin[2], 0) // face
-  put3(hx - f * 0.05, hyy + 0.5, 0, 1.55, 0.7, 1.5, 0, parka[0], parka[1], parka[2], 0); put3(hx - f * 0.55, hyy - 0.05, 0, 0.5, 1.2, 1.4, 0, parka[0], parka[1], parka[2], 0) // hood
-  put3(hx + f * 0.7, hyy - 0.02, 0, 0.14, 1.1, 1.3, 0, trim[0], trim[1], trim[2], 0) // fur trim
-  put3(hx + f * 0.62, hyy + 0.1, 0.38, 0.16, 0.24, 0.2, 0, dark[0], dark[1], dark[2], 0); put3(hx + f * 0.62, hyy + 0.1, -0.38, 0.16, 0.24, 0.2, 0, dark[0], dark[1], dark[2], 0) // eyes
-  put3(hx + f * 0.64, hyy - 0.3, 0, 0.12, 0.45, 0.22, 0, 1.9, 0.9, 0.8, 0) // nose
-  put3(hx - f * 0.1, hyy + 1.05 + Math.sin(p.anim * 7) * 0.05, 0, 0.55, 0.55, 0.55, 0, trim[0], trim[1], trim[2], 0) // pom-pom
+  animeHead(api,hx,hyy,0,1.05,f*.95,{skin:[.94,.72,.6],helmet:parka,iris:[.15,.44,.78]})
+  put3(hx-f*.15,hyy+1.0,0,.4,.4,.4,0,...trim,0)
   // arms: swing opposite to the legs, raise when jumping, hammer arm winds up and smashes
   const sh = [tor[0], tor[1] - 0.28]
   for (const side of [-1, 1]) {
@@ -433,6 +432,7 @@ function drawClimber(api, p, t) {
   void dark
 }
 function drawFoe(api, f, t) {
+  api = modelApi(api)
   const { put3 } = api, d = f.dir || 1
   if (f.type === 'topi') {
     const w = Math.sin(t * 9 + f.id) * 0.3

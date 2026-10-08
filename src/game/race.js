@@ -1,3 +1,4 @@
+import { treeModel } from './artDirection.js'
 // TURBO RUSH: a 3D arcade racer. 5 tracks, 6 cars, drifting with mini-turbos, nitro, boost pads, AI rivals and lap records.
 // Pure JS simulation (testable headlessly); drawn as lit 3D boxes through Scene.jsx (draw3) with a chase camera.
 import { G, keys, games, profile, saveProfile, recordScore, toMenu, flash } from './engine.js'
@@ -709,7 +710,8 @@ function buildScene(tk, ti) {
   sceneCache[key] = sc
   return sc
 }
-function drawScene(put3, putS, env, camX, camZ, t) {
+function drawScene(api, env, camX, camZ, t) {
+  const { put3, putS } = api
   const tk = RC.tk, T = tk.T, W = tk.W, P = tk.P
   const sc = buildScene(tk, RC.cfg.track)
   const col = (hex, k = 1) => { const c = lc(hex); return [c[0] * k, c[1] * k, c[2] * k] }
@@ -762,7 +764,7 @@ function drawScene(put3, putS, env, camX, camZ, t) {
     if (q.kind === 'trees') {
       const lf = col(q.s < 0.5 ? '#2f8a3a' : '#3aa04a', 0.8 + q.s2 * 0.4), autumn = env.tod > 0.7 && q.s3 < 0.3
       const lr = autumn ? 1.5 : lf[0], lg = autumn ? 0.8 : lf[1], lb = autumn ? 0.2 : lf[2]
-      put3(x, 3 * s, z, 1.6 * s, 6 * s, 1.6 * s, 0, 0.36, 0.23, 0.1, 0); put3(x + wind * s * 0.5, 8 * s, z, 7 * s, 5 * s, 7 * s, sway, lr, lg, lb, q.ry); put3(x + wind * s, 12 * s, z, 4.6 * s, 4 * s, 4.6 * s, sway * 1.5, lr * 1.1, lg * 1.1, lb * 1.1, q.ry + 0.6)
+      treeModel(api,x,0,z,14*s,q.s*37,t,{kind:q.s3>.7?'pine':'oak',leaf:[lr,lg,lb],low:dx*dx+dz*dz>180*180})
     } else if (q.kind === 'city') {
       const h = 30 + q.s * 90, w = 14 + q.s2 * 14, b = col(['#1a1a3a', '#241a4a', '#14284a'][(q.s3 * 3) | 0], 1 + q.s * 0.6)
       put3(x, h / 2, z, w, h, w, 0, b[0], b[1], b[2], q.ry)
@@ -771,7 +773,7 @@ function drawScene(put3, putS, env, camX, camZ, t) {
       if (q.s3 < 0.3) put3(x, h + 2, z, 1, 4, 1, 0, 2.4, 0.3, 0.3 + (Math.sin(t * 3 + q.s * 9) > 0 ? 1.4 : 0), 0)
     } else if (q.kind === 'snow') {
       const lf = col('#d8f0ff', 0.9 + q.s2 * 0.3)
-      put3(x, 2, z, 1.4 * s, 4 * s, 1.4 * s, 0, 0.29, 0.23, 0.17, 0); put3(x, 6 * s, z, 8 * s, 3 * s, 8 * s, sway, lf[0] * 0.55, lf[1] * 0.75, lf[2] * 0.7, q.ry); put3(x, 9 * s, z, 5.4 * s, 3 * s, 5.4 * s, sway * 1.5, lf[0] * 0.7, lf[1] * 0.85, lf[2] * 0.8, q.ry + 0.5); put3(x, 12 * s, z, 3 * s, 3 * s, 3 * s, sway * 2, lf[0] * 1.2, lf[1] * 1.2, lf[2] * 1.2, q.ry)
+      treeModel(api,x,0,z,14*s,q.s*37,t,{kind:'snow',leaf:[.13,.32,.27],low:dx*dx+dz*dz>180*180})
     } else {
       const cg = col('#3a8a3a', 0.8 + q.s2 * 0.4)
       put3(x, 4 * s, z, 2 * s, 8 * s, 2 * s, 0, cg[0], cg[1], cg[2], 0); put3(x + 2.2 * s, 5.5 * s, z, 3 * s, 1.4 * s, 1.4 * s, 0, cg[0], cg[1], cg[2], 0); put3(x + 3.4 * s, 7 * s, z, 1.4 * s, 3 * s, 1.4 * s, 0, cg[0], cg[1], cg[2], 0)
@@ -802,7 +804,7 @@ function draw3(api) {
   const { put3, putS } = api
   if (!RC.tk) return
   const env = raceEnv(), cm = RC.cars[RC.me] || { x: CAM.tx, z: CAM.tz }
-  drawScene(put3, putS, env, CAM.tx, CAM.tz, G.time)
+  drawScene(api, env, CAM.tx, CAM.tz, G.time)
   const N = RC.tk.N, P = RC.tk.P, W = RC.tk.W
   const T = RC.tk.T, acc = lc(T.accent), t = G.time
   // pads and canisters
@@ -811,7 +813,7 @@ function draw3(api) {
   for (const b of RC.boxes || []) { if (b.t > 0) continue; const p = P[b.idx], h = (t * 0.6 + b.idx * 0.1) % 1, hue = [Math.sin(h * TAU) * 0.5 + 0.5, Math.sin(h * TAU + 2.1) * 0.5 + 0.5, Math.sin(h * TAU + 4.2) * 0.5 + 0.5]; put3(p.x + p.nx * b.lat, 3.2 + Math.sin(t * 3 + b.idx) * 0.5, p.z + p.nz * b.lat, 2.6, 2.6, 2.6, 0, hue[0] * 1.6 + 0.3, hue[1] * 1.6 + 0.3, hue[2] * 1.6 + 0.3, t * 1.5); put3(p.x + p.nx * b.lat, 3.2 + Math.sin(t * 3 + b.idx) * 0.5, p.z + p.nz * b.lat, 1.2, 1.2, 1.2, 0, 2, 2, 2, -t * 2) }
   for (const it of RC.items || []) { put3(it.x, 0.9, it.z, 2.6, 0.7, 1.2, 0, 2.2, 1.9, 0.2, t * 2); put3(it.x, 1.3, it.z, 1.2, 0.6, 2.4, 0, 2.2, 1.9, 0.2, t * 2); put3(it.x, 2.4 + Math.sin(t * 4) * 0.3, it.z, 0.5, 0.5, 0.5, 0, 2.5, 0.4, 0.2, 0) }
   for (const sh of RC.shells || []) { const bl = sh.k === 'blue', sz = bl ? 3.2 : 2.4; put3(sh.x, 1.8, sh.z, sz, sz * 0.8, sz, 0, bl ? 0.2 : 2.4, bl ? 0.5 : 0.25, bl ? 2.6 : 0.2, t * 14); put3(sh.x, 2.5, sh.z, sz * 0.5, sz * 0.4, sz * 0.5, 0, 2, 2, 2, 0); if (bl) for (let k = 0; k < 4; k++) put3(sh.x + Math.cos(k * 1.57 + t * 8) * 2, 1.8, sh.z + Math.sin(k * 1.57 + t * 8) * 2, 0.8, 0.8, 0.8, 0, 2, 2, 2.4, 0) }
-  for (const c of RC.cars) drawCar3(put3, c, t)
+  for (const c of RC.cars) drawCar3(api.putBody || put3, c, t, api.putCyl || put3)
   // particles: smoke, sparks and boost flames (bright boxes)
   for (const f of RC.fx) { const k = f.life / f.max, c = lc(f.color), sz = f.size * (0.4 + 0.6 * k); put3(f.x, f.y, f.z, sz, sz, sz, 0, c[0] * 1.5 * k + 0.1, c[1] * 1.5 * k + 0.1, c[2] * 1.5 * k + 0.1) }
   const me = RC.cars[RC.me]
@@ -821,17 +823,33 @@ function draw3(api) {
     for (let i = 0; i < 18; i++) { const a = (i * 2.399 + t * 3) % TAU, rr = 6 + ((i * 7 + t * 90) % 22), along = 8 + ((i * 13 + t * 120) % 34); put3(me.x + fx_ * along + rx * Math.cos(a) * rr, 2 + Math.abs(Math.sin(a)) * rr * 0.5, me.z + fz_ * along + rz * Math.cos(a) * rr, 0.14, 0.14, 6, 0, 1.6, 1.8, 2.4, ry) }
   }
 }
-function drawCar3(put3, c, t) {
+function drawCar3(put3, c, t, wheel) {
   const col = lc(c.color), th = c.th, ry = -th
   const cs = Math.cos(ry), sn = Math.sin(ry)
   const roll = clamp(c.steer * c.sp * 0.0012, -0.12, 0.12) * (c.drifting ? 2 : 1)
   // local (lx sideways, lz along the car, + is forward) -> world; the car's forward axis is local -z
-  const part = (lx, ly, lz, sx, sy, sz, r, g, b) => put3(c.x + lx * cs + lz * sn, ly, c.z - lx * sn + lz * cs, sx, sy, sz, 0, r, g, b, ry)
+  const part = (lx, ly, lz, sx, sy, sz, r, g, b) => put3(c.x + lx * cs + lz * sn, ly + lx * roll, c.z - lx * sn + lz * cs, sx, sy, sz, 0, r, g, b, ry)
   const dark = [0.06, 0.06, 0.09]
   // wheels
-  for (const [lx, lz] of [[-1.9, -2.3], [1.9, -2.3], [-1.9, 2.3], [1.9, 2.3]]) part(lx, 0.8, lz, 0.9, 1.7, 1.7, dark[0], dark[1], dark[2])
+  for (const [lx, lz] of [[-1.9, -2.3], [1.9, -2.3], [-1.9, 2.3], [1.9, 2.3]]) {
+    const steer = lz < 0 ? c.steer * 0.35 : 0
+    const wx = c.x + lx * cs + lz * sn, wz = c.z - lx * sn + lz * cs
+    wheel(wx, 0.85, wz, 1.7, 0.9, 1.7, Math.PI / 2, ...dark, ry + steer)
+    const side = Math.sign(lx), ax = Math.cos(ry + steer) * side, az = -Math.sin(ry + steer) * side
+    wheel(wx + ax * 0.47, 0.85, wz + az * 0.47, 1.05, 0.08, 1.05, Math.PI / 2, 0.55, 0.59, 0.65, ry + steer)
+    for (let spoke = 0; spoke < 4; spoke++) {
+      const a = c.prog / 0.85 + spoke * Math.PI / 2
+      put3(wx + ax * 0.52 + Math.sin(ry + steer) * Math.cos(a) * 0.3, 0.85 + Math.sin(a) * 0.3, wz + az * 0.52 + Math.cos(ry + steer) * Math.cos(a) * 0.3, 0.13, 0.16, 0.13, 0, 0.12, 0.14, 0.17)
+    }
+  }
   part(0, 1.35 + roll * 0, 0, 3.6, 0.9, 7.8, col[0], col[1], col[2])        // chassis
   part(0, 2.15, 0.6, 2.8, 0.9, 3.8, col[0] * 0.9, col[1] * 0.9, col[2] * 0.9) // cabin lower
+  part(0, 3.0, 0.7, 2.5, 0.22, 2.5, ...col) // roof
+  for (const side of [-1, 1]) {
+    part(side * 1.75, 2.25, -0.65, 0.5, 0.3, 0.65, ...col) // mirrors
+    part(side * 1.6, 1.25, 0.3, 0.24, 0.45, 4.2, col[0] * 0.65, col[1] * 0.65, col[2] * 0.65)
+  }
+  part(0, 1.35, -4.05, 2.1, 0.28, 0.16, ...dark)
   part(0, 2.55, 0.4, 2.4, 0.8, 2.6, 0.12, 0.2, 0.3)                          // glass
   part(0, 1.5, -3.5, 3.5, 0.6, 1.4, col[0] * 0.7, col[1] * 0.7, col[2] * 0.7) // nose
   part(0, 2.7, 3.2, 4.2, 0.35, 1.2, col[0] * 0.55, col[1] * 0.55, col[2] * 0.55) // spoiler

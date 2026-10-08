@@ -3,9 +3,9 @@
 const hsl = (h, s = 75, l = 55) => `hsl(${((h % 360) + 360) % 360} ${s}% ${l}%)`
 const sway = (r, t, h = 40, d = 92, ty = 10, k = 22) => r.look(Math.sin(t * 0.35) * k, h, -d, 0, ty, 0, 45)
 const ground = (r, c = '#2f7a2f') => r.floor(-220, -140, 220, 200, 0, c)
-const tree = (r, x, z, s = 1, c = '#2a8a3a') => { r.cyl(x, 0, z, 1.2 * s, 5 * s, '#5a3a1a', { seg: 8 }); r.pyramid(x, 4 * s, z, 8 * s, 11 * s, 8 * s, c) }
+const tree = (r,x,z,s=1,c='#44854a') => r.tree(x,0,z,15*s,x*.7+z,'oak',c)
 const stars = (r, t, n = 30, sp = 25) => { for (let i = 0; i < n; i++) r.sphere((((i * 37 - t * sp) % 160) + 160) % 160 - 80, ((i * 53) % 55) + 4, ((i * 29) % 50) + 20, 0.55, '#ffffff', { shine: false, glow: 1.3 }) }
-const person = (r, x, y, z, c, sw = 0) => { r.box(x, y + 4, z, 4, 6, 3, c); r.sphere(x, y + 9, z, 2.4, '#e8b890', { shine: false }); r.box(x - 1, y + 0.8, z, 1.4, 3.6 + sw, 1.6, '#222'); r.box(x + 1, y + 0.8, z, 1.4, 3.6 - sw, 1.6, '#222') }
+const person = (r, x, y, z, c, sw = 0) => r.person(x, y, z, c, sw * 1.6)
 
 export const ART = {
   space(r, t) {
@@ -81,7 +81,7 @@ export const ART = {
   fight(r, t) {
     sway(r, t, 30, 80, 14, 10); r.begin('#3a1a1a', '#120808'); r.floor(-200, -100, 200, 100, 0, '#4a3a2a'); r.box(0, -1, 0, 120, 2, 60, '#6a2a2a')
     const hit = Math.max(0, Math.sin(t * 3))
-    const fighter = (x, dir, c, a) => { r.box(x, 15, 0, 9, 13, 6, c); r.sphere(x, 25, 0, 4.6, '#e8b890'); r.box(x - 2.4, 5, 0, 3.4, 10, 4, '#222222'); r.box(x + 2.4, 5, 0, 3.4, 10, 4, '#222222'); r.box(x + dir * (6 + a * 7), 17, 0, 10 + a * 6, 3.2, 3.2, '#e8b890'); r.sphere(x + dir * (12 + a * 8), 17, 0, 2.8, '#ff5a6a', { glow: 1.1 }) }
+    const fighter = (x,dir,c,a) => r.person(x,0,0,c,0,3,{yaw:dir*1.15,attack:a,coat:false})
     fighter(-18 + hit * 4, 1, '#3de8ff', hit); fighter(18 - hit * 2, -1, '#ff5a6a', 0)
     if (hit > 0.7) { r.sphere(0, 18, -6, 5 * hit, '#ffe84a', { glow: 1.8, alpha: 0.8, shine: false }); r.text(0, 30, -8, 'POW', 7, '#ffe84a') }
   },

@@ -1,3 +1,5 @@
+import { treeModel } from './artDirection.js'
+import { modelApi } from './modeling.js'
 // 3D look of NEON DEFENSE: a little fantasy valley with a cobbled road, animated towers, walking monsters, flying bats, cannonballs and fire.
 import { G } from './engine.js'
 import { col, rng, clamp } from './pxl.js'
@@ -69,6 +71,7 @@ function drawTower(api, t, def, TD, time, sel, rangeOf) {
   if (sel) { const R = rangeOf(t); for (let k = 0; k < 56; k++) { const a = (k / 56) * TAU; put3(X + Math.cos(a) * R, 0.15, Z + Math.sin(a) * R, 0.55, 0.2, 0.55, 0, 2, 2, 2.2, 0) } for (let k = 0; k < 4; k++) put3(X + Math.cos(k * 1.57 + time) * 2.6, 0.4, Z + Math.sin(k * 1.57 + time) * 2.6, 0.6, 0.4, 0.6, 0, 3, 3, 3) }
 }
 function drawEnemy(api, e, time, ENEMY) {
+  api = modelApi(api)
   const { put3, putS } = api, d = e.def, c = hex(d.c, 1), dk = hex(d.c, 0.55)
   const X = e.x, Z = -e.y
   // heading from the last frame's position
@@ -131,7 +134,7 @@ export function drawTd3(api, TD, defs) {
   for (let i = -3; i < COLS + 3; i += 1) { put3(X0 + i * 4, -0.5, -(ROWS * 2 + 2), 4.05, 0.5, 4.05, 0, 0.06, 0.22, 0.08, 0); put3(X0 + i * 4, -0.5, ROWS * 2 + 2, 4.05, 0.5, 4.05, 0, 0.06, 0.22, 0.08, 0) }
   for (const f of E.flowers) { const sw = Math.sin(time * 2 + f.ph) * 0.15; put3(f.x + sw, 0.9, f.z, 0.12, 1.1, 0.12, 0, 0.1, 0.5, 0.12); putS(f.x + sw * 2, 1.6, f.z, 0.5, 0.5, 0.5, f.c[0], f.c[1], f.c[2]) }
   for (const d of E.deco) { put3(d.x, d.s * 0.4, d.z, d.s * 1.6, d.s * 0.8, d.s * 1.3, 0, 0.22, 0.22, 0.26, d.ry); put3(d.x + d.s * 0.3, d.s * 0.9, d.z, d.s * 0.9, d.s * 0.4, d.s * 0.8, 0, 0.1, 0.34, 0.12, d.ry) }
-  for (const t of E.trees) { const sw = Math.sin(time * 1.2 + t.ph) * 0.2; put3(t.x, t.s * 2, t.z, 0.9 * t.s, 4 * t.s, 0.9 * t.s, 0, 0.25, 0.14, 0.07, 0); if (t.kind === 0) { for (let k = 0; k < 3; k++) put3(t.x + sw * (k + 1) * 0.4, (4 + k * 2) * t.s, t.z, (5 - k * 1.4) * t.s, 2.4 * t.s, (5 - k * 1.4) * t.s, 0, 0.05 + k * 0.03, 0.3 + k * 0.05, 0.1, k + t.ph) } else { putS(t.x + sw, 6 * t.s, t.z, 5.5 * t.s, 4.6 * t.s, 5.5 * t.s, 0.1, 0.4, 0.14); putS(t.x + 1.4 * t.s + sw, 5.4 * t.s, t.z + 0.8, 3.6 * t.s, 3 * t.s, 3.6 * t.s, 0.14, 0.5, 0.18) } }
+  for (const tr of E.trees) treeModel(api,tr.x,0,tr.z,9*tr.s,tr.ph,time,{kind:tr.kind===0?'pine':'oak'})
   // spawn portal and castle
   const sx = TD.wp[0][0] + 4, sy = TD.wp[0][1]
   for (let k = 0; k < 16; k++) { const a = (k / 16) * TAU + time * 2; putS(sx + 1, 3.6 + Math.sin(a) * 3.2, -sy + Math.cos(a) * 1.0 * 0 + Math.cos(a) * 3.2, 0.8, 0.8, 0.8, 3, 0.5 + Math.sin(a + time) * 0.4, 0.5) }

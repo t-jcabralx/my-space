@@ -1,3 +1,4 @@
+import { animePortrait } from './artDirection.js'
 // Bomber Blast: classic grid battle arena. Pure JS; drawing goes through the api passed by Scene.jsx.
 import { G, keys, games, profile, saveProfile, recordScore, part, ring, shake, flash, popup, COLS, stepParticles, toMenu } from './engine.js'
 import { SP, rgb } from './sprites.js'
@@ -605,6 +606,7 @@ const cc = {}
 const lc = (hex) => cc[hex] || (cc[hex] = rgb(hex))
 function draw(api) {
   const { put, sprite } = api
+  const round = api.putBall || put
   const t = G.time
   // floor
   for (let r = 0; r < ROWS_N; r++) for (let c = 0; c < COLS_N; c++) {
@@ -639,7 +641,7 @@ function draw(api) {
     const pulse = 1 + Math.sin(t * (b.t < 0.8 ? 30 : 9)) * 0.12
     const hot = b.t < 0.7 && Math.floor(t * 14) % 2 === 0
     const k = hot ? 2.2 : 0.2
-    for (const [dx, dy, s] of [[0, 0, 3.2], [0, 0.5, 2.6]]) put(x + dx, y + dy, 1.6, s * pulse, s * pulse, k, hot ? 0.3 : 0.2, hot ? 0.3 : 0.28)
+    for (const [dx, dy, s] of [[0, 0, 3.2], [0, 0.5, 2.6]]) round(x + dx, y + dy, 1.6, s * pulse, s * pulse, k, hot ? 0.3 : 0.2, hot ? 0.3 : 0.28)
     put(x - 0.7, y + 0.8, 2.6, 0.9, 0.9, 1.6, 1.6, 1.8)
     put(x + 0.9, y + 2.1, 2.4, 0.7, 1.1, 0.5, 0.35, 0.2)
     if (Math.floor(t * 18) % 2 === 0) put(x + 1.3, y + 2.8, 3, 1.1, 1.1, 3, 2.2, 0.4)
@@ -665,10 +667,13 @@ function draw(api) {
     const lg = p.move && (p.move[0] || p.move[1]) ? Math.sin(p.anim * 16) * 0.8 : 0
     put(x - 0.9, y - 1.2 + lg * 0.4, 1, 1.1 * sc, 1.4 * sc, 0.1, 0.1, 0.14); put(x + 0.9, y - 1.2 - lg * 0.4, 1, 1.1 * sc, 1.4 * sc, 0.1, 0.1, 0.14)
     put(x, y - 0.1 + bob, 1.8, 3.2 * sc, 2.4 * sc, col[0] * 1.4, col[1] * 1.4, col[2] * 1.4)
-    put(x, y + 1.6 + bob, 2.8, 3.0 * sc, 2.8 * sc, 2, 1.75, 1.5)
-    const fx = p.face[0], fyv = p.face[1]
-    put(x - 0.8 + fx * 0.4, y + 1.7 + bob - fyv * 0.2, 3.6, 0.8 * sc, 1.0 * sc, 0.02, 0.02, 0.04); put(x + 0.8 + fx * 0.4, y + 1.7 + bob - fyv * 0.2, 3.6, 0.8 * sc, 1.0 * sc, 0.02, 0.02, 0.04)
-    put(x, y + 3.5 + bob, 3, 1.2 * sc, 1.2 * sc, col[0] * 2, col[1] * 2, col[2] * 2)
+    round(x, y + 1.6 + bob, 2.7, 3.6 * sc, 3.2 * sc, col[0] * 1.4, col[1] * 1.4, col[2] * 1.4)
+    animePortrait(api,x,y+1.55+bob,3,2.45*sc,{helmet:true,iris:col})
+    for (const side of [-1, 1]) {
+      round(x + side * 1.8 * sc, y - 0.1 + bob - side * lg * 0.3, 2.0, 1.1 * sc, 1.4 * sc, col[0], col[1], col[2])
+      round(x + side * 2 * sc, y - 0.7 + bob - side * lg * 0.3, 2.2, 1.1 * sc, 1.1 * sc, 1.7, 1.7, 1.8)
+    }
+    round(x, y + 3.5 + bob, 3, 1.2 * sc, 1.2 * sc, col[0] * 2, col[1] * 2, col[2] * 2)
     put(x, y + 2.8 + bob, 3, 0.4 * sc, 0.9 * sc, 1, 1, 1)
     if (p.shield > 0 && (p.shield > 2 || Math.floor(t * 12) % 2 === 0)) for (let i = 0; i < 20; i++) { const a = (i / 20) * 6.28 + t * 3; put(x + Math.cos(a) * 3, y + 0.7 + Math.sin(a) * 3, 3, 0.7, 0.7, 0.4, 2.4, 2.4) }
     if (p.human) for (const q of api.text(String(p.human))) put(x + q.x * 0.7, y + 6 + q.y * 0.7, 4, 0.6, 0.6, col[0] * 2.4, col[1] * 2.4, col[2] * 2.4)

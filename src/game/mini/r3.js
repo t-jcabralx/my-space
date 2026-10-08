@@ -1,3 +1,5 @@
+import { artGeometries, treeModel, animeActor } from '../artDirection.js'
+import { beveledBoxGeometry } from '../modeling.js'
 // A tiny software 3D renderer for the mini games: perspective camera, flat-shaded boxes/pyramids/cylinders, lit spheres,
 // shadows, floors and billboard text, all drawn on a normal 2D canvas with the painter's algorithm. The games keep their simple
 // 2D logic and just describe a 3D scene each frame.
@@ -18,6 +20,22 @@ const norm = (a) => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] 
 const LIGHT = norm([-0.45, 0.85, -0.55])
 const BOXF = [[[0, 4, 5, 1], [0, -1, 0]], [[3, 2, 6, 7], [0, 1, 0]], [[0, 1, 2, 3], [0, 0, -1]], [[4, 7, 6, 5], [0, 0, 1]], [[0, 3, 7, 4], [-1, 0, 0]], [[1, 5, 6, 2], [1, 0, 0]]]
 
+// Cache a chamfered unit mesh once, then scale it for all mini-game pieces.
+const bevelGeometry = beveledBoxGeometry(0.1)
+const bevelPositions = bevelGeometry.getAttribute('position')
+const bevelNormals = bevelGeometry.getAttribute('normal')
+const BEVEL_VERTS = Array.from({ length: bevelPositions.count }, (_, i) => [bevelPositions.getX(i), bevelPositions.getY(i), bevelPositions.getZ(i)])
+const BEVEL_FACES = Array.from({ length: bevelPositions.count / 3 }, (_, i) => [[i * 3, i * 3 + 1, i * 3 + 2], [bevelNormals.getX(i * 3), bevelNormals.getY(i * 3), bevelNormals.getZ(i * 3)]])
+bevelGeometry.dispose()
+
+const ART_MESH = Object.fromEntries(Object.entries(artGeometries()).map(([kind,g]) => {
+  const geo=g.index?g.toNonIndexed():g, p=geo.getAttribute('position'), n=geo.getAttribute('normal')
+  const verts=Array.from({length:p.count},(_,i)=>[p.getX(i),p.getY(i),p.getZ(i)])
+  const faces=Array.from({length:p.count/3},(_,i)=>[[i*3,i*3+1,i*3+2],[n.getX(i*3),n.getY(i*3),n.getZ(i*3)]])
+  geo.dispose(); if(geo!==g) g.dispose()
+  return [kind,{verts,faces}]
+}))
+
 export function makeR3(g, W = 360, H = 540) {
   const r = { g, q: [], cam: null, E: [0, 0, 0], R: [1, 0, 0], U: [0, 1, 0], F: [0, 0, 1], focal: 600, clock: 0, phase: Math.random(), weather: 'clear', indoor: false, flat: false, info: { tod: 'DAY', weather: 'CLEAR' } }
   let lastNow = 0
@@ -36,7 +54,7 @@ export function makeR3(g, W = 360, H = 540) {
     // a sun or moon crosses the sky as the day goes by
     if (!r.indoor && !r.flat) { const tod = (r.phase + r.clock / 100) % 1, day = tod < 0.5, u = (day ? tod : tod - 0.5) / 0.5, x = 30 + u * (W - 60), y = 80 - Math.sin(u * Math.PI) * 48; g.globalAlpha = 0.55; g.fillStyle = day ? '#fff2b0' : '#dfe8ff'; g.beginPath(); g.arc(x, y, day ? 16 : 11, 0, Math.PI * 2); g.fill(); g.globalAlpha = 1 }
   }
-  const shade = (n, base = 0.5) => base + (1 - base) * Math.max(0, dot(n, LIGHT))
+  const shade = (n, base = 0.5) => base + (1 - base) * (Math.max(0, dot(n, LIGHT)) > .65 ? 1 : Math.max(0, dot(n, LIGHT)) > .15 ? .62 : .12)
   function polys(center, verts, faces, color, o) {
     const out = []
     for (const [idx, n0] of faces) {
@@ -49,9 +67,47 @@ export function makeR3(g, W = 360, H = 540) {
   }
   // box centred on (x, y, z) with full sizes (sx, sy, sz); opts: rz (roll), ry (yaw), alpha, glow, ambient, edge
   r.box = (x, y, z, sx, sy, sz, color, o = {}) => {
+    if (o.bevel !== false && o.edge !== false) {
+      const verts = BEVEL_VERTS.map(([a, b, c]) => { const p = rot([a * sx, b * sy, c * sz], o.rz, o.ry); return [x + p[0], y + p[1], z + p[2]] })
+      // Inverse scale keeps the lighting normal correct for long, thin pieces.
+      const faces = BEVEL_FACES.map(([idx, n]) => [idx, norm([n[0] / (sx || 1), n[1] / (sy || 1), n[2] / (sz || 1)])])
+      polys([x, y, z], verts, faces, color, { ...o, edge: false })
+      return
+    }
     const hx = sx / 2, hy = sy / 2, hz = sz / 2, base = [[-hx, -hy, -hz], [hx, -hy, -hz], [hx, hy, -hz], [-hx, hy, -hz], [-hx, -hy, hz], [hx, -hy, hz], [hx, hy, hz], [-hx, hy, hz]]
     const verts = base.map((v) => { const q = rot(v, o.rz, o.ry); return [x + q[0], y + q[1], z + q[2]] })
     polys([x, y, z], verts, BOXF, color, o)
+  }
+  r.modelApi = {
+    putShape(kind,x,y,z,sx,sy,sz,rz,red,green,blue,ry=0) {
+      const mesh=ART_MESH[kind], color=[red*255,green*255,blue*255]
+      const verts=mesh.verts.map(v=>{const p=rot([v[0]*sx,v[1]*sy,v[2]*sz],rz,ry);return [x+p[0],y+p[1],z+p[2]]})
+      const faces=mesh.faces.map(([idx,n])=>[idx,norm([n[0]/(sx||1),n[1]/(sy||1),n[2]/(sz||1)])])
+      polys([x,y,z],verts,faces,color,{rz,ry,edge:false,ambient:.5,alpha:r.modelAlpha??1})
+    },
+    put3(x,y,z,sx,sy,sz,rz,red,green,blue,ry=0) { r.box(x,y,z,sx,sy,sz,[red*255,green*255,blue*255],{rz,ry}) },
+  }
+  r.tree=(x,y,z,h=14,seed=1,kind='oak',color='#44854a')=>treeModel(r.modelApi,x,y,z,h,seed,r.clock,{kind,leaf:parse(color).map(v=>v/255),low:true})
+  r.person=(x,y,z,color,phase=0,scale=1,o={})=>{
+    const previous=r.modelAlpha; r.modelAlpha=o.alpha??1
+    try { animeActor(r.modelApi,x,y,z,10*scale,o.yaw??Math.PI,r.clock,{...o,color:parse(color).map(v=>v/255),phase,moving:Math.abs(phase)>.01,hair:o.hair?parse(o.hair).map(v=>v/255):undefined}) }
+    finally { r.modelAlpha=previous }
+  }
+  r.car = (x, y, z, color, scale = 1, phase = 0) => {
+    const box = (a, b, c, w, h, d, col) => r.box(x + a * scale, y + b * scale, z + c * scale, w * scale, h * scale, d * scale, col)
+    box(0, 1.3, 0, 3.8, 1.3, 7, color)
+    box(0, 2.4, -0.3, 3, 1.2, 3.3, '#25445b')
+    box(0, 3.05, -0.3, 3, 0.3, 2.7, color)
+    box(0, 1.35, -3.5, 2, 0.35, 0.25, '#17202b')
+    for (const side of [-1, 1]) {
+      box(side * 1.3, 1.55, -3.5, 0.8, 0.35, 0.3, '#fff3b0')
+      box(side * 1.3, 1.55, 3.5, 0.8, 0.35, 0.3, '#ff394a')
+      for (const dz of [-2.2, 2.2]) {
+        box(side * 1.9, 0.8, dz, 0.6, 1.6, 1.65, '#151923')
+        box(side * 2.23, 0.8, dz, 0.12, 0.9, 0.9, '#abb9c8')
+        box(side * 2.3, 0.8 + Math.sin(phase) * 0.22, dz + Math.cos(phase) * 0.22, 0.13, 0.2, 0.2, '#39495c')
+      }
+    }
   }
   // square pyramid (point up) with base at y; w x d base, height h
   r.pyramid = (x, y, z, w, h, d, color, o = {}) => {

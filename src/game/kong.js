@@ -1,3 +1,5 @@
+import { animeHead } from './artDirection.js'
+import { modelApi } from './modeling.js'
 // GIRDER GORILLA: a 3D barrel-dodging climb in the spirit of the classic giant-ape arcade game.
 // Run along sloping steel girders, climb ladders, jump the rolling barrels, grab the hammer, and reach the captive at the top.
 // The girders can be made up to 20 times wider (more ladders, more gorillas, a minimap). 1 or 2 players, or a friend online.
@@ -319,6 +321,7 @@ registerNet('kong', {
 function lights() { return { sun: { x: KG.camX - 30, y: KG.camY + 50, z: 40, color: '#ffe2b0', intensity: 0.9 }, ambient: 0.9, dir: 0.18, shadow: false, lantern: { x: KG.camX, y: KG.camY + 4, z: 18, color: '#ffcf8a', intensity: 2.8, distance: 140 } } }
 function camera(aspect) { const sk = (G.shake || 0) * 0.5; return { x: KG.camX + (Math.random() - 0.5) * sk, y: KG.camY + 9, z: 62, tx: KG.camX, ty: KG.camY, tz: 0, fov: 42, far: 600, aspect } }
 function drawHero(api, p, t) {
+  api = modelApi(api)
   const { put3 } = api
   if (p.out || p.gone) return
   if ((p.inv > 0 && Math.floor(t * 12) % 2 === 0) || (p.dead > 0 && Math.floor(t * 20) % 3 === 0)) return
@@ -350,14 +353,8 @@ function drawHero(api, p, t) {
   put3(tor[0] - lean * 0.2, hy + 1.0, cb, 0.28, 0.28, 0.2, 0, 2.4, 2.1, 0.4, 0)
   // head, cap, moustache
   const hx = tor[0], hyy = tor[1] + 0.5
-  put3(hx, hyy, 0, 1.15, 1.05, 1.1, 0, skin[0], skin[1], skin[2], 0)
-  if (clim) { put3(hx, hyy + 0.48, 0, 1.35, 0.55, 1.3, 0, red[0], red[1], red[2], 0); put3(hx, hyy + 0.05, -0.6, 1.2, 0.8, 0.2, 0, hair[0], hair[1], hair[2], 0) }
-  else {
-    put3(hx, hyy + 0.5, 0, 1.35, 0.5, 1.3, 0, red[0], red[1], red[2], 0); put3(hx + f * 0.7, hyy + 0.42, 0, 0.7, 0.18, 1.1, 0, red[0], red[1], red[2], 0) // cap and peak
-    put3(hx + f * 0.58, hyy + 0.08, 0.34, 0.14, 0.24, 0.2, 0, 0.1, 0.1, 0.12, 0); put3(hx + f * 0.58, hyy + 0.08, -0.34, 0.14, 0.24, 0.2, 0, 0.1, 0.1, 0.12, 0)
-    put3(hx + f * 0.62, hyy - 0.12, 0, 0.3, 0.3, 0.5, 0, 1.9, 1.1, 0.9, 0); put3(hx + f * 0.58, hyy - 0.27, 0, 0.2, 0.2, 0.9, 0, hair[0], hair[1], hair[2], 0)
-    put3(hx - f * 0.56, hyy + 0.05, 0, 0.2, 0.7, 1.1, 0, hair[0], hair[1], hair[2], 0)
-  }
+  animeHead(api,hx,hyy,0,1.02,clim?Math.PI:f*1.08,{skin:[.94,.71,.56],hair,helmet:[.8,.18,.14],iris:[.18,.43,.6]})
+  put3(hx+f*.6,hyy+.42,0,.65,.12,1,0,...red,0)
   // arms
   const sh = [tor[0], tor[1] - 0.25]
   for (const side of [-1, 1]) {
@@ -376,6 +373,7 @@ function drawHero(api, p, t) {
   }
 }
 function drawKong(api, k, t) {
+  api = modelApi(api)
   const { put3 } = api, y = surf(k.i, k.x), d = rollDir(k.i), x = k.x
   const w = k.wind > 0 ? Math.sin((0.6 - k.wind) / 0.6 * Math.PI) : 0 // 0 .. 1 .. 0 while winding up and heaving a barrel
   const ph = t * 1.6 + k.id * 1.3, br = Math.sin(ph * 1.7) * 0.14

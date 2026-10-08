@@ -1,3 +1,4 @@
+import { treeModel, animeActor, shape } from './artDirection.js'
 // GARDEN SIEGE: lane defence in the spirit of the classic plants-vs-zombies games.
 // Play the PLANTS against an AI zombie horde (10 levels), play the ZOMBIES against AI defences, or play a friend online
 // (one is the garden, the other is the horde). Pure JS simulation, drawn in the lit 3D pass.
@@ -433,14 +434,18 @@ function draw3(api) {
   for (let r = 0; r < ROWS; r++) put3(-42.4, 1, -rowY(r), 0.5, 0.7, RH - 1.2, 0, 0.9, 0.9, 0.3, 0) // rail
   put3(44, -0.2, 0, 14, 0.5, 40, 0, 0.14, 0.18, 0.14, 0)
   for (let i = 0; i < 6; i++) { const y = -14 + i * 6; put3(47 + (i % 2), 1.6, -y, 2.2, 3.2, 0.8, 0, 0.5, 0.52, 0.55, 0); put3(47 + (i % 2), 3.4, -y, 1.4, 0.8, 0.8, 0, 0.5, 0.52, 0.55, 0) }
+  // A planted border, fence and orchard frame the playable lanes.
+  for(let i=0;i<8;i++) treeModel(api,-33+i*11,0,-26,7+(i%3),i,t,{kind:i%3?'oak':'pine',leaf:[.26,.49,.3],low:true})
+  for(let i=0;i<23;i++) { const x=-39+i*3.5; put3(x,1.3,-21,.3,2.6,.45,0,.76,.72,.57); put3(x,1.8,-21,3.6,.24,.3,0,.84,.8,.64) }
+  for(let i=0;i<20;i++) { const x=-30+i*4; shape(api,'leaf',x,.45,20,1.8,.8,1.2,[.25,.43,.27]); if(i%2===0) { putS(x,.95,20,.55,.6,.55,1,.71,.4); putS(x+.6,.72,20.2,.4,.5,.4,.92,.45,.51) } }
   // hover highlight
   if (GD.hover && GD.hover.c >= 0 && mySideSafe() === 'plants') put3(cellX(GD.hover.c), 0.2, -rowY(GD.hover.r), CW - 0.3, 0.2, RH - 0.3, 0, 1.2, 1.2, 0.6, 0)
   if (GD.hover && mySideSafe() === 'zombies') put3(0, 0.15, -rowY(GD.hover.r), CW * COLS, 0.15, RH - 0.4, 0, 0.8, 0.2, 0.2, 0)
   // mowers
   GD.mowers.forEach((m, r) => { if (m.used && !m.run) return; const y = rowY(r); put3(m.x, 1.1, -y, 3.4, 1.6, 2.8, 0, 1.4, 0.2, 0.2, 0); put3(m.x - 1, 2.1, -y, 0.8, 1.5, 0.6, 0, 0.5, 0.5, 0.5, 0); if (m.run) put3(m.x + 2.2, 1.2, -y, 0.4, 0.4, 2.6, 0, 2, 2, 2, t * 20) })
   // plants
-  for (const p of GD.plants) drawPlant(put3, putS, p, t)
-  for (const z of GD.zombies) drawZombie(put3, putS, z, t)
+  for (const p of GD.plants) drawPlant(api.putBody || put3, putS, p, t)
+  for (const z of GD.zombies) drawZombie(api, z, t)
   for (const pe of GD.peas) { const c = pe.snow ? [0.4, 0.9, 2.4] : [0.4, 1.7, 0.3]; putS(pe.x, 3.4, -rowY(pe.r), 1.5, 1.5, 1.5, c[0], c[1], c[2]) }
   for (const s of GD.suns) { const gl = 0.8 + 0.3 * Math.sin(t * 6 + s.id); putS(s.x, 2 + s.fall + 0.5 * Math.sin(t * 3 + s.id), -s.y, 3.2, 3.2, 3.2, 2.6 * gl, 2.1 * gl, 0.3); put3(s.x, 2 + s.fall, -s.y, 4.6, 0.3, 0.3, 0, 2.4, 2, 0.2, t * 2); put3(s.x, 2 + s.fall, -s.y, 0.3, 0.3, 4.6, 0, 2.4, 2, 0.2, t * 2) }
   for (const q of GD.fx) { const f = q.life / q.max, s = q.s * (0.3 + 0.7 * f); putS(q.x, q.y, q.z, s, s, s, q.c[0], q.c[1], q.c[2]) }
@@ -492,25 +497,17 @@ function drawPlant(put3, putS, p, t) {
   }
   if (hurt < 0.35 && p.type !== 'cherry') putS(x, 9, z, 0.5, 0.5, 0.5, 3, 0.3, 0.2)
 }
-function drawZombie(put3, putS, z, t) {
+function drawZombie(api, z, t) {
+  const { put3, putS } = api
   const d = ZOMBIES[z.type], y = rowY(z.r), zz = -y, x = z.x
   const s = z.type === 'giant' ? 1.7 : 1, walk = Math.sin(z.t * d.speed * 2.4 + z.id) * (z.eating > 0 ? 0.2 : 0.55)
   const flash = z.hit > 0 ? 1.8 : 1, lean = z.type === 'runner' ? 0.3 : 0
   const sk = SKIN.map((v) => v * flash), cl = (z.type === 'giant' ? rgb('#6a3030') : CLOTH).map((v) => v * flash)
   const sl = z.slow > 0 ? [0.7, 0.9, 1.5] : [1, 1, 1]
-  // legs
-  put3(x + walk * 0.8 * s, 1.5 * s, zz - 0.8 * s, 1.0 * s, 3 * s, 1.0 * s, 0, cl[0] * 0.8 * sl[0], cl[1] * 0.8 * sl[1], cl[2] * 0.8 * sl[2], 0)
-  put3(x - walk * 0.8 * s, 1.5 * s, zz + 0.8 * s, 1.0 * s, 3 * s, 1.0 * s, 0, cl[0] * 0.8 * sl[0], cl[1] * 0.8 * sl[1], cl[2] * 0.8 * sl[2], 0)
-  // torso, head
-  put3(x + lean, 4.4 * s, zz, 1.8 * s, 3 * s, 3.0 * s, lean * 0.5, cl[0] * sl[0], cl[1] * sl[1], cl[2] * sl[2], 0)
-  put3(x + lean * 1.6, 6.8 * s, zz, 2.0 * s, 2.0 * s, 2.0 * s, 0, sk[0] * sl[0], sk[1] * sl[1], sk[2] * sl[2], 0)
-  put3(x + lean * 1.6 - 1.05 * s, 7.0 * s, zz - 0.5 * s, 0.2 * s, 0.5 * s, 0.5 * s, 0, 2.2, 2.2, 1.8, 0); put3(x + lean * 1.6 - 1.05 * s, 7.0 * s, zz + 0.5 * s, 0.2 * s, 0.5 * s, 0.5 * s, 0, 2.2, 2.2, 1.8, 0)
-  // arms forward
-  const reach = z.eating > 0 ? Math.sin(z.t * 14) * 0.4 : 0
-  put3(x - 1.8 * s + reach, 5.0 * s, zz - 1.8 * s, 2.6 * s, 0.9 * s, 0.9 * s, 0, sk[0], sk[1], sk[2], 0); put3(x - 1.8 * s - reach, 5.0 * s, zz + 1.8 * s, 2.6 * s, 0.9 * s, 0.9 * s, 0, sk[0], sk[1], sk[2], 0)
-  if (z.type === 'cone') { put3(x + lean * 1.6, 8.3, zz, 1.9, 1.2, 1.9, 0, 2.2, 0.9, 0.1, 0); put3(x + lean * 1.6, 9.2, zz, 1.3, 1.0, 1.3, 0, 2.2, 0.9, 0.1, 0); put3(x + lean * 1.6, 9.9, zz, 0.7, 0.8, 0.7, 0, 2.2, 0.9, 0.1, 0) }
-  if (z.type === 'bucket') { put3(x + lean * 1.6, 8.4, zz, 2.5, 1.9, 2.5, 0, 0.7, 0.74, 0.8, 0); put3(x + lean * 1.6, 9.4, zz, 2.7, 0.3, 2.7, 0, 0.8, 0.84, 0.9, 0) }
+  animeActor(api,x,0,zz,7.8*s,-Math.PI/2,t,{moving:z.eating<=0,phase:z.t*d.speed*2.4+z.id,color:cl.map((v,i)=>v*sl[i]),skin:sk.map((v,i)=>v*sl[i]),hair:[.15,.2,.12],iris:[.63,.76,.18],lean:.36+lean,attack:z.eating>0?(z.t*1.8)%1:0,zombie:true,accent:[.47,.17,.14]})
+  if(z.type==='cone') shape(api,'cone',x,9.1,zz,2.5,3.4,2.5,[1,.46,.08])
+  if(z.type==='bucket') { shape(api,'branch',x,8.6,zz,2.6,2,2.6,[.55,.62,.7]); shape(api,'branch',x,7.7,zz,2.85,.2,2.85,[.77,.83,.86]) }
   if (z.hp < z.max * 0.4) putS(x, 11 * s, zz, 0.5, 0.5, 0.5, 3, 0.3, 0.2)
 }
 if (typeof window !== 'undefined') { window.__GD = GD; window.__garden = gardenActions; window.__gardenT = gardenTest }
-games.garden = { update, onKey, draw() {}, draw3, camera: () => camGarden(), lights, stop, sky: () => '#0c1a2a' }
+games.garden = { update, onKey, draw() {}, draw3, camera: () => camGarden(), lights, stop, sky: () => '#9cbbc5' }

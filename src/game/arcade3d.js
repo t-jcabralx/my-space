@@ -31,17 +31,18 @@ export function drawHockey3(api, HK, C1, C2, TX, TY, GOAL, RM, RP) {
     for (const e of [-1, 1]) putS(gx, 2.4, e * GOAL, 1, 1, 1, cc[0] * 2.4, cc[1] * 2.4, cc[2] * 2.4)
   }
   if (HK.phase === 'goal') { const k = Math.max(0, 1 - HK.phaseT) * 3, cc = HK.lastScorer === 0 ? c1 : c2, gx = HK.lastScorer === 0 ? TX + 3.4 : -TX - 3.4; for (let z = -GOAL; z <= GOAL; z += 1) putS(gx, 1 + k, z, 1.4, 1.4 + k, 1.4, cc[0] * k, cc[1] * k, cc[2] * k) }
+  const disc = (x, y, z, sx, sy, sz, r, g, b) => api.putCyl ? api.putCyl(x, y, z, sx, sy, sz, 0, r, g, b) : putS(x, y, z, sx, sy, sz, r, g, b)
   // trail, mallets, pucks
   for (const q of HK.trail) { const f = q.l * 3.5; putS(q.x, 0.3, -q.y, 1.6 * f + 0.2, 0.2, 1.6 * f + 0.2, 1.4 * f, 1.8 * f, 2.6 * f) }
   for (const m of HK.m) {
     const cc = m.side < 0 ? c1 : c2
     putS(m.x, 0.04, -m.y, RM * 2.6, 0.12, RM * 2.6, cc[0] * 0.8, cc[1] * 0.8, cc[2] * 0.8)           // glow on the table
-    putS(m.x, 0.9, -m.y, RM * 2, 1.7, RM * 2, cc[0] * 0.55, cc[1] * 0.55, cc[2] * 0.55)               // base
-    putS(m.x, 1.6, -m.y, RM * 1.5, 1.2, RM * 1.5, cc[0] * 0.9, cc[1] * 0.9, cc[2] * 0.9)
-    putS(m.x, 2.7, -m.y, RM * 0.85, 1.6, RM * 0.85, 1.2, 1.2, 1.4)                                    // handle
+    disc(m.x, 0.9, -m.y, RM * 2, 1.7, RM * 2, cc[0] * 0.55, cc[1] * 0.55, cc[2] * 0.55)               // base
+    disc(m.x, 1.6, -m.y, RM * 1.5, 1.2, RM * 1.5, cc[0] * 0.9, cc[1] * 0.9, cc[2] * 0.9)
+    disc(m.x, 2.7, -m.y, RM * 0.85, 1.6, RM * 0.85, 1.2, 1.2, 1.4)                                    // handle
     putS(m.x, 3.1, -m.y, RM * 0.7, 0.7, RM * 0.7, cc[0] * 2, cc[1] * 2, cc[2] * 2)
   }
-  for (const pk of [HK.puck, ...HK.extra]) if (pk) { putS(pk.x, 0.45, -pk.y, RP * 2, 0.9, RP * 2, 2.2, 2.2, 2.4); putS(pk.x, 0.5, -pk.y, RP * 2.3, 0.4, RP * 2.3, 3, 2.4, 0.5); if (Math.hypot(pk.vx, pk.vy) > 50) putS(pk.x - pk.vx * 0.02, 0.4, -pk.y + pk.vy * 0.02, RP * 1.4, 0.5, RP * 1.4, 2, 1.8, 0.5) }
+  for (const pk of [HK.puck, ...HK.extra]) if (pk) { disc(pk.x, 0.45, -pk.y, RP * 2, 0.9, RP * 2, 2.2, 2.2, 2.4); disc(pk.x, 0.5, -pk.y, RP * 2.3, 0.4, RP * 2.3, 3, 2.4, 0.5); if (Math.hypot(pk.vx, pk.vy) > 50) putS(pk.x - pk.vx * 0.02, 0.4, -pk.y + pk.vy * 0.02, RP * 1.4, 0.5, RP * 1.4, 2, 1.8, 0.5) }
   for (const q of G.parts) { const f = q.life / q.max, s = q.s * (0.3 + 0.5 * f); putS(q.x, 0.6 + (1 - f) * 2, -q.y, s, s, s, q.c[0] * 2, q.c[1] * 2, q.c[2] * 2) }
 }
 

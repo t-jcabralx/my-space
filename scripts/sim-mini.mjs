@@ -23,5 +23,14 @@ for (const def of MINI) {
   ok(['miner', 'memory', 'gems', 'blocks', 'ttt', 'pong', 'fruit'].includes(def.id) || finished > 0, def.name + ' can end (finished ' + finished + '/3)')
   ok(def.id === 'bubble' || def.id === 'stack' ? true : maxScore >= 0, def.name + ' score ' + Math.floor(maxScore))
 }
+
+// fruit merge: two matching fruits that touch must merge into the next size
+{
+  const def = MINI.find((d) => d.id === 'fruit'), g = def.make(); g.reset()
+  g.down(180, 100); for (let i = 0; i < 60; i++) g.update(1 / 60)
+  const before = g.score
+  for (let t = 0; t < 40 && g.score === before; t++) { g.down(100 + Math.random() * 160, 100); for (let i = 0; i < 90; i++) g.update(1 / 60) }
+  ok(g.score > before, 'FRUIT MERGE: touching matching fruits merge and score')
+}
 console.log(fail ? 'FAILED ' + fail : 'ALL PASS')
 process.exit(fail ? 1 : 0)

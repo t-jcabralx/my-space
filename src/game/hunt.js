@@ -1,3 +1,5 @@
+import { treeModel, animeActor } from './artDirection.js'
+import { modelApi } from './modeling.js'
 // 13 DAYS OF HELL + WATCH YOUR BACK: a top-down horror survival hunt in the dark.
 // You are a hunter with a rifle and a flashlight. Things only show in the beam; STALKERS creep up behind you and hit twice as
 // hard from behind (but freeze when you look at them). "13 Days" = survive 13 nights with a shop at every dawn and a boss on night
@@ -521,6 +523,7 @@ function lights() {
   return { sun: { x: -30, y: 80, z: 20, color: '#6f86d8', intensity: HT.phase === 'dawn' ? 1.1 : 0.32 }, ambient: HT.phase === 'dawn' ? 0.85 : 0.2, dir: HT.phase === 'dawn' ? 0.3 : 0.05, shadow: false, lantern: { x: px, y: 9, z: -py, color: '#ffe2a8', intensity: HT.phase === 'dawn' ? 1.2 : 2.6, distance: 52 } }
 }
 function drawHunter(api, p, t) {
+  api = modelApi(api)
   const { put3, putM, putS } = api
   const w = (lx, ly, lz) => [p.x + Math.cos(p.a) * lx + Math.sin(p.a) * lz, ly, -(p.y + Math.sin(p.a) * lx - Math.cos(p.a) * lz)]
   const M = YAW(p.a)
@@ -529,9 +532,7 @@ function drawHunter(api, p, t) {
   const bob = Math.sin(p.walk) * 0.25, fl = p.hit > 0 ? 1.8 : 1
   const part = (lx, ly, lz, sx, sy, sz, c) => { const q = w(lx, ly, lz); putM(q[0], q[1], q[2], sx, sy, sz, M, c[0] * fl, c[1] * fl, c[2] * fl) }
   putM(p.x + 0.4, 0.05, -p.y + 0.4, 3.2, 0.1, 3.2, M, 0.01, 0.02, 0.01)
-  part(0, 1.1, 0.5 * Math.sin(p.walk), 0.9, 2.2, 0.9, [0.14, 0.12, 0.14]); part(0, 1.1, -0.5 * Math.sin(p.walk), 0.9, 2.2, 0.9, [0.14, 0.12, 0.14])
-  part(0, 3.2 + bob, 0, 1.6, 2.6, 2.6, col)
-  part(0, 5.1 + bob, 0, 1.6, 1.6, 1.6, [0.9, 0.7, 0.55]); part(0, 6.0 + bob, 0, 2.3, 0.5, 2.3, [0.2, 0.14, 0.1]); part(0, 6.4 + bob, 0, 1.4, 0.7, 1.4, [0.2, 0.14, 0.1])
+  animeActor(api,p.x,0,-p.y,6.4,Math.PI/2+p.a,t,{moving:Math.abs(Math.sin(p.walk))>.02,phase:p.walk,color:col,skin:[.9,.7,.55],hair:[.13,.09,.065],attack:p.kick>0?.45:0,lean:p.kick>0?-.14:0})
   const k = p.kick > 0 ? -0.5 : 0
   part(2.2 + k, 3.4, 0.7, 4.2, 0.55, 0.55, [0.25, 0.25, 0.3]); part(1.0 + k, 3.2, 0.7, 1.6, 0.9, 0.8, [0.4, 0.28, 0.16])
   part(0.8, 3.6, -1.2, 0.8, 0.9, 0.8, [0.9, 0.7, 0.55])
@@ -540,6 +541,7 @@ function drawHunter(api, p, t) {
 }
 const MCOL = { wraith: [0.18, 0.2, 0.42], howler: [0.55, 0.5, 0.3], crawler: [0.5, 0.65, 0.4], stalker: [0.3, 0.3, 0.45], spitter: [0.5, 0.7, 0.2], brute: [0.65, 0.35, 0.3], king: [0.5, 0.2, 0.7] }
 function drawMon(api, m, t, visible) {
+  api = modelApi(api)
   const { put3, putM, putS } = api
   const D = MONS[m.type], z = -m.y
   if (!visible) { put3(m.x + Math.cos(m.a) * 0.6, 3.4, z - Math.sin(m.a) * 0.6 + 0.5, 0.5, 0.5, 0.4, 0, 2.6, 0.1, 0.1, 0); put3(m.x + Math.cos(m.a) * 0.6, 3.4, z - Math.sin(m.a) * 0.6 - 0.5, 0.5, 0.5, 0.4, 0, 2.6, 0.1, 0.1, 0); return }
@@ -583,7 +585,7 @@ function draw3(api) {
     if (o.tower) { put3(o.x, 4, -o.y, 3.4, 8, 3.4, 0, 0.16, 0.14, 0.14, 0.2); put3(o.x, 8.6, -o.y, 5.4, 1, 5.4, 0, 0.2, 0.14, 0.1, 0.2); continue }
     if (o.crate) { put3(o.x, 1.4, -o.y, 2.8, 2.8, 2.8, 0, 0.45, 0.3, 0.12, o.x); put3(o.x, 1.4, -o.y, 3, 0.4, 3, 0, 0.3, 0.2, 0.08, o.x); put3(o.x, 3.1, -o.y, 0.8, 0.5, 0.8, 0, 2.2, 1.8, 0.4, t * 2); continue }
     if (o.rock) { put3(o.x, o.r * 0.5, -o.y, o.r * 2.1, o.r * 1.2, o.r * 1.8, 0, 0.2, 0.2, 0.24, o.x); continue }
-    put3(o.x, 1, -o.y, 0.7, 2, 0.7, 0, 0.18, 0.1, 0.06, 0); put3(o.x, 3 * o.h, -o.y, 3.6 * o.h, 2.2, 3.6 * o.h, 0, 0.05, 0.16, 0.07, o.x); put3(o.x, 5 * o.h, -o.y, 2.4 * o.h, 2.2, 2.4 * o.h, 0, 0.05, 0.2, 0.08, o.x + 0.4); put3(o.x, 6.8 * o.h, -o.y, 1.2 * o.h, 1.6, 1.2 * o.h, 0, 0.06, 0.22, 0.09, o.x + 0.8)
+    treeModel(api,o.x,0,-o.y,8*o.h,o.x+o.y,t,{kind:o.x%3<1?'dead':'pine',leaf:[.075,.22,.14],low:true})
   }
   for (const d of vch.flatMap((c) => c.decor)) if (d.fire && near(d.x, d.y)) { put3(d.x, 0.5, -d.y, 3, 0.6, 3, 0, 0.1, 0.08, 0.06, 0); for (let i = 0; i < 4; i++) put3(d.x + Math.sin(t * 9 + i) * 0.5, 1.2 + i * 0.7 + Math.sin(t * 12 + i * 2) * 0.2, -d.y + Math.cos(t * 7 + i) * 0.4, 1.2 - i * 0.2, 0.9, 1.2 - i * 0.2, 0, 2.8, 1.2 + i * 0.4, 0.15, t * 3 + i) }
   // the beam on the ground

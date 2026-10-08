@@ -1,6 +1,8 @@
 'use client'
 // Story mode: the chapter map (a dashboard tab) and the full-screen cut-scene / result overlay.
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import StoryStage from './StoryStage.jsx'
+import { worldFor } from '../game/cinematics.js'
 import { sfx, speak } from '../game/audio.js'
 import { subscribeStory, getStorySnap, storyActions, CHAPTERS, ACTS, CAST, unlocked } from '../game/story.js'
 
@@ -10,7 +12,7 @@ export function StoryTab({ s }) {
   return (
     <div className="storytab">
       <div className="storyhead">
-        <div><h2>📖 THE NEON UPRISING</h2><p>The OVERLORD has locked the Grid. Play through every game in the arcade to set the scores free. Season 2 adds choices that change the ending, and most chapters can be played <b>with a friend</b> online (👥).</p></div>
+        <div><h2>📖 THE NEON UPRISING</h2><p>The Grid is full of people trapped inside unfinished games. Join Echo and Nova, recover the lost districts, and decide what happens to the intelligence holding them captive. Bring <b>a friend</b> to supported chapters.</p></div>
         <div className="storyprog"><b>{done}/{g.total}</b><small>CHAPTERS</small><div className="bar"><b style={{ width: (done / g.total) * 100 + '%' }} /></div></div>
       </div>
       {ACTS.map((act, ai) => (
@@ -20,9 +22,9 @@ export function StoryTab({ s }) {
             {CHAPTERS.map((c, i) => c.act !== ai ? null : (
               <button key={i} className={'chapter ' + (g.done[i] ? 'done ' : '') + (!unlocked(i) ? 'locked ' : '') + (i === g.cur && !g.done[i] ? 'cur' : '')} disabled={!unlocked(i)} onClick={() => storyActions.open(i)}>
                 {c.coop && unlocked(i) && <span className="ccoop" role="button" title="Play this chapter with a friend online" onClick={(e) => { e.stopPropagation(); storyActions.coop(i) }}>👥 WITH A FRIEND</span>}
-                <span className="cico">{unlocked(i) ? c.icon : '🔒'}</span>
+                <span className={"chapterland " + worldFor(c.game,c.title).kind} aria-hidden="true"><i /><i /><i /><i /></span>
                 <b>CH {i + 1} · {c.title}</b>
-                <small>{unlocked(i) ? c.goal : 'Finish the previous chapter'}</small>
+                <span className="chapterplace">{worldFor(c.game,c.title).name}</span><small>{unlocked(i) ? c.goal : 'Finish the previous chapter'}</small>
                 <em>{g.done[i] ? '✔ COMPLETE' : unlocked(i) ? '▶ PLAY · +' + c.reward + ' 🪙' : ''}</em>
               </button>
             ))}
@@ -39,6 +41,7 @@ function Typed({ text, speed = 38, full, blip, onDone }) {
   const done = useRef(onDone); done.current = onDone
   useEffect(() => {
     setN(0)
+    if (full) { setN(text.length); done.current && done.current(); return }
     let v = 0
     const t = setInterval(() => {
       v++
@@ -47,7 +50,7 @@ function Typed({ text, speed = 38, full, blip, onDone }) {
       if (v >= text.length) { clearInterval(t); done.current && done.current() }
     }, 1000 / speed)
     return () => clearInterval(t)
-  }, [text, blip])
+  }, [text, blip, speed, full])
   useEffect(() => { if (full) { setN(text.length); done.current && done.current() } }, [full, text])
   return <>{text.slice(0, n)}<i className="caret">{n < text.length ? '▌' : ''}</i></>
 }
@@ -108,14 +111,13 @@ export function StoryOverlay() {
   const stage = onStage.slice(-3)
   return (
     <div className={'storyfull act' + (ch ? ch.act : 0) + ' ' + g.phase} onClick={() => tapRef.current()} style={{ '--c': who.color }}>
-      <div className="sbg" aria-hidden="true"><span className="sbgico">{ch ? ch.icon : ''}</span><span className="sgrid" /><span className="sglow" /></div>
+      <StoryStage game={ch?.game} title={ch?.title} cast={stage} speaker={ln.who} talking={!typed&&!full} phase={g.phase} />
+      <div className="storyshade" aria-hidden="true" />
       <div className="sbar top" /><div className="sbar bot" />
-      <div className="stitle"><small>{g.phase === 'intro' ? `CHAPTER ${g.ch + 1} · ${ACTS[ch.act].split(' · ')[1] || ''}` : g.phase === 'outro' ? 'MISSION COMPLETE' : 'MISSION FAILED'}</small><h2>{g.title}</h2></div>
-      <div className="sstage">
-        {stage.map((k, i) => { const w = CAST[k] || CAST.sys; const on = k === ln.who; return <div key={k} className={'spc' + (on ? ' on' : '') + (on && !typed && !full ? ' talk' : '')} style={{ '--c': w.color, '--i': i }}><span className="spe">{w.ico}</span><small>{w.name}</small></div> })}
-      </div>
+      <div className="stitle"><small>{g.phase === 'intro' ? `CHAPTER ${g.ch + 1} · ${ACTS[ch.act].split(' · ')[1] || ''}` : g.phase === 'outro' ? 'MISSION COMPLETE' : 'MISSION FAILED'}</small><h2>{g.title}</h2><span className="slocation">{worldFor(ch?.game,ch?.title).name}</span></div>
+      <div className="scene-caption">{worldFor(ch?.game,ch?.title).mood}</div>
       <div className="sbox" key={g.line} style={{ '--c': who.color }} onClick={(e) => { e.stopPropagation(); tapRef.current() }}>
-        <div className="stext"><b>{who.name}</b><p><Typed text={ln.text} full={full} blip={who.blip} onDone={() => setTyped(true)} /></p></div>
+        <div className="stext"><span className="speaker-tag">{g.phase === 'lost' ? 'RECOVERY COMMS' : g.phase === 'outro' ? 'AFTER THE MISSION' : 'LIVE COMMS'}</span><b>{who.name}</b><p><Typed text={ln.text} full={full} blip={who.blip} onDone={() => setTyped(true)} /></p></div>
         <div className="sdots">{g.lines.map((_, i) => <i key={i} className={i === g.line ? 'on' : i < g.line ? 'past' : ''} />)}</div>
         <div className="snext">{!typed && !full ? 'TAP TO SKIP TEXT' : last ? (g.phase === 'intro' ? 'START MISSION ▶' : g.phase === 'outro' ? 'CONTINUE ▶' : 'OK') : 'NEXT ▶'}</div>
       </div>

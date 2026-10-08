@@ -1,3 +1,4 @@
+import { animePortrait } from './artDirection.js'
 // Pickleball: top-down court, real rules (diagonal serve, two-bounce rule, kitchen, side-out scoring, win by 2).
 import { G, keys, games, profile, saveProfile, recordScore, part, ring, shake, flash, popup, COLS, stepParticles, toMenu } from './engine.js'
 import { rgb } from './sprites.js'
@@ -557,6 +558,7 @@ const lc = (hex) => cc[hex] || (cc[hex] = rgb(hex))
 const hash = (a, b) => Math.abs(Math.sin(a * 12.9898 + b * 78.233) * 43758.5453) % 1
 function draw(api) {
   const { put } = api
+  const round = api.putBall || put
   const B = P.B, t = G.time
   const col = (hex, k = 1) => { const c = lc(hex); return [c[0] * k, c[1] * k, c[2] * k] }
   // floor
@@ -601,14 +603,19 @@ function draw(api) {
     put(p.x - 0.9, p.y - 1.2 + lg, 0.5, 1.3, 1.8, dark[0], dark[1], dark[2]); put(p.x + 0.9, p.y - 1.2 - lg, 0.5, 1.3, 1.8, dark[0], dark[1], dark[2])
     // torso + head
     put(p.x, p.y + 0.5 + bob, 1.4, 4.2, 3.2, sh[0], sh[1], sh[2])
-    put(p.x - o * 0.2, p.y + 2.6 + bob, 2.4, 2.3, 2.3, 2.0, 1.55, 1.2)
-    put(p.x, p.y + 3.2 + bob, 3.0, 2.4, 1.0, dark[0] * 2, dark[1] * 2, dark[2] * 2)
+    animePortrait(api,p.x-o*.2,p.y+2.6+bob,2.4,2.5,{iris:p.team?[.62,.18,.44]:[.1,.48,.65]})
     // paddle (swing arc)
     const sw = p.swingT > 0 ? 1 - p.swingT / 0.28 : 0
     const ang = p.swingT > 0 ? (-1.1 + sw * 2.2) : -0.5
     const px = p.x + o * (3 + Math.cos(ang) * 1.6), py = p.y + 0.8 + Math.sin(ang) * 3.2
     const pc = p.swingT > 0 ? [2.6, 1.6, 0.3] : [2.0, 0.5, 0.4]
-    put(px, py, 2.4, 2.4, 3.0, pc[0], pc[1], pc[2])
+    // Shoulder, elbow and hand follow the paddle instead of letting it float.
+    const shoulderX = p.x + o * 1.7, shoulderY = p.y + 0.8 + bob
+    for (let joint = 0; joint <= 3; joint++) {
+      const u = joint / 3
+      round(shoulderX + (px - o * 0.8 - shoulderX) * u, shoulderY + (py - 1.5 - shoulderY) * u, 1.9, 1.05, 1.1, 1.4, 1.05, 0.78)
+    }
+    round(px, py, 2.4, 2.4, 3.0, pc[0], pc[1], pc[2])
     put(px - o * 0.8, py - 1.8, 2.4, 0.9, 1.4, 0.4, 0.3, 0.2)
     if (p.human) for (const q of api.text(String(p.human))) put(p.x + q.x * 0.8, p.y + 7 + q.y * 0.8, 3, 0.7, 0.7, 2.4, 2.4, 2.4)
     if (P.phase === 'serve' && serverPlayer() === p) { for (let i = 0; i < 18; i++) { const a = (i / 18) * 6.28 + t * 2; put(p.x + Math.cos(a) * 5.5, p.y + Math.sin(a) * 4.5, 0.2, 0.7, 0.7, 2.4, 2.2, 0.4) } }
@@ -618,7 +625,7 @@ function draw(api) {
   const sc = 1 + B.h * 0.035
   put(B.x, B.y, -0.2, 2.2 * sc * 0.9, 1.4, 0.02, 0.02, 0.04)
   const by = B.y + B.h * 0.45
-  put(B.x, by, 3.4 + B.h * 0.1, 2.6 * sc, 2.6 * sc, 3.0, 3.4, 0.7)
+  round(B.x, by, 3.4 + B.h * 0.1, 2.6 * sc, 2.6 * sc, 3.0, 3.4, 0.7)
   for (const [dx, dy] of [[-0.5, 0.3], [0.5, -0.3], [0, -0.6]]) put(B.x + dx * sc, by + dy * sc, 4.4 + B.h * 0.1, 0.5, 0.5, 0.8, 0.9, 0.1)
   for (const q of G.parts) { const f = q.life / q.max; put(q.x, q.y, 4, q.s * (0.35 + 0.65 * f) * 0.9, q.s * (0.35 + 0.65 * f) * 0.9, q.c[0] * 1.6, q.c[1] * 1.6, q.c[2] * 1.6) }
   api.pops(G.pops, 0)

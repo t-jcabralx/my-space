@@ -165,8 +165,8 @@ export default function GameApp() {
           <FlashPlane />
           <Rig />
           {!low && (
-            <EffectComposer multisampling={0}>
-              <Bloom intensity={0.8} luminanceThreshold={0.62} luminanceSmoothing={0.25} mipmapBlur />
+            <EffectComposer multisampling={4}>
+              <Bloom intensity={0.45} luminanceThreshold={1} luminanceSmoothing={0.3} mipmapBlur />
               <Vignette eskil={false} offset={0.2} darkness={0.7} />
             </EffectComposer>
           )}

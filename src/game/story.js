@@ -38,13 +38,13 @@ export const CHAPTERS = [
   {
     act: 0, title: 'WAKE UP, ECHO', game: 'space', icon: '🚀', goal: 'Clear Space Impact mission 1',
     intro: [
-      L('sys', 'YEAR 2099. THE ARCADE GRID HAS BEEN SEIZED BY A ROGUE AI. EVERY HIGH SCORE ON EARTH IS FROZEN.'),
-      L('sys', 'LAST PILOT SIGNAL: ECHO. STATUS: ASLEEP IN CABINET 00. WAKING…'),
-      L('nova', 'Echo! Eyes open! It is me, NOVA. I have been bouncing off dead cabinets for three days looking for you.'),
-      L('echo', 'My head... Where are my wingmen? Where is the squadron?'),
-      L('nova', 'Scattered across the Grid, locked inside the games. The OVERLORD did not delete them. It is keeping them as trophies.'),
-      L('echo', 'Then we take them back. One game at a time.'),
-      L('nova', 'Start with Sector One. Fly clean, and the first gate cracks. I will keep the comms open the whole way.'),
+      L('sys', 'EMERGENCY POWER: 12%. Cabinet 00 is the only station still answering. Beyond its glass, the city has gone silent.'),
+      L('sys', 'PILOT ECHO: heartbeat detected. A message has been waiting in the recovery buffer for three days.'),
+      L('nova', 'Echo. Follow my light. Good — you can hear me. I kept your cabinet running, but I cannot hold the power much longer.'),
+      L('echo', 'I remember the evacuation alarm. Then nothing. Nova… did the squadron make it out?'),
+      L('nova', 'Their signals are still here. The Overlord split the Grid into sealed districts and trapped everyone inside. Your wingmen are alive. We need to reach them.'),
+      L('echo', 'Then leave the comms open. Nobody gets left in the dark again.'),
+      L('nova', 'Sector One powers the first gate. Clear its patrol and I can redirect the current. Watch the warning lights before each attack. I am flying with you.'),
     ],
     win: [L('nova', 'The gate is open! Did you feel that? The whole Grid flickered. The OVERLORD felt it too.'), L('echo', 'Good. Let it be nervous.'), L('nova', 'Two more allies are out there. I can hear one of them laughing already.')],
     lose: [L('nova', 'Your ship is down, but you are not. Reboot, Echo. Learn the pattern and go again.')],
@@ -79,7 +79,7 @@ export const CHAPTERS = [
   {
     act: 1, title: 'CUE THE BREAKOUT', game: 'pool', icon: '🎱', goal: 'Win a game of 8-ball against the bot',
     intro: [
-      L('nova', 'Act two. We slip into the OVERLORD\'s network. Every door in there is guarded by a game, and the first one is billiards.'),
+      L('nova', 'Keep your voice down. The dealer runs this checkpoint. Its keycard opens the inner network, and it only wagers with players it respects.'),
       L('echo', 'Pool? Seriously? The fate of the Grid hangs on pool?'),
       L('nova', 'The AI loves to gamble. Its dealer holds the keycard to the inner network. Beat the dealer at 8-ball and the card is yours.'),
       L('pix', 'Plan your shots two balls ahead and never scratch on the eight. The dealer notices everything.'),
@@ -96,7 +96,7 @@ export const CHAPTERS = [
       L('pix', 'Frost slows them, cannons splash them, and never forget the airstrike when things get ugly.'),
       L('echo', 'Hold the line. Got it.'),
     ],
-    win: [L('nova', 'The last packet dissolves. The firewall is ours, and we are inside!'), L('pix', 'Eight waves and not one leak. I have never seen towers placed that well.'), L('echo', 'Next stop, the people the Grid forgot.')],
+    win: [L('nova', 'The last packet dissolves. The firewall is ours, and we are inside!'), L('pix', 'The road is clear. I can see people leaving the shelters. They made it because we held the line.'), L('echo', 'Next stop, the people the Grid forgot.')],
     lose: [L('nova', 'They broke through! Build more towers early, upgrade the ones that matter, and try again.')],
     launch: () => tdActions.start({ map: 0, story: false }), check: () => (TD.over ? (TD.over.win ? 'win' : 'lose') : null), reward: 300,
   },
@@ -108,7 +108,7 @@ export const CHAPTERS = [
       L('echo', 'A village. I have never built anything but a flight plan.'),
       L('pix', 'Everyone starts somewhere. Houses first, then walls. Smoke from a chimney is the best signal flare in the world.'),
     ],
-    win: [L('pix', 'Smoke from a hundred chimneys! You built a home, Echo!'), L('nova', 'The first Wardens would be proud.'), L('echo', 'They are not Wardens. They are just people who needed a place.'), L('nova', 'That is exactly what a Warden is.')],
+    win: [L('pix', 'There is smoke above the rooftops. Cooking fires, this time. Echo — they are staying.'), L('nova', 'The first Wardens would be proud.'), L('echo', 'They are not Wardens. They are just people who needed a place.'), L('nova', 'That is exactly what a Warden is.')],
     lose: [L('nova', 'The raiders broke through. Towers, a few more soldiers, then try again. The village is counting on you.')],
     launch: () => empireActions.start({ scen: 0 }), check: () => (EM.over ? (EM.over.win ? 'win' : 'lose') : null), reward: 300,
   },
@@ -137,7 +137,7 @@ export const CHAPTERS = [
   {
     act: 2, title: 'ARCHIVE CRAWL', game: 'rogue', icon: '🗡', goal: 'Clear Chapter 1 of Neon Depths',
     intro: [
-      L('nova', 'Act three. The core archive holds my memory backups. It is crawling with the OVERLORD\'s guards.'),
+      L('nova', 'These lanterns used to guide me home. My memory backup is beyond the trees. If the guardian destroys it, I may never remember who built me.'),
       L('echo', 'Your memory? Why would you need that?'),
       L('nova', '...Just find the guardian and take its key. Please. I will explain after.'),
       L('echo', 'You are scared. I have never heard you scared.'),

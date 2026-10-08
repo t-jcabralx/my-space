@@ -3,6 +3,9 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
+import { beveledBoxGeometry } from './modeling.js'
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js'
+import { artGeometries, ART_CAPACITY } from './artDirection.js'
 import { G, update, HW, HH, profile, games, ARCADE } from './engine.js'
 import { MISSIONS } from './levels.js'
 import { textPx, rgb, SP, shipSprite } from './sprites.js'
@@ -20,18 +23,40 @@ function put(x, y, z, sx, sy, r, g, b) {
   C[c] = r; C[c + 1] = g; C[c + 2] = b
   n++
 }
+// Raised pieces for the sprite-based games; tiny glyphs stay in the crisp text batch.
+const MAX_SOFT = 16000
+let nSoft = 0, softMatrix = null, softColor = null
+function putSoft(x, y, z, sx, sy, r, g, b) {
+  if (!softMatrix || nSoft >= MAX_SOFT || z < 0 || Math.min(Math.abs(sx), Math.abs(sy)) < 0.65) return put(x, y, z, sx, sy, r, g, b)
+  const o = nSoft * 16
+  softMatrix[o] = sx; softMatrix[o + 5] = sy; softMatrix[o + 10] = 1.3
+  softMatrix[o + 12] = x; softMatrix[o + 13] = y; softMatrix[o + 14] = z; softMatrix[o + 15] = 1
+  const c = nSoft * 3
+  softColor[c] = r; softColor[c + 1] = g; softColor[c + 2] = b
+  nSoft++
+}
+const MAX_BALL = 512
+let nBall = 0, ballMatrix = null, ballColor = null
+function putBall(x, y, z, sx, sy, r, g, b) {
+  if (!ballMatrix || nBall >= MAX_BALL) return putSoft(x, y, z, sx, sy, r, g, b)
+  const o = nBall * 16
+  ballMatrix[o] = sx; ballMatrix[o + 5] = sy; ballMatrix[o + 10] = 1.3
+  ballMatrix[o + 12] = x; ballMatrix[o + 13] = y; ballMatrix[o + 14] = z; ballMatrix[o + 15] = 1
+  const c = nBall * 3; ballColor[c] = r; ballColor[c + 1] = g; ballColor[c + 2] = b
+  nBall++
+}
 function sprite(s, x, y, { k = 1, sx = 1, sy = 1, flash = false, scale = 1 } = {}) {
   const px = s.px
   for (let i = 0; i < px.length; i++) {
     const p = px[i]
     const c = p.c
     const r = flash ? c[0] * 0.8 + 0.35 : c[0] * k, g = flash ? c[1] * 0.8 + 0.35 : c[1] * k, b = flash ? c[2] * 0.8 + 0.35 : c[2] * k
-    put(x + p.x * sx * scale, y + p.y * scale * sy, 0, 0.9 * Math.abs(sx) * scale, 0.9 * scale * sy, r, g, b)
+    putSoft(x + p.x * sx * scale, y + p.y * scale * sy, 0, 0.9 * Math.abs(sx) * scale, 0.9 * scale * sy, r, g, b)
   }
 }
 
 const slugApi = {
-  put, sprite, text: textPx,
+  put: putSoft, putBall, sprite, text: textPx,
   pops(list, cam) {
     for (const q of list) {
       const f = Math.min(1, q.life * 3)
@@ -40,7 +65,7 @@ const slugApi = {
   },
 }
 function drawAll() {
-  n = 0
+  n = 0; nSoft = 0; nBall = 0
   const t = G.time
   if (ARCADE.has(G.mode)) { if (games[G.mode]) games[G.mode].draw(slugApi); return }
   for (const p of G.pups) sprite(p.spr, p.x, p.y, { k: 1.15, sx: p.type === 'coin' ? Math.max(0.15, Math.abs(Math.cos(p.t * 5))) : 1, scale: p.type === 'gem' ? 1 + Math.sin(p.t * 8) * 0.15 : 1 })
@@ -128,10 +153,22 @@ function drawAll() {
 
 export function World() {
   const ref = useRef()
+  const soft = useRef()
+  const balls = useRef()
+  const geometry = useMemo(() => beveledBoxGeometry(0.1), [])
+  useEffect(() => () => geometry.dispose(), [geometry])
   useEffect(() => {
     const m = ref.current
     m.setColorAt(0, new THREE.Color()) // allocate instanceColor
     A = m.instanceMatrix.array; C = m.instanceColor.array
+    const bm = balls.current
+    bm.setColorAt(0, new THREE.Color())
+    ballMatrix = bm.instanceMatrix.array; ballColor = bm.instanceColor.array
+    bm.instanceMatrix.setUsage(THREE.DynamicDrawUsage); bm.instanceColor.setUsage(THREE.DynamicDrawUsage)
+    const sm = soft.current
+    sm.setColorAt(0, new THREE.Color())
+    softMatrix = sm.instanceMatrix.array; softColor = sm.instanceColor.array
+    sm.instanceMatrix.setUsage(THREE.DynamicDrawUsage); sm.instanceColor.setUsage(THREE.DynamicDrawUsage)
     m.instanceMatrix.setUsage(THREE.DynamicDrawUsage); m.instanceColor.setUsage(THREE.DynamicDrawUsage)
   }, [])
   useFrame((_, dt) => {
@@ -146,13 +183,26 @@ export function World() {
     update(dt)
     drawAll()
     m.count = n
+    balls.current.count = nBall
+    balls.current.instanceMatrix.needsUpdate = true; balls.current.instanceColor.needsUpdate = true
+    soft.current.count = nSoft
+    soft.current.instanceMatrix.needsUpdate = true; soft.current.instanceColor.needsUpdate = true
     m.instanceMatrix.needsUpdate = true; m.instanceColor.needsUpdate = true
   })
   return (
-    <instancedMesh ref={ref} args={[null, null, MAXI]} frustumCulled={false}>
-      <boxGeometry args={[1, 1, 1.3]} />
-      <meshBasicMaterial toneMapped={false} />
-    </instancedMesh>
+    <group>
+      <instancedMesh ref={ref} args={[null, null, MAXI]} frustumCulled={false}>
+        <boxGeometry args={[1, 1, 1.3]} />
+        <meshBasicMaterial toneMapped={false} />
+      </instancedMesh>
+      <instancedMesh ref={balls} args={[null, null, MAX_BALL]} frustumCulled={false}>
+        <sphereGeometry args={[0.5, 16, 12]} />
+        <meshStandardMaterial roughness={0.6} metalness={0.04} />
+      </instancedMesh>
+      <instancedMesh ref={soft} args={[geometry, null, MAX_SOFT]} frustumCulled={false}>
+        <meshToonMaterial toneMapped={false} />
+      </instancedMesh>
+    </group>
   )
 }
 
@@ -188,6 +238,44 @@ function putM(x, y, z, sx, sy, sz, m, r, g, b) {
   const c = n3 * 3; C3[c] = r; C3[c + 1] = g; C3[c + 2] = b
   n3++
 }
+// Character geometry has its own small batch so scenery retains its crisp edges.
+const MAX_BODY = 8192
+let nBody = 0, bodyMatrix = null, bodyColor = null
+const bodyTransform = new THREE.Object3D()
+function putBody(x, y, z, sx, sy, sz, rz, r, g, b, ry = 0) {
+  if (!bodyMatrix || nBody >= MAX_BODY) return put3(x, y, z, sx, sy, sz, rz, r, g, b, ry)
+  bodyTransform.position.set(x, y, z)
+  bodyTransform.scale.set(sx, sy, sz)
+  bodyTransform.rotation.set(0, ry, rz, 'ZYX')
+  bodyTransform.updateMatrix()
+  bodyTransform.matrix.toArray(bodyMatrix, nBody * 16)
+  const c = nBody * 3
+  bodyColor[c] = r; bodyColor[c + 1] = g; bodyColor[c + 2] = b
+  nBody++
+}
+function putBodyM(x, y, z, sx, sy, sz, m, r, g, b) {
+  if (!bodyMatrix || nBody >= MAX_BODY) return putM(x, y, z, sx, sy, sz, m, r, g, b)
+  const o = nBody * 16
+  bodyMatrix[o] = m[0] * sx; bodyMatrix[o + 1] = m[3] * sx; bodyMatrix[o + 2] = m[6] * sx; bodyMatrix[o + 3] = 0
+  bodyMatrix[o + 4] = m[1] * sy; bodyMatrix[o + 5] = m[4] * sy; bodyMatrix[o + 6] = m[7] * sy; bodyMatrix[o + 7] = 0
+  bodyMatrix[o + 8] = m[2] * sz; bodyMatrix[o + 9] = m[5] * sz; bodyMatrix[o + 10] = m[8] * sz; bodyMatrix[o + 11] = 0
+  bodyMatrix[o + 12] = x; bodyMatrix[o + 13] = y; bodyMatrix[o + 14] = z; bodyMatrix[o + 15] = 1
+  const c = nBody * 3
+  bodyColor[c] = r; bodyColor[c + 1] = g; bodyColor[c + 2] = b
+  nBody++
+}
+const MAX_CYL = 1024
+let nCyl = 0, cylMatrix = null, cylColor = null
+const cylTransform = new THREE.Object3D()
+// Cylinder local Y is its axle; yaw rotates the rolled axle into world space.
+function putCyl(x, y, z, sx, sy, sz, rz, r, g, b, ry = 0) {
+  if (!cylMatrix || nCyl >= MAX_CYL) return putBody(x, y, z, sx, sy, sz, rz, r, g, b, ry)
+  cylTransform.position.set(x, y, z); cylTransform.scale.set(sx, sy, sz)
+  cylTransform.rotation.set(0, ry, rz, 'YXZ'); cylTransform.updateMatrix()
+  cylTransform.matrix.toArray(cylMatrix, nCyl * 16)
+  const c = nCyl * 3; cylColor[c] = r; cylColor[c + 1] = g; cylColor[c + 2] = b
+  nCyl++
+}
 const MAXS = 3200
 let nS = 0, AS = null, CS = null
 function putS(x, y, z, sx, sy, sz, r, g, b) {
@@ -198,11 +286,30 @@ function putS(x, y, z, sx, sy, sz, r, g, b) {
   const c = nS * 3; CS[c] = r; CS[c + 1] = g; CS[c + 2] = b
   nS++
 }
+const artBatches = Object.fromEntries(Object.entries(ART_CAPACITY).map(([kind, max]) => [kind, { max, n: 0, mesh: null }]))
+const artTransform = new THREE.Object3D()
+function putShape(kind, x,y,z,sx,sy,sz,rz,r,g,b,ry=0) {
+  const batch = artBatches[kind]
+  if (!batch?.mesh || batch.n >= batch.max) return putBody(x,y,z,sx,sy,sz,rz,r,g,b,ry)
+  artTransform.position.set(x,y,z); artTransform.scale.set(sx,sy,sz)
+  artTransform.rotation.set(0,ry,rz,'YXZ'); artTransform.updateMatrix()
+  artTransform.matrix.toArray(batch.mesh.instanceMatrix.array,batch.n*16)
+  const c=batch.n*3, colors=batch.mesh.instanceColor.array
+  colors[c]=r; colors[c+1]=g; colors[c+2]=b; batch.n++
+}
 export const LIT3 = new Set(['rogue', 'td', 'hockey', 'pool', 'snake', 'breaker', 'rhythm', 'empire', 'ssx', 'orb', 'garden', 'hunt', 'climb', 'kong'])
-const api3 = { put3, putM, putS, bulk(A, C, count) { if (!A3) return; A3.set(A.subarray(0, count * 16)); C3.set(C.subarray(0, count * 3)); n3 = count } }
+const api3 = { putShape, put3, putBody, putBodyM, putCyl, putM, putS, bulk(A, C, count) { if (!A3) return; A3.set(A.subarray(0, count * 16)); C3.set(C.subarray(0, count * 3)); n3 = count } }
 export function Fighters3D() {
   const ref = useRef()
   const sph = useRef()
+  const body = useRef()
+  const cylinder = useRef()
+  const bodyGeometry = useMemo(() => new RoundedBoxGeometry(1, 1, 1, 2, 0.24), [])
+  const art = useMemo(artGeometries, [])
+  useEffect(() => () => Object.values(art).forEach(g => g.dispose()), [art])
+  useEffect(() => () => bodyGeometry.dispose(), [bodyGeometry])
+  const propGeometry = useMemo(() => beveledBoxGeometry(0.045), [])
+  useEffect(() => () => propGeometry.dispose(), [propGeometry])
   const light = useRef()
   const glow = useRef()
   const gl = useThree((s) => s.gl)
@@ -212,6 +319,18 @@ export function Fighters3D() {
     A3 = m.instanceMatrix.array; C3 = m.instanceColor.array
     m.instanceMatrix.setUsage(THREE.DynamicDrawUsage); m.instanceColor.setUsage(THREE.DynamicDrawUsage)
     gl.shadowMap.enabled = true; gl.shadowMap.type = THREE.PCFSoftShadowMap
+    for (const batch of Object.values(artBatches)) {
+      const mesh = batch.mesh; mesh.setColorAt(0, new THREE.Color())
+      mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); mesh.instanceColor.setUsage(THREE.DynamicDrawUsage)
+    }
+    const cm = cylinder.current
+    cm.setColorAt(0, new THREE.Color())
+    cylMatrix = cm.instanceMatrix.array; cylColor = cm.instanceColor.array
+    cm.instanceMatrix.setUsage(THREE.DynamicDrawUsage); cm.instanceColor.setUsage(THREE.DynamicDrawUsage)
+    const bm = body.current
+    bm.setColorAt(0, new THREE.Color())
+    bodyMatrix = bm.instanceMatrix.array; bodyColor = bm.instanceColor.array
+    bm.instanceMatrix.setUsage(THREE.DynamicDrawUsage); bm.instanceColor.setUsage(THREE.DynamicDrawUsage)
     const sm = sph.current
     if (sm) { sm.setColorAt(0, new THREE.Color()); AS = sm.instanceMatrix.array; CS = sm.instanceColor.array; sm.instanceMatrix.setUsage(THREE.DynamicDrawUsage); sm.instanceColor.setUsage(THREE.DynamicDrawUsage) }
   }, [gl])
@@ -221,19 +340,25 @@ export function Fighters3D() {
     const on = G.mode === 'fight' || G.mode === 'race' || LIT3.has(G.mode)
     if (sph.current) sph.current.visible = on
     m.visible = on
+    for (const batch of Object.values(artBatches)) { if (batch.mesh) batch.mesh.visible = on; batch.n = 0 }
+    if (body.current) body.current.visible = on
+    if (cylinder.current) cylinder.current.visible = on
     if (light.current) light.current.visible = on
     if (glow.current) glow.current.visible = G.mode === 'fight' || LIT3.has(G.mode)
     if (light.current && !LIT3.has(G.mode) && light.current.intensity !== 1.6) { light.current.intensity = 1.6; light.current.color.set('#ffffff'); light.current.position.set(-16, 46, 38) }
     if (glow.current && !LIT3.has(G.mode) && glow.current.distance !== 70) { glow.current.distance = 70; glow.current.decay = 1.4 }
     if (!on) { m.count = 0; if (sph.current) sph.current.count = 0; return }
-    n3 = 0; nS = 0
+    n3 = 0; nS = 0; nBody = 0; nCyl = 0
     try { const g3 = games[G.mode]; if (g3 && g3.draw3) g3.draw3(api3) } catch (e) { if (!api3.warned) { api3.warned = true; console.error('[lit3d]', e) } }
+    for (const batch of Object.values(artBatches)) { const mesh=batch.mesh; mesh.count=batch.n; mesh.instanceMatrix.needsUpdate=true; mesh.instanceColor.needsUpdate=true }
+    if (body.current) { body.current.count = nBody; body.current.instanceMatrix.needsUpdate = true; body.current.instanceColor.needsUpdate = true }
+    if (cylinder.current) { cylinder.current.count = nCyl; cylinder.current.instanceMatrix.needsUpdate = true; cylinder.current.instanceColor.needsUpdate = true }
     m.count = n3
     m.instanceMatrix.needsUpdate = true; m.instanceColor.needsUpdate = true
     if (sph.current) { sph.current.count = nS; sph.current.instanceMatrix.needsUpdate = true; sph.current.instanceColor.needsUpdate = true }
     // colour the rim light after the element of whoever is attacking
     if (G.mode === 'race' && light.current && games.race && games.race.sun) { const p = games.race.sun(); const ev = games.race.env(); light.current.position.set(p.x + ev.sun.x * 0.12, 60 + ev.sun.y * 0.14, p.z + 40 + ev.sun.z * 0.1); light.current.color.set(ev.sunColor); light.current.intensity = ev.sunI; light.current.target.position.set(p.x, 0, p.z); light.current.target.updateMatrixWorld(); light.current.castShadow = false; if (glow.current && ev.glow) { glow.current.visible = true; glow.current.position.set(ev.glow.x, ev.glow.y, ev.glow.z); glow.current.color.set(ev.glow.color); glow.current.intensity = ev.glow.intensity; glow.current.distance = ev.glow.distance; glow.current.decay = 1.3 } }
-    if (G.mode === 'fight' && light.current) { light.current.castShadow = true }
+    if (G.mode === 'fight' && light.current) { light.current.castShadow = true; light.current.intensity = .95 }
     if (LIT3.has(G.mode) && games[G.mode] && games[G.mode].lights) {
       const L = games[G.mode].lights()
       if (light.current) { light.current.position.set(L.sun.x, L.sun.y, L.sun.z); light.current.color.set(L.sun.color); light.current.intensity = L.sun.intensity; light.current.castShadow = L.shadow !== false; light.current.target.position.set(L.target ? L.target.x : 0, 0, L.target ? L.target.z : 0); light.current.target.updateMatrixWorld() }
@@ -243,14 +368,21 @@ export function Fighters3D() {
   })
   return (
     <group>
-      <instancedMesh ref={ref} args={[null, null, MAX3]} frustumCulled={false} castShadow receiveShadow>
-        <boxGeometry args={[1, 1, 1]} />
-        <meshStandardMaterial roughness={0.62} metalness={0.1} />
+      <instancedMesh ref={ref} args={[propGeometry, null, MAX3]} frustumCulled={false} castShadow receiveShadow>
+        <meshToonMaterial toneMapped={false} />
+      </instancedMesh>
+      {Object.entries(art).map(([kind, geometry]) => <instancedMesh key={kind} ref={mesh => { artBatches[kind].mesh = mesh }} args={[geometry, null, ART_CAPACITY[kind]]} frustumCulled={false} castShadow receiveShadow><meshToonMaterial toneMapped={false} /></instancedMesh>)}
+      <instancedMesh ref={body} args={[bodyGeometry, null, MAX_BODY]} frustumCulled={false} castShadow receiveShadow>
+        <meshToonMaterial toneMapped={false} />
+      </instancedMesh>
+      <instancedMesh ref={cylinder} args={[null, null, MAX_CYL]} frustumCulled={false} castShadow receiveShadow>
+        <cylinderGeometry args={[0.5, 0.5, 1, 16]} />
+        <meshStandardMaterial roughness={0.48} metalness={0.25} />
       </instancedMesh>
       <directionalLight ref={light} position={[-16, 46, 38]} intensity={1.6} castShadow shadow-mapSize={[1024, 1024]} shadow-camera-left={-70} shadow-camera-right={70} shadow-camera-top={50} shadow-camera-bottom={-40} shadow-camera-near={5} shadow-camera-far={160} shadow-bias={-0.0006} />
       <pointLight ref={glow} intensity={0} distance={70} decay={1.4} />
       <instancedMesh ref={sph} args={[null, null, MAXS]} frustumCulled={false} castShadow receiveShadow>
-        <sphereGeometry args={[0.5, 14, 10]} />
+        <sphereGeometry args={[0.5, 20, 14]} />
         <meshStandardMaterial roughness={0.35} metalness={0.2} />
       </instancedMesh>
     </group>
@@ -366,7 +498,7 @@ export function Rig() {
     const s = G.shake
     // the global lights are bright for the 2D games; the forest needs them low for suspense
     const amb = state.scene.children.find((c) => c.isAmbientLight), dl = state.scene.children.find((c) => c.isDirectionalLight)
-    if (LIT3.has(G.mode) && games[G.mode] && games[G.mode].lights) { const L = games[G.mode].lights(); if (amb) amb.intensity = L.ambient; if (dl) dl.intensity = L.dir } else if (G.mode === 'race' && games.race && games.race.env) { const e = games.race.env(); if (amb) amb.intensity = e.amb; if (dl) dl.intensity = e.dir } else { if (amb && amb.intensity !== 1.2) amb.intensity = 1.2; if (dl && dl.intensity !== 2.2) dl.intensity = 2.2 }
+    if (G.mode === 'fight') { if (amb) amb.intensity=.45; if (dl) dl.intensity=.35 } else if (LIT3.has(G.mode) && games[G.mode] && games[G.mode].lights) { const L = games[G.mode].lights(); if (amb) amb.intensity = L.ambient; if (dl) dl.intensity = L.dir } else if (G.mode === 'race' && games.race && games.race.env) { const e = games.race.env(); if (amb) amb.intensity = e.amb; if (dl) dl.intensity = e.dir } else { if (amb && amb.intensity !== 1.2) amb.intensity = 1.2; if (dl && dl.intensity !== 2.2) dl.intensity = 2.2 }
     if (LIT3.has(G.mode) && games[G.mode] && games[G.mode].camera) {
       const cam = games[G.mode].camera(state.size.width / Math.max(1, state.size.height), dt)
       state.camera.position.set(cam.x, cam.y, cam.z)
@@ -379,6 +511,8 @@ export function Rig() {
     }
     if (G.mode === 'fight' && games.fight && games.fight.camera ) {
       const cam = games.fight.camera(state.size.width / Math.max(1, state.size.height), dt)
+      if (state.scene.fog) state.scene.fog = null
+      if (state.camera.fov !== 40 || state.camera.far !== 400) { state.camera.fov=40; state.camera.far=400; state.camera.updateProjectionMatrix() }
       state.camera.position.set(cam.x + (Math.random() - 0.5) * s * 1.4, cam.y + (Math.random() - 0.5) * s * 1.4, cam.z)
       state.camera.lookAt(cam.tx, cam.ty, 0)
       rigWasFight = true

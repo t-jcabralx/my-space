@@ -250,7 +250,7 @@ function neonRunner() {
       else { const n = a.k === 'double' ? 2 : 1; for (let i = 0; i < n; i++) r.pyramid(a.x + 13 + i * 26 - W / 2, 114, 0, 26, a.h, 26, '#ff4d6d') }
     }
     for (const c of coins) r.sphere(c.x - W / 2, H - c.y, 0, 8, '#ffe84a', { glow: 1.1 })
-    if (!o.over) { const px = 80 - W / 2, py = H - p.y; r.shadow(px, 0, 15, 0.35, 114); r.box(px, py + 15, 0, 28, 30, 24, '#3de8ff', { rz: p.y < GY ? p.vy / 4000 : 0 }); r.box(px + 8, py + 22, -13, 9, 9, 4, '#ffffff'); r.box(px - 6, py + 2, 0, 8, 6, 20, '#1a8aa8') }
+    if (!o.over) { const px = 80 - W / 2, py = H - p.y; r.shadow(px, 0, 15, 0.35, 114); r.person(px, py, 0, '#3de8ff', dist * 0.07, 3.1, { hair: '#173a56' }) }
     r.fx(fx); r.flush()
   }
   return o
@@ -431,7 +431,7 @@ function moleSmash() {
   o.draw3 = (r, g) => {
     r.look(0, 330, -660, 0, 262, 0, 45); r.begin('#7ec8ff', '#d6f0ff')
     r.floor(-600, -300, 600, 600, 0, '#2f7a2f'); r.box(0, 215, 120, 900, 440, 20, '#2f7a2f', { edge: false })
-    for (let i = 0; i < 12; i++) { const x = -330 + i * 60; r.cyl(x, 0, 90 + (i % 3) * 20, 10, 60 + (i % 4) * 14, '#5a3a1a'); r.sphere(x, 90 + (i % 4) * 14, 90 + (i % 3) * 20, 34, hsl(110 + (i % 3) * 8, 55, 32)) }
+    for (let i = 0; i < 12; i++) { const x = -330 + i * 60; r.tree(x,0,90+(i%3)*20,130+(i%4)*14,i,'oak') }
     for (let i = 0; i < 9; i++) {
       const hx = HX[i % 3] - W / 2, hy = H - HY[Math.floor(i / 3)], h = holes[i]
       r.cyl(hx, 0, 0, 52, 12, '#6a4a2a', { top: '#7a5632' }); r.cyl(hx, 0, 0, 38, 12.6, '#1a0e05', { top: '#120a03' })
@@ -534,8 +534,8 @@ function trafficDodge() {
     r.look((px - W / 2) * 0.35, 150, -250, (px - W / 2) * 0.2, 30, 420, 60); r.begin('#10122a', '#2a2050')
     r.floor(-900, -200, 900, 2600, 0, '#1a3a1a'); r.floor(-150, -200, 150, 2600, 0.2, '#2b2b33'); r.box(-152, 3, 1200, 6, 6, 3200, '#ffd23a', { edge: false }); r.box(152, 3, 1200, 6, 6, 3200, '#ffd23a', { edge: false })
     for (let z = -((dist * 0.8 * 2.2 / 60) % 1) * 130 - 130; z < 2400; z += 130) for (const sx of [-50, 50]) r.box(sx, 0.6, z, 5, 1, 60, '#ffffffcc', { edge: false })
-    for (let k = 0; k < 14; k++) { const z = ((k * 190 - dist * 1.6) % 2660 + 2660) % 2660 - 200; for (const sx of [-260, 260]) { r.cyl(sx, 0, z, 6, 40, '#5a3a1a'); r.sphere(sx, 60, z, 28, hsl(118, 50, 28), { shine: false }) } }
-    const carBox = (x, z, c) => { r.box(x, 12, z, 38, 16, 70, c); r.box(x, 26, z - 4, 30, 14, 36, '#101018'); r.box(x, 12, z - 36, 34, 6, 3, '#ff4d4d', { glow: 1.3, edge: false }) }
+    for (let k = 0; k < 14; k++) { const z = ((k * 190 - dist * 1.6) % 2660 + 2660) % 2660 - 200; for (const sx of [-260, 260]) { r.tree(sx,0,z,95,k+sx,'oak') } }
+    const carBox = (x, z, c) => r.car(x, 0, z, c, 10, dist * 0.08)
     for (const c of coins) r.sphere(lx(c.l), 14, zOf(c.y), 9, '#ffe84a', { glow: 1.2 })
     for (const c of cars) carBox(lx(c.l), zOf(c.y), c.c)
     if (!o.over) { r.shadow((px - W / 2) * 0.9, 0, 26, 0.35); carBox((px - W / 2) * 0.9, 0, '#3de8ff') }
@@ -927,8 +927,15 @@ function fruitMerge() {
       for (let i = 0; i < balls.length; i++) for (let j = i + 1; j < balls.length; j++) {
         const a = balls[i], b = balls[j]; if (!a || !b) continue
         const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy) || 0.01, min = SZ[a.k] + SZ[b.k]
+        if (a.dead || b.dead) continue
+        // matching fruits merge as soon as they touch (the two biggest vanish together for a bonus)
+        if (a.k === b.k && d < min + 2.5) {
+          a.dead = b.dead = true
+          if (a.k < 7) { const nb = mk(a.k + 1, (a.x + b.x) / 2, (a.y + b.y) / 2); nb.vx = (a.vx + b.vx) / 2; nb.vy = Math.min(0, (a.vy + b.vy) / 2) - 40; balls.push(nb); o.score += (a.k + 1) * 5; puff(fx, nb.x, nb.y, 8, COLS[a.k], 160) }
+          else { o.score += 150; puff(fx, (a.x + b.x) / 2, (a.y + b.y) / 2, 30, '#7dff6a', 300) }
+          continue
+        }
         if (d < min) {
-          if (a.k === b.k && a.k < 7 && !a.dead && !b.dead) { a.dead = b.dead = true; const nb = mk(a.k + 1, (a.x + b.x) / 2, (a.y + b.y) / 2); balls.push(nb); o.score += (a.k + 1) * 5; puff(fx, nb.x, nb.y, 8, COLS[a.k], 160); continue }
           const nx = dx / d, ny = dy / d, ov = (min - d) / 2; a.x -= nx * ov; a.y -= ny * ov; b.x += nx * ov; b.y += ny * ov
           const rv = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny; if (rv < 0) { const j2 = -rv * 0.6; a.vx -= nx * j2; a.vy -= ny * j2; b.vx += nx * j2; b.vy += ny * j2 }
         }
@@ -1121,7 +1128,7 @@ function archery() {
 
   o.draw3 = (r, g) => {
     r.look(0, 330, -660, 0, 262, 0, 45); r.begin('#9fd8ff', '#e8f6ff')
-    for (let i = 0; i < 5; i++) { const x = -320 + i * 170, z = 160 + (i % 2) * 40; r.cyl(x, 0, z, 9, 60, '#5a3a1a'); r.pyramid(x, 60, z, 80, 120, 80, '#2a8a3a') }
+    for (let i = 0; i < 5; i++) { const x = -320 + i * 170, z = 160 + (i % 2) * 40; r.tree(x,0,z,180,i,'pine') }
     r.floor(-700, -300, 700, 500, H - 440, '#5ac44a')
     r.box(0, (H - 440) / 2, 20, 900, H - 440, 20, '#4aa83a', { edge: false })
     const tx = tgt.x - W / 2, ty = H - tgt.y
@@ -1188,7 +1195,7 @@ function timeRift() {
       else { const n = a.k === 'double' ? 2 : 1; for (let q = 0; q < n; q++) r.pyramid(a.x + 13 + q * 26 - W / 2, 114, 0, 26, a.h, 26, '#ff4d6d') }
     }
     for (const c of coins) r.sphere(c.x - W / 2, H - c.y, 0, 8, '#ffe84a', { glow: 1.1 })
-    if (!o.over) { const px = 80 - W / 2, py = H - p.y; r.shadow(px, 0, 15, 0.35, 114); r.box(px, py + 15, 0, 28, 30, 24, back ? '#a8f4ff' : '#3de8ff', { alpha: ghost ? 0.55 : 1 }); r.box(px + 8, py + 22, -13, 9, 9, 4, '#ffffff'); if (back) for (let q = 1; q <= 4; q++) r.box(px - q * 14, py + 15, 0, 28, 30, 24, '#7af0ff', { alpha: 0.18 / q, edge: false }) }
+    if (!o.over) { const px = 80 - W / 2, py = H - p.y; r.shadow(px, 0, 15, 0.35, 114); r.person(px, py, 0, back ? '#a8f4ff' : '#3de8ff', dist * 0.07, 3.1, { alpha: ghost ? 0.55 : 1, hair: '#173a56' }); if (back) for (let q = 1; q <= 4; q++) r.box(px - q * 14, py + 15, 0, 28, 30, 24, '#7af0ff', { alpha: 0.18 / q, edge: false }) }
     r.fx(fx); r.flush()
     for (let q = 0; q < 5; q++) txt(g, '⏪', 28 + q * 22, 28, 14, q < o.rewinds ? '#7af0ff' : '#334')
     if (back) { g.fillStyle = 'rgba(122,240,255,0.12)'; g.fillRect(0, 0, W, H); txt(g, '⏪ REWINDING', W / 2, 120, 16, '#7af0ff') }

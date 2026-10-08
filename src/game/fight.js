@@ -1,3 +1,4 @@
+import { animeHead } from './artDirection.js'
 // IRON FISTS: a 2.5D-style 1v1 fighting game with 40 fighters. Light/heavy punches and kicks, crouching and jumping moves,
 // blocking, combos, a signature SPECIAL and a cinematic SUPER per fighter. Pure JS; drawn with voxel cubes through Scene.jsx.
 import { G, keys, games, profile, saveProfile, part, ring, shake, flash, popup, stepParticles, toMenu } from './engine.js'
@@ -837,7 +838,14 @@ function poseOf(f, t) {
   const bob = Math.sin(t * 5) * 0.25
   switch (f.st) {
     case 'idle': P.hands = [[3.6, 11.2 + bob], [2.4, 10 + bob]]; P.drop = bob * 0.5; break
-    case 'walk': { const s = Math.sin(f.t * 12) * 2.6; P.feet = [[-1.6 + s, 0], [1.6 - s, Math.max(0, -Math.cos(f.t * 12) * 1.2)]]; P.hands = [[3.6, 11.2], [2.4, 10]]; break }
+    case 'walk': {
+      const phase = f.t * 12, stride = Math.sin(phase) * 2.1
+      P.feet = [[-1.6 + stride, Math.max(0, Math.cos(phase)) * 0.9], [1.6 - stride, Math.max(0, -Math.cos(phase)) * 0.9]]
+      P.drop = Math.abs(Math.sin(phase)) * 0.3
+      P.lean = (f.inp?.dx || 0) * f.face * 0.35
+      P.hands = [[3.6 - stride * 0.12, 11.2 + bob], [2.4 + stride * 0.12, 10 - bob]]
+      break
+    }
     case 'crouch': P.drop = 3.6; P.hands = [[3.6, 8.4], [2.2, 7.2]]; P.feet = [[-2.4, 0], [2.4, 0]]; break
     case 'jump': P.feet = [[-0.8, 3.4], [2, 2.2]]; P.hands = [[3, 11], [1.6, 10.4]]; P.drop = 0.5; break
     case 'block': P.hands = [[3.2, 13.2], [2.4, 12]]; P.lean = -0.5; P.drop = f.crouch ? 3.6 : 0; if (f.crouch) P.feet = [[-2.4, 0], [2.4, 0]]; break
@@ -852,7 +860,9 @@ function poseOf(f, t) {
       const mech = A.mech
       if (A.normal) {
         const m = A.m, u = A.t, su = m.su, ac = m.ac
-        const ext = u < su ? -ease(u / su) * 0.35 : u < su + ac ? 1 : Math.max(0, 1 - (u - su - ac) / m.rc)
+        // Travel out of anticipation into contact continuously; recover into guard.
+        const launch = Math.min(0.045, su * 0.4)
+        const ext = u < su - launch ? -ease(u / (su - launch)) * 0.22 : u < su ? -0.22 + 1.22 * ease((u - su + launch) / launch) : u < su + ac ? 1 : 1 - ease((u - su - ac) / m.rc)
         const lowHand = m.y < 5
         if (m.pose === 'knee') { const tx = 1.5 + (m.reach - 1.5) * 0.7 * ext; P.feet = [[-1.8, 0], [tx, Math.max(3, m.y - 1) + 2 * ext]]; P.hands = [[3.4, 11.4], [2, 10.4]]; P.lean = 0.7 * ext; P.drop = 0 }
         else if (m.pose === 'axe') { const lift = u < su ? ease(u / su) : 1 - Math.min(1, (u - su) / (ac + 0.1)); P.feet = [[-1.8, 0], [2 + (m.reach - 4) * ext * 0.5, 4 + 9 * lift - 4 * ext]]; P.hands = [[3, 10.5], [1.5, 10]]; P.lean = -0.6 }
@@ -905,7 +915,8 @@ function ik2(ax, ay, tx, ty, l1, l2, bend) {
   return { ex: ax + Math.cos(ea) * l1, ey: ay + Math.sin(ea) * l1, hx: ax + Math.cos(a0) * dd, hy: ay + Math.sin(a0) * dd }
 }
 const mul = (c, k) => [c[0] * k, c[1] * k, c[2] * k]
-function drawFighter3(put3, f, t) {
+function drawFighter3(api, f, t) {
+  const put3 = api.putBody || api.put3
   if (f.vis <= 0.01 && f.st !== 'cine') return
   const ch = f.ch, el = ELEMENTS[ch.element], dir = f.face
   const P = poseOf(f, t)
@@ -920,7 +931,7 @@ function drawFighter3(put3, f, t) {
   // limb between two local points
   const limb3 = (x0, y0, x1, y1, th, lz, col, sh2) => {
     const wx0 = W(x0), wy0 = Yw(y0), wx1 = W(x1), wy1 = Yw(y1)
-    const len = Math.hypot(wx1 - wx0, wy1 - wy0) + th * 0.5
+    const len = Math.hypot(wx1 - wx0, wy1 - wy0) + th * 0.32
     put3((wx0 + wx1) / 2, (wy0 + wy1) / 2, lz * k * sw, len, th * k, th * k * (0.7 + 0.3 * sw), Math.atan2(wy1 - wy0, wx1 - wx0), col[0] * sh2 * flash, col[1] * sh2 * flash, col[2] * sh2 * flash)
   }
   const bareArms = ['tank', 'jacket', 'shorts', 'mawashi', 'tights'].includes(outfit)
@@ -952,14 +963,21 @@ function drawFighter3(put3, f, t) {
     const upperCol = bareLegs ? (outfit === 'shorts' ? legCol : skin) : legCol
     limb3(hx, hy0, r.ex, r.ey, thick, lz, upperCol, shd)
     limb3(r.ex, r.ey, r.hx, r.hy, thick * 0.88, lz, bareLegs && outfit !== 'shorts' ? skin : bareLegs ? skin : legCol, shd)
-    if (outfit === 'robot') bx(r.ex, r.ey, lz, 1.7, 1.7, 1.8, trim, 1.2 * shd)
+    bx(r.ex, r.ey, lz, thick * 0.86, thick * 0.86, thick * 0.86, outfit === 'robot' ? trim : bareLegs ? skin : legCol, shd)
     bx(r.hx + 0.8, Math.max(0.55, r.hy - 0.5), lz, 3.6, 1.3, 2, lc(outfit === 'robot' ? '#59647a' : '#17171f'), shd)
   })
   // ---- pelvis & torso ----
   bx(lean * 0.2, hipY + 0.2 - drop * 0.1, 0, 3.2, 2.4, 4.6 * fat, outfit === 'mawashi' ? lc(ch.pants) : legCol, 1)
   const chestW = 5.7 * (outfit === 'robot' ? 1.1 : 1) * fat
   const bareChest = ['jacket', 'shorts', 'mawashi', 'tights'].includes(outfit)
-  bx(lean * 0.45, tY, 0, 3.6 * fat, 5.4, chestW, bareChest ? skin : top, 1, tilt)
+  const torsoCol = bareChest ? skin : top
+  // Rib cage, abdomen and paired pectorals make a readable shoulder-to-waist taper.
+  bx(lean * 0.35, tY - 1.55, 0, 3.1 * fat, 2.7, chestW * 0.77, torsoCol, 0.94, tilt)
+  bx(lean * 0.45, tY + 0.7, 0, 3.6 * fat, 3.65, chestW, torsoCol, 1, tilt)
+  if (bareChest && outfit !== 'mawashi') for (const side of [-1, 1]) {
+    bx(lean * 0.45 + 1.35, tY + 1.1, side * chestW * 0.23, 1.1, 1.9, chestW * 0.46, skin, 1.04, tilt)
+  }
+  if (outfit === 'mawashi') bx(lean * 0.35 + 0.45, tY - 0.8, 0, 4.7, 4.6, chestW * 0.95, skin, 1, tilt)
   // outfit details
   switch (outfit) {
     case 'gi': bx(lean * 0.5 + 1.8, tY + 1.2, 0, 0.5, 2.6, 1.6, skin, 1); bx(lean * 0.3, hipY + 1.1, 0, 3.9, 0.9, 5.9, trim, 1); bx(lean * 0.3 - 1.4, hipY + 0.2, 1.8, 1, 2.4, 0.8, trim, 0.9, -0.2); break
@@ -983,21 +1001,8 @@ function drawFighter3(put3, f, t) {
   // ---- head ----
   const hx0 = lean * 0.9 + (P.head || 0), hY = tY + 4.5
   bx(hx0 * 0.5, tY + 3, 0, 1.6, 1.4, 1.8, skin, 0.9)
-  bx(hx0, hY, 0, 3.7, 3.9, 3.8, outfit === 'robot' ? lc('#b8c0d0') : skin, 1)
-  const hr = hair
-  switch (ch.hairStyle) {
-    case 'spiky': bx(hx0 - 0.2, hY + 2.1, 0, 3.9, 1.3, 4.1, hr, 1); for (let i = -1; i <= 1; i++) bx(hx0 - 0.4 + i * 0.1, hY + 3.3 + (i === 0 ? 0.7 : 0), i * 1.3, 1.1, 2.1, 1.1, hr, 1, i * 0.18); bx(hx0 - 1.6, hY + 0.4, 0, 1.2, 3.2, 3.9, hr, 1); break
-    case 'long': bx(hx0 - 0.2, hY + 2.1, 0, 3.9, 1.4, 4.2, hr, 1); bx(hx0 - 1.9, hY - 1.6, 0, 1.5, 6.4, 4.2, hr, 0.95); break
-    case 'mohawk': bx(hx0, hY + 2.5, 0, 3.8, 2.8, 0.9, hr, 1); bx(hx0 - 1.4, hY + 1.5, 0, 1.2, 1.4, 1, hr, 1); break
-    case 'bald': break
-    case 'band': bx(hx0 - 0.2, hY + 2.1, 0, 3.9, 1.2, 4.1, hr, 1); bx(hx0 - 1.4, hY, 0, 1.4, 3.2, 3.9, hr, 1); break
-    case 'bun': bx(hx0 - 0.2, hY + 2.1, 0, 3.9, 1.2, 4.1, hr, 1); bx(hx0 - 1.2, hY + 3.5, 0, 2.2, 2.2, 2.2, hr, 1); break
-    case 'afro': bx(hx0 - 0.6, hY + 1.9, 0, 5.8, 4.8, 5.8, hr, 1); break
-    default: bx(hx0 - 0.2, hY + 2.1, 0, 3.9, 1.4, 4.1, hr, 1); bx(hx0 - 1.5, hY + 0.5, 0, 1.2, 2.8, 3.9, hr, 1)
-  }
-  const hurt = f.st === 'hit' || f.st === 'air'
-  const dark = [0.05, 0.05, 0.1]
-  if (!ch.accs.includes('visor') && !ch.accs.includes('shades') && !ch.accs.includes('mask2')) { bx(hx0 + 1.9, hY + 0.4, 0.95, 0.35, hurt ? 0.45 : 1, 0.9, dark, 1); bx(hx0 + 1.9, hY + 0.4, -0.95, 0.35, hurt ? 0.45 : 1, 0.9, dark, 1) }
+  const hr = hair, hurt = f.st === 'hit' || f.st === 'air', dark = [.05,.05,.1]
+  animeHead(api,W(hx0),Yw(hY),0,3.25*k*sh,dir*1.05,{skin:mul(outfit==='robot'?lc('#b8c0d0'):skin,flash),hair:hr,iris:ec,style:ch.hairStyle,talking:hurt||!!f.atk,fierce:true})
   if (ch.accs.includes('visor')) bx(hx0 + 1.7, hY + 0.5, 0, 0.8, 1.1, 3.2, ec, 1.9)
   if (ch.accs.includes('shades')) bx(hx0 + 1.9, hY + 0.5, 0, 0.6, 1.1, 3.4, lc('#0a0a12'), 1)
   if (!ch.accs.includes('mask') && !ch.accs.includes('mask2')) bx(hx0 + 1.9, hY - 1.1, 0, 0.3, hurt || f.atk ? 0.9 : 0.4, 1.6, [0.45, 0.06, 0.1], 1)
@@ -1024,8 +1029,11 @@ function drawFighter3(put3, f, t) {
     const thick = (outfit === 'gi' || outfit === 'robe' ? 2.1 : bareArms ? 1.9 : 2.0) * (fat > 1 ? 1.25 : 1)
     limb3(sx, sy, r.ex, r.ey, thick, lz, outfit === 'robe' ? top : armCol, shd)
     limb3(r.ex, r.ey, r.hx, r.hy, thick * 0.9, lz, outfit === 'gi' || outfit === 'robe' ? top : bareArms ? skin : armCol, shd)
-    if (outfit === 'robot') bx(r.ex, r.ey, lz, 1.7, 1.7, 1.8, trim, 1.2 * shd)
-    bx(r.hx + 0.2, r.hy, lz, 2.8, 2.6, 2.8, gl, shd)
+    bx(sx, sy - 0.25, lz, thick * 1.2, thick * 1.25, thick * 1.15, armCol, shd)
+    bx(r.ex, r.ey, lz, thick * 0.83, thick * 0.83, thick * 0.83, outfit === 'robot' ? trim : armCol, shd)
+    bx(r.hx, r.hy, lz, 1.7, 1.65, 1.8, ch.accs.includes('tape') ? lc('#eee9dc') : trim, shd)
+    bx(r.hx + 0.2, r.hy, lz, 2.35, 2.1, 2.3, gl, shd)
+    bx(r.hx + 0.1, r.hy - 0.7, lz + (near ? 0.85 : -0.85), 1.2, 1, 0.9, gl, shd)
     if (f.atk && !f.atk.normal && f.atk.pose === 'cast') bx(r.hx + 1.3, r.hy, lz, 1.6, 1.6, 1.6, glow, 2.4)
   })
 }
@@ -1106,7 +1114,7 @@ function draw3(api) {
   for (let x = -66; x <= 66; x += 11) put3(x, FLOOR + 0.02, 6, 0.45, 0.1, 22, 0, c[0] * 0.8, c[1] * 0.8, c[2] * 0.8)
   put3(0, FLOOR + 0.02, 6, 150, 0.1, 0.5, 0, c[0] * 0.8, c[1] * 0.8, c[2] * 0.8)
   if (!FT.f.length) return
-  for (const f of FT.f) drawFighter3(put3, f, t)
+  for (const f of FT.f) drawFighter3(api, f, t)
   if (FT.fin && FT.fin.state === 'play') drawFinisher(put3, FT.fin)
 }
 const hsh = (i, k) => { const q = Math.sin(i * 12.9898 + k * 78.233) * 43758.5453; return q - Math.floor(q) }
@@ -1158,8 +1166,9 @@ export function fightCamera(aspect, dt) {
   const [a, b] = FT.f.length ? FT.f : [{ x: -10 }, { x: 10 }]
   const mid = (a.x + b.x) / 2, gap = Math.abs(a.x - b.x)
   const tan = 0.364 // tan(fov / 2) for fov 40
-  let halfW = Math.max(34, gap / 2 + 30)
-  let tx = mid * 0.55, ty = -2, y = 4, z = clamp(halfW / (tan * aspect), 40, 150), x = tx * 0.85
+  const halfW = Math.max(30, gap / 2 + 18), jump = Math.max(a.y || 0, b.y || 0)
+  const halfH = 16 + jump * .5
+  let tx = mid * .85, ty = -2 + jump * .4, y = ty + 4, z = clamp(Math.max(halfW / (tan * aspect), halfH / tan), 44, 180), x = tx * .95
   if (FT.cine) { const o = FT.f[FT.cine.owner], u = Math.min(1, FT.cine.t / 0.35); z = z + (34 - z) * u; tx = o.x + (mid - o.x) * (1 - u); ty = FLOOR + 8; y = ty + 3; x = o.x + o.face * -14 * u + Math.sin(FT.cine.t * 2) * 3 }
   else if (FT.phase === 'finish' && FT.fin && FT.f.length) { const v = FT.f[FT.fin.vic], u = FT.fin.state === 'play' ? 1 : Math.min(1, FT.fin.t / 0.8) * 0.6; z = z + (40 - z) * u; tx = tx + (v.x - tx) * u; x = tx; ty = ty + (FLOOR + 4 - ty) * u * 0.6 }
   else if (FT.phase === 'ko' && FT.f.length) { const l = a.hp <= 0 ? a : b; const u = Math.min(1, FT.phaseT / 0.6); z = z + (46 - z) * u * 0.6; tx = tx + (l.x - tx) * u * 0.7; x = tx; ty = ty + 4 * u }

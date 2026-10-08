@@ -1,3 +1,5 @@
+import { treeModel } from './artDirection.js'
+import { modelApi } from './modeling.js'
 // SNOW RUSH: an SSX-style 3D snowboarding game. Race five riders or go for a trick score down three mountains.
 // Logic space is (x sideways, y up, z downhill); the scene draws it with Z = -z so the camera sits behind the rider.
 import { G, emit as engineEmit, keys, games, profile, saveProfile, recordScore, toMenu, shake, flash, stepParticles } from './engine.js'
@@ -684,6 +686,7 @@ function limb(api, a, b, w, c) {
   api.putM((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2, w, len, w, [xx, dx, zx, xy, dy, zy, xz, dz, zz], c[0], c[1], c[2])
 }
 function drawRider(api, r, t) {
+  api = modelApi(api)
   const { putM } = api
   const crashed = r.crash > 0
   const yaw = r.hd + r.spin + (crashed ? r.tumble * 0.6 : 0)
@@ -715,7 +718,9 @@ function drawRider(api, r, t) {
   // torso, head
   const tors = 0.86 - 0.1 * cr
   const tc = L(0.03 + 0.06 * cr, hipY + tors / 2, 0)
-  putM(tc[0], tc[1], tc[2], 0.44, tors, 0.82, mm(M, RX(0)), jk[0], jk[1], jk[2])
+  putM(tc[0], tc[1] - tors * 0.22, tc[2], 0.4, tors * 0.62, 0.68, M, jk[0], jk[1], jk[2])
+  putM(tc[0], tc[1] + tors * 0.2, tc[2], 0.48, tors * 0.64, 0.88, M, jk[0], jk[1], jk[2])
+  putM(...L(-0.27, hipY + tors * 0.55, 0), 0.2, tors * 0.65, 0.55, M, pn[0], pn[1], pn[2]) // backpack
   putM(...L(0.03 + 0.06 * cr, hipY + 0.1, 0), 0.47, 0.16, 0.85, M, pn[0] * 1.4, pn[1] * 1.4, pn[2] * 1.4)
   const hy = hipY + tors + 0.3
   putM(...L(0.08 + 0.08 * cr, hy, 0), 0.46, 0.46, 0.46, M, sk[0], sk[1], sk[2])
@@ -735,15 +740,10 @@ function drawRider(api, r, t) {
     const h2 = L(...hand); putM(h2[0], h2[1], h2[2], 0.24, 0.24, 0.24, M, 0.15, 0.15, 0.2)
   }
 }
-function drawTree(api, x, y, z, s, h, night) {
-  const { put3 } = api
-  const g = night ? 0.06 : 0.08, gg = night ? 0.2 : 0.38
-  put3(x, y + 0.7 * s, z, 0.55 * s, 1.5 * s, 0.55 * s, 0, 0.3, 0.2, 0.12, h * 6)
-  put3(x, y + 2.0 * s, z, 3.4 * s, 1.5 * s, 3.4 * s, 0, g, gg, 0.12, h * 6)
-  put3(x, y + 3.2 * s, z, 2.5 * s, 1.5 * s, 2.5 * s, 0, g, gg + 0.04, 0.14, h * 6 + 0.3)
-  put3(x, y + 4.4 * s, z, 1.6 * s, 1.5 * s, 1.6 * s, 0, g, gg + 0.08, 0.16, h * 6 + 0.6)
-  put3(x, y + 5.3 * s, z, 0.8 * s, 0.5 * s, 0.8 * s, 0, 0.9, 0.95, 1.0, h * 6)
+function drawTree(api,x,y,z,s,h,night) {
+  treeModel(api,x,y,z,6*s,h*19,SX.clock,{kind:'snow',leaf:night?[.05,.2,.16]:[.12,.37,.25],low:true})
 }
+
 function draw3(api) {
   const { put3, putM } = api, t = SX.clock, c = CUR
   const P = SX.focus || SX.P

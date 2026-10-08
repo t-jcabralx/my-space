@@ -102,7 +102,7 @@ li.bonus { border-color: var(--gr); color: var(--gr); } li.fail { border-color: 
 .card:not(.can):not(.max) b { color: #ff6b7a; }
 .lv { display: flex; gap: .4cqw; } .lv i { width: 1.4cqw; height: 1cqw; background: #1a2550; } .lv i.on { background: var(--cy); box-shadow: 0 0 6px var(--cy); } .lv span { font-size: .8em; color: var(--cy); }
 
-.scan { position: absolute; inset: 0; background: repeating-linear-gradient(0deg, #0000 0 2px, #00000022 2px 3px); }
+.scan { position: absolute; inset: 0; opacity: .18; pointer-events: none; background: repeating-linear-gradient(0deg, #0000 0 2px, #00000022 2px 3px); }
 
 @keyframes pulse { 50% { opacity: .55; filter: brightness(1.4); } }
 @keyframes pop { 0% { transform: scale(1.6); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
@@ -947,3 +947,53 @@ li.bonus { border-color: var(--gr); color: var(--gr); } li.fail { border-color: 
 .mini-env { color: #9fd8ff !important; }
 
 .glogo3d { flex: 0 0 auto; width: 5em; height: 5em; margin: -.4em -.2em -.4em -.4em; display: block; filter: drop-shadow(0 4px 6px #000a); }
+
+/* Sculpted game pieces: card stock, recessed sockets and inset tile rims. */
+.pc-front, .pc-back {
+  border: 1px solid #fff8;
+  box-shadow: 0 1px 0 #dfdbcf, 0 2px 0 #b9b4a6, 0 3px 0 #8f8a7d, 0 7px 12px #0007;
+}
+.pcf.std { background: linear-gradient(135deg, #fffefa, #f1ecdf); }
+.pc-front::after, .pc-back::after {
+  content: ''; position: absolute; inset: 3%; border: 1px solid #ffffff35;
+  border-radius: inherit; pointer-events: none;
+}
+.disc.p1, .disc.p2 { position: relative; }
+.disc.p1::after, .disc.p2::after {
+  content: ''; position: absolute; inset: 17%; border-radius: 50%;
+  border: 2px solid #0002; box-shadow: inset 0 2px 3px #0004, 0 1px 1px #ffffff80;
+  pointer-events: none;
+}
+.mtile, .wcell { border: 1px solid #ffffff40; }
+.mtile::after {
+  content: ''; position: absolute; inset: 5%; border: 1px solid #ffffff20;
+  border-radius: 7px; pointer-events: none;
+}
+.mcx.closed { border-top: 2px solid #b4c4ff; border-left: 2px solid #8a9bea; border-right: 2px solid #17234e; border-bottom: 2px solid #121c41; }
+.mcx.open { border: 1px solid #182547; }
+
+/* Anime campaign: staged environments, a quiet cinematic frame and readable dialogue. */
+.storyscene { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; pointer-events:none; }
+.storyshade { position:absolute; inset:0; pointer-events:none; background:linear-gradient(#08101bba,transparent 32%,transparent 51%,#08101bd9 84%); }
+.storyfull .sbar { height:2.5cqw; background:#0b1119; }
+.storyfull .stitle { top:7cqw; text-align:left; left:5cqw; right:5cqw; }
+.storyfull .stitle h2 { font-family:Arial,sans-serif; font-size:clamp(24px,4.1cqw,56px); font-weight:900; letter-spacing:-.04em; text-shadow:0 2px 12px #07101d99; margin:.25em 0; animation:none; }
+.slocation { display:block; color:#f0d3a3; font-size:.7em; letter-spacing:.13em; }
+.scene-caption { position:relative; z-index:2; max-width:75cqw; font:italic clamp(11px,1.35cqw,18px)/1.4 Georgia,serif; color:#f5e9d6; text-align:center; text-shadow:0 2px 6px #000; }
+.storyfull .sbox { width:min(88cqw,1050px); border:1px solid #b7ced34a; border-left:4px solid var(--c); border-radius:5px 18px 5px 5px; background:#0b1828eb; box-shadow:0 12px 35px #050b1340; padding:1.6cqw 2.3cqw 2.8cqw; margin-bottom:5cqw; min-height:10cqw; }
+.storyfull .stext b { display:block; font-size:1.1em; letter-spacing:.12em; color:var(--c); margin:.4em 0; }
+.storyfull .stext p { font-family:Arial,sans-serif; font-size:clamp(14px,1.65cqw,23px); line-height:1.5; color:#f1eee4; margin:0; }
+.speaker-tag { font:600 9px/1 Arial,sans-serif; letter-spacing:.2em; color:#a4b7c7; }
+.storyfull .snext { font-size:.7em; color:#d7e5e9; }
+.storyfull .sbtns { top:3.6cqw; }
+.storyfull .sbtns button { font-size:.7em; background:#142536bb; border-color:#e0e8e238; }
+.storyfull .sgoal { background:#0f2438e6; border:1px solid #e2c69f60; color:#ecd2a9; width:max-content; max-width:88%; text-align:center; font:600 clamp(10px,1.2cqw,16px)/1.4 Arial,sans-serif; white-space:normal; border-radius:4px; }
+.chapterplace { color:#ccbd9d; font:600 9px/1.4 Arial,sans-serif; letter-spacing:.06em; }
+.chapterland { display:block; position:relative; width:100%; height:7cqw; min-height:54px; overflow:hidden; background:linear-gradient(#536c88,#ddb68c); border-radius:4px; }
+.chapterland i { position:absolute; bottom:-15%; width:42%; height:95%; background:#314e55; clip-path:polygon(50% 0,100% 100%,0 100%); }
+.chapterland i:nth-child(1){left:-10%;height:100%;background:#72898b}.chapterland i:nth-child(2){left:18%;height:130%;background:#587176}.chapterland i:nth-child(3){left:46%;height:90%}.chapterland i:nth-child(4){left:70%;height:115%;background:#3d6360}
+.chapterland.core,.chapterland.hangar,.chapterland.arena { background:linear-gradient(#27334d,#a6889f); }
+.chapterland.core i,.chapterland.hangar i,.chapterland.arena i,.chapterland.court i { clip-path:none; width:18%; border-top:2px solid #e6c98b; background:#24394d; }
+.chapterland.snow i { background:#d8e4e9; }.chapterland.track i { background:#485961; }
+@media(max-width:600px) { .storyfull .stitle { top:11cqw; } .storyfull .stitle h2 { font-size:22px; } .storyfull .sbox { padding:12px 14px 25px; margin-bottom:10cqw; } .scene-caption { display:none; } .storyfull .sgoal { bottom:2cqw; } .storyscene { object-position:center top; } }
+@media(prefers-reduced-motion:reduce) { .storyfull * { animation:none!important; } }

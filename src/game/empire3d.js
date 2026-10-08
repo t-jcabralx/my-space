@@ -1,3 +1,5 @@
+import { treeModel, animeActor } from './artDirection.js'
+import { modelApi } from './modeling.js'
 // 3D look of EMPIRE RISE: a tiny medieval world. Lit cottages, keeps that grow into castles, farms, forests, soldiers with animated walks and swings.
 import { G } from './engine.js'
 import { col, clamp } from './pxl.js'
@@ -38,10 +40,7 @@ function tileDraw(api, EM, i, j, step, t) {
   else if (tt === 4) { const w = 0.85 + Math.sin(t * 1.4 + i * 0.6 + j * 0.45) * 0.12; put3(x, -0.35, z, s, 0.5, s, 0, 0.03 * w, 0.14 * w, 0.4 * w, 0); if (step === 1 && ((i + j + (t * 0.8 | 0)) % 6) === 0) put3(x, -0.07, z, 0.9, 0.05, 0.12, 0, 0.7, 0.9, 1.4, 0) }
   else if (tt === 1) {
     put3(x, 0, z, s, 0.6, s, 0, 0.05, 0.16, 0.06, 0)
-    const sw = Math.sin(t * 1.3 + i * 0.7 + j) * 0.1
-    put3(x, 1.2, z, 0.4, 2.4, 0.4, 0, 0.22, 0.12, 0.06, 0)
-    if (step === 1) { put3(x + sw, 2.4, z, 1.9, 0.8, 1.9, 0, 0.04, 0.26, 0.09, i); put3(x + sw * 1.4, 3.1, z, 1.4, 0.8, 1.4, 0, 0.06, 0.32, 0.1, i + 1); put3(x + sw * 1.8, 3.8, z, 0.8, 0.8, 0.8, 0, 0.08, 0.4, 0.12, i) }
-    else put3(x, 2.6, z, 3.4, 2, 3.4, 0, 0.05, 0.27, 0.09, i)
+    treeModel(api,x,.3,z,4.2+(i%3)*.22,i*7+j,t,{kind:(i+j)%4===0?'oak':'pine',low:step>1})
   } else if (tt === 2) { put3(x, 0.8, z, s * 0.95, 1.8 + ((i * 3 + j) % 4) * 0.4, s * 0.95, 0, 0.2, 0.2, 0.25, i); put3(x + 0.2, 2, z, s * 0.6, 1.2, s * 0.6, 0, 0.3, 0.3, 0.36, j) }
   else { put3(x, 0.7, z, s * 0.95, 1.6, s * 0.95, 0, 0.18, 0.17, 0.2, i); const g = 0.8 + Math.sin(t * 3 + i * 2 + j) * 0.35; put3(x - 0.3, 1.9, z, 0.5, 1.3, 0.5, 0.3, 3 * g, 2.3 * g, 0.4, 0); put3(x + 0.4, 1.6, z + 0.3, 0.4, 0.9, 0.4, -0.3, 3 * g, 2.3 * g, 0.4, 0) }
 }
@@ -109,6 +108,7 @@ function upgradeDress(api, b, cx, cz, W, tc, wall, t) {
 }
 // ---------- units ----------
 function drawUnit(api, u, EM, t, TEAM, UDEF) {
+  api = modelApi(api)
   const { put3, putS } = api, d = UDEF[u.type], raider = u.owner < 0
   const tc = raider ? [1.1, 0.5, 0.2] : hex(TEAM[u.owner][0], 1), fl = u.flash > 0 ? 2.4 : 1
   const X = u.x, Z = -u.y, ry = (u.face || 0) + Math.PI / 2, ca = Math.cos(ry), sa = Math.sin(ry)
@@ -128,8 +128,7 @@ function drawUnit(api, u, EM, t, TEAM, UDEF) {
     P(0.7, 2.6, 1.2 + (swing ? 1 : 0), 0.15, 0.15, 3.2, 1.6, 1.6, 1.8)
   } else {
     const k = raider ? (u.type === 'rbrute' ? 1.45 : 1) : 1
-    P(-0.3 * k, 0.55 * k, sw * k, 0.4 * k, 1.1 * k, 0.45 * k, 0.25, 0.2, 0.18); P(0.3 * k, 0.55 * k, -sw * k, 0.4 * k, 1.1 * k, 0.45 * k, 0.25, 0.2, 0.18)
-    P(0, (1.6 + bob) * k, 0, 1.0 * k, 1.1 * k, 0.7 * k, tc[0], tc[1], tc[2]); P(0, (2.5 + bob) * k, 0, 0.75 * k, 0.75 * k, 0.75 * k, 0.8, 0.58, 0.45)
+    animeActor(api,X,0,Z,3.15*k,ry,t,{moving,phase:ph,color:tc,skin:[.8,.58,.45],hair:[.12,.08,.06],attack:swing?1-(u.atkT-(d.rate-.25))/.25:0,coat:false,low:true})
     if (raider) { P(0, (2.95 + bob) * k, -0.05, 0.9 * k, 0.5 * k, 0.9 * k, 0.2, 0.12, 0.08); if (u.type === 'raider' || u.type === 'rbrute') P(0.55 * k, (1.9 + bob) * k, 0.7 + (swing ? 0.9 : 0), 0.18, 0.18, 1.4 * k, 1.6, 1.6, 1.8); if (u.type === 'rarcher') P(-0.6, 2, 0.5, 0.15, 1.5, 0.15, 0.4, 0.26, 0.12); if (t % 1 < 0.5 && u.type !== 'rarcher') putS(X + ca * 0.6 * 1 - sa * 0.0, 2.6 * k, Z - sa * 0.6, 0.35, 0.45, 0.35, 3, 1.4, 0.3) }
     else if (u.type === 'sword') { P(0, 3.1 + bob, 0, 0.8, 0.4, 0.8, 0.6, 0.6, 0.68); P(-0.7, 1.7, 0.2, 0.2, 1.0, 0.8, tc[0] * 1.3, tc[1] * 1.3, tc[2] * 1.3); P(0.6, 1.9 + bob, 0.8 + (swing ? 1.0 : 0), 0.16, 0.16, 1.7, 1.8, 1.8, 2.0); if (swing) putS(X + sa * 1.6, 2, Z + ca * 1.6, 0.8, 0.5, 0.8, 3, 3, 2.4) }
     else if (u.type === 'archer') { P(0, 3.0 + bob, -0.1, 0.9, 0.55, 0.9, tc[0] * 0.7, tc[1] * 0.7, tc[2] * 0.7); P(-0.6, 1.9, 0.7, 0.14, 1.7, 0.14, 0.45, 0.28, 0.12, 0.3); P(0.4, 1.7, -0.5, 0.35, 1, 0.35, 0.3, 0.2, 0.1) }
@@ -142,6 +141,7 @@ const lerp = (a, b, u) => a + (b - a) * u
 const ss = (u) => u * u * (3 - 2 * u)
 // one little person. o: { moving, ph, sw (-1 = no swing, else 0..1 cycle), tool, carry, tint, hat, bend, yo }
 function person(api, X, Z, dir, o) {
+  api = modelApi(api)
   const { put3, putS } = api, yo = o.yo || 0
   const ry = Math.atan2(dir[0], dir[1]), ca = Math.cos(ry), sa = Math.sin(ry)
   const K = 1.35 // villagers are drawn a little larger than soldiers so the work is readable from the default camera
@@ -153,13 +153,8 @@ function person(api, X, Z, dir, o) {
   if (c >= 0) { if (c < 0.6) up = ss(c / 0.6); else if (c < 0.75) { const u = (c - 0.6) / 0.15; up = 1 - u * 1.2; fw = u } else { const u = (c - 0.75) / 0.25; up = -0.2 * (1 - u); fw = 1 - u } }
   const bend = (o.bend || 0) * (0.5 + 0.5 * Math.sin(ph * 0.5))
   putS(X + 0.15, yo + 0.03, Z + 0.15, 1.5 * K, 0.06, 1.5 * K, 0.01, 0.01, 0.02)
-  P(-0.3, 0.55, sw, 0.4, 1.1, 0.45, dark[0], dark[1], dark[2]); P(0.3, 0.55, -sw, 0.4, 1.1, 0.45, dark[0], dark[1], dark[2])
-  P(0, 1.6 + bob - bend * 0.25, bend * 0.25, 1.0, 1.1, 0.7, tint[0], tint[1], tint[2])
-  P(0, 2.5 + bob - bend * 0.5, bend * 0.55, 0.75, 0.75, 0.75, skin[0], skin[1], skin[2])
-  if (o.hat) { P(0, 3.0 + bob - bend * 0.5, bend * 0.55, 0.9, 0.3, 0.9, o.hat[0], o.hat[1], o.hat[2]); if (o.brim) P(0, 2.85 + bob - bend * 0.5, bend * 0.55, 1.35, 0.1, 1.35, o.hat[0], o.hat[1], o.hat[2]) }
-  P(-0.65, 1.7 + bob, -sw * 0.8, 0.22, 0.9, 0.22, skin[0], skin[1], skin[2])
-  const hy = 1.95 + bob + up * 0.9 - bend * 0.3, hz = 0.5 + fw * 0.9 + bend * 0.5
-  P(0.65, hy - 0.2, hz - 0.3, 0.22, 0.22, 0.9, skin[0], skin[1], skin[2])
+  const hy = 1.95 + bob + up * .9 - bend * .3, hz = .5 + fw * .9 + bend * .5
+  animeActor(api,X,yo,Z,3.2*K,ry,ph*.12,{moving:mv,phase:ph,color:tint,dark,skin,helmet:o.hat,coat:false,lean:bend*.4,attack:c>=0?c:0})
   const tool = o.tool
   if (tool) {
     const wood = [0.36, 0.22, 0.1], steel = [0.75, 0.78, 0.85]

@@ -1,3 +1,4 @@
+import { treeModel } from './artDirection.js'
 // ORB RUSH: a marble-shooter in the style of the classic frog games. A chain of coloured orbs rolls along a track toward
 // the skull hole; the frog in the middle shoots orbs to make groups of 3+. Adventure (10 levels) and online Versus (same
 // level, same orbs; big combos send extra orbs to your opponent).
@@ -387,9 +388,16 @@ function draw3(api) {
     const k = (ix + iy) & 1 ? 1 : 0.82, v = 0.9 + gh(ix, iy) * 0.2
     put3(x, -0.35, -y, 8.1, 0.7, 8.1, 0, (0.08 + tint[0] * 0.06) * k * v, (0.2 + tint[1] * 0.07) * k * v, (0.12 + tint[2] * 0.06) * k * v, 0)
   }
-  // frame stones and trees at the edge
-  for (let i = -26; i <= 26; i++) for (const sy of [-1, 1]) { const x = i * 2.1, y = sy * 31.5; put3(x, 0.8 + (i & 1) * 0.3, -y, 2, 1.8 + (i & 1) * 0.5, 2, 0, 0.3, 0.33, 0.36, i); if (i % 5 === 0) { put3(x, 3.2, -y - sy * 2, 1.2, 4.4, 1.2, 0, 0.18, 0.1, 0.06, 0); put3(x, 6.2, -y - sy * 2, 5.2, 3.4, 5.2, 0, 0.04, 0.2 + tint[1] * 0.1, 0.08, i); put3(x, 8.6, -y - sy * 2, 3.2, 2.6, 3.2, 0, 0.05, 0.26 + tint[1] * 0.12, 0.1, i + 1) } }
-  for (let j = -15; j <= 15; j++) for (const sx of [-1, 1]) { const x = sx * 55, y = j * 2.1; put3(x, 0.8 + (j & 1) * 0.3, -y, 2, 1.8 + (j & 1) * 0.5, 2, 0, 0.3, 0.33, 0.36, j); if (j % 5 === 0) { put3(x + sx * 2, 3.2, -y, 1.2, 4.4, 1.2, 0, 0.18, 0.1, 0.06, 0); put3(x + sx * 2, 6.2, -y, 5.2, 3.4, 5.2, 0, 0.04, 0.2 + tint[1] * 0.1, 0.08, j); put3(x + sx * 2, 8.6, -y, 3.2, 2.6, 3.2, 0, 0.05, 0.26 + tint[1] * 0.12, 0.1, j + 1) } }
+  // A temple garden with irregular canopies framing the playable track.
+  for(let i=-26;i<=26;i++) for(const side of [-1,1]) {
+    const x=i*2.1,z=side*31.5
+    put3(x,.8+(i&1)*.3,z,2,1.8+(i&1)*.5,2,0,.3,.33,.36,i)
+    if(i%5===0) treeModel(api,x,0,z+side*2,9+(i%3)*.3,i,t,{kind:i%2?'pine':'oak',leaf:[.1,.33,.2],low:true})
+  }
+  for(let j=-15;j<=15;j++) for(const side of [-1,1]) {
+    put3(side*55,.8+(j&1)*.3,j*2.1,2,1.8+(j&1)*.5,2,0,.3,.33,.36,j)
+    if(j%5===0) treeModel(api,side*57,0,j*2.1,9,j,t,{kind:'oak',leaf:[.1,.33,.2],low:true})
+  }
   // flowers, tufts and glowing mushrooms scattered by cell, never on the track
   for (let ix = -12; ix <= 12; ix++) for (let iy = -7; iy <= 7; iy++) {
     const h1 = gh(ix + 11, iy + 3), h2 = gh(iy + 5, ix + 17), x = ix * 4.4 + h1 * 3, y = iy * 4.4 + h2 * 3

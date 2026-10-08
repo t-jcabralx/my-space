@@ -1,3 +1,5 @@
+import { treeModel, animeActor } from './artDirection.js'
+import { modelApi } from './modeling.js'
 // 3D look of NEON DEPTHS: a haunted forest in 3 moods, lit voxel characters with real animation, fog, lanterns, fireflies.
 // Everything is drawn with the shared lit instanced-box pass (put3). Game coordinates (x, y) become world (x, 0, -y).
 import { weatherFx } from './env4d.js'
@@ -90,35 +92,9 @@ function buildEnv(RG) {
 }
 
 function putS3(put3, x, y, z, glow, gl, dark) { put3(x, y, z, 0.6, 0.6, 0.6, 0.7, glow[0] * gl * dark, glow[1] * gl * dark, glow[2] * gl * dark, 0.4) }
-function putTree(put3, th, tr, t) {
-  const s = tr.s, sway = Math.sin(t * 0.9 + tr.ph) * 0.18, h = tr.h
-  const dark = tr.row ? 0.6 : 1
-  const tc = th.trunk
-  put3(tr.x, h / 2, tr.z, 1.5 * s, h, 1.5 * s, 0, tc[0] * dark, tc[1] * dark, tc[2] * dark, tr.lean)
-  if (th.kind === 'pine') {
-    for (let k = 0; k < 4; k++) {
-      const lc = th.leaf[k % 3], w = (8.2 - k * 1.9) * s, y = h * 0.42 + k * 2.4 * s + 1.4
-      put3(tr.x + sway * (k + 1) * 0.6, y, tr.z, w, 2.5 * s, w, 0, lc[0] * dark, lc[1] * dark, lc[2] * dark, k * 0.4 + tr.ph)
-    }
-  } else if (th.kind === 'cave') {
-    for (let k = 0; k < 4; k++) { const a = tr.ph + k * 1.7, len = (h * (0.5 + (k % 3) * 0.25)), gl = 0.8 + Math.sin(t * 1.5 + k + tr.ph) * 0.2; put3(tr.x + Math.cos(a) * 1.1 * s, len / 2, tr.z + Math.sin(a) * 1.1 * s, (1.3 - k * 0.2) * s, len, (1.3 - k * 0.2) * s, Math.cos(a) * 0.18, th.leaf[k % 3][0] * gl * dark, th.leaf[k % 3][1] * gl * dark, th.leaf[k % 3][2] * gl * dark, a); putS3(put3, tr.x + Math.cos(a) * 1.1 * s, len, tr.z + Math.sin(a) * 1.1 * s, th.glow, gl, dark) }
-  } else if (th.kind === 'ash') {
-    for (let k = 0; k < 3; k++) { const a = tr.ph + k * 2.1, y = h * (0.55 + k * 0.15), len = (3 - k * 0.6) * s; put3(tr.x + Math.cos(a) * len * 0.4, y, tr.z + Math.sin(a) * len * 0.4, len, 0.5 * s, 0.5 * s, 0.3, th.trunk[0] * dark, th.trunk[1] * dark, th.trunk[2] * dark, -a) }
-    const gl = 0.7 + Math.sin(t * 5 + tr.ph) * 0.3; put3(tr.x, h * 0.3, tr.z + 0.8 * s, 0.4 * s, h * 0.5, 0.2, 0, th.glow[0] * gl * dark, th.glow[1] * gl * dark, th.glow[2] * gl * dark, 0)
-  } else if (th.kind === 'dead') {
-    for (let k = 0; k < 4; k++) {
-      const a = tr.ph + k * 1.6, y = h * (0.5 + k * 0.13), len = (3.4 - k * 0.5) * s
-      put3(tr.x + Math.cos(a) * len * 0.45, y, tr.z + Math.sin(a) * len * 0.45, len, 0.45 * s, 0.45 * s, 0.4 + k * 0.1, tc[0] * dark * 1.2, tc[1] * dark * 1.2, tc[2] * dark * 1.3, -a)
-    }
-    if (tr.ph > 4.2) put3(tr.x, h * 0.82, tr.z + 0.9 * s, 0.35, 0.35, 0.2, 0, 1.8, 2.2, 2.6) // a pair of watching eyes
-    if (tr.ph > 4.2) put3(tr.x + 0.6 * s, h * 0.82, tr.z + 0.9 * s, 0.35, 0.35, 0.2, 0, 1.8, 2.2, 2.6)
-  } else {
-    for (let k = 0; k < 5; k++) {
-      const a = tr.ph + k * 1.25, len = (3 + (k % 3) * 1.3) * s, tilt = 0.25 + (k % 2) * 0.2
-      const gl = 0.85 + Math.sin(t * 2 + k + tr.ph) * 0.15
-      put3(tr.x + Math.cos(a) * len * 0.35, h * 0.62 + len * 0.45, tr.z + Math.sin(a) * len * 0.35, 0.8 * s, len, 0.8 * s, Math.cos(a) * tilt, th.glow[0] * gl * dark, th.glow[1] * gl * dark, th.glow[2] * gl * dark, 0)
-    }
-  }
+function putTree(api, th, tr, t) {
+  const dark = tr.row ? .66 : 1
+  treeModel(api,tr.x,0,tr.z,tr.h+tr.s*3,tr.ph,t,{kind:th.kind,leaf:th.leaf[1].map(v=>v*dark),bark:th.trunk.map(v=>v*dark),low:!!tr.row})
 }
 
 // ---------- characters ----------
@@ -129,6 +105,7 @@ function mk(put3, x, z, a, lift = 0, scale = 1) {
 }
 const hex = (h, k = 1) => { const c = col(h); return [c[0] * k, c[1] * k, c[2] * k] }
 function drawHero(api, p, t, cl, isMe, RG) {
+  api = modelApi(api)
   const put3 = api.put3, putS = api.putS
   if (!p.alive) { // a gravestone
     const P = mk(put3, p.x, -p.y, 0)
@@ -149,17 +126,8 @@ function drawHero(api, p, t, cl, isMe, RG) {
   // shadow ring for readability and the player marker
   const ringN = isMe ? 14 : 9
   for (let i = 0; i < ringN; i++) { const a = (i / ringN) * TAU + t * 0.8; put3(p.x + Math.cos(a) * (isMe ? 2.6 : 2.2), 0.08, -p.y + Math.sin(a) * (isMe ? 2.6 : 2.2), 0.4, 0.1, 0.4, 0, cc[0] * 1.8, cc[1] * 1.8, cc[2] * 1.8) }
-  // legs
-  const sw = moving ? Math.sin(wk) * 0.85 : 0
-  P(-0.55, 0.85 + (sw > 0 ? sw * 0.25 : 0), sw, 0.75, 1.7, 0.85, cd[0], cd[1], cd[2])
-  P(0.55, 0.85 + (sw < 0 ? -sw * 0.25 : 0), -sw, 0.75, 1.7, 0.85, cd[0], cd[1], cd[2])
-  // torso, belt, head
   const hy = 1.7 + bob
-  if (cl.id === 'mage') { P(0, hy + 1.1, lean * 0.4, 2.3, 2.2, 1.5, cc[0] * 0.9, cc[1] * 0.9, cc[2] * 0.9); P(0, hy - 0.3, 0, 2.7, 0.9, 1.7, cc[0] * 0.7, cc[1] * 0.7, cc[2] * 0.7) }
-  else P(0, hy + 1.0, lean * 0.4, 1.9, 1.9, 1.2, cc[0], cc[1], cc[2])
-  P(0, hy + 0.2, lean * 0.3, 2.0, 0.35, 1.3, 0.3, 0.2, 0.1)
-  P(0, hy + 2.5, lean * 0.7, 1.5, 1.4, 1.4, skin[0], skin[1], skin[2])
-  P(-0.35, hy + 2.6, 0.75 + lean * 0.7, 0.3, 0.3, 0.1, dark[0], dark[1], dark[2]); P(0.35, hy + 2.6, 0.75 + lean * 0.7, 0.3, 0.3, 0.1, dark[0], dark[1], dark[2])
+  animeActor(api,p.x,hov,-p.y,5.75*sc,fa+Math.PI/2,t,{moving,phase:wk,color:cc,dark:cd,skin,hair:rid==='elf'?[.78,.73,.42]:[.12,.07,.06],lean:lean*.45,attack:p.swing?1-p.swing.t/(p.swing.max||.2):0,coat:cl.id!=='knight'})
   // class gear
   if (cl.id === 'knight') {
     P(0, hy + 3.35, lean * 0.7, 1.7, 0.7, 1.6, 0.5, 0.52, 0.58); P(0, hy + 3.9, lean * 0.7, 0.35, 0.8, 1.2, cc[0] * 1.5, cc[1] * 1.5, cc[2] * 1.5) // helm + crest
@@ -204,6 +172,7 @@ function drawHero(api, p, t, cl, isMe, RG) {
 }
 
 function drawEnemy(api, e, t, hero) {
+  api = modelApi(api)
   const put3 = api.put3, putS = api.putS
   const d = e.def, c = hex(d.c, 1), dk = hex(d.c, 0.5), fl = e.flash > 0 ? 2.2 : 1
   const rise = e.spawnT > 0 ? -d.r * 2 * (e.spawnT / 0.5) : 0
@@ -326,6 +295,7 @@ function quad(P, T, c, dk, fl, k, lunge, eyeC, wag) {
   P(Math.sin(T * 9) * wag * k, 2.0 * k, -1.9 * k, 0.4 * k, 0.4 * k, 1.5 * k, c[0] * 0.8, c[1] * 0.8, c[2] * 0.8)
 }
 function drawPet(api, pt, t) {
+  api = modelApi(api)
   const put3 = api.put3, putS = api.putS
   if (!pt.owner || !pt.owner.alive) return
   const T = pt.t || t, fa = pt.face || 0, st = pt.st | 0, sc = 0.75 + st * 0.22, glowK = st * 0.5
@@ -404,7 +374,7 @@ export function drawRogue3(api, RG, CLASSES) {
   // glowing mushrooms
   for (const m of E.shrooms) { if (!inView(m.x, m.z)) continue; const gl = 0.7 + Math.sin(t * 2 + m.ph) * 0.3; put3(m.x, m.s * 0.6, m.z, 0.3 * m.s, m.s * 1.2, 0.3 * m.s, 0, 0.7, 0.65, 0.6); put3(m.x, m.s * 1.35, m.z, m.s * 1.5, m.s * 0.5, m.s * 1.5, 0, th.mush[0] * gl, th.mush[1] * gl, th.mush[2] * gl) }
   // trees (sway)
-  for (const tr of E.trees) { if (inView(tr.x, tr.z, 14)) putTree(put3, th, tr, t) }
+  for (const tr of E.trees) { if (inView(tr.x, tr.z, 14)) putTree(api, th, tr, t) }
   // obstacles: mossy ruins and boulders
   for (const o of RG.obst) {
     if (!inView(o.x, -o.y, 8)) continue
