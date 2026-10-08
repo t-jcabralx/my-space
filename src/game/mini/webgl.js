@@ -11,7 +11,7 @@ export function makeMiniWebGL(canvas, g, W = 360, H = 540) {
   renderer.setSize(W, H, false)
   renderer.outputColorSpace = THREE.SRGBColorSpace
   renderer.toneMapping = THREE.ACESFilmicToneMapping
-  renderer.toneMappingExposure = 1.25
+  renderer.toneMappingExposure = 1.08
   renderer.shadowMap.enabled = true
   renderer.shadowMap.type = THREE.PCFShadowMap
   const scene = new THREE.Scene()
@@ -21,8 +21,8 @@ export function makeMiniWebGL(canvas, g, W = 360, H = 540) {
   const perspective = new THREE.PerspectiveCamera(45, W / H, 1, 6000)
   const ortho = new THREE.OrthographicCamera(-W / 2, W / 2, H / 2, -H / 2, 1, 6000)
   let camera = perspective, board = false
-  const hemi = new THREE.HemisphereLight('#d8efff', '#77718c', 2)
-  const sun = new THREE.DirectionalLight('#fff0d5', 3.2)
+  const hemi = new THREE.HemisphereLight('#d8efff', '#77718c', 1.65)
+  const sun = new THREE.DirectionalLight('#fff0d5', 2.6)
   sun.castShadow = true
   sun.shadow.mapSize.set(1024, 1024)
   sun.shadow.camera.left = sun.shadow.camera.bottom = -460
@@ -42,9 +42,10 @@ export function makeMiniWebGL(canvas, g, W = 360, H = 540) {
     pyramid: new THREE.ConeGeometry(Math.SQRT1_2, 1, 4).rotateY(Math.PI / 4),
     gem: new THREE.OctahedronGeometry(0.6),
     torus: new THREE.TorusGeometry(1, 0.07, 6, 40),
+    panel: new THREE.PlaneGeometry(1,1),
     ...artGeometries(),
   }
-  const batches = new Map(), object = new THREE.Object3D(), color = new THREE.Color()
+  const batches = new Map(), gradients=new Map(), object = new THREE.Object3D(), color = new THREE.Color()
   const from = new THREE.Vector3(), to = new THREE.Vector3(), direction = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0)
   const raycaster = new THREE.Raycaster(), plane = new THREE.Plane(), hit = new THREE.Vector3()
   const r = makeR3(g, W, H)
@@ -86,12 +87,12 @@ export function makeMiniWebGL(canvas, g, W = 360, H = 540) {
     if (!Number.isFinite(x + y + z + sx + sy + sz) || !sx || !sy || !sz) return
     const alpha = Math.round(Math.min(1, Math.max(0, o.alpha ?? 1)) * 10) / 10
     if (!alpha) return
-    const glow = o.glow > 1.2 ? 0.25 : 0, key = `${kind}:${alpha}:${glow}`
+    const glow = o.glow > 1.2 ? 0.25 : 0, surface=o.unlit?'unlit':o.surface||(['leaf','organic','cloth','branch'].includes(kind)?'matte':'paint'),key = `${kind}:${alpha}:${glow}:${surface}`
     let batch = batches.get(key)
     if (!batch) {
-      const material = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: .42, metalness: .14, transparent: alpha < 1, opacity: alpha, depthWrite: alpha === 1, emissive: '#ffffff', emissiveIntensity: glow, side: THREE.DoubleSide })
+      const material = surface==='unlit'?new THREE.MeshBasicMaterial({color:'#ffffff',transparent:alpha<1,opacity:alpha,depthWrite:alpha===1,side:THREE.DoubleSide,toneMapped:false}):new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: surface==='gel'?.24:surface==='matte'?.88:.48, metalness: surface==='paint'?.08:0, transparent: alpha < 1, opacity: alpha, depthWrite: alpha === 1, emissive: '#ffffff', emissiveIntensity: glow, side: THREE.DoubleSide })
       // Keep neon rims in their instance color instead of bleaching every glow white.
-      if(glow)material.onBeforeCompile=shader=>{
+      if(glow&&surface!=='unlit')material.onBeforeCompile=shader=>{
         shader.fragmentShader=shader.fragmentShader.replace('#include <emissivemap_fragment>',`#include <emissivemap_fragment>
 #if defined( USE_COLOR ) || defined( USE_COLOR_ALPHA )
         totalEmissiveRadiance *= vColor.rgb;
@@ -99,14 +100,14 @@ export function makeMiniWebGL(canvas, g, W = 360, H = 540) {
       }
       const instances = new THREE.InstancedMesh(geometries[kind], material, 2048)
       instances.instanceMatrix.setUsage(THREE.DynamicDrawUsage); instances.frustumCulled = false
-      instances.castShadow = alpha === 1; instances.receiveShadow = true
+      instances.castShadow = alpha === 1&&surface!=='unlit'; instances.receiveShadow = surface!=='unlit'
       scene.add(instances); batch = { instances, used: 0, capacity: 2048 }; batches.set(key, batch)
     }
     if (batch.used >= batch.capacity) {
       const old = batch.instances, replacement = new THREE.InstancedMesh(old.geometry, old.material, batch.capacity * 2)
       replacement.instanceMatrix.array.set(old.instanceMatrix.array)
       if (old.instanceColor) { replacement.setColorAt(0, color); replacement.instanceColor.array.set(old.instanceColor.array) }
-      replacement.castShadow = old.castShadow; replacement.receiveShadow = true; replacement.frustumCulled = false
+      replacement.castShadow = old.castShadow; replacement.receiveShadow = old.receiveShadow; replacement.frustumCulled = false
       replacement.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
       scene.remove(old); old.dispose(); scene.add(replacement)
       batch.instances = replacement; batch.capacity *= 2
@@ -120,6 +121,7 @@ export function makeMiniWebGL(canvas, g, W = 360, H = 540) {
   }
   r.begin = (top = '#172743', bottom = '#080f20') => {
     for (const batch of batches.values()) batch.used = 0
+    for(const panel of gradients.values())panel.visible=false
     labels.length = 0; r.q.length = 0
     g.clearRect(0, 0, W, H)
     const next = top + bottom
@@ -128,6 +130,16 @@ export function makeMiniWebGL(canvas, g, W = 360, H = 540) {
       gradient.addColorStop(0, top || '#101b30'); gradient.addColorStop(1, bottom || '#080f20')
       skyContext.fillStyle = gradient; skyContext.fillRect(0, 0, 2, 128); skyTexture.needsUpdate = true; skyKey = next
     }
+  }
+  r.gradient=(x,y,z,width,height,top,bottom)=>{
+    const key=top+bottom;let panel=gradients.get(key)
+    if(!panel){
+      const c=document.createElement('canvas');c.width=2;c.height=128;const ctx=c.getContext('2d'),gradient=ctx.createLinearGradient(0,0,0,128)
+      gradient.addColorStop(0,top);gradient.addColorStop(1,bottom);ctx.fillStyle=gradient;ctx.fillRect(0,0,2,128)
+      const texture=new THREE.CanvasTexture(c);texture.colorSpace=THREE.SRGBColorSpace
+      panel=new THREE.Mesh(geometries.panel,new THREE.MeshBasicMaterial({map:texture,side:THREE.DoubleSide,toneMapped:false}));scene.add(panel);gradients.set(key,panel)
+    }
+    panel.visible=true;panel.position.set(x,y,z);panel.scale.set(width,height,1)
   }
   r.box = (x,y,z,sx,sy,sz,c,o={}) => mesh(o.edge === false || o.bevel === false ? 'box' : 'round',x,y,z,sx,sy,sz,c,o)
   r.sphere = (x,y,z,s,c,o={}) => { mesh('sphere',x,y,z,s,s,s,c,o); if (o.ring) mesh('torus',x,y,z-s*.1,s*1.03,s*1.03,s*1.03,o.ring,o) }
@@ -184,6 +196,7 @@ export function makeMiniWebGL(canvas, g, W = 360, H = 540) {
   }
   r.dispose = () => {
     for(const {instances} of batches.values()) {instances.material.dispose(); instances.dispose()}
+    for(const panel of gradients.values()){panel.material.map.dispose();panel.material.dispose()}
     for(const geometry of Object.values(geometries))geometry.dispose()
     skyTexture.dispose(); sun.shadow.dispose(); renderer.dispose()
     // React may replay an effect on the same canvas during development.

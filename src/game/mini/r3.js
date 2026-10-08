@@ -150,6 +150,10 @@ export function makeR3(g, W = 360, H = 540) {
   }
   // flat quad on the floor (or any 4 points), 4 corner arrays
   r.quad = (pts, color, o = {}) => { const pp = pts.map(r.proj); if (pp.some((p) => !p)) return; const c = pts.reduce((a, p) => [a[0] + p[0] / 4, a[1] + p[1] / 4, a[2] + p[2] / 4], [0, 0, 0]); r.q.push({ d: key(c) + (o.back ? 1e7 : 0), draw() { g.beginPath(); pp.forEach((p, i) => (i ? g.lineTo(p.x, p.y) : g.moveTo(p.x, p.y))); g.closePath(); g.fillStyle = rgb(color, o.k || 1, o.alpha ?? 1); g.fill() } }) }
+  r.gradient=(x,y,z,w,h,top,bottom)=>{
+    const pts=[[-1,1],[1,1],[1,-1],[-1,-1]].map(([a,b])=>r.proj([x+a*w/2,y+b*h/2,z]));if(pts.some(p=>!p))return
+    r.q.push({d:key([x,y,z]),draw(){const gr=g.createLinearGradient(pts[0].x,pts[0].y,pts[3].x,pts[3].y);gr.addColorStop(0,top);gr.addColorStop(1,bottom);g.beginPath();pts.forEach((p,i)=>i?g.lineTo(p.x,p.y):g.moveTo(p.x,p.y));g.closePath();g.fillStyle=gr;g.fill()}})
+  }
   r.floor = (x0, z0, x1, z1, y, color, o = {}) => r.quad([[x0, y, z0], [x1, y, z0], [x1, y, z1], [x0, y, z1]], color, { ...o, back: true })
   r.shadow = (x, z, rad, a = 0.3, y = 0.2) => { const p = r.proj([x, y, z]); if (!p) return; r.q.push({ d: 1e8, draw() { g.fillStyle = `rgba(0,0,0,${a})`; g.beginPath(); g.ellipse(p.x, p.y, rad * p.k, rad * p.k * 0.38, 0, 0, Math.PI * 2); g.fill() } }) }
   r.line = (a, b, color = '#fff', w = 2) => { const p = r.proj(a), q = r.proj(b); if (!p || !q) return; r.q.push({ d: key([(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2]), draw() { g.strokeStyle = rgb(color); g.lineWidth = w * Math.min(2, (p.k + q.k) / 2); g.beginPath(); g.moveTo(p.x, p.y); g.lineTo(q.x, q.y); g.stroke(); g.lineWidth = 1 } }) }

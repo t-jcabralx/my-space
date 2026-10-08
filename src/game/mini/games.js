@@ -4,7 +4,8 @@
 // Logical canvas is W x H; the shell scales it to the screen and maps touch/mouse into these coordinates.
 import { wrapR3 } from './r3.js'
 import { createFruitWorld, FRUIT_RADII, FRUIT_BIN } from './fruitPhysics.js'
-import { fruitModel, fishModel, moleModel, wrestlerModel, basketballModel, chickModel, lanternModel, flowerPatch, robotModel } from './models.js'
+import { fruitModel, fishModel, moleModel, wrestlerModel, basketballModel, chickModel, lanternModel, flowerPatch, robotModel, slimeModel, courierModel, coinModel, fishingBoatModel, minerModel, mineCartModel, hopperModel, hoopModel } from './models.js'
+import { gardenArena, skyMeadow, lakeScenery, neonCity, crystalMine, floatingGardens, gardenPlatform, sunsetCourt, sumoPavilion } from './environments.js'
 export const W = 360, H = 540
 const TAU = Math.PI * 2
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
@@ -98,19 +99,19 @@ function wingDash() {
   }
 
   o.draw3 = (r, g) => {
-    r.look(-30, 345, -580, 20, 270, 0, 45); r.begin('#5ec8ff', '#d7f3ff')
-    r.floor(-500, -300, 500, 600, H - GR, '#d9b36a')
-    for (let i = -8; i < 9; i++) { const x = ((i * 50 - t * 125) % 400 + 400) % 400 - 200; r.quad([[x, H - GR + 0.3, -120], [x + 22, H - GR + 0.3, -120], [x + 22, H - GR + 0.3, 40], [x, H - GR + 0.3, 40]], '#7ac74f') }
-    r.box(0, H - GR + 4, 40, 900, 8, 24, '#7ac74f', { edge: false })
+    r.screen();skyMeadow(r,t,H-GR)
     for (const p of pipes) {
       const cx = p.x + 26 - W / 2, top = H - (p.gap - p.open / 2), bot = H - (p.gap + p.open / 2)
-      r.cyl(cx, top, 0, 26, 500, '#3cb043', { top: '#6fe05a' }); r.cyl(cx, top, 0, 31, 16, '#2a8a33', { top: '#5acd48' })
-      r.cyl(cx, H - GR, 0, 26, bot - (H - GR), '#3cb043', { top: '#6fe05a' }); r.cyl(cx, bot - 16, 0, 31, 16, '#2a8a33', { top: '#5acd48' })
+      r.cyl(cx,top,0,22,500,'#65ad51');r.cyl(cx,top,0,26,14,'#3f8344');r.cyl(cx,top-.3,0,20,.5,'#294f39')
+      r.cyl(cx,H-GR,0,22,bot-(H-GR),'#65ad51');r.cyl(cx,bot-14,0,26,14,'#3f8344');r.cyl(cx,bot+.1,0,20,.5,'#294f39')
+      r.line([cx-10,top+16,-20],[cx-10,top+350,-20],'#9dcc68',3)
+      if(bot>H-GR+20)r.line([cx-10,H-GR+3,-20],[cx-10,bot-16,-20],'#9dcc68',3)
     }
-    const bx = 90 - W / 2, by = H - b.y, fl = Math.sin(t * 22) * 8
+    const bx = 90 - W / 2, by = H - b.y
     r.shadow(bx, 0, 13, 0.25, H - GR + 0.3)
-    chickModel(r,bx,by,0,13,t)
-    r.fx(fx); r.flush(); txt(g, String(o.score), W / 2, 60, 34, '#fff')
+    chickModel(r,bx,by,0,13,t,clamp(-b.vy/950,-.65,.28))
+    r.fx(fx); r.flush();txt(g,String(o.score),W/2,48,27,'#245e6c')
+    if(!started)txt(g,'TAP TO TAKE FLIGHT',W/2,110,10,'#245e6c')
   }
   return o
 }
@@ -242,18 +243,15 @@ function neonRunner() {
   }
 
   o.draw3 = (r, g) => {
-    r.screen(); r.begin('#2a0a4a', '#0a0420')
-    for (let i = 0; i < 9; i++) { const x = ((i * 90 - dist * 0.15) % 720 + 720) % 720 - 360, h = 60 + (i * 37) % 110; r.box(x, 114 + h / 2, 150 + (i % 3) * 40, 44, h, 34, hsl(260 + i * 14, 60, 22), { edge: false }) }
-    r.box(0, 100, 0, 800, 28, 150, '#16093a'); r.box(0, 114, -75, 800, 4, 5, '#ff4de1', { glow: 1.3, edge: false })
-    for (let k = -6; k < 12; k++) { const x = k * 40 - (dist % 40) - 200; r.box(x, 114.5, 0, 3, 1, 148, '#ff4de1', { alpha: 0.3, edge: false }) }
+    r.screen();neonCity(r,dist,r.clock)
     for (const a of obs) {
       const x = a.x + a.w / 2 - W / 2
-      if (a.k === 'block') r.box(x, 114 + a.h / 2, 0, a.w, a.h, 36, '#7a3cff')
-      else { const n = a.k === 'double' ? 2 : 1; for (let i = 0; i < n; i++) r.pyramid(a.x + 13 + i * 26 - W / 2, 114, 0, 26, a.h, 26, '#ff4d6d') }
+      if (a.k === 'block') {r.box(x,120+a.h/2,0,a.w,a.h,30,'#665398');r.box(x,120+a.h-3,-16,a.w-5,3,2,'#dd9ce6',{glow:1.5});r.line([x-8,128,-16],[x+8,144,-16],'#cfb1df',2)}
+      else { const n = a.k === 'double' ? 2 : 1; for (let i = 0; i < n; i++) {const xx=a.x+13+i*26-W/2;r.pyramid(xx,120,0,26,a.h,26,'#ed7895');r.box(xx,122,-14,24,4,2,'#ffd0d9',{glow:1.4})} }
     }
-    for (const c of coins) r.sphere(c.x - W / 2, H - c.y, 0, 8, '#ffe84a', { glow: 1.1 })
-    if (!o.over) { const px = 80 - W / 2, py = H - p.y; r.shadow(px, 0, 15, 0.35, 114); r.person(px, py, 0, '#3de8ff', dist * 0.07, 3.1, { hair:'#66301a',color:'#263756',accent:[1,.65,.12],coat:false,yaw:Math.PI*.72 }) }
-    r.fx(fx); r.flush()
+    for (const c of coins) coinModel(r,c.x-W/2,H-c.y,0,8,r.clock)
+    if (!o.over)courierModel(r,80-W/2,H-p.y,0,43,r.clock,{phase:dist*.065,airborne:p.y<GY-1})
+    r.fx(fx); r.flush();txt(g,'NEON DISTRICT',W/2,32,11,'#def2f5');txt(g,String(o.score),W/2,57,17,'#f7d189')
   }
   return o
 }
@@ -464,22 +462,23 @@ function moleSmash() {
 function idleMiner() {
   const UP = [{ n: 'PICKAXE', d: '+1 per tap', base: 15, g: 1.35 }, { n: 'MINER', d: '+1 ore/s', base: 60, g: 1.4 }, { n: 'DRILL', d: '+8 ore/s', base: 500, g: 1.45 }, { n: 'LUCKY', d: '+5% crit x5', base: 250, g: 1.6 }]
   const o = { score: 0, over: false, label: 'TAP THE ROCK · BUY UPGRADES · IT NEVER ENDS' }
-  let ore, total, lv, fx, t, shakeT, floats
+  let ore, total, lv, fx, t, shakeT, floats, swingT
   const key = 'si_idle_miner'
   const per = () => 1 + lv[0], auto = () => lv[1] + lv[2] * 8, crit = () => Math.min(0.5, lv[3] * 0.05)
   const cost = (i) => Math.floor(UP[i].base * Math.pow(UP[i].g, lv[i]))
   const save = () => { try { localStorage.setItem(key, JSON.stringify({ ore, total, lv })) } catch { /* ignore */ } }
-  o.reset = () => { ore = 0; total = 0; lv = [0, 0, 0, 0]; fx = []; floats = []; t = 0; shakeT = 0; o.over = false; try { const s = JSON.parse(localStorage.getItem(key) || 'null'); if (s) { ore = s.ore; total = s.total; lv = s.lv } } catch { /* ignore */ } o.score = Math.floor(total) }
+  o.reset = () => { ore = 0; total = 0; lv = [0, 0, 0, 0]; fx = []; floats = []; t = 0; shakeT = 0; swingT=0; o.over = false; try { const s = JSON.parse(localStorage.getItem(key) || 'null'); if (s) { ore = s.ore; total = s.total; lv = s.lv } } catch { /* ignore */ } o.score = Math.floor(total) }
   o.down = (x, y) => {
     if (y > 330) { for (let i = 0; i < 4; i++) { const yy = 346 + i * 48; if (y > yy && y < yy + 42 && ore >= cost(i)) { ore -= cost(i); lv[i]++; puff(fx, W / 2, yy + 20, 12, '#ffe84a', 160); save(); return } } return }
     let v = per(); const c = Math.random() < crit(); if (c) v *= 5
-    ore += v; total += v; shakeT = 0.1; puff(fx, x, y, c ? 12 : 5, c ? '#ffe84a' : '#b9a58a', 150); floats.push({ x, y, v, c, l: 0.7 }); o.score = Math.floor(total)
+    ore += v; total += v; shakeT = 0.1;swingT=.42; puff(fx, x, y, c ? 12 : 5, c ? '#ffe84a' : '#b9a58a', 150); floats.push({ x, y, v, c, l: 0.7 }); o.score = Math.floor(total)
   }
   o.update = (dt) => {
-    stepFx(fx, dt); t += dt; shakeT = Math.max(0, shakeT - dt)
+    stepFx(fx, dt); t += dt; shakeT = Math.max(0, shakeT - dt);swingT=Math.max(0,swingT-dt)
     const a = auto() * dt; ore += a; total += a; o.score = Math.floor(total)
     for (const f of floats) { f.l -= dt; f.y -= 40 * dt } for (let i = floats.length - 1; i >= 0; i--) if (floats[i].l <= 0) floats.splice(i, 1)
     if (Math.floor(t) % 5 === 0 && Math.floor(t * 10) % 10 === 0) save()
+    o.status=auto()?'Your crew is mining · '+auto()+' ore per second':'Tap the crystal seam to swing your pickaxe'
   }
   o.draw = (g) => {
     sky(g, '#3a2a1a', '#150e08')
@@ -491,17 +490,22 @@ function idleMiner() {
   }
 
   o.draw3 = (r, g) => {
-    r.screen(); r.begin('#3a2a1a', '#150e08')
-    r.box(0, H - 150, 70, W + 80, 360, 20, '#24180e', { edge: false }); r.floor(-400, -200, 400, 300, H - 290, '#3a2a1a')
-    const s2 = 1 + shakeT * 1.2, base = H - 250
-    r.gem(-24,base+58,0,145*s2,'#7c8192',{ry:.4});r.gem(43,base+37,-20,102*s2,'#9494a0',{ry:-.35});r.gem(-15,base+117,12,86*s2,'#a3a4ae',{ry:.6})
-    for(const side of [-1,1])r.box(side*140,base+85,45,13,205,14,'#a58871');r.box(0,base+185,45,300,16,18,'#bb9b7d')
-    for(let i=0;i<5;i++)r.gem(-55+i*25,base+32+(i%3)*28,-65,14+(i%2)*5,['#efc770','#85cddb','#c7a5e3'][i%3],{ry:i*.7})
-    for(const side of [-1,1])lanternModel(r,side*134,base+152,20,10)
+    r.screen();crystalMine(r,t)
+    const s2=1+shakeT*.6,base=260
+    mineCartModel(r,auto()?Math.sin(t*.32)*88:106,275,65,43,t)
+    r.gem(49,base+41,0,130*s2,'#7a8d9c',{ry:.4});r.gem(98,base+23,-13,86*s2,'#9aa6ad',{ry:-.35})
+    r.gem(60,base+91,12,78*s2,'#93a5b2',{ry:.6})
+    for(let i=0;i<7;i++)r.gem(3+i*17,base+25+(i%3)*25,-39,17+(i%2)*9,['#f2c260','#76cde1','#b5a7dd'][i%3],{ry:i*.7})
+    minerModel(r,-86,base,-13,119,t,swingT?Math.sin((1-swingT/.42)*Math.PI):0)
+    for(let i=0;i<Math.min(3,lv[1]);i++)minerModel(r,-105+i*55,306,100,46,t+i,(Math.sin(t*4+i)*.5+.5)*.9)
+    if(lv[2]){
+      r.box(126,base+45,-24,28,49,28,'#bb985f');r.box(126,base+16,-24,38,9,39,'#596475')
+      r.line([115,base+47,-24],[82,base+47,-24],'#b7c7cc',12)
+      for(let i=0;i<5;i++)r.ellipsoid(84+i*5,base+47,-24,2.5,9-i*.5,9-i*.5,'#d3dcd8',{rx:t*13+i*.6})
+    }
     o.mapPointer=(x,y)=>y>330?[x,y]:r.boardPoint?.(x,y)||[x,y]
-    r.sphere(40, base + 70, -62, 12, '#ffd23a', { glow: 1.3 }); r.sphere(-46, base + 36, -58, 9, '#3de8ff', { glow: 1.3 }); r.sphere(60, base + 20, -58, 8, '#ff6a8a', { glow: 1.3 })
     r.fx(fx); r.flush()
-    txt(g, '⛏ ' + Math.floor(ore), W / 2, 40, 22, '#ffe84a'); txt(g, per() + ' per tap · ' + auto() + '/s', W / 2, 72, 10, '#d9c7a6')
+    txt(g, 'ORE ' + Math.floor(ore), W / 2, 35, 19, '#ffe5a2'); txt(g, per() + ' per tap · ' + auto() + '/s', W / 2, 62, 10, '#dce8e5')
     for (let i = 0; i < 4; i++) { const yy = 346 + i * 48, can = ore >= cost(i); g.fillStyle = can ? '#2a6a2a' : '#2b2118'; rr(g, 14, yy, W - 28, 42, 8); g.fill(); g.fillStyle = can ? '#4aa04a' : '#3d3226'; rr(g, 14, yy, W - 28, 6, 3); g.fill(); txt(g, UP[i].n + ' LV' + lv[i], 24, yy + 17, 10, '#fff', 'left'); txt(g, UP[i].d, 24, yy + 32, 8, '#cdbba0', 'left'); txt(g, '⛏ ' + cost(i), W - 24, yy + 22, 11, can ? '#ffe84a' : '#887', 'right') }
     for (const f of floats) { g.globalAlpha = clamp(f.l * 2, 0, 1); txt(g, '+' + f.v, f.x, f.y, f.c ? 18 : 12, f.c ? '#ffe84a' : '#fff'); g.globalAlpha = 1 }
   }
@@ -569,8 +573,12 @@ function blobArena() {
   let me, bots, pellets, aim, fx, t
   const held=new Set()
   const rad = (m) => 10 + Math.sqrt(m) * 2.6
-  const mkBot = (i) => ({ x: rnd(100, WW - 100), y: rnd(100, WH - 100), m: rnd(20, 90), c: hsl(i * 47 + 20, 75, 55), vx: 0, vy: 0, think: 0, tx: 0, ty: 0 })
-  o.reset = () => { held.clear(); me = { x: WW / 2, y: WH / 2, m: 20, vx: 0, vy: 0 }; bots = Array.from({ length: 14 }, (_, i) => mkBot(i)); pellets = Array.from({ length: 260 }, () => ({ x: rnd(20, WW - 20), y: rnd(20, WH - 20), c: hsl(ri(0, 360), 85, 60) })); aim = { x: 0, y: 0 }; fx = []; t = 0; o.score = 20; o.over = false }
+  const mkBot = (i) => {
+    let x=rnd(100,WW-100),y=rnd(100,WH-100)
+    if(Math.hypot(x-WW/2,y-WH/2)<260){const a=i*2.39996;x=WW/2+Math.cos(a)*320;y=WH/2+Math.sin(a)*320}
+    return {x,y,m:rnd(20,90),c:['#b68bd6','#f0a274','#80bdcb','#dba0b8','#dcc476','#8ba8d3'][i%6],seed:i,vx:0,vy:0,think:0,tx:0,ty:0,bite:0}
+  }
+  o.reset = () => { held.clear(); me = { x: WW / 2, y: WH / 2, m: 20, vx: 0, vy: 0, bite:0 }; bots = Array.from({ length: 14 }, (_, i) => mkBot(i)); pellets = Array.from({ length: 260 }, () => ({ x: rnd(20, WW - 20), y: rnd(20, WH - 20), c: ['#dd7998','#d8ae48','#8c78bd','#de9363'][ri(0,3)] })); aim = { x: 0, y: 0 }; fx = []; t = 0; o.score = 20; o.over = false; o.status='Find the berries · you have a safe start' }
   const setAim = (x, y) => { if(!held.size)aim = { x: x - W / 2, y: H / 2 - y } }
   o.down = setAim; o.move = setAim
   const keyAim=()=>{aim={x:(Number(held.has('ArrowRight'))-Number(held.has('ArrowLeft')))*100,y:(Number(held.has('ArrowUp'))-Number(held.has('ArrowDown')))*100}}
@@ -583,11 +591,13 @@ function blobArena() {
     stepFx(fx, dt)
     if (o.over) return
     t += dt
+    me.bite=Math.max(0,me.bite-dt*4)
     const len = Math.hypot(aim.x, aim.y)
     steer(me, me.x + aim.x * 4, me.y + aim.y * 4, dt, len < 8 ? 0 : 1)
     me.m = Math.max(20, me.m - me.m * 0.0006 * dt * 60 * 0.1)
-    for (let i = pellets.length - 1; i >= 0; i--) { const q = pellets[i]; if (Math.hypot(q.x - me.x, q.y - me.y) < rad(me.m)) { me.m += 1.2; pellets.splice(i, 1); pellets.push({ x: rnd(20, WW - 20), y: rnd(20, WH - 20), c: hsl(ri(0, 360), 85, 60) }) } }
+    for (let i = pellets.length - 1; i >= 0; i--) { const q = pellets[i]; if (Math.hypot(q.x - me.x, q.y - me.y) < rad(me.m)) { me.m += 1.2; me.bite=1; pellets.splice(i, 1); pellets.push({ x: rnd(20, WW - 20), y: rnd(20, WH - 20), c: q.c }) } }
     for (const b of bots) {
+      b.bite=Math.max(0,b.bite-dt*4)
       b.think -= dt
       if (b.think <= 0) {
         b.think = rnd(0.4, 0.9); let tx = b.x + rnd(-200, 200), ty = b.y + rnd(-200, 200), bd = 1e9, flee = null
@@ -597,15 +607,17 @@ function blobArena() {
         b.tx = tx; b.ty = ty
       }
       steer(b, b.tx, b.ty, dt, 0.92)
-      for (let i = pellets.length - 1; i >= 0; i--) { const q = pellets[i]; if (Math.hypot(q.x - b.x, q.y - b.y) < rad(b.m)) { b.m += 1.2; pellets.splice(i, 1); pellets.push({ x: rnd(20, WW - 20), y: rnd(20, WH - 20), c: hsl(ri(0, 360), 85, 60) }) } }
+      for (let i = pellets.length - 1; i >= 0; i--) { const q = pellets[i]; if (Math.hypot(q.x - b.x, q.y - b.y) < rad(b.m)) { b.m += 1.2; b.bite=1; pellets.splice(i, 1); pellets.push({ x: rnd(20, WW - 20), y: rnd(20, WH - 20), c: q.c }) } }
     }
     for (let i = 0; i < bots.length; i++) {
       const b = bots[i]
-      if (eat(me, b)) { me.m += b.m * 0.8; puff(fx, b.x, b.y, 14, b.c, 200); bots[i] = mkBot(i); bots[i].m = rnd(15, 60); bots[i].x = Math.random() < 0.5 ? 30 : WW - 30; continue }
-      if (eat(b, me)) { o.over = true; puff(fx, me.x, me.y, 30, '#3de8ff', 260); continue }
+      if (eat(me, b)) { me.m += b.m * 0.8; me.bite=1; puff(fx, b.x, b.y, 14, b.c, 200); bots[i] = mkBot(i); bots[i].m = rnd(15, 60); bots[i].x = Math.random() < 0.5 ? 30 : WW - 30; continue }
+      if (t>2&&eat(b, me)) { o.over = true; puff(fx, me.x, me.y, 30, '#68c8a1', 260); continue }
       for (let j = 0; j < bots.length; j++) { const c = bots[j]; if (c !== b && eat(b, c)) { b.m += c.m * 0.8; bots[j] = mkBot(j); bots[j].x = Math.random() < 0.5 ? 30 : WW - 30 } }
     }
     o.score = Math.floor(me.m)
+    const danger=bots.some(b=>b.m>me.m*1.15&&Math.hypot(b.x-me.x,b.y-me.y)<180)
+    o.status=t<2?'Find the berries · you have a safe start':danger?'A bigger spirit is close · keep moving':'Collect berries · catch the smaller spirits'
   }
   o.draw = (g) => {
     g.fillStyle = '#0b1230'; g.fillRect(0, 0, W, H)
@@ -622,17 +634,24 @@ function blobArena() {
 
   o.draw3 = (r, g) => {
     const k = clamp(46 / rad(me.m) * 0.9 + 0.35, 0.45, 1.1), dist2 = 520 / k
-    r.look(me.x, dist2 * 0.85, me.y - dist2 * 0.55, me.x, 0, me.y + 40, 50); r.begin('#07102a', '#0b1230')
+    r.look(me.x, dist2 * 0.66, me.y - dist2 * 0.8, me.x, 0, me.y + 40, 50); r.begin('#94cbbb', '#dce8b3')
     // Map pointer rays onto the blob's plane; screen up points deeper into this scene.
     o.mapPointer=(x,y)=>{const hit=r.pickGround(x,y,rad(me.m)*.8);return hit?[W/2+hit[0]-me.x,H/2-(hit[1]-me.y)]:[W/2,H/2]}
-    r.floor(0, 0, WW, WH, 0, '#0d1838')
-    for (let x = 0; x <= WW; x += 70) r.line([x, 0.5, 0], [x, 0.5, WH], '#ffffff22', 1)
-    for (let y = 0; y <= WH; y += 70) r.line([0, 0.5, y], [WW, 0.5, y], '#ffffff22', 1)
-    r.box(WW / 2, 12, -6, WW + 24, 24, 12, '#ff4de1', { glow: 1.1, edge: false }); r.box(WW / 2, 12, WH + 6, WW + 24, 24, 12, '#ff4de1', { glow: 1.1, edge: false }); r.box(-6, 12, WH / 2, 12, 24, WH + 24, '#ff4de1', { glow: 1.1, edge: false }); r.box(WW + 6, 12, WH / 2, 12, 24, WH + 24, '#ff4de1', { glow: 1.1, edge: false })
-    for (const q of pellets) { if (Math.abs(q.x - me.x) > 460 / k || Math.abs(q.y - me.y) > 600 / k) continue; r.sphere(q.x, 5, q.y, 5, q.c, { shine: false, glow: 1.2 }) }
-    const all = [...bots.map((b) => ({ ...b })), { ...me, c: '#3de8ff', me: 1 }]
-    for (const b of all) { const rd = rad(b.m); r.shadow(b.x, b.y, rd * 1.05, 0.3); r.ellipsoid(b.x,rd*.8,b.y,rd,rd*(.82+Math.sin(t*4+b.m)*.035),rd,b.c); for(const side of [-1,1]) {r.sphere(b.x+side*rd*.3,rd*1.12,b.y-rd*.78,rd*.18,'#ffffff');r.sphere(b.x+side*rd*.3,rd*1.12,b.y-rd*.94,rd*.09,'#293247')} if(b.me)r.text(b.x,rd*2.2,b.y,'YOU',12,'#ffffff') }
-    r.fx(fx, (p) => [p.x, 20 + (p.y % 10), p.y]); r.flush(); txt(g, 'MASS ' + Math.floor(me.m), 70, 24, 11, '#fff', 'center')
+    gardenArena(r,me.x,me.y,t,WW)
+    for (const q of pellets) { if (Math.abs(q.x - me.x) > 460 / k || Math.abs(q.y - me.y) > 600 / k) continue; r.sphere(q.x,5,q.y,5,q.c);r.ellipsoid(q.x+1.5,10,q.y,3,1,1.5,'#44744c',{rz:.3}) }
+    const all = [...bots, { ...me, c: '#62c6a4', me: 1 }]
+    for (const b of all) {
+      const rd=rad(b.m),danger=!b.me&&b.m>me.m*1.15
+      if(Math.abs(b.x-me.x)>650/k||Math.abs(b.y-me.y)>750/k)continue
+      r.shadow(b.x,b.y,rd,0.2)
+      slimeModel(r,b.x,0,b.y,rd,b.c,t,{vx:b.vx,vz:b.vy,seed:b.seed||0,hero:!!b.me,danger,bite:b.bite})
+      if(b.me){
+        for(let i=0;i<28;i++){const a=i*TAU/28;r.ellipsoid(b.x+Math.cos(a)*rd*1.15,1,b.y+Math.sin(a)*rd*1.15,1.9,.5,1.9,t<2?'#fff5c2':'#fff9eb')}
+        r.text(b.x,rd*2.5,b.y,'YOU',11,'#294c42')
+      } else if(danger&&Math.hypot(b.x-me.x,b.y-me.y)<240)r.text(b.x,rd*2.3,b.y,'BIGGER',8,'#794938')
+    }
+    r.fx(fx, (p) => [p.x, 20 + (p.y % 10), p.y]); r.flush()
+    g.fillStyle='#fff9e8e8';rr(g,12,12,W-24,37,11);g.fill();g.fillStyle='#315a4b';g.font='700 11px system-ui, sans-serif';g.textAlign='left';g.fillText('GARDEN GLADE',24,35);g.textAlign='right';g.fillText('MASS '+Math.floor(me.m),W-24,35)
   }
   return o
 }
@@ -741,27 +760,29 @@ function colorMemory() {
 
 // ---------------------------------------------------------------- 14. LAKE FISHING
 function lakeFishing() {
-  const SURF = 110
+  const SURF = 160
   const o = { score: 0, over: false, label: 'MOVE TO AIM · HOLD TO DROP THE HOOK · RELEASE TO REEL IN', time: 60 }
-  let hook, fish, t, down, fx, spawnT, held, line
+  let hook, fish, t, fx, spawnT, held, aimX, boatX, catchFlash, lastCatch
   const KINDS = [['🐟', 10, '#7ad0ff', 18], ['🐠', 25, '#ffb02e', 16], ['🐡', 50, '#ffe84a', 20], ['🦑', -30, '#b27aff', 20], ['🥾', -10, '#8a6a4a', 18]]
-  o.reset = () => { hook = { x: W / 2, y: SURF, vy: 0, load: null }; fish = []; t = 60; down = false; fx = []; spawnT = 0.2; held = false; line = SURF; o.score = 0; o.over = false; o.time = 60 }
-  o.down = (x) => { hook.x = x; held = true }
-  o.move = (x) => { hook.x = clamp(x, 20, W - 20) }
+  o.reset = () => { hook = { x: W / 2, y: SURF, vy: 0, load: null }; fish = []; t = 60; fx = []; spawnT = 0.2; held = false; aimX=W/2;boatX=W/2;catchFlash=0;lastCatch=0;o.score = 0; o.over = false; o.time = 60 }
+  o.down = (x) => { aimX=clamp(x,35,W-35);held=true }
+  o.move = (x) => { aimX=clamp(x,35,W-35) }
   o.up = () => { held = false }
-  o.key = (c) => { if (c === 'ArrowLeft') hook.x = clamp(hook.x - 30, 20, W - 20); if (c === 'ArrowRight') hook.x = clamp(hook.x + 30, 20, W - 20); if (c === 'Space') held = !held }
+  o.key = (c) => { if (c === 'ArrowLeft') aimX=clamp(aimX-30,35,W-35);if(c==='ArrowRight')aimX=clamp(aimX+30,35,W-35);if(c==='Space')held=!held }
   o.update = (dt) => {
     stepFx(fx, dt)
     if (o.over) return
     t -= dt; o.time = Math.max(0, Math.ceil(t)); if (t <= 0) { o.over = true; return }
+    boatX+=clamp(aimX-boatX,-240*dt,240*dt);hook.x+=(boatX-hook.x)*Math.min(1,dt*(hook.y>SURF+30?5:14));catchFlash=Math.max(0,catchFlash-dt)
     spawnT -= dt
     if (spawnT <= 0) { const k = pick(KINDS.concat(KINDS.slice(0, 2))), dir = Math.random() < 0.5 ? 1 : -1; fish.push({ k, x: dir > 0 ? -30 : W + 30, y: rnd(SURF + 60, H - 60), v: dir * rnd(50, 130), hooked: false }); spawnT = rnd(0.5, 1.1) }
     if (held && !hook.load) hook.vy = Math.min(hook.vy + 700 * dt, 340); else hook.vy = Math.max(hook.vy - 900 * dt, -380)
     hook.y = clamp(hook.y + hook.vy * dt, SURF, H - 30)
-    if (hook.load && hook.y <= SURF + 2) { o.score = Math.max(0, o.score + hook.load.k[1]); puff(fx, hook.x, SURF, 10, hook.load.k[2], 150); hook.load = null; hook.vy = 0 }
+    if (hook.load && hook.y <= SURF + 2) { const caught=hook.load;lastCatch=caught.k[1];catchFlash=1.2;o.score = Math.max(0, o.score + lastCatch);puff(fx,hook.x,SURF,10,caught.k[2],150);fish=fish.filter(f=>f!==caught);hook.load=null;hook.vy=0 }
     for (const f of fish) { if (f.hooked) { f.x = hook.x; f.y = hook.y + 12; continue } f.x += f.v * dt; if (!hook.load && Math.hypot(f.x - hook.x, f.y - (hook.y + 10)) < f.k[3] + 6) { f.hooked = true; hook.load = f; hook.vy = -200; puff(fx, f.x, f.y, 6, '#fff', 90) } }
     for (let i = fish.length - 1; i >= 0; i--) if (fish[i].hooked ? false : (fish[i].x < -60 || fish[i].x > W + 60)) fish.splice(i, 1)
     for (let i = fish.length - 1; i >= 0; i--) if (fish[i].hooked && !hook.load) fish.splice(i, 1)
+    o.status=catchFlash>0?(lastCatch>0?'Nice catch · +'+lastCatch:'Careful · avoid squid and boots'):hook.load?'Reeling in your catch…':held?'Hook sinking · release to reel':'Move the boat · hold to cast'
   }
   o.draw = (g) => {
     sky(g, '#bfe9ff', '#bfe9ff'); g.fillStyle = '#ffd98a'; g.beginPath(); g.arc(300, 50, 28, 0, TAU); g.fill()
@@ -773,17 +794,15 @@ function lakeFishing() {
   }
 
   o.draw3 = (r, g) => {
-    r.screen(); r.begin('#bfe9ff', '#bfe9ff')
-    r.box(0, H - 40, 40, W + 100, 80, 10, '#9fd6f5', { edge: false }); r.sphere(110, H - 50, 36, 28, '#ffd98a', { glow: 1.3, shine: false })
-    r.box(0, (H - SURF) / 2 - 6, 60, W + 100, H - SURF, 20, '#0f4a8a', { edge: false })
-    r.box(0, (H - SURF) / 2 - 6, 0, W + 100, H - SURF, 30, '#3aa0e0', { alpha: 0.28, edge: false })
-    for (let i = 0; i < 8; i++) r.box(-W / 2 + 20 + i * 48, H - SURF - 2 + Math.sin(i + r.clock*2) * 2, 0, 38, 4, 20, '#bfe9ff', { alpha: 0.6, edge: false })
-    r.box(hook.x - W / 2, H - SURF + 12, -10, 84, 14, 36, '#8a5a2a'); r.pyramid(hook.x - W / 2, H - SURF + 19, -10, 24, 38, 6, '#ffffff'); r.cyl(hook.x - W / 2 - 24, H - SURF + 19, -10, 4, 22, '#6a4a2a')
-    r.person(hook.x-W/2-20,H-SURF+19,-13,'#e6b675',0,2.5,{hair:'#4c3c51',coat:false})
-    for(let i=0;i<12;i++){const xx=-170+i*32;r.gem(xx,10,20,20+(i%3)*8,'#647f8c');r.line([xx,5,3],[xx+Math.sin(r.clock+i)*4,35+(i%3)*15,3],'#558d82',3)}
-    r.line([hook.x - W / 2, H - SURF - 4, -10], [hook.x - W / 2, H - hook.y, -10], '#ffffffcc', 2); r.box(hook.x - W / 2, H - hook.y - 4, -10, 9, 9, 6, '#dddddd')
+    r.screen();lakeScenery(r,r.clock,H-SURF)
+    const rod=fishingBoatModel(r,boatX-W/2,H-SURF+4,-10,r.clock,!!hook.load),hx=hook.x-W/2,hy=H-hook.y
+    r.line(rod,[hx,H-SURF,-19],'#e5ede0',.9);r.line([hx,H-SURF,-19],[hx,hy,-19],'#e5ede0',.9)
+    r.line([hx,hy,-19],[hx,hy-6,-19],'#e4d9ab',1.8)
+    for(let i=0;i<8;i++){const a=Math.PI+i*Math.PI/8,b=a+Math.PI/8;r.line([hx+3+Math.cos(a)*3,hy-6+Math.sin(a)*3,-19],[hx+3+Math.cos(b)*3,hy-6+Math.sin(b)*3,-19],'#e4d9ab',1.8)}
+    r.line([hx+6,hy-6,-19],[hx+6,hy-2,-19],'#e4d9ab',1.5)
     for (const f of fish) fishModel(r,f.x-W/2,H-f.y,-24,f.k[3],KINDS.indexOf(f.k),f.hooked?1:Math.sign(f.v),r.clock)
-    r.fx(fx); r.flush(); txt(g, 'TIME ' + o.time, 56, 24, 12, '#07304a'); txt(g, '$' + o.score, W - 50, 24, 14, '#07304a')
+    r.fx(fx);r.flush();txt(g,'TIME '+o.time,62,23,10,'#244b59');txt(g,String(o.score),W-45,23,16,'#244b59')
+    if(catchFlash>0)txt(g,(lastCatch>0?'+':'')+lastCatch,W/2,SURF+28,15,lastCatch>0?'#ffdf81':'#ffc4b8')
   }
   o.cancel=()=>{held=false}
   return o
@@ -792,32 +811,41 @@ function lakeFishing() {
 // ---------------------------------------------------------------- 15. HOOP SHOT (flick basketball)
 function hoopShot() {
   const o = { score: 0, over: false, label: 'FLICK THE BALL UP TOWARD THE HOOP', time: 60 }
-  let ball, hoop, t, sw, fx, streak
-  const reset = () => { ball = { x: W / 2, y: H - 70, vx: 0, vy: 0, fly: false, scored: false, passedTop: false, r: 22 } }
-  o.reset = () => { reset(); hoop = { x: W / 2, y: 150, dir: 1, w: 80 }; t = 60; sw = null; fx = []; streak = 0; o.score = 0; o.over = false; o.time = 60 }
-  o.down = (x, y) => { if (!ball.fly) sw = { x, y, t: performance.now ? 0 : 0, tt: 0 } }
+  let ball, hoop, t, sw, fx, streak, netT, aimV
+  const shotVelocity=(dx,dy,duration)=>({x:clamp(dx/Math.max(.06,duration),-500,500)*.9,y:clamp(dy/Math.max(.06,duration),-1500,-700)})
+  const reset = () => { ball = { x: W / 2, y: H - 70, vx: 0, vy: 0, fly: false, scored: false, spin:0, r: 22 } }
+  o.reset = () => { reset(); hoop = { x: W / 2, y: 150, dir: 1, w: 80 }; t = 60; sw = null; fx = []; streak = 0;netT=0;aimV={x:0,y:-1120}; o.score = 0; o.over = false; o.time = 60 }
+  o.down = (x, y) => { if (!ball.fly) sw = { x, y, cx:x,cy:y,tt:0 } }
   o.move = (x, y) => { if (sw) { sw.cx = x; sw.cy = y; ball.x = clamp(ball.x, 40, W - 40) } }
   o.up = (x, y) => {
     if (!sw || ball.fly) { sw = null; return }
-    const dx = x - sw.x, dy = y - sw.y, dur = Math.max(0.06, sw.tt)
+    const dx = x - sw.x, dy = y - sw.y, dur = sw.tt
     sw = null
     if (dy > -25) return
-    ball.vx = clamp(dx / dur, -500, 500) * 0.9; ball.vy = clamp(dy / dur, -1500, -700); ball.fly = true
+    aimV=shotVelocity(dx,dy,dur);ball.vx=aimV.x;ball.vy=aimV.y;ball.fly=true
+  }
+  o.key=c=>{
+    if(o.over||ball.fly)return
+    if(c==='ArrowLeft')aimV.x=clamp(aimV.x-40,-450,450)
+    if(c==='ArrowRight')aimV.x=clamp(aimV.x+40,-450,450)
+    if(c==='Space'){sw=null;ball.vx=aimV.x;ball.vy=aimV.y;ball.fly=true}
   }
   o.update = (dt) => {
     stepFx(fx, dt)
     if (o.over) return
+    netT=Math.max(0,netT-dt)
     if (sw) sw.tt += dt
     t -= dt; o.time = Math.max(0, Math.ceil(t)); if (t <= 0) { o.over = true; return }
     if (o.score >= 6) { hoop.x += hoop.dir * (60 + Math.min(120, o.score * 3)) * dt; if (hoop.x > W - 70) hoop.dir = -1; if (hoop.x < 70) hoop.dir = 1 }
     if (!ball.fly) return
-    const py = ball.y
-    ball.vy += 1500 * dt; ball.x += ball.vx * dt; ball.y += ball.vy * dt
+    const py = ball.y,px=ball.x
+    ball.vy += 1500 * dt; ball.x += ball.vx * dt; ball.y += ball.vy * dt;ball.spin+=dt*(ball.vx/ball.r+4)
     if (ball.x < ball.r) { ball.x = ball.r; ball.vx *= -0.7 } else if (ball.x > W - ball.r) { ball.x = W - ball.r; ball.vx *= -0.7 }
     const lx = hoop.x - hoop.w / 2, rx = hoop.x + hoop.w / 2
-    for (const rimX of [lx, rx]) { const d = Math.hypot(ball.x - rimX, ball.y - hoop.y); if (d < ball.r + 5) { const nx = (ball.x - rimX) / (d || 1), ny = (ball.y - hoop.y) / (d || 1), dot = ball.vx * nx + ball.vy * ny; ball.vx -= 1.7 * dot * nx; ball.vy -= 1.7 * dot * ny; ball.x = rimX + nx * (ball.r + 5); ball.y = hoop.y + ny * (ball.r + 5) } }
-    if (py < hoop.y && ball.y >= hoop.y && ball.vy > 0 && ball.x > lx + 6 && ball.x < rx - 6 && !ball.scored) { ball.scored = true; streak++; o.score += streak > 2 ? 3 : 2; puff(fx, hoop.x, hoop.y + 20, 18, '#ffe84a', 200) }
-    if (ball.y > H + 40 || (ball.vy > 0 && ball.y > H - 60 && ball.y > hoop.y + 100 && Math.abs(ball.vy) < 400 && false)) { if (!ball.scored) streak = 0; reset() }
+    for (const rimX of [lx, rx]) { const d = Math.hypot(ball.x - rimX, ball.y - hoop.y); if (d < ball.r + 5) { const nx = (ball.x - rimX) / (d || 1), ny = (ball.y - hoop.y) / (d || 1), dot = ball.vx * nx + ball.vy * ny; if(dot<0){ball.vx -= 1.7 * dot * nx; ball.vy -= 1.7 * dot * ny} ball.x = rimX + nx * (ball.r + 5); ball.y = hoop.y + ny * (ball.r + 5) } }
+    const crossX=px+(ball.x-px)*(hoop.y-py)/(ball.y-py||1)
+    if (py < hoop.y && ball.y >= hoop.y && ball.vy > 0 && crossX > lx + 6 && crossX < rx - 6 && !ball.scored) { ball.scored = true; streak++;netT=.5; o.score += streak > 2 ? 3 : 2; puff(fx, hoop.x, hoop.y + 20, 18, '#ffe84a', 200) }
+    if (ball.y > H + 40) { if (!ball.scored) streak = 0; reset() }
   }
   o.draw = (g) => {
     sky(g, '#2a1a3a', '#120a1c')
@@ -829,17 +857,18 @@ function hoopShot() {
   }
 
   o.draw3 = (r, g) => {
-    r.screen(); r.begin('#699dd4', '#efd0aa')
-    r.floor(-600, -400, 600, 900, 0, '#4a2a1a'); for (let i = -4; i < 5; i++) r.box(i * 70, 0.5, 100, 3, 1, 1400, '#3a2010', { alpha: 0.7, edge: false })
-    r.box(0, H / 2 + 40, 120, W + 160, H + 200, 20, '#557894', { edge: false });for(let i=-3;i<=3;i++)r.box(i*80,170,98,3,340,3,'#82a6b9',{edge:false})
+    r.screen();sunsetCourt(r,r.clock)
     const hx = hoop.x - W / 2, hy = H - hoop.y
-    r.cyl(hx,0,58,5,hy+32,'#667b8c');r.box(hx,hy+31,46,7,7,28,'#667b8c')
-    r.box(hx, hy + 38, 30, 110, 76, 8, '#ffffff', { alpha: 0.35 }); r.box(hx, hy + 20, 26, 40, 30, 4, '#ff6a2a', { alpha: 0.5, edge: false })
-    for (let i = 0; i < 16; i++) { const a = (i / 16) * TAU, rx2 = hoop.w / 2; r.sphere(hx + Math.cos(a) * rx2, hy, 8 + Math.sin(a) * 14, 3.4, '#ff6a2a', { shine: false, glow: 1.2 }) }
-    for (let i = 0; i < 8; i++) { const a = (i / 8) * TAU; r.line([hx + Math.cos(a) * hoop.w / 2, hy, 8 + Math.sin(a) * 14], [hx + Math.cos(a) * hoop.w / 3.4, hy - 40, 8 + Math.sin(a) * 6], '#ffffffcc', 1.5) }
+    hoopModel(r,hx,hy,8,hoop.w,netT/.5,r.clock)
+    if(!ball.fly){
+      const v=sw&&sw.cy<sw.y-25?shotVelocity(sw.cx-sw.x,sw.cy-sw.y,sw.tt):aimV
+      for(let i=1;i<=15;i++){const dt=i*.055,xx=ball.x+v.x*dt,yy=ball.y+v.y*dt+750*dt*dt;if(xx<12||xx>W-12||yy<16)break;r.sphere(xx-W/2,H-yy,-3,2,'#ffebac',{unlit:true,alpha:1-i*.04})}
+    }
     r.shadow(ball.x - W / 2, 0, ball.r, 0.35)
-    basketballModel(r,ball.x-W/2,H-ball.y,0,ball.r)
-    r.fx(fx); r.flush(); txt(g, 'TIME ' + o.time, 56, 24, 12, '#fff'); if (streak > 1) txt(g, 'STREAK x' + streak, W / 2, 30, 12, '#ffe84a')
+    basketballModel(r,ball.x-W/2,H-ball.y,0,ball.r,ball.spin)
+    r.fx(fx);r.flush();txt(g,'TIME '+o.time,62,24,10,'#263f59');txt(g,String(o.score),W-37,24,18,'#263f59')
+    if(streak>1)txt(g,'STREAK x'+streak,W/2,59,12,'#4e506b')
+    if(netT>.2)txt(g,'NICE SHOT!',W/2,100,15,'#ffe2a0')
   }
   o.cancel=()=>{sw=null}
   return o
@@ -850,22 +879,32 @@ function sumoPush() {
   const AR = 150, CX = W / 2, CY = 270
   const o = { score: 0, over: false, label: 'DRAG TO CHARGE · PUSH THE BOT OUT OF THE RING' }
   let me, bot, aim, round, msgT, fx, state
-  const mk = () => { me = { x: CX - 70, y: CY, vx: 0, vy: 0, r: 22 }; bot = { x: CX + 70, y: CY, vx: 0, vy: 0, r: 22 + Math.min(10, round) } }
-  o.reset = () => { round = 0; aim = null; fx = []; msgT = 0; state = 'play'; mk(); o.score = 0; o.over = false }
-  const setAim = (x, y) => { aim = { x, y } }
+  const held=new Set()
+  const mk = () => { me = { x: CX - 70, y: CY, vx: 0, vy: 0, r: 22,hit:0 }; bot = { x: CX + 70, y: CY, vx: 0, vy: 0, r: 22 + Math.min(10, round),hit:0 } }
+  o.reset = () => { held.clear();round = 0; aim = null; fx = []; msgT = 0; state = 'play'; mk(); o.score = 0; o.over = false }
+  const setAim = (x, y) => { if(!held.size)aim = { x, y } }
   o.down = setAim; o.move = (x,y) => { if(aim)setAim(x,y) }; o.up = () => { aim = null }; o.cancel = o.up
-  o.key = (c) => { const m = { ArrowLeft: [CX - 200, CY], ArrowRight: [CX + 200, CY], ArrowUp: [CX, CY - 200], ArrowDown: [CX, CY + 200] }; if (m[c]) aim = { x: m[c][0] + (me.x - CX), y: m[c][1] + (me.y - CY) } }
+  const keyAim=()=>{
+    const dx=Number(held.has('ArrowRight'))-Number(held.has('ArrowLeft')),dy=Number(held.has('ArrowUp'))-Number(held.has('ArrowDown'))
+    aim=dx||dy?{x:me.x+dx*200,y:me.y+dy*200}:null
+  }
+  o.key=c=>{if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(c)){held.add(c);keyAim()}}
+  o.keyup=c=>{if(held.delete(c))keyAim()}
+  o.cancel=()=>{held.clear();aim=null}
   o.update = (dt) => {
     stepFx(fx, dt)
     if (o.over) return
+    me.hit=Math.max(0,me.hit-dt*4);bot.hit=Math.max(0,bot.hit-dt*4)
     if (state === 'win' || state === 'lose') { msgT -= dt; if (msgT <= 0) { if (state === 'lose') { o.over = true } else { round++; mk(); state = 'play' } } return }
+    if(held.size)keyAim()
     if (aim) { const dx = aim.x - me.x, dy = aim.y - me.y, d = Math.hypot(dx, dy) || 1; me.vx += (dx / d) * 640 * dt; me.vy += (dy / d) * 640 * dt }
     { const dx = me.x - bot.x, dy = me.y - bot.y, d = Math.hypot(dx, dy) || 1, edge = Math.hypot(bot.x - CX, bot.y - CY); let ax = dx / d, ay = dy / d; if (edge > AR - 55) { ax = (CX - bot.x) / (edge || 1) * 0.8 + ax * 0.5; ay = (CY - bot.y) / (edge || 1) * 0.8 + ay * 0.5 } const k = 380 + round * 45; bot.vx += ax * k * dt; bot.vy += ay * k * dt }
     for (const b of [me, bot]) { b.vx *= Math.pow(0.18, dt); b.vy *= Math.pow(0.18, dt); b.x += b.vx * dt; b.y += b.vy * dt }
     const dx = bot.x - me.x, dy = bot.y - me.y, d = Math.hypot(dx, dy), min = me.r + bot.r
-    if (d < min && d > 0) { const nx = dx / d, ny = dy / d, ov = min - d; me.x -= nx * ov / 2; me.y -= ny * ov / 2; bot.x += nx * ov / 2; bot.y += ny * ov / 2; const rv = (bot.vx - me.vx) * nx + (bot.vy - me.vy) * ny; if (rv < 0) { const mm = me.r * me.r, mb = bot.r * bot.r, j = -(1 + 0.9) * rv / (1 / mm + 1 / mb); me.vx -= j * nx / mm; me.vy -= j * ny / mm; bot.vx += j * nx / mb; bot.vy += j * ny / mb; puff(fx, (me.x + bot.x) / 2, (me.y + bot.y) / 2, 5, '#fff', 120) } }
+    if (d < min && d > 0) { const nx = dx / d, ny = dy / d, ov = min - d; me.x -= nx * ov / 2; me.y -= ny * ov / 2; bot.x += nx * ov / 2; bot.y += ny * ov / 2; const rv = (bot.vx - me.vx) * nx + (bot.vy - me.vy) * ny; if (rv < 0) { const mm = me.r * me.r, mb = bot.r * bot.r, j = -(1 + 0.9) * rv / (1 / mm + 1 / mb); me.vx -= j * nx / mm; me.vy -= j * ny / mm; bot.vx += j * nx / mb; bot.vy += j * ny / mb;me.hit=bot.hit=Math.min(1,Math.abs(rv)/220); puff(fx, (me.x + bot.x) / 2, (me.y + bot.y) / 2, 5, '#fff', 120) } }
     if (Math.hypot(bot.x - CX, bot.y - CY) > AR + bot.r * 0.4) { state = 'win'; msgT = 1; o.score = round + 1; puff(fx, bot.x, bot.y, 16, '#ffe84a', 200) }
     else if (Math.hypot(me.x - CX, me.y - CY) > AR + me.r * 0.4) { state = 'lose'; msgT = 0.9; puff(fx, me.x, me.y, 16, '#ff6a6a', 200) }
+    o.status=state==='win'?'Ring out · next challenger!':state==='lose'?'Outside the ring':Math.hypot(me.x-CX,me.y-CY)>AR-45?'Careful · you are near the edge':'You are the red challenger · push the blue champion'
   }
   o.draw = (g) => {
     sky(g, '#2a1408', '#120804')
@@ -876,25 +915,23 @@ function sumoPush() {
   }
 
   o.draw3 = (r, g) => {
-    r.look(0,350,-540,0,25,0,48); r.begin('#3d6399','#f7ce79')
+    r.look(0,350,-540,0,25,0,48); r.begin('#90b9d0','#f1ddba')
     o.mapPointer=(x,y)=>{const hit=r.pickGround(x,y,12);return hit?[hit[0]+CX,hit[1]+CY]:[CX,CY]}
-    r.floor(-700,-700,700,700,-18,'#a08275')
+    sumoPavilion(r,r.clock)
     r.cyl(0,-16,0,AR+20,24,'#af8461');r.cyl(0,8,0,AR,5,'#e6c79d')
-    for(let i=0;i<48;i++){const a=i*TAU/48;r.ellipsoid(Math.cos(a)*AR,14,Math.sin(a)*AR,8,4,5,'#b79a71',{ry:-a})}
-    for(const side of [-1,1]) {r.box(side*58,14,0,5,1,35,'#fff2d5');r.cyl(side*190,-16,205,10,145,'#a46f63');r.box(side*190,127,205,26,9,28,'#566981')}
-    r.box(0,145,225,440,16,95,'#566981');r.box(0,127,205,405,10,22,'#d9b38b');for(let i=-3;i<=3;i++)r.box(i*50,45,230,38,90,4,'#dac4a6')
-    for(const side of [-1,1]){r.box(side*160,73,174,45,75,4,side<0?'#d93c42':'#285acd');r.pyramid(side*160,48,169,20,24,3,'#ffd766');lanternModel(r,side*210,116,145,13)}
-    for(let i=-3;i<=3;i++)r.person(i*46,0,195,i%2?'#d6503e':'#3863bd',0,5,{hair:'#633018',coat:false,yaw:Math.PI})
+    for(let i=0;i<64;i++){const a=i*TAU/64,b=(i+1)*TAU/64;r.line([Math.cos(a)*AR,14,Math.sin(a)*AR],[Math.cos(b)*AR,14,Math.sin(b)*AR],'#b79a71',6);r.ellipsoid(Math.cos(a)*AR,14,Math.sin(a)*AR,4.8,3.4,3.7,'#d2b887',{ry:-a})}
+    for(const side of [-1,1])r.box(side*58,14,0,5,1,35,'#fff2d5')
+    for(let i=0;i<18;i++){const a=i*2.39996;r.ellipsoid(Math.cos(a)*(30+i*6),13.1,Math.sin(a)*(30+i*6),3,.1,2,'#d6b88c')}
     for(const [b,c,other] of [[bot,'#2852d2',me],[me,'#e93e35',bot]]) {
       const yaw=Math.atan2(other.x-b.x,other.y-b.y)
-      wrestlerModel(r,b.x-CX,14,b.y-CY,b.r*3.6,c,yaw,r.clock,Math.hypot(b.vx,b.vy)>12,b===me)
+      const push=Math.max(0,1-Math.hypot(other.x-b.x,other.y-b.y)/(b.r+other.r+55))
+      wrestlerModel(r,b.x-CX,14,b.y-CY,b.r*3.6,c,yaw,r.clock,Math.hypot(b.vx,b.vy)>12,b===me,{push,hit:b.hit,faceCamera:true})
     }
     if(aim)r.line([me.x-CX,16,me.y-CY],[aim.x-CX,16,aim.y-CY],'#ffffff',2)
     r.fx(fx,p=>[p.x-CX,35,p.y-CY]);r.flush()
-    txt(g,'ROUND '+(round+1),W/2,28,14,'#25394d');txt(g,'YOU '+o.score,64,H-28,11,'#a4f0ff')
+    txt(g,'ROUND '+(round+1),W/2,28,14,'#25394d');txt(g,'WINS '+o.score,64,H-28,11,'#4e4653')
     if(state==='win')txt(g,'RING OUT!',W/2,80,18,'#3a7862');if(state==='lose')txt(g,'KNOCKED OUT',W/2,80,16,'#a93e54')
   }
-  o.keyup=(code)=>{if(code.startsWith('Arrow'))aim=null}
   return o
 }
 
@@ -1021,17 +1058,18 @@ function fruitMerge() {
 // ---------------------------------------------------------------- 19. DOODLE HOP (endless jumper)
 function doodleHop() {
   const o = { score: 0, over: false, label: 'MOVE LEFT / RIGHT · BOUNCE UP THE PLATFORMS' }
-  let p, plats, camY, top, tx, fx, keyDir
+  let p, plats, camY, top, tx, fx, landing
   const addPlat = (y) => plats.push({ x: rnd(10, W - 70), y, w: 60, k: Math.random() < Math.min(0.35, top * 0.00006) ? 'move' : Math.random() < Math.min(0.2, top * 0.00004) ? 'break' : 'norm', dir: Math.random() < 0.5 ? 1 : -1, gone: false })
-  o.reset = () => { p = { x: W / 2, y: H - 100, vy: -620 }; plats = [{ x: W / 2 - 40, y: H - 60, w: 80, k: 'norm', dir: 1, gone: false }]; camY = 0; top = 0; tx = W / 2; fx = []; keyDir = 0; for (let y = H - 140; y > -H; y -= 70) addPlat(y); o.score = 0; o.over = false }
-  o.down = (x) => { tx = x }; o.move = (x) => { tx = x }
+  o.reset = () => { p = { x: W / 2, y: H - 100, vy: -620 }; plats = [{ x: W / 2 - 40, y: H - 60, w: 80, k: 'norm', dir: 1, gone: false }]; camY = 0; top = 0; tx = W / 2; fx = []; landing=0; for (let y = H - 140; y > -H; y -= 70) addPlat(y); o.score = 0; o.over = false }
+  o.down = (x) => { tx = clamp(x,14,W-14) }; o.move = o.down
   o.key = (c) => { if (c === 'ArrowLeft') tx = Math.max(0, p.x - 80); if (c === 'ArrowRight') tx = Math.min(W, p.x + 80) }
   o.update = (dt) => {
     stepFx(fx, dt)
     if (o.over) return
+    landing=Math.max(0,landing-dt)
     p.x += (tx - p.x) * Math.min(1, dt * 9); if (p.x < -10) p.x = W + 10; if (p.x > W + 10) p.x = -10
     p.vy += 1500 * dt; p.y += p.vy * dt
-    if (p.vy > 0) for (const pl of plats) { if (pl.gone) continue; if (p.x > pl.x - 8 && p.x < pl.x + pl.w + 8 && p.y + 14 >= pl.y && p.y + 14 - p.vy * dt <= pl.y + 6) { p.vy = -740; if (pl.k === 'break') { pl.gone = true; puff(fx, pl.x + 30, pl.y, 8, '#c9955a', 120) } else puff(fx, p.x, pl.y, 4, '#fff', 80); break } }
+    if (p.vy > 0) for (const pl of plats) { if (pl.gone) continue; if (p.x > pl.x - 8 && p.x < pl.x + pl.w + 8 && p.y + 14 >= pl.y && p.y + 14 - p.vy * dt <= pl.y + 6) { p.y=pl.y-14;p.vy = -740;landing=.18; if (pl.k === 'break') { pl.gone = true; puff(fx, pl.x + 30, pl.y, 8, '#c9955a', 120) } else puff(fx, p.x, pl.y, 4, '#fff', 80); break } }
     for (const pl of plats) if (pl.k === 'move' && !pl.gone) { pl.x += pl.dir * 70 * dt; if (pl.x < 4 || pl.x + pl.w > W - 4) pl.dir *= -1 }
     const hy = H * 0.4; if (p.y - camY < hy) camY = p.y - hy
     top = Math.max(top, -camY)
@@ -1050,13 +1088,12 @@ function doodleHop() {
   }
 
   o.draw3 = (r, g) => {
-    r.screen(-camY); r.begin('#bfe3ff', '#eaf6ff')
-    for (let i = 0; i < 7; i++) { const y = ((i * 190 - camY * 0.4) % 1330 + 1330) % 1330; r.sphere((i * 97) % 500 - 250, 1500 - y - camY - 800 + 600 + camY * 0.6, 160, 48, '#ffffff', { alpha: 0.8, shine: false }) }
-    for (const pl of plats) { if (pl.gone) continue; r.box(pl.x + pl.w / 2 - W / 2, H - pl.y - 6, 0, pl.w, 12, 30, pl.k === 'move' ? '#3de8ff' : pl.k === 'break' ? '#c9955a' : '#5ac44a') }
+    r.screen(-camY);floatingGardens(r,camY,r.clock)
+    for (const pl of plats) { if (pl.gone) continue;gardenPlatform(r,pl.x+pl.w/2-W/2,H-pl.y,0,pl.w,pl.k,r.clock) }
     const px = p.x - W / 2, py = H - p.y
     r.shadow(px, 0, 1, 0)
-    r.person(px,py-14,0,'#9277db',p.vy*.008,3.8,{hair:'#342f59',scarf:[1,.67,.38],yaw:Math.PI,coat:true})
-    r.fx(fx, (q) => [q.x - W / 2, H - q.y, -8]); r.flush(); txt(g, String(o.score), 40, 28, 20, '#0a3a6a', 'left')
+    hopperModel(r,px,py-14,-4,40,r.clock,p.vy,tx-p.x,landing/.18)
+    r.fx(fx, (q) => [q.x - W / 2, H - q.y, -8]); r.flush(); txt(g, 'HEIGHT '+o.score,20,28,13,'#284a5a','left')
   }
   return o
 }
@@ -1247,21 +1284,27 @@ function timeRift() {
   o.draw3 = (r, g) => {
     r.screen()
     const back = rew > 0
-    r.begin(back ? '#0a4a6a' : '#1a0a4a', back ? '#021a2a' : '#06021a')
-    for (let i = 0; i < 9; i++) { const x = ((i * 90 - dist * 0.15) % 720 + 720) % 720 - 360, h = 60 + (i * 37) % 110; r.box(x, 114 + h / 2, 150 + (i % 3) * 40, 44, h, 34, back ? hsl(190 + i * 6, 60, 26) : hsl(250 + i * 14, 60, 22), { edge: false }) }
-    r.box(0, 100, 0, 800, 28, 150, back ? '#0a2a3a' : '#16093a'); r.box(0, 114, -75, 800, 4, 5, back ? '#7af0ff' : '#ff4de1', { glow: 1.3, edge: false })
-    for (let k = -6; k < 12; k++) { const x = k * 40 - (dist % 40) - 200; r.box(x, 114.5, 0, 3, 1, 148, back ? '#7af0ff' : '#ff4de1', { alpha: 0.3, edge: false }) }
+    neonCity(r,dist,r.clock,true)
+    for(let i=0;i<48;i++){
+      const a=i*TAU/48,b=a+TAU/48
+      r.line([65+Math.cos(a)*69,365+Math.sin(a)*69,85],[65+Math.cos(b)*69,365+Math.sin(b)*69,85],back?'#b9fff0':'#65aaa9',1.2)
+      if(i%4===0)r.line([65+Math.cos(a)*61,365+Math.sin(a)*61,84],[65+Math.cos(a)*66,365+Math.sin(a)*66,84],'#91d2cb',1.5)
+    }
+    const hand=dist*.003;r.line([65,365,83],[65+Math.sin(hand)*48,365+Math.cos(hand)*48,83],'#b3e6d8',2);r.line([65,365,82],[65+Math.sin(hand*.12)*31,365+Math.cos(hand*.12)*31,82],'#b3e6d8',3)
     for (const a of obs) {
       const x = a.x + a.w / 2 - W / 2
-      if (a.k === 'block') r.box(x, 114 + a.h / 2, 0, a.w, a.h, 36, '#7a3cff')
-      else if (a.k === 'wall') r.box(x, 114 + a.h / 2, 0, a.w, a.h, 40, '#ff9a3a', { glow: 1.1 })
-      else { const n = a.k === 'double' ? 2 : 1; for (let q = 0; q < n; q++) r.pyramid(a.x + 13 + q * 26 - W / 2, 114, 0, 26, a.h, 26, '#ff4d6d') }
+      if (a.k === 'block'||a.k==='wall') {r.box(x,120+a.h/2,0,a.w,a.h,30,a.k==='wall'?'#c58b68':'#706499');r.box(x,120+a.h-3,-16,a.w-4,3,2,'#f5cba4',{glow:1.5})}
+      else { const n = a.k === 'double' ? 2 : 1; for (let q = 0; q < n; q++) r.pyramid(a.x + 13 + q * 26 - W / 2, 120, 0, 26, a.h, 26, '#e78d9c') }
     }
-    for (const c of coins) r.sphere(c.x - W / 2, H - c.y, 0, 8, '#ffe84a', { glow: 1.1 })
-    if (!o.over) { const px = 80 - W / 2, py = H - p.y; r.shadow(px, 0, 15, 0.35, 114); r.person(px, py, 0, back ? '#a8f4ff' : '#3de8ff', dist * 0.07, 3.1, { alpha: ghost ? 0.55 : 1, hair: '#173a56' }); if (back) for (let q = 1; q <= 4; q++) r.box(px - q * 14, py + 15, 0, 28, 30, 24, '#7af0ff', { alpha: 0.18 / q, edge: false }) }
+    for (const c of coins)coinModel(r,c.x-W/2,H-c.y,0,8,dist*.006)
+    if (!o.over) {
+      const px=80-W/2,py=H-p.y
+      courierModel(r,px,py,0,43,r.clock,{phase:dist*.065,airborne:p.y<GY-1,echo:true})
+      if(back||ghost)for(let q=1;q<=4;q++)r.ellipsoid(px-q*12,py+21,8,6,16-q*2,2,'#96f9e6',{alpha:.5-q*.09})
+    }
     r.fx(fx); r.flush()
-    for (let q = 0; q < 5; q++) txt(g, '⏪', 28 + q * 22, 28, 14, q < o.rewinds ? '#7af0ff' : '#334')
-    if (back) { g.fillStyle = 'rgba(122,240,255,0.12)'; g.fillRect(0, 0, W, H); txt(g, '⏪ REWINDING', W / 2, 120, 16, '#7af0ff') }
+    txt(g,'REWINDS '+o.rewinds,83,28,10,'#b4f2e1');txt(g,String(o.score),W-49,28,15,'#ffe2a5')
+    if (back) { g.fillStyle = 'rgba(122,240,255,0.12)'; g.fillRect(0, 0, W, H); txt(g, 'REWINDING', W / 2, 100, 15, '#bdffed') }
   }
   return o
 }
