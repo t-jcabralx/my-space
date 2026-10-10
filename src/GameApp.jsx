@@ -43,12 +43,28 @@ import './game/cards/baccarat.js'
 import './game/cards/poker.js'
 import { subscribeSettings, getSettings } from './game/settings.js'
 import { isTouchPrimary } from './ui/platform.js'
+import { setForceRot } from './game/forcerot.js'
+import KongAnimeActors from './game/KongAnimeActors.jsx'
 
 export default function GameApp() {
   const stage = useRef()
   const snap = useSyncExternalStore(subscribe, getSnap)
   const menu = snap && (snap.mode === 'menu' || snap.mode === 'cards' || snap.mode === 'word' || snap.mode === 'merge' || snap.mode === 'c4' || snap.mode === 'mines')
   const [autoLow, setLow] = useState(false)
+  // forced landscape on phones held upright: 0 = off, 1 = turned clockwise, -1 = counter-clockwise
+  const [fr, setFr] = useState(0)
+  const [vp, setVp] = useState({ w: 0, h: 0 })
+  useEffect(() => {
+    const apply = (v) => { setFr(v); try { sessionStorage.setItem('si_fr', String(v)) } catch { /* ignore */ } }
+    const h = (e) => { const v = Number(e.detail) || 0; apply(v); if (v) { try { const p = document.documentElement.requestFullscreen && document.documentElement.requestFullscreen(); if (p && p.catch) p.catch(() => {}) } catch { /* ignore */ } } }
+    window.addEventListener('si-force-rot', h)
+    try { const v = Number(sessionStorage.getItem('si_fr')) || 0; if (v) setFr(v) } catch { /* ignore */ }
+    const size = () => { const vv = window.visualViewport; setVp({ w: vv ? vv.width : window.innerWidth, h: vv ? vv.height : window.innerHeight }) }
+    size(); window.addEventListener('resize', size)
+    return () => { window.removeEventListener('si-force-rot', h); window.removeEventListener('resize', size) }
+  }, [])
+  const rotated = fr !== 0 && vp.h > vp.w && !menu && !!snap && snap.mode !== 'flames' && isTouchPrimary()
+  useEffect(() => { setForceRot(rotated, fr) }, [rotated, fr])
   const set = useSyncExternalStore(subscribeSettings, getSettings)
   const low = set.quality === 'low' || (set.quality === 'auto' && autoLow)
   useEffect(() => { G.onQuality = () => setLow(true); return () => { G.onQuality = null } }, [])
@@ -151,7 +167,7 @@ export default function GameApp() {
   const onUp = () => { last.current = null; setTouchFire(false) }
 
   return (
-    <div className="wrap">
+    <div className={'wrap' + (rotated ? ' forced ' + (fr > 0 ? 'cw' : 'ccw') : '')} style={rotated ? { '--vw': vp.h / 100 + 'px', '--vh': vp.w / 100 + 'px', '--fw': vp.w + 'px', '--fh': vp.h + 'px' } : undefined}>
       <div className={'stage' + (low ? ' low' : '') + (menu ? ' menu' : '')} ref={stage} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} onPointerLeave={onUp}>
         <Canvas camera={{ position: [0, 0, 77], fov: 40, near: 1, far: 400 }} dpr={low ? 0.75 : [1, 1.5]} gl={{ antialias: false, powerPreference: 'high-performance' }}>
           <color attach="background" args={['#04050d']} />
@@ -161,6 +177,7 @@ export default function GameApp() {
           <Planet />
           <World />
           <Fighters3D />
+          {snap?.mode === 'kong' && <KongAnimeActors />}
           <SnowTerrain />
           <FlashPlane />
           <Rig />
@@ -174,6 +191,7 @@ export default function GameApp() {
         <HUD />
         <VoiceDock />
       </div>
+      {rotated && <div className="fr-ctl"><button onClick={() => window.dispatchEvent(new CustomEvent('si-force-rot', { detail: fr > 0 ? -1 : 1 }))} title="Turn the other way">⟲ FLIP</button><button onClick={() => window.dispatchEvent(new CustomEvent('si-force-rot', { detail: 0 }))} title="Back to upright">✕ UPRIGHT</button></div>}
     </div>
   )
 }

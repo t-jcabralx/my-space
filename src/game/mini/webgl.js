@@ -87,7 +87,7 @@ export function makeMiniWebGL(canvas, g, W = 360, H = 540) {
     if (!Number.isFinite(x + y + z + sx + sy + sz) || !sx || !sy || !sz) return
     const alpha = Math.round(Math.min(1, Math.max(0, o.alpha ?? 1)) * 10) / 10
     if (!alpha) return
-    const glow = o.glow > 1.2 ? 0.25 : 0, surface=o.unlit?'unlit':o.surface||(['leaf','organic','cloth','branch'].includes(kind)?'matte':'paint'),key = `${kind}:${alpha}:${glow}:${surface}`
+    const glow = o.glow > 1.2 ? 0.25 : 0, surface=o.unlit?'unlit':o.surface||(['leaf','organic','cloth','branch','sculpt'].includes(kind)?'matte':'paint'),key = `${kind}:${alpha}:${glow}:${surface}`
     let batch = batches.get(key)
     if (!batch) {
       const material = surface==='unlit'?new THREE.MeshBasicMaterial({color:'#ffffff',transparent:alpha<1,opacity:alpha,depthWrite:alpha===1,side:THREE.DoubleSide,toneMapped:false}):new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: surface==='gel'?.24:surface==='matte'?.88:.48, metalness: surface==='paint'?.08:0, transparent: alpha < 1, opacity: alpha, depthWrite: alpha === 1, emissive: '#ffffff', emissiveIntensity: glow, side: THREE.DoubleSide })

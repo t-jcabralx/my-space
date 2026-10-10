@@ -1,12 +1,11 @@
-import { animeHead } from './artDirection.js'
-import { modelApi } from './modeling.js'
+import { branch, shape } from './artDirection.js'
+import { drawBarrel, drawClimber, drawFlame, drawGorilla, drawHammer, drawRescue } from './kongModels.js'
 // GIRDER GORILLA: a 3D barrel-dodging climb in the spirit of the classic giant-ape arcade game.
 // Run along sloping steel girders, climb ladders, jump the rolling barrels, grab the hammer, and reach the captive at the top.
 // The girders can be made up to 20 times wider (more ladders, more gorillas, a minimap). 1 or 2 players, or a friend online.
 import { G, emit as engineEmit, keys, games, profile, saveProfile, recordScore, toMenu, shake, flash, stepParticles } from './engine.js'
 import { sfx, music } from './audio.js'
 import { clamp, rng } from './pxl.js'
-import { limb, lerp } from './rig.js'
 import { registerNet, gameEnded } from './online/gnet.js'
 
 export const FH = 11, AMP = 4, SIZES = [1, 2, 4, 8, 12, 20]
@@ -22,6 +21,7 @@ export const LEVELS = [
 ]
 export const KG = { mode: 'idle', paused: false, lvl: 0, size: 1, W: 60, seed: 1, floors: 0, ladders: [], hammers: [], bonus: [], players: [], barrels: [], fires: [], kongs: [], princess: null, t: 0, timer: 0, score: 0, over: null, msg: null, fx: [], id: 1, kind: 'solo', net: null, emitT: 0, clearT: 0, netT: 0, rnd: null, me: 0, camX: 0, camY: 8 }
 let snap = null
+let viewHalf = 30
 const subs = new Set()
 export const subscribeKong = (f) => { subs.add(f); return () => subs.delete(f) }
 export const getKongSnap = () => snap
@@ -152,6 +152,7 @@ function stepPlayer(p, dt) {
   if (!p.done && p.fl === pr.i && Math.abs(p.x - pr.x) < 3) { p.done = true; const bonus = Math.max(0, Math.round(KG.timer)); p.score += bonus; KG.score += bonus; sfx('mgBig'); fx(pr.x, surf(pr.i, pr.x) + 3, 24, [2, 0.6, 1.4], 18, 1, 0.6) }
 }
 function smash(p) {
+  p.hit = .18
   const x0 = p.x, x1 = p.x + p.face * 3.4, lo = Math.min(x0, x1) - 0.6, hi = Math.max(x0, x1) + 0.6
   for (const b of KG.barrels) if (!b.dead && b.i === p.fl && b.x > lo && b.x < hi) { b.dead = true; shake(0.15); p.score += 300; KG.score += 300; fx(b.x, surf(b.i, b.x) + 1, 14, [2, 1.2, 0.4], 16, 0.6, 0.5); sfx('crate') }
   for (const f of KG.fires) if (!f.dead && f.i === p.fl && f.x > lo && f.x < hi) { f.dead = true; shake(0.2); p.score += 500; KG.score += 500; fx(f.x, surf(f.i, f.x) + 1, 14, [2.6, 1.4, 0.3], 16, 0.6, 0.5); sfx('rgKill') }
@@ -224,7 +225,7 @@ function update(dtRaw) {
   const live = KG.players.filter((p) => !p.out && !p.gone)
   const ref = live.length ? live.reduce((a, p) => (p.i === KG.me ? p : a), live[0]) : KG.players[0]
   // the camera follows the local climber
-  KG.camX += (clamp(ref.x, -KG.W / 2 + 30, KG.W / 2 - 30) - KG.camX) * Math.min(1, dt * 5)
+  KG.camX += (clamp(ref.x, -KG.W / 2 + viewHalf, KG.W / 2 - viewHalf) - KG.camX) * Math.min(1, dt * 5)
   KG.camY += (ref.y + 3.5 - KG.camY) * Math.min(1, dt * 4)
   if (KG.net && KG.net.role === 'guest') { guestStep(dt); emitTick(dt); return }
   KG.t += dt
@@ -318,137 +319,91 @@ registerNet('kong', {
   onLeave(cid) { if (!KG.net) return; const i = KG.net.players.findIndex((p) => p.id === cid); if (KG.net.role === 'host' && KG.players[i]) { KG.players[i].gone = true; KG.players[i].out = true } else if (KG.net.role === 'guest' && KG.mode === 'play' && cid === null) finish(false) },
 })
 // ---------- drawing ----------
-function lights() { return { sun: { x: KG.camX - 30, y: KG.camY + 50, z: 40, color: '#ffe2b0', intensity: 0.9 }, ambient: 0.9, dir: 0.18, shadow: false, lantern: { x: KG.camX, y: KG.camY + 4, z: 18, color: '#ffcf8a', intensity: 2.8, distance: 140 } } }
-function camera(aspect) { const sk = (G.shake || 0) * 0.5; return { x: KG.camX + (Math.random() - 0.5) * sk, y: KG.camY + 9, z: 62, tx: KG.camX, ty: KG.camY, tz: 0, fov: 42, far: 600, aspect } }
-function drawHero(api, p, t) {
-  api = modelApi(api)
-  const { put3 } = api
-  if (p.out || p.gone) return
-  if ((p.inv > 0 && Math.floor(t * 12) % 2 === 0) || (p.dead > 0 && Math.floor(t * 20) % 3 === 0)) return
-  const f = p.face, x = p.x, y = p.y, pink = p.color === '#ff6ab8'
-  const red = pink ? [1.8, 0.5, 1] : [2, 0.3, 0.25], blue = pink ? [0.9, 0.4, 1.5] : [0.3, 0.5, 1.6], skin = [1.8, 1.4, 1.1], boot = [0.35, 0.2, 0.12], glove = [2.2, 2.2, 2.2], hair = [0.3, 0.18, 0.1]
-  const dead = p.dead > 0, air = !p.ground && !p.ladder, clim = !!p.ladder
-  const run = clim || air || dead ? 0 : clamp(Math.abs(p.in.dx), 0, 1) * (p.ground ? 1 : 0), ph = p.anim * 15
-  const bob = clim ? 0 : run ? Math.abs(Math.sin(ph)) * 0.2 : air ? 0 : Math.sin(p.anim * 2.4) * 0.05
-  const lean = dead ? 0.6 : run * 0.16
-  const hy = y + 1.5 + bob
-  const A = (a) => a * (clim ? 1 : f), X = (lx) => x + lx * (clim ? 1 : f)
-  const cph = p.y * 2.6 // ladder cycle follows the height climbed
-  // legs
-  for (const side of [-1, 1]) {
-    const z = side * 0.4 * (clim ? 0.7 : 1), q = Math.sin(ph + (side > 0 ? 0 : Math.PI))
-    let th = q * 0.95 * run, kn = Math.max(0, -q) * 1.1 * run, off = clim ? side * 0.5 : 0
-    if (air) { th = side > 0 ? 0.8 : -0.3; kn = side > 0 ? 1.1 : 0.3 }
-    if (clim) { const c = Math.sin(cph + (side > 0 ? 0 : Math.PI)); th = 0; kn = 0; var lift = Math.max(0, c) * 0.9 } else lift = 0
-    if (dead) { th = side * 0.7; kn = 0.3 }
-    const knee = limb(put3, X(off), hy + lift, z, A(clim ? 0 : th) , 0.75, 0.62, 0.62, blue)
-    const ank = limb(put3, knee[0], knee[1] + (clim ? 0 : 0), z, A(clim ? 0 : th - kn), 0.75, 0.56, 0.58, blue, 0.85)
-    put3(ank[0] + (clim ? 0 : f * 0.24), ank[1] + 0.2, z + (clim ? -0.1 : 0), 1.0, 0.45, clim ? 0.7 : 0.8, 0, boot[0], boot[1], boot[2], 0)
-  }
-  // torso: blue dungarees, red shirt, buttons
-  const tor = limb(put3, X(0), hy, 0, A(Math.PI + lean), 1.5, 1.45, 1.05, blue)
-  limb(put3, X(0), hy + 0.7, 0, A(Math.PI + lean), 0.8, 1.52, 1.1, red, 0.9)
-  limb(put3, X(0), hy, 0, A(Math.PI + lean), 0.45, 1.5, 1.08, [0.95, 0.9, 0.2])
-  const cb = clim ? -0.55 : 0.55
-  put3(tor[0] - lean * 0.2, hy + 1.0, cb, 0.28, 0.28, 0.2, 0, 2.4, 2.1, 0.4, 0)
-  // head, cap, moustache
-  const hx = tor[0], hyy = tor[1] + 0.5
-  animeHead(api,hx,hyy,0,1.02,clim?Math.PI:f*1.08,{skin:[.94,.71,.56],hair,helmet:[.8,.18,.14],iris:[.18,.43,.6]})
-  put3(hx+f*.6,hyy+.42,0,.65,.12,1,0,...red,0)
-  // arms
-  const sh = [tor[0], tor[1] - 0.25]
-  for (const side of [-1, 1]) {
-    const z = side * 0.78 * (clim ? 0.9 : 1), front = side > 0
-    let a1 = -Math.sin(ph + (front ? Math.PI : 0)) * 0.85 * run + Math.sin(p.anim * 2.4 + side) * 0.05, a2 = 0.2 + run * 0.7
-    const ox = clim ? side * 0.4 : 0
-    if (air) { a1 = front ? 2.4 : 1.7; a2 = 0.2 }
-    if (clim) { const c = Math.sin(cph + (front ? Math.PI : 0)); a1 = Math.PI + side * 0.25 - c * 0.3; a2 = 0; var sy = c * 0.5 } else sy = 0
-    if (dead) { a1 = side * 2.2; a2 = 0.2 }
-    const hamHeld = front && p.ham > 0
-    if (hamHeld) { const sw = (Math.sin(p.anim * 16) + 1) / 2; a1 = lerp(2.9, 0.6, sw); a2 = 0.15 }
-    const el = limb(put3, sh[0] + ox, sh[1] + sy, z, A(a1), 0.62, 0.5, 0.5, red, 0.95)
-    const hand = limb(put3, el[0], el[1], z, A(a1 + a2), 0.58, 0.46, 0.46, red, 0.85)
-    put3(hand[0], hand[1] - 0.05, z, 0.62, 0.62, 0.62, 0, glove[0], glove[1], glove[2], 0)
-    if (hamHeld) { const base = a1 + a2 + 0.1, hd = limb(put3, hand[0], hand[1], z, A(base), 1.8, 0.28, 0.28, [0.5, 0.35, 0.2]); limb(put3, hd[0], hd[1], z, A(base), 1.0, 1.6, 1.1, [1.6, 1.6, 1.85]) }
-  }
-}
-function drawKong(api, k, t) {
-  api = modelApi(api)
-  const { put3 } = api, y = surf(k.i, k.x), d = rollDir(k.i), x = k.x
-  const w = k.wind > 0 ? Math.sin((0.6 - k.wind) / 0.6 * Math.PI) : 0 // 0 .. 1 .. 0 while winding up and heaving a barrel
-  const ph = t * 1.6 + k.id * 1.3, br = Math.sin(ph * 1.7) * 0.14
-  const bt = (t + k.id * 1.7) % 7, beat = k.wind <= 0 && bt < 1.5 ? 1 : 0, bs = beat ? Math.abs(Math.sin(bt * Math.PI * 3.4)) : 0 // now and then he pounds his chest
-  const fur = [0.5, 0.32, 0.2], fur2 = [0.36, 0.23, 0.14], skin = [1.45, 1.05, 0.78], dark = [0.1, 0.07, 0.05], silver = [0.85, 0.8, 0.75]
-  const dip = w * -0.5 + (beat ? -0.2 * bs : 0)
-  // legs and feet
-  for (const s of [-1, 1]) { put3(x + s * 1.7, y + 1.7, 0, 2.4, 3.4, 2.8, 0, fur2[0], fur2[1], fur2[2], 0); put3(x + s * 1.8, y + 0.4, 0.7, 2.8, 0.9, 3.6, 0, dark[0] + 0.2, dark[1] + 0.12, dark[2] + 0.1, 0) }
-  // belly, back and chest
-  put3(x, y + 3.9 + dip * 0.4, 0, 5.6, 2.4, 4.2, 0, fur2[0], fur2[1], fur2[2], 0)
-  put3(x, y + 6.0 + br + dip, 0, 7, 3.6, 4.6, 0, fur[0], fur[1], fur[2], 0)
-  put3(x, y + 6.9 + br + dip, -1.6, 5.8, 3.2, 1.6, 0, silver[0], silver[1], silver[2], 0) // silverback saddle
-  put3(x, y + 5.9 + br + dip, 2.3, 4.2, 2.6, 0.5, 0, skin[0], skin[1], skin[2], 0) // bare chest plate
-  put3(x - 1.1, y + 6.1 + br + dip, 2.6, 0.5, 1.6, 0.3, 0, fur2[0] * 0.8, fur2[1] * 0.8, fur2[2] * 0.8, 0); put3(x + 1.1, y + 6.1 + br + dip, 2.6, 0.5, 1.6, 0.3, 0, fur2[0] * 0.8, fur2[1] * 0.8, fur2[2] * 0.8, 0)
-  // head: heavy brow, crest, snout, eyes, nostrils and a mouth that opens for the throw
-  const hy = y + 8.7 + br * 1.2 + dip + w * 0.4, hz = 0.9 + w * 0.2, look = d * (0.4 + w * 0.2)
-  put3(x, hy, hz, 3.6, 3.0, 3.2, 0, fur[0], fur[1], fur[2], 0)
-  put3(x, hy + 1.8, hz - 0.2, 1.4, 1.0, 2.6, 0, fur2[0], fur2[1], fur2[2], 0) // sagittal crest
-  put3(x, hy + 0.9, hz + 1.7, 3.5, 0.7, 1.0, 0, dark[0] + 0.15, dark[1] + 0.1, dark[2] + 0.08, 0) // brow ridge
-  put3(x + look * 0.2, hy - 0.5, hz + 1.8, 2.6, 1.7, 0.9, 0, skin[0], skin[1], skin[2], 0) // muzzle
-  for (const s of [-1, 1]) { put3(x + s * 0.85 + look * 0.1, hy + 0.35, hz + 2.1, 0.8, 0.55, 0.3, 0, 2.6, 2.6, 2.6, 0); put3(x + s * 0.85 + look * 0.4, hy + 0.35, hz + 2.3, 0.35, 0.4, 0.25, 0, 0.3, 0.05, 0.02, 0); put3(x + s * 0.35 + look * 0.2, hy - 0.2, hz + 2.3, 0.3, 0.4, 0.2, 0, dark[0], dark[1], dark[2], 0) }
-  if (w > 0.25) { put3(x + look * 0.2, hy - 1.05, hz + 2.3, 1.7, 0.5 + w * 0.9, 0.3, 0, 0.4, 0.04, 0.04, 0); put3(x + look * 0.2, hy - 0.8, hz + 2.4, 1.4, 0.18, 0.2, 0, 2.6, 2.6, 2.6, 0) } else put3(x + look * 0.2, hy - 1.05, hz + 2.3, 1.7, 0.18, 0.3, 0, dark[0] + 0.2, dark[1] + 0.1, dark[2] + 0.08, 0)
-  // arms: knuckles on the floor, swinging; fists pound the chest; both arms heave the barrel overhead
-  const sy = y + 7.0 + br + dip
-  for (const s of [-1, 1]) {
-    const sw = Math.sin(ph + s) * 0.08
-    let a1 = s * (0.32 + sw), a2 = s * (0.18 - sw * 0.5)
-    if (beat) { const alt = s > 0 ? bs : Math.abs(Math.sin(bt * Math.PI * 3.4 + 1.57)); a1 = s * (0.5 - alt * 1.6); a2 = s * (-alt * 1.5) }
-    if (w > 0) { a1 = s * (0.32 + w * (Math.PI - 1.15)); a2 = s * (0.18 + w * 0.35) }
-    const sx = x + s * 3.7
-    put3(sx, sy + 0.2, 0, 2.4, 2.4, 2.8, 0, fur[0], fur[1], fur[2], 0) // shoulder
-    const el = limb(put3, sx, sy, 0.2, a1, 3.2, 1.9, 2.1, fur)
-    const fist = limb(put3, el[0], el[1], 0.3, a2 + a1, 3.0, 1.7, 1.9, fur2)
-    put3(fist[0], fist[1] - 0.3, 0.5, 2.3, 2.1, 2.3, 0, fur2[0] * 0.8, fur2[1] * 0.8, fur2[2] * 0.8, 0) // fist
-  }
-  // the barrel he is about to throw, carried up from the chest to overhead
-  if (k.wind > 0) { const by = y + 6 + w * 6.4; put3(x, by, 0.8, 2.6, 2.6, 2.8, t * 6, 1.1, 0.55, 0.22, 0); put3(x, by, 2.2, 2.7, 2.7, 0.3, t * 6, 0.3, 0.3, 0.35, 0) }
+function lights() { return { sun: { x: KG.camX - 30, y: KG.camY + 50, z: 40, color: '#fff0d7', intensity: 1.15 }, ambient: .78, dir: .25, shadow: false, lantern: { x: KG.camX + 20, y: KG.camY + 12, z: 12, color: '#c6eaff', intensity: .8, distance: 140 } } }
+function camera(aspect) {
+  viewHalf=Math.min(KG.W/2,Math.max(12,44*Math.tan(19*Math.PI/180)*aspect-3))
+  const sk=(G.shake||0)*.5
+  return {x:KG.camX+(Math.random()-.5)*sk,y:KG.camY+5,z:44,tx:KG.camX,ty:KG.camY+1,tz:0,fov:38,far:600,aspect}
 }
 function draw3(api) {
-  const { put3, putS } = api, t = G.time
+  const { put3, putS } = api, t = KG.t
   const cx = KG.camX, cy = KG.camY, lo = cy - 30, hi = cy + 34
-  // the night city behind the site
-  for (let k = -8; k <= 8; k++) { const x = Math.floor(cx / 30) * 30 + k * 30, h = 40 + ((Math.abs(Math.floor(x / 30)) * 37) % 60), yb = cy * 0.7 - 10; put3(x, yb + h / 2, -70 - (Math.abs(k) % 3) * 10, 22, h, 18, 0, 0.12, 0.14, 0.3, 0); for (let w = 0; w < h; w += 7) if (((w + Math.floor(x)) * 7) % 3) put3(x, yb + w + 4, -60.5 - (Math.abs(k) % 3) * 10, 16, 1.4, 0.4, 0, 1.8, 1.5, 0.5, 0) }
-  // girders
-  const x0 = Math.floor((cx - 80) / 4) * 4, x1 = cx + 80
-  // the concrete foundation the site stands on, with hazard stripes along its edge
-  { const gx0 = Math.max(cx - 80, -KG.W / 2 - 6), gx1 = Math.min(cx + 80, KG.W / 2 + 6), gw = gx1 - gx0
-    if (gw > 0) { put3((gx0 + gx1) / 2, -9, 0, gw, 14, 12, 0, 0.32, 0.32, 0.38, 0); put3((gx0 + gx1) / 2, -2.2, 5.5, gw, 0.6, 1.2, 0, 0.5, 0.5, 0.58, 0)
-      for (let x = Math.ceil(gx0 / 6) * 6; x < gx1; x += 6) put3(x, -3.6, 6.2, 2.6, 1.2, 0.3, 0.5, 2.2, 1.8, 0.2, 0) } }
-  for (let i = 0; i < KG.floors; i++) {
-    if (base(i) < lo - 8 || base(i) > hi + 8) continue
-    for (let x = x0; x <= x1; x += 4) {
-      if (Math.abs(x) > KG.W / 2 || !hasFloor(i, x)) continue
-      const y = surf(i, x), n = ((x / 4) | 0) & 1
-      put3(x, y - 0.7, 0, 4.1, 1.4, 5, Math.atan2(-rollDir(i) * AMP / KG.W * 4, 4), 1.6 - n * 0.2, 0.35, 0.28 - n * 0.04, 0)
-      put3(x, y - 1.5, 0, 4.1, 0.5, 4.2, 0, 0.35, 0.1, 0.1, 0)
-      if (n) put3(x, y + 0.05, 2.4, 0.5, 0.5, 0.3, 0, 2, 1.6, 0.5, 0)
+  // A quiet blue city backdrop keeps the red steel and moving hazards readable.
+  if(!api.animeActors?.has('backdrop'))for (let k = -6; k <= 6; k++) {
+    const x = Math.floor(cx / 30) * 30 + k * 30, h = 34 + ((Math.abs(Math.floor(x / 30)) * 37) % 58), yb = cy * .55 - 22, z = -80 - (Math.abs(k) % 3) * 12
+    put3(x, yb + h / 2, z, 22, h, 16, 0, .32, .48, .59, 0)
+    put3(x, yb + h + .4, z, 23, .8, 17, 0, .49, .63, .71, 0)
+    for (let w = 4; w < h-3; w += 8) for(const s of [-1,1]) put3(x+s*5.5, yb+w, z+8.1, 6, 3.8, .2, 0, .55, .7, .79, 0)
+    if(k%3===0)for(let n=0;n<3;n++)shape(api,'organic',x+n*7,cy*.4+61+(k%2)*15,-115,19,7+n%2*3,7,[.89,.95,.98])
+  }
+  // Rear columns and diagonal braces give the construction site real depth.
+  for(let x=Math.ceil(Math.max(cx-85,-KG.W/2)/24)*24;x<Math.min(cx+85,KG.W/2);x+=24) {
+    put3(x,KG.floors*FH/2-3,-4.4,.8,KG.floors*FH+5,1.1,0,.23,.32,.38,0)
+    for(let i=0;i<KG.floors-1;i++)if(base(i)>lo-12&&base(i)<hi+12) {
+      const next=Math.min(x+24,KG.W/2)
+      branch(api,[x,base(i),-4.4],[next,base(i+1),-4.4],.35,[.32,.4,.43])
     }
-    if (i === 0) { const ox = KG.W / 2 - 6, oy = surf(0, ox); put3(ox, oy + 2, 0, 3.6, 4, 3.6, 0, 0.3, 0.4, 1.4, 0); put3(ox, oy + 4.3, 0, 3.2, 0.6, 3.2, 0, 0.1, 0.1, 0.15, 0); put3(ox, oy + 5.4 + Math.sin(t * 9) * 0.3, 0, 1.6, 1.8, 1.6, 0, 2.8, 1.3 + Math.sin(t * 12) * 0.4, 0.2, t) }
   }
-  for (const l of KG.ladders) {
-    if (Math.abs(l.x - cx) > 90) continue
-    const a = surf(l.i, l.x), b = surf(l.i + 1, l.x)
-    put3(l.x - 0.9, (a + b) / 2, 0, 0.3, b - a, 0.5, 0, l.broken ? 0.5 : 1.2, l.broken ? 0.4 : 1.4, l.broken ? 0.5 : 1.8, 0); put3(l.x + 0.9, (a + b) / 2, 0, 0.3, b - a, 0.5, 0, l.broken ? 0.5 : 1.2, l.broken ? 0.4 : 1.4, l.broken ? 0.5 : 1.8, 0)
-    for (let y = a + 1; y < b - 0.5; y += 1.3) { if (l.broken && y > a + (b - a) * 0.45 && y < a + (b - a) * 0.7) continue; put3(l.x, y, 0, 1.8, 0.22, 0.4, 0, l.broken ? 0.5 : 1.2, l.broken ? 0.4 : 1.4, l.broken ? 0.5 : 1.8, 0) }
+  const gx0 = Math.max(cx-85,-KG.W/2-6), gx1 = Math.min(cx+85,KG.W/2+6), gw=gx1-gx0
+  if(gw>0) {
+    put3((gx0+gx1)/2,-5.6,-1,gw,7,15,0,.31,.35,.37,0)
+    put3((gx0+gx1)/2,-2,0,gw,.7,14,0,.49,.5,.47,0)
+    put3((gx0+gx1)/2,-3.15,6.65,gw,1,.25,0,.075,.09,.1,0)
+    for(let x=Math.ceil(gx0/3)*3;x<gx1;x+=3)put3(x,-3.15,6.85,1.3,.95,.15,-.4,.92,.63,.06,0)
   }
-  for (const k of KG.kongs) if (Math.abs(k.x - cx) < 100) drawKong(api, k, t)
-  const pr = KG.princess
-  if (pr && Math.abs(pr.x - cx) < 100) { const y = surf(pr.i, pr.x); put3(pr.x, y + 2, 0, 2, 2.6, 1.4, 0, 2, 0.6, 1.4, 0); put3(pr.x, y + 3.8, 0, 1.3, 1.2, 1.2, 0, 1.8, 1.4, 1.1, 0); put3(pr.x, y + 4.6, 0, 1.6, 0.8, 1.4, 0, 2, 1.7, 0.4, 0); put3(pr.x + Math.sin(t * 5) * 0.5, y + 6.2, 0, 0.5, 0.5, 0.5, 0, 2.6, 0.4, 0.4, t) }
-  for (const h of KG.hammers) if (!h.got && Math.abs(h.x - cx) < 100) { const y = surf(h.i, h.x) + 1.2 + Math.sin(t * 4 + h.x) * 0.3; put3(h.x, y, 0, 0.5, 2.2, 0.5, 0.5, 0.5, 0.35, 0.2, 0); put3(h.x - 0.5, y + 1.1, 0, 1.8, 1.2, 1.2, 0.5, 1.7, 1.7, 1.9, 0) }
-  for (const b of KG.bonus) if (!b.got && Math.abs(b.x - cx) < 100) { const y = surf(b.i, b.x) + 1.3 + Math.sin(t * 4 + b.x) * 0.2, c = [[2, 0.5, 1.4], [2, 1.7, 0.3], [0.6, 1.8, 2], [0.7, 2, 0.6]][b.t]; put3(b.x, y, 0.3, 1.5, 1.1, 1.1, 0, c[0], c[1], c[2], t); put3(b.x, y + 0.9, 0.3, 0.5, 0.5, 0.5, 0, 2.4, 2.4, 2.4, 0) }
-  for (const b of KG.barrels) { if (Math.abs(b.x - cx) > 100) continue; const y = (b.y || 0) + 1.1; put3(b.x, y, 0, 2.2, 2.2, 2.6, b.rot, 1.1, 0.55, 0.22, 0); put3(b.x, y, 1.4, 2.3, 2.3, 0.3, b.rot, 0.3, 0.3, 0.35, 0); put3(b.x, y, 0, 0.3, 2.3, 2.7, b.rot, 0.3, 0.3, 0.35, 0) }
-  for (const f of KG.fires) { if (Math.abs(f.x - cx) > 100) continue; const y = (f.y || 0) + 1; put3(f.x, y + 0.5, 0, 1.8, 1.6, 1.6, 0, 2.6, 0.9, 0.2, 0); put3(f.x, y + 1.7 + Math.sin(t * 14 + f.id) * 0.3, 0, 1.2, 1.4, 1.2, 0, 2.8, 1.8, 0.3, t * 3); put3(f.x + f.dir * 0.4, y + 0.9, 0.9, 0.35, 0.35, 0.2, 0, 2.8, 2.8, 2.8, 0) }
-  for (const p of KG.players) drawHero(api, p, t)
-  for (const q of KG.fx) { const f = q.life / q.max, s = q.s * (0.3 + 0.7 * f); putS(q.x, q.y, 1.5, s, s, s, q.c[0], q.c[1], q.c[2]) }
+  const x0=Math.floor((cx-80)/4)*4,x1=cx+80
+  for(let i=0;i<KG.floors;i++) {
+    if(base(i)<lo-8||base(i)>hi+8)continue
+    const angle=Math.atan(-rollDir(i)*AMP/KG.W)
+    for(let x=x0;x<=x1;x+=4) {
+      if(Math.abs(x)>KG.W/2||!hasFloor(i,x))continue
+      const y=surf(i,x)
+      put3(x,y-.22,0,4.04,.44,5.5,angle,.71,.095,.048,0)
+      put3(x,y-1.1,0,4,1.35,4.4,angle,.32,.035,.025,0)
+      put3(x,y-1.9,0,4.04,.3,5.25,angle,.53,.052,.031,0)
+      // Triangular gussets and rounded rivets on the visible front web.
+      branch(api,[x-1.8,y-1.65,2.32],[x+1.8,y-.48,2.32],.22,[.8,.16,.075])
+      for(const side of [-1,1])shape(api,'organic',x+side*1.7,y-1.03,2.36,.24,.24,.17,[.93,.48,.17])
+    }
+    if(i===0) {
+      const ox=KG.W/2-6,oy=surf(0,ox)
+      shape(api,'cloth',ox,oy+1.45,-.3,3,2.9,3,[.055,.18,.29])
+      for(const yy of [.3,2.65])shape(api,'organic',ox,oy+yy,-.3,3.1,.24,3.1,[.16,.25,.3])
+      drawFlame(api,ox,oy+2.7,t)
+    }
+  }
+  for(const l of KG.ladders) {
+    if(Math.abs(l.x-cx)>90||base(l.i)>hi||base(l.i+1)<lo)continue
+    const a=surf(l.i,l.x),b=surf(l.i+1,l.x),c=l.broken?[.43,.35,.23]:[.94,.61,.085]
+    for(const s of [-1,1]){
+      put3(l.x+s*.91,(a+b)/2,.28,.24,b-a+.45,.4,0,...c,0)
+      for(const yy of [a+.5,b-.5])put3(l.x+s*.91,yy,.57,.42,.48,.22,0,.29,.21,.1,0)
+    }
+    for(let y=a+.65;y<b-.3;y+=1.3) {
+      if(l.broken&&y>a+(b-a)*.45&&y<a+(b-a)*.7)continue
+      branch(api,[l.x-.91,y,.29],[l.x+.91,y,.29],.23,c)
+    }
+  }
+  for(const k of KG.kongs)if(Math.abs(k.x-cx)<100&&base(k.i)<hi+12&&base(k.i)>lo-15) {
+    const y=surf(k.i,k.x)
+    drawGorilla(api,{...k,y,direction:rollDir(k.i)},t)
+    drawBarrel(api,k.x-rollDir(k.i)*5,y+1.1,-2.6,.4)
+  }
+  const pr=KG.princess
+  if(pr&&Math.abs(pr.x-cx)<100&&!api.animeActors?.has('rescue'))drawRescue(api,pr.x,surf(pr.i,pr.x),t)
+  for(const h of KG.hammers)if(!h.got&&Math.abs(h.x-cx)<100)drawHammer(api,[h.x,surf(h.i,h.x)+.85+Math.sin(t*4+h.x)*.22,0],-.4,1.1)
+  for(const b of KG.bonus)if(!b.got&&Math.abs(b.x-cx)<100) {
+    const y=surf(b.i,b.x)+1.1+Math.sin(t*4+b.x)*.17,c=[[.83,.13,.33],[.91,.64,.065],[.08,.55,.69],[.18,.55,.2]][b.t]
+    shape(api,'cloth',b.x,y,0,1.4,1.2,1,c)
+    // A small satchel with a handle and gold clasp replaces the collectible cube.
+    for(const s of [-1,1])branch(api,[b.x+s*.36,y+.5,0],[b.x+s*.28,y+.99,0],.12,[.35,.18,.055])
+    branch(api,[b.x-.28,y+.99,0],[b.x+.28,y+.99,0],.12,[.35,.18,.055])
+    shape(api,'organic',b.x,y+.1,.5,.22,.22,.13,[1,.74,.17])
+  }
+  for(const b of KG.barrels)if(Math.abs(b.x-cx)<100)drawBarrel(api,b.x,(b.y||0)+1.1,0,-b.rot*rollDir(b.i))
+  for(const f of KG.fires)if(Math.abs(f.x-cx)<100)drawFlame(api,f.x,f.y||0,t+f.id)
+  for(const p of KG.players)if(!api.animeActors?.has(`player:${p.i}`))drawClimber(api,p,t)
+  for(const q of KG.fx){const f=q.life/q.max,s=q.s*(.3+.7*f);putS(q.x,q.y,1.5,s,s,s,...q.c)}
 }
 if (typeof window !== 'undefined') { window.__KG = KG; window.__kong = kongActions }
-games.kong = { update, onKey, draw() {}, draw3, camera, lights, stop, sky: () => '#070a1c' }
+games.kong = { update, onKey, draw() {}, draw3, camera, lights, stop, sky: () => '#86c5ed' }

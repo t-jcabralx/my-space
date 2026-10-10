@@ -2084,6 +2084,8 @@ function SlugHUD() {
 
 function RotateHint({ mode }) {
   const [portrait, setPortrait] = useState(false)
+  const [, bump] = useState(0)
+  useEffect(() => { const h = () => bump((n) => n + 1); window.addEventListener('si-force-rot', h); return () => window.removeEventListener('si-force-rot', h) }, [])
   const [dismissed, setDismissed] = useState(() => { try { return sessionStorage.getItem('si_rot_ok') === '1' } catch { return false } })
   useEffect(() => {
     const f = () => { try { setPortrait(window.innerHeight > window.innerWidth && isTouchPrimary()) } catch { /* ignore */ } }
@@ -2093,7 +2095,10 @@ function RotateHint({ mode }) {
   const dom = ['menu', 'word', 'merge', 'c4', 'mines', 'cards', 'flames'].includes(mode)
   if (!portrait || dom) return null
   // a phone held upright shows the game in a thin strip: ask for a turn first, with a way to play anyway
-  if (!dismissed) return <div className="rotatefull" onPointerDown={(e) => e.stopPropagation()}><div className="rot">📱</div><h2>TURN YOUR PHONE SIDEWAYS</h2><p>Games use the whole screen in landscape. Turn off rotation lock if nothing happens.</p><button className="big sec" onClick={() => { setDismissed(true); try { sessionStorage.setItem('si_rot_ok', '1') } catch { /* ignore */ } }}>PLAY ANYWAY</button></div>
+  let forced = false
+  try { forced = Number(sessionStorage.getItem('si_fr')) !== 0 && sessionStorage.getItem('si_fr') !== null } catch { /* ignore */ }
+  if (forced) return null
+  if (!dismissed) return <div className="rotatefull" onPointerDown={(e) => e.stopPropagation()}><div className="rot">📱</div><h2>TURN YOUR PHONE SIDEWAYS</h2><p>Games use the whole screen in landscape. Turn off rotation lock if nothing happens, or let the game turn itself.</p><button className="big" onClick={() => window.dispatchEvent(new CustomEvent('si-force-rot', { detail: 1 }))}>↻ FILL MY SCREEN</button><button className="big sec" onClick={() => { setDismissed(true); try { sessionStorage.setItem('si_rot_ok', '1') } catch { /* ignore */ } }}>PLAY ANYWAY</button></div>
   return <div className="rotatehint">🔄 TURN YOUR PHONE SIDEWAYS FOR A BIGGER GAME</div>
 }
 export default function HUD() {

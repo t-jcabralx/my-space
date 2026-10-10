@@ -67,7 +67,7 @@ function Minimap({ ver }) {
     const z = info.cam.z; g.strokeStyle = '#fff'; g.lineWidth = 1; g.strokeRect(((info.cam.x - 50 / z) / T) * sc, (MH - (info.cam.y + 28 / z) / T) * sc, (100 / z / T) * sc, (56 / z / T) * sc)
   }, [ver])
   const jump = (e) => { const r = ref.current.getBoundingClientRect(); const i = ((e.clientX - r.left) / r.width) * MW, j = MH - ((e.clientY - r.top) / r.height) * MH; empireActions.jump(i * T, j * T) }
-  return <canvas ref={ref} className="em-mini" width={132} height={132} onPointerDown={(e) => { e.stopPropagation(); jump(e) }} onPointerMove={(e) => { if (e.buttons) jump(e) }} />
+  return <canvas ref={ref} className="em-mini" data-frref="1" width={132} height={132} onPointerDown={(e) => { e.stopPropagation(); jump(e) }} onPointerMove={(e) => { if (e.buttons) jump(e) }} />
 }
 function Surface({ onPtr }) {
   const ref = useRef()

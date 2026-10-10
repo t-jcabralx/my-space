@@ -1,0 +1,7 @@
+{
+  "asset": "terrace.webp",
+  "tool": "Built-in image_gen",
+  "purpose": "Environment artwork for the My Space anime art-direction preview",
+  "prompt": "Use case: stylized-concept. Asset type: wide 16:9 scenic background for an interactive anime game character showcase in My Space Arcade. Create an exceptionally beautiful hand-painted anime background of a futuristic Japanese hilltop town seen from an elevated terrace at golden hour. Distant layered indigo mountains, warm apricot light, peach and cobalt sky, dramatic billowing clouds, beautiful small city rooftops and a few construction cranes that subtly connect to a climbing arcade game. Foreground is a broad dark slate rooftop floor starting in the lower quarter, with the middle and right kept visually quiet and uncluttered for a real-time 3D character to be composited there; small red maple leaves and tiny luminous dust motes frame the extreme corners. Cinematic anime film background painting, precise architectural drawing, sophisticated clean color grouping, rich painterly detail, atmospheric perspective, a soft luminous horizon. Composition: wide landscape, no central focal building, most detailed town architecture in the lower middle distance, spacious open sky above. No people, no animals, no humanoids, no text, no letters, no logos, no interface, no watermarks. Not voxel, not low-poly, not photoreal, not plastic toy imagery.",
+  "processing": "Converted to WebP at quality 88 for the local web application."
+}

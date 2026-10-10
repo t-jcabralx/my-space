@@ -1,3 +1,4 @@
+import { drawBarrel, drawClimber, drawGorilla, drawRescue } from '../kongModels.js'
 // Animated 3D thumbnails for the dashboard game cards (drawn with the same software renderer as the mini games).
 // Each scene is (r, t) => void on a 320 x 180 canvas; r.look sets the camera, r.begin paints the sky.
 const hsl = (h, s = 75, l = 55) => `hsl(${((h % 360) + 360) % 360} ${s}% ${l}%)`
@@ -111,12 +112,13 @@ export const ART = {
     for (let i = 0; i < 22; i++) r.sphere(((i * 41 + t * 6) % 120) - 60, 56 - ((i * 13 + t * 12) % 56), -20 + (i % 5) * 4, 0.7, '#ffffff', { shine: false })
   },
   kong(r, t) {
-    sway(r, t, 34, 88, 20, 10); r.begin('#1a0a2a', '#0a0414'); r.box(0, 20, 20, 130, 60, 2, '#150a24')
-    for (let k = 0; k < 4; k++) r.box(0, 4 + k * 13, 0, 100, 3, 14, '#d9503a', { rz: (k % 2 ? 1 : -1) * 0.05 })
-    for (const [x, y] of [[-30, 10], [28, 23], [-26, 36]]) r.box(x, y + 3, 0, 2, 11, 3, '#3de8ff')
-    r.box(-38, 49, 0, 12, 12, 8, '#6a3a1a'); r.sphere(-38, 58, 0, 5, '#7a4a22'); r.box(-46, 52, 0, 4, 9, 4, '#6a3a1a'); r.box(-30, 52, 0, 4, 9, 4, '#6a3a1a')
-    for (let k = 0; k < 3; k++) { const f = (t * 0.25 + k / 3) % 1; r.sphere(-28 + f * 60, 50 - f * 40, 0, 3.2, '#a2662a', { glow: 1.05 }) }
-    person(r, 20 + Math.sin(t) * 6, 0, 0, '#ff5a6a', Math.sin(t * 9))
+    r.look(2+Math.sin(t*.2),11,33,0,5,0,40);r.begin('#86c5ed','#d5ebf5')
+    r.box(0,-.45,0,29,.9,6,'#ce452a');r.box(0,-1.5,0,29,1.2,4.9,'#732a20')
+    for(let x=-13;x<14;x+=2)r.sphere(x,-1.5,2.5,.12,'#e6ab48')
+    drawGorilla(r.modelApi,{x:0,y:0,id:0},t)
+    drawBarrel(r.modelApi,5.9,1.1,0,t*.35)
+    drawClimber(r.modelApi,{x:9,y:0,ground:true,face:-.35,in:{dx:0},anim:t},t)
+    drawRescue(r.modelApi,-8.6,0,t)
   },
   hunt(r, t) {
     sway(r, t, 22, 82, 14, 10); r.begin('#05060f', '#0b1030'); r.floor(-200, -140, 200, 140, 0, '#0a140a')

@@ -1,0 +1,12 @@
+VRM1_Constraint_Twist_Sample v1.0.1
+Copyright (c) 2022 pixiv Inc.
+Source: https://github.com/pixiv/three-vrm/blob/dev/packages/three-vrm/examples/models/VRM1_Constraint_Twist_Sample.vrm
+License: VRM Public License 1.0 — https://vrm.dev/licenses/1.0/
+A copy of the English license is included as VRM-Public-License-1.0.pdf.
+
+The embedded model license settings permit use by everyone, commercial use by corporations,
+redistribution, modification and redistribution of modifications. Credit notation is unnecessary.
+Antisocial or hate usage is not permitted. The original metadata remains embedded in the file.
+The model is unmodified. My Space supplies its own normalized-bone animation and scene presentation.
+This is a licensed sample used for the anime art-direction preview and Girder Gorilla's human cast,
+not an original My Space character. Clothing colors are adjusted at runtime.

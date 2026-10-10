@@ -1,5 +1,7 @@
 import { update, G, games } from '../src/game/engine.js'
 import { KG, kongActions, LEVELS, SIZES, surf } from '../src/game/kong.js'
+import { ART_CAPACITY } from '../src/game/artDirection.js'
+import { drawClimber, drawGorilla, drawRescue, drawBarrel } from '../src/game/kongModels.js'
 let failures = 0
 const check = (n, c, i) => { if (!c) failures++; console.log(c ? 'PASS' : 'FAIL', n, i || '') }
 const api = { put3: (...a) => { if (a.slice(0, 10).some((v) => !Number.isFinite(v))) throw new Error('NaN put3 ' + a.slice(0, 10)) }, putS: (...a) => { if (a.slice(0, 9).some((v) => !Number.isFinite(v))) throw new Error('NaN putS') }, putM: () => {} }
@@ -48,6 +50,38 @@ for (const size of [1, 4]) {
   kongActions.stop()
   kongActions.start({ level: 0, size: 1, seed: 4 }); for (const k of KG.kongs) k.t = 0.1; step(60)
   check('the gorilla throws barrels that roll down the girder', KG.barrels.length > 0)
+  kongActions.stop()
+}
+// Exercise every articulated pose, including the throw release and both player skins.
+{
+  const counts = {}, writes = []
+  const poseApi = {
+    putShape(kind,...args) {
+      if (!(kind in ART_CAPACITY) || args.some(v=>!Number.isFinite(v)) || args.slice(3,6).some(v=>v<=0)) throw new Error('Invalid character transform: '+kind)
+      counts[kind]=(counts[kind]||0)+1; writes.push([kind,...args])
+    },
+    put3: api.put3,
+  }
+  for(const t of [0,.2,.7,1.4,2.5,6.9,7.1])for(const wind of [0,.6,.45,.3,.16,.15,.01]) {
+    drawGorilla(poseApi,{x:-22,y:47,id:5,wind,direction:-1},t)
+    for(const kind of Object.keys(counts)){if(counts[kind]>=ART_CAPACITY[kind])throw new Error('Gorilla exceeds '+kind+' capacity');counts[kind]=0}
+  }
+  for(const color of ['#ff3a3a','#ff6ab8'])for(const face of [-1,1])for(const state of [
+    {ground:true,in:{dx:0}}, {ground:true,in:{dx:1}}, {ground:false,in:{dx:1}},
+    {ladder:{},ground:false,in:{dx:0,dy:1}}, {ground:true,ham:5,in:{dx:1,hit:true}},
+  ]) {
+    const p={x:2,y:13,face,color,anim:1.35,...state},before=JSON.stringify(p)
+    drawClimber(poseApi,p,1.35)
+    if(before!==JSON.stringify(p))throw new Error('Drawing mutated the climber')
+  }
+  drawRescue(poseApi,16,45,2.1);drawBarrel(poseApi,0,1.1,0,Math.PI/3)
+  check('cast poses and barrel rotations have finite, positive geometry',writes.length>0)
+  // Include the top-floor cast on the largest site, beyond the normal spawn view.
+  kongActions.start({level:7,size:20,seed:17})
+  KG.camX=KG.kongs[0].x;KG.camY=surf(8,KG.camX)+5
+  for(const kind of Object.keys(counts))counts[kind]=0
+  games.kong.draw3({...poseApi,putS:api.putS})
+  check('x20 top-floor scene fits all mesh batches',Object.entries(counts).every(([kind,n])=>n<=ART_CAPACITY[kind]))
   kongActions.stop()
 }
 for (const k of ['left', 'right', 'up', 'down', 'jump', 'hit']) kongActions.press(k, false)

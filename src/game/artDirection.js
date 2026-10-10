@@ -2,7 +2,7 @@
 import { ConeGeometry, CylinderGeometry, SphereGeometry, LatheGeometry, Vector2 } from 'three'
 
 // Dense Empire Rise forests can exceed 8k branch pieces in a single view.
-export const ART_CAPACITY = { leaf: 8192, cone: 8192, branch: 16384, organic: 8192, cloth: 8192 }
+export const ART_CAPACITY = { leaf: 8192, cone: 8192, branch: 16384, organic: 8192, cloth: 8192, sculpt: 8192 }
 function canopyGeometry() {
   const geometry=new SphereGeometry(.5,12,8),positions=geometry.attributes.position
   for(let i=0;i<positions.count;i++) {
@@ -19,6 +19,7 @@ export function artGeometries() {
     cone: new ConeGeometry(0.5, 1, 9),
     branch: new CylinderGeometry(0.28, 0.5, 1, 7),
     organic: new SphereGeometry(0.5, 14, 10),
+    sculpt: new SphereGeometry(0.5, 20, 16),
     cloth: new LatheGeometry([[0,-.5],[.3,-.48],[.41,-.3],[.5,.24],[.41,.43],[.24,.5],[0,.5]].map(([r,y]) => new Vector2(r,y)), 12),
   }
 }

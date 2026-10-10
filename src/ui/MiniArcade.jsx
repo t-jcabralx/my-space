@@ -16,6 +16,14 @@ function MiniPlayer({ def, onBack }) {
   const [newBest, setNewBest] = useState(false), [run, setRun] = useState(0), [graphics, setGraphics] = useState('loading')
   const meta = {...MINI_META[def.id],color:GAME_ART[def.id]?.color||MINI_META[def.id].color}
   const changePhase = (value) => { status.current=value; setPhase(value) }
+  // on phones the game takes over the whole screen (CSS does the layout; this asks the browser for real fullscreen too)
+  useEffect(() => {
+    let phone = false
+    try { phone = window.matchMedia('(pointer: coarse)').matches && window.innerWidth <= 900 } catch { /* ignore */ }
+    if (!phone) return undefined
+    try { const p = document.documentElement.requestFullscreen && document.documentElement.requestFullscreen(); if (p && p.catch) p.catch(() => {}) } catch { /* ignore */ }
+    return () => { try { if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {}) } catch { /* ignore */ } }
+  }, [])
   const pause = () => { gameRef.current?.cancel?.(); if(status.current==='playing')changePhase('paused') }
   const play = () => { unlockAudio(); changePhase('playing'); cv.current?.focus({preventScroll:true}) }
 
@@ -85,6 +93,7 @@ function MiniPlayer({ def, onBack }) {
   return <div className="mini-play" style={{'--mini-accent':meta.color}}>
     <div className="mini-top">
       <button className="mini-back" onClick={onBack}>← Mini arcade</button>
+      <span className="mini-score-chip">{score.toLocaleString()}{extra ? <small> · {extra}</small> : null}</span>
       <span className="mini-engine">{graphics==='3d'?'● 3D':graphics==='fallback'?'Compatibility mode':graphics==='lost'?'Graphics interrupted':'Loading scene'}</span>
       <button className="mini-back" onClick={()=>phase==='playing'?pause():play()} disabled={phase==='ready'||phase==='over'||graphics==='lost'}>{phase==='paused'?'Resume':'Pause'} <kbd>P</kbd></button>
     </div>

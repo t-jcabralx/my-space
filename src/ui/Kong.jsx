@@ -4,6 +4,7 @@ import { useState, useSyncExternalStore } from 'react'
 import { subscribeKong, getKongSnap, kongActions, LEVELS, SIZES } from '../game/kong.js'
 import { PauseScreen } from './MoreGames2.jsx'
 import { useTouchPrimary } from './platform.js'
+import KongCast from './KongCast.jsx'
 
 const fmt = (n) => Math.floor(n || 0).toLocaleString()
 
@@ -45,7 +46,8 @@ export function KongLobby({ s, TopPlayers, onInvite }) {
   const [size, setSize] = useState(SIZES.includes(p.kongSize) ? p.kongSize : 4)
   return (
     <div className="lobby"><div className="lobbyL">
-      <KongLogo className="klogo wide" />
+      <a href="/anime-preview" className="kong-anime-link">✦ OPEN ANIME ANIMATION PREVIEW <span>New art direction →</span></a>
+      <KongCast />
       <div className="lobbyinfo"><b>GIRDER GORILLA</b> · Climb the steel girders of a building site. Giant gorillas roll barrels down the slopes: jump them, grab a hammer to smash them, take the ladders up and rescue the captive at the top. The girders can be made much <b>wider</b>: more ladders, more gorillas, and a minimap to find your way. Play alone, with a friend on the same keyboard, or online.</div>
       <h4>GIRDER WIDTH <small className="dim">(x{size} = {size * 60} m of steel per floor)</small></h4>
       <div className="chips">{SIZES.map((v) => <button key={v} className={'chip ' + (size === v ? 'sel' : '')} onClick={() => { setSize(v); kongActions.setSize(v) }}>{v === 1 ? 'x1 CLASSIC' : v === 20 ? 'x20 MEGA' : 'x' + v}</button>)}</div>

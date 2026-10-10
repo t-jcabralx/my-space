@@ -6,6 +6,7 @@ import * as THREE from 'three'
 import { beveledBoxGeometry } from './modeling.js'
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js'
 import { artGeometries, ART_CAPACITY } from './artDirection.js'
+import { kongAnimeReady } from './kongAnimeState.js'
 import { G, update, HW, HH, profile, games, ARCADE } from './engine.js'
 import { MISSIONS } from './levels.js'
 import { textPx, rgb, SP, shipSprite } from './sprites.js'
@@ -298,7 +299,7 @@ function putShape(kind, x,y,z,sx,sy,sz,rz,r,g,b,ry=0) {
   colors[c]=r; colors[c+1]=g; colors[c+2]=b; batch.n++
 }
 export const LIT3 = new Set(['rogue', 'td', 'hockey', 'pool', 'snake', 'breaker', 'rhythm', 'empire', 'ssx', 'orb', 'garden', 'hunt', 'climb', 'kong'])
-const api3 = { putShape, put3, putBody, putBodyM, putCyl, putM, putS, bulk(A, C, count) { if (!A3) return; A3.set(A.subarray(0, count * 16)); C3.set(C.subarray(0, count * 3)); n3 = count } }
+const api3 = { animeActors: kongAnimeReady, putShape, put3, putBody, putBodyM, putCyl, putM, putS, bulk(A, C, count) { if (!A3) return; A3.set(A.subarray(0, count * 16)); C3.set(C.subarray(0, count * 3)); n3 = count } }
 export function Fighters3D() {
   const ref = useRef()
   const sph = useRef()
@@ -371,7 +372,7 @@ export function Fighters3D() {
       <instancedMesh ref={ref} args={[propGeometry, null, MAX3]} frustumCulled={false} castShadow receiveShadow>
         <meshToonMaterial toneMapped={false} />
       </instancedMesh>
-      {Object.entries(art).map(([kind, geometry]) => <instancedMesh key={kind} ref={mesh => { artBatches[kind].mesh = mesh }} args={[geometry, null, ART_CAPACITY[kind]]} frustumCulled={false} castShadow receiveShadow><meshToonMaterial toneMapped={false} /></instancedMesh>)}
+      {Object.entries(art).map(([kind, geometry]) => <instancedMesh key={kind} ref={mesh => { artBatches[kind].mesh = mesh }} args={[geometry, null, ART_CAPACITY[kind]]} frustumCulled={false} castShadow receiveShadow>{kind === 'sculpt' ? <meshStandardMaterial roughness={.82} metalness={0} /> : <meshToonMaterial toneMapped={false} />}</instancedMesh>)}
       <instancedMesh ref={body} args={[bodyGeometry, null, MAX_BODY]} frustumCulled={false} castShadow receiveShadow>
         <meshToonMaterial toneMapped={false} />
       </instancedMesh>

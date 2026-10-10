@@ -10,10 +10,12 @@
     "test:sim": "node scripts/sim.mjs && node scripts/sim-ssx.mjs && node scripts/sim-kart.mjs && node scripts/sim-orb.mjs && node scripts/sim-garden.mjs && node scripts/sim-hunt.mjs && node scripts/sim-climb.mjs && node scripts/sim-kong.mjs && node scripts/sim-depthscale.mjs && node scripts/sim-env4d.mjs && node scripts/sim-story2.mjs && node scripts/sim-slug.mjs && node scripts/sim-pickle-modes.mjs && node scripts/sim-bomber.mjs && node scripts/sim-tetris.mjs && node scripts/sim-chomp.mjs && node scripts/sim-cards.mjs && node scripts/sim-meta.mjs && node scripts/sim-events.mjs && node scripts/sim-flames.mjs && node scripts/sim-squad.mjs && node scripts/sim-ui.mjs && node scripts/sim-pickle-scoring.mjs && node scripts/sim-fight.mjs && node scripts/sim-boss.mjs && node scripts/sim-race.mjs && node scripts/sim-hockey.mjs && node scripts/sim-pool.mjs && node scripts/sim-td.mjs && node scripts/sim-rogue.mjs && node scripts/sim-rogue2.mjs && node scripts/sim-abyss.mjs && node scripts/sim-rhythm.mjs && node scripts/sim-wordmerge.mjs && node scripts/sim-story.mjs && node scripts/sim-arcade3.mjs && node scripts/sim-empire.mjs && node scripts/sim-mini.mjs",
     "test:mini": "node scripts/sim-fruit-physics.mjs && node scripts/sim-mini-regressions.mjs && node scripts/sim-mini.mjs",
     "test:models": "node scripts/sim-models.mjs",
+    "test:anime": "node scripts/sim-anime.mjs",
     "assets:logos": "node scripts/import-logos.mjs",
     "test:fruit": "node scripts/sim-fruit-physics.mjs"
   },
   "dependencies": {
+    "@pixiv/three-vrm": "3.5.5",
     "@react-three/fiber": "^9.8.1",
     "@react-three/postprocessing": "^3.1.3",
     "@upstash/redis": "^1.39.0",
