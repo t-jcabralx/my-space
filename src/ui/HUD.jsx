@@ -14,6 +14,7 @@ import { subscribePickle, getPickleSnap, pickleActions, MODES } from '../game/pi
 import { subscribeBomber, getBomberSnap, bomberActions, MODES as BMODES } from '../game/bomber.js'
 import { subscribeTetris, getTetrisSnap, tetrisActions, MODES as TMODES, COLORS as TCOL, SHAPES as TSH } from '../game/tetris.js'
 import { pickleScoring } from '../game/pickle.js'
+import { getPlayerId, restorePlayer } from '../game/playersync.js'
 import { subscribeFight, getFightSnap, fightActions, setFightPick } from '../game/fight.js'
 import { subscribeRace, getRaceSnap, raceActions, setRacePick, TRACKS, CARS, buildTrack } from '../game/race.js'
 import { ROSTER, ELEMENTS as ELS } from '../game/roster.js'
@@ -1560,6 +1561,24 @@ function GameCard({ cls, title, tag, hi, hiLabel, art, onPlay, label, sub, onInv
     </>
   )
 }
+function PlayerId() {
+  const [id, setId] = useState('')
+  const [open, setOpen] = useState(false)
+  const [val, setVal] = useState('')
+  const [msg, setMsg] = useState('')
+  useEffect(() => { setId(getPlayerId()) }, [])
+  if (!id) return null
+  const copy = () => { try { navigator.clipboard.writeText(id); setMsg('Copied!') } catch { setMsg('Copy it by hand') } setTimeout(() => setMsg(''), 1800) }
+  const restore = async () => { setMsg('Loading…'); const r = await restorePlayer(val.trim().toUpperCase()); if (r.ok) location.reload(); else setMsg(r.error) }
+  return (
+    <div className="pid">
+      <button className="pid-id" onClick={copy} title="Your anonymous player ID: your saved games (Empire Rise and more) are kept under it. Tap to copy.">🆔 {id}</button>
+      <button className="pid-b" onClick={() => setOpen((v) => !v)}>{open ? 'CLOSE' : 'RESTORE'}</button>
+      {open && <span className="pid-r"><input value={val} onChange={(e) => setVal(e.target.value)} onKeyDown={(e) => e.stopPropagation()} placeholder="MS-XXXX-XXXX-XXXX" /><button className="pid-b" onClick={restore}>LOAD</button></span>}
+      {msg && <small className="pid-m">{msg}</small>}
+    </div>
+  )
+}
 function Hub({ s }) {
   const [tab, setTab] = useState('home')
   const [cat, setCat] = useState('all')
@@ -1615,7 +1634,7 @@ function Hub({ s }) {
             <div className="hero-id">
               <div className="hero-av">{(p.name || 'P').slice(0, 1).toUpperCase()}</div>
               <div><b>{p.name && p.name !== 'PLAYER' ? p.name : 'WELCOME, PLAYER'}</b><small>{RANKS[ri][1]}{next ? ' · ' + Math.max(0, next[0] - xp) + ' XP to ' + next[1] : ' · MAX RANK'}</small>
-                <div className="hero-bar"><i style={{ width: pct + '%' }} /></div></div>
+                <div className="hero-bar"><i style={{ width: pct + '%' }} /></div><PlayerId /></div>
             </div>
             <div className="hero-stats">
               <div><small>CHIPS</small><b>🪙 {Number(p.chips || 0).toLocaleString()}</b></div>

@@ -1,8 +1,9 @@
+import { getPlayerId } from './playersync.js'
 // Global leaderboard client. Talks to the Next.js API routes (/api/score, /api/leaderboard).
 // Fails soft: if the API is not there (plain Vite dev) everything just returns empty.
 export async function submitScore(game, name, score, extra = {}) {
   try {
-    const r = await fetch('/api/score', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ game, name, score, extra }) })
+    const r = await fetch('/api/score', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ game, name, score, extra, uid: getPlayerId() }) })
     return r.ok ? await r.json() : null
   } catch { return null }
 }

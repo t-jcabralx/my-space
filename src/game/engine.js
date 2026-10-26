@@ -5,6 +5,7 @@ import { sfx, music, initAudio, speak } from './audio.js'
 import { submitScore } from './online.js'
 import { settings } from './settings.js'
 import { ACH } from './awards.js'
+import { getPlayerId, schedulePlayerSync } from './playersync.js'
 
 export const W = 100, H = 56, HW = 50, HH = 28
 const TAU = Math.PI * 2
@@ -19,7 +20,9 @@ export const ARCADE = new Set(['slug', 'pickle', 'bomber', 'tetris', 'chomp', 'c
 export const games = {} // other game modes register themselves here (see slug.js)
 export const profile = { squad: 2, squadHuman: false, squadBots: false, quests: null, awardsDone: {}, awardsInit: false, jackpot: 1000, chips: 1000, cardWins: 0, cardGames: 0, unoWins: 0, pusoyWins: 0, luckyNines: 0, tongitsWins: 0, chompDots: 0, chompGhosts: 0, chompGames: 0, chompLevels: 0, chompHi: 0, tetrisLines: 0, tetrises: 0, tspins: 0, tetrisGames: 0, tetrisWins: 0, sprints: 0, bomberGames: 0, bomberWins: 0, bomberKills: 0, bricks: 0, seen: {}, name: '', pickleGames: 0, pickleWins: 0, aces: 0, ship: { model: 0, paint: 0, trail: 0, bullet: 0 }, kills: 0, bosses: 0, pows: 0, skills: 0, bonus: 0, spaceWins: 0, slugWins: 0, played: 0, spaceHi: 0, slugHi: 0, tops: { space: [], slug: [], pickle: [], bomber: [], tetris: [], chomp: [], uno: [], pusoy: [], lucky9: [], tongits: [] } }
 try { const sv = JSON.parse(localStorage.getItem('si_profile') || '{}'); Object.assign(profile, sv); profile.tops = { space: [], slug: [], pickle: [], bomber: [], tetris: [], chomp: [], uno: [], pusoy: [], lucky9: [], tongits: [], ...(sv.tops || {}) }; profile.ship = { model: 0, paint: 0, trail: 0, bullet: 0, ...(sv.ship || {}) }; profile.seen = { ...(sv.seen || {}) } } catch { /* ignore */ }
-export const saveProfile = () => { try { localStorage.setItem('si_profile', JSON.stringify(profile)) } catch { /* ignore */ } }
+export const saveProfile = () => { try { localStorage.setItem('si_profile', JSON.stringify(profile)) } catch { /* ignore */ } schedulePlayerSync(profile) }
+// every browser gets its own anonymous ID on the first visit; it keys the data saved on the server
+profile.uid = getPlayerId(); if (typeof window !== 'undefined') { try { if (!profile.since) profile.since = Date.now(); saveProfile() } catch { /* ignore */ } }
 export function recordScore(game, score) {
   const t = profile.tops[game] || (profile.tops[game] = [])
   if (score > 0) submitScore(game, profile.name || 'ANON', score)

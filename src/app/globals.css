@@ -1250,3 +1250,12 @@ div.gcard.gdetail { position: relative; width: min(420px, 100%); max-height: 92v
 div.gcard.gdetail > .gart { aspect-ratio: 16 / 10; max-height: 190px; }
 div.gcard.gdetail .gtitle small { -webkit-line-clamp: 3; font-size: 12px; }
 .gd-x { position: absolute; top: 8px; right: 8px; z-index: 3; width: 34px; height: 34px; border-radius: 50%; border: 0; background: #000a; color: #fff; font-size: 16px; }
+
+.pid { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; font-size: 11px; }
+.pid button { font: inherit; cursor: pointer; border-radius: 8px; border: 1px solid #3a4a88; background: #0b1230cc; color: #cfe0ff; padding: 3px 8px; }
+.pid-id { letter-spacing: .04em; } .pid-r { display: inline-flex; gap: 4px; } .pid-r input { font: inherit; width: 150px; padding: 3px 6px; border-radius: 8px; border: 1px solid #3a4a88; background: #060a1c; color: #fff; text-transform: uppercase; } .pid-m { color: #ffe84a; }
+
+/* phones: the dashboard never scrolls sideways (the tab row scrolls inside itself) */
+.screen.hub { overflow-x: hidden !important; overscroll-behavior-x: none; }
+.screen.hub > *, .hubrow > *, .panel { min-width: 0; max-width: 100%; }
+@media (max-width: 800px) { .hubrow { grid-template-columns: minmax(0, 1fr) !important; } .screen.hub .panel { overflow-wrap: anywhere; } html, body { overflow-x: hidden; } }

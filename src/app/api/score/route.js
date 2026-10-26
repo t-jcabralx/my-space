@@ -24,7 +24,7 @@ export async function POST(req) {
   }
   try {
     const col = await scoresCollection()
-    if (col) { await col.insertOne({ game, name, score, extra: body.extra && typeof body.extra === 'object' ? body.extra : {}, at: new Date() }); saved.mongo = true }
+    if (col) { await col.insertOne({ game, name, score, uid: /^MS-[2-9A-HJKMNP-Z]{4}-[2-9A-HJKMNP-Z]{4}-[2-9A-HJKMNP-Z]{4}$/.test(String(body.uid || '')) ? body.uid : null, extra: body.extra && typeof body.extra === 'object' ? body.extra : {}, at: new Date() }); saved.mongo = true }
   } catch (e) { console.error('mongo', e.message) }
   return NextResponse.json({ ok: saved.redis || saved.mongo, saved })
 }
