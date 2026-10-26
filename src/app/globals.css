@@ -1204,7 +1204,7 @@ button.mjt { cursor: pointer; } button.mjt:disabled { cursor: default; opacity: 
 
 .mj-mini { height: 100%; min-height: 120px; display: flex; gap: 6px; align-items: center; justify-content: center; background: radial-gradient(120% 100% at 50% 40%, #148062, #0a4332); border-radius: 10px; } .mj-mini span { width: 44px; height: 60px; display: grid; place-items: center; font-size: 30px; font-weight: bold; color: #b3262e; background: linear-gradient(180deg, #fffdf3, #fbf6e6); border: 1px solid #cdbf9c; border-bottom-width: 4px; border-radius: 7px; font-family: 'Noto Serif CJK SC', serif; box-shadow: 0 3px 6px #0006; } .mj-mini span:nth-child(2) { color: #1f7a3a; } .mj-mini span:nth-child(3) { color: #1a5fb4; } .mj-mini span:nth-child(4) { color: #1d1d1d; }
 
-.em-sendfab { position: absolute; left: 1.4cqw; bottom: 13cqw; z-index: 95; pointer-events: auto; font: inherit; font-size: 12px; padding: 12px 16px; border-radius: 14px; color: #fff; background: linear-gradient(180deg, #ff6a6a, #c4243a); border: 2px solid #ffd0d0; box-shadow: 0 4px 0 #6a1020, 0 8px 18px #000a; } .em-sendfab.on { background: linear-gradient(180deg, #ffe84a, #e0a800); color: #3a2a00; animation: pulse .8s infinite; }
+.em-sendfab { position: absolute; right: 1.4cqw; bottom: 15cqw; z-index: 95; pointer-events: auto; font: inherit; font-size: 10px; padding: 7px 10px; border-radius: 10px; opacity: .92; color: #fff; background: linear-gradient(180deg, #ff6a6a, #c4243a); border: 2px solid #ffd0d0; box-shadow: 0 4px 0 #6a1020, 0 8px 18px #000a; } .em-sendfab.on { background: linear-gradient(180deg, #ffe84a, #e0a800); color: #3a2a00; animation: pulse .8s infinite; }
 
 /* a tall game on a portrait phone fills the screen */
 .stage.fill { width: calc(var(--vw, 1vw) * 100); height: calc(var(--vh, 1vh) * 100); aspect-ratio: auto; }
@@ -1222,3 +1222,24 @@ button.mjt { cursor: pointer; } button.mjt:disabled { cursor: default; opacity: 
   .fsticky span { display: flex; flex-direction: column; flex: 1; min-width: 0; } .fsticky small { opacity: .75; }
   .fsticky .big { margin: 0; padding: 10px 14px; }
 }
+
+/* compact dashboard cards: wide short picture, one-line stats, play and invite side by side */
+div.gcard { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 10px; align-content: start; }
+div.gcard > * { grid-column: 1 / -1; min-width: 0; }
+div.gcard > .gart { aspect-ratio: 16 / 9; height: auto; border-radius: 10px; margin: 0; }
+div.gcard > .gart > .game-artwork, div.gcard > .gart img { object-fit: cover; }
+div.gcard .gtitle { min-height: 0; }
+div.gcard h4 { font-size: 15px; margin: 0 0 2px; }
+div.gcard .gtitle small, div.gcard > small { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; min-height: 0; font-size: 11px; }
+div.gcard .kv { display: flex; flex-wrap: wrap; gap: 2px 14px; margin: 0; font-size: 12px; } div.gcard .kv b { margin-right: 2px; }
+div.gcard > .big { grid-column: 1; width: 100%; font-size: 13px; padding: 9px 10px; margin: 0; }
+div.gcard > .big.sec { grid-column: 2; width: 100%; padding: 9px 6px; font-size: 12px; white-space: nowrap; }
+div.gcard > .big:last-child:not(.sec), div.gcard > .big:only-of-type { grid-column: 1 / -1; }
+
+/* the "turn sideways" nudge sits at the very bottom edge as a small chip so it never covers the game's own HUD */
+.rotatehint { top: auto; bottom: calc(100% + 6px); left: 50%; font-size: 9px; padding: 4px 8px; opacity: .85; animation: none; border-radius: 8px; z-index: 5; }
+
+/* objectives live behind a bell instead of covering the map */
+.em-bell { position: absolute; top: 8.6cqw; right: 1cqw; z-index: 96; pointer-events: auto; font: inherit; font-size: 16px; line-height: 1; padding: 6px 9px; border-radius: 12px; background: #070c26ee; border: 2px solid #ffd23a; color: #fff; } .em-bell.on { background: #ffd23a; }
+.em-bell b { position: absolute; top: -7px; right: -7px; min-width: 16px; height: 16px; border-radius: 8px; background: #ff3a4a; color: #fff; font-size: 10px; display: grid; place-items: center; }
+.em-bell ~ .em-obj { top: 14cqw; right: 1cqw; pointer-events: auto; z-index: 96; }

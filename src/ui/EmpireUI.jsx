@@ -80,6 +80,7 @@ function Surface({ onPtr }) {
 export function EmpireHUD({ openHelp }) {
   const g = useSyncExternalStore(subscribeEmpire, getEmpireSnap)
   const touch = useTouchPrimary()
+  const [objOpen, setObjOpen] = useState(false)
   if (!g || g.mode === 'idle') return null
   const mins = Math.floor(g.t / 60), secs = String(g.t % 60).padStart(2, '0')
   const sel = g.sel
@@ -101,7 +102,10 @@ export function EmpireHUD({ openHelp }) {
         {g.net && <button className="mg-btn" onClick={empireActions.quit}>✕</button>}
       </div>
       <div className="em-players">{g.players.map((p) => <div key={p.i} className={'em-pl ' + (p.alive ? '' : 'dead ') + (p.me ? 'me' : '')} style={{ '--c': p.color }}><i />{p.name}<small>{p.alive ? HALL_NAME[p.lv] + ' · ⚔' + p.army : 'FALLEN'}</small></div>)}</div>
-      {g.scen && <div className="em-obj"><h4>🎯 {g.scen.name}</h4>{g.obj.map((o, i) => <div key={i} className={o.done ? 'done' : ''}>{o.done ? '✔' : '○'} {o.text}</div>)}</div>}
+      {g.scen && (() => { const left = g.obj.filter((o) => !o.done).length; return (<>
+        <button className={'em-bell' + (objOpen ? ' on' : '')} title="Objectives" onClick={(e) => { e.stopPropagation(); setObjOpen((v) => !v) }} onPointerDown={(e) => e.stopPropagation()}>🔔{left > 0 && <b>{left}</b>}</button>
+        {objOpen && <div className="em-obj" onPointerDown={(e) => e.stopPropagation()}><h4>🎯 {g.scen.name}</h4>{g.obj.map((o, i) => <div key={i} className={o.done ? 'done' : ''}>{o.done ? '✔' : '○'} {o.text}</div>)}</div>}
+      </>) })()}
       {g.beat && !g.tale && <div className="mg-beat" style={{ '--c': g.beat.color }} key={g.beat.sub}><b>{g.beat.text}</b><span>{g.beat.sub}</span></div>}
       {g.tale && (
         <div className="storyfull talebox" onClick={empireActions.nextTale}>
@@ -146,7 +150,7 @@ export function EmpireHUD({ openHelp }) {
       </div>
       {g.scen && g.hint && !g.build && !g.tale && <div className="mg-hint">💡 {g.hint}</div>}
       {g.build && <div className="mg-hint">{BDEF[g.build].name}: CLICK THE GRASS TO PLACE · SHIFT KEEPS BUILDING · ESC CANCELS</div>}
-      {touch && <button className={'em-sendfab' + (g.atk ? ' on' : '')} onClick={(e) => { e.stopPropagation(); empireActions.attackMode() }} onPointerDown={(e) => e.stopPropagation()}>{g.atk ? '🎯 TAP WHERE TO SEND' : '⚔ SEND ARMY'}</button>}
+      {touch && !sel && !g.build && g.army > 0 && <button className={'em-sendfab' + (g.atk ? ' on' : '')} onClick={(e) => { e.stopPropagation(); empireActions.attackMode() }} onPointerDown={(e) => e.stopPropagation()}>{g.atk ? '🎯 TAP WHERE TO SEND' : '⚔ SEND ARMY'}</button>}
       {!g.build && touch && g.t < 90 && <div className="mg-hint">DRAG TO SCROLL · TAP ⚔ SEND ARMY, THEN TAP THE MAP · OR HOLD A FINGER / DOUBLE-TAP THE MAP</div>}
       {!g.build && !touch && g.t < 40 && <div className="mg-hint">DRAG TO SCROLL · PICK A BUILDING BELOW · RIGHT-CLICK SENDS YOUR ARMY</div>}
       {g.mode === 'over' && g.over && !g.tale && (
