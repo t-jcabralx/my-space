@@ -1534,17 +1534,30 @@ function DailyPanel({ q }) {
 const SearchCtx = createContext('')
 function GameCard({ cls, title, tag, hi, hiLabel, art, onPlay, label, sub, onInvite, extra }) {
   const q = useContext(SearchCtx).trim().toLowerCase()
+  const [open, setOpen] = useState(false)
   if (q && !(String(title) + ' ' + String(tag)).toLowerCase().includes(q)) return null
   const [logo, name] = splitTitle(title)
+  const art3 = <div className="gart">{hasArt(cls) ? <Art3D id={cls} /> : art}</div>
   return (
-    <div className={'gcard ' + cls + (GAME_ART[cls] ? ' has-cover' : '')} style={{'--brand-accent':GAME_ART[cls]?.color}}>
-      <div className="gtitle">{logo && <GameLogo emoji={logo} cls={cls} />}<div><h4>{name}</h4><small>{tag}</small></div></div>
-      <div className="gart">{hasArt(cls) ? <Art3D id={cls} /> : art}</div>
-      <div className="kv"><span>{hiLabel}</span><b>{hi}</b>{sub}</div>
-      {extra}
-      <button className="big" onClick={onPlay}>{label}</button>
-      {onInvite && <button className="big sec" onClick={onInvite}>🌐 INVITE FRIEND</button>}
-    </div>
+    <>
+      <div className={'gcard glite ' + cls + (GAME_ART[cls] ? ' has-cover' : '')} style={{ '--brand-accent': GAME_ART[cls]?.color }} role="button" tabIndex={0} onClick={() => setOpen(true)} onKeyDown={(e) => { if (e.key === 'Enter') setOpen(true) }}>
+        {art3}
+        <div className="gtitle"><div><h4>{name}</h4></div></div>
+      </div>
+      {open && (
+        <div className="gdetail-back" onClick={() => setOpen(false)}>
+          <div className={'gdetail gcard ' + cls} style={{ '--brand-accent': GAME_ART[cls]?.color }} onClick={(e) => e.stopPropagation()}>
+            <button className="gd-x" onClick={() => setOpen(false)} aria-label="Close">✕</button>
+            {art3}
+            <div className="gtitle">{logo && <GameLogo emoji={logo} cls={cls} />}<div><h4>{name}</h4><small>{tag}</small></div></div>
+            <div className="kv"><span>{hiLabel}</span><b>{hi}</b>{sub}</div>
+            {extra}
+            <button className="big" onClick={() => { setOpen(false); onPlay() }}>{label}</button>
+            {onInvite && <button className="big sec" onClick={() => { setOpen(false); onInvite() }}>🌐 INVITE FRIEND</button>}
+          </div>
+        </div>
+      )}
+    </>
   )
 }
 function Hub({ s }) {

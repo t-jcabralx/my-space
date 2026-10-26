@@ -1240,3 +1240,13 @@ div.gcard > .big.sec { padding: 6px 10px; font-size: 11px; }
 .em-bell ~ .em-obj { top: 14cqw; right: 1cqw; pointer-events: auto; z-index: 96; }
 
 .search-fab { width: 52px !important; min-width: 52px !important; height: 52px !important; padding: 0 !important; margin: 0 !important; right: auto !important; }
+
+/* dashboard: a card is just the logo and the name; the details open in a panel */
+div.gcard.glite { cursor: pointer; gap: 8px; padding: 10px; }
+div.gcard.glite > .gart { aspect-ratio: 1 / 1; max-height: none; }
+div.gcard.glite .gtitle { text-align: center; } div.gcard.glite h4 { font-size: 14px; margin: 0; }
+.gdetail-back { position: fixed; inset: 0; z-index: 900; background: #02030acc; display: grid; place-items: center; padding: 14px; overflow-y: auto; }
+div.gcard.gdetail { position: relative; width: min(420px, 100%); max-height: 92vh; overflow-y: auto; cursor: default; padding: 14px; gap: 10px; }
+div.gcard.gdetail > .gart { aspect-ratio: 16 / 10; max-height: 190px; }
+div.gcard.gdetail .gtitle small { -webkit-line-clamp: 3; font-size: 12px; }
+.gd-x { position: absolute; top: 8px; right: 8px; z-index: 3; width: 34px; height: 34px; border-radius: 50%; border: 0; background: #000a; color: #fff; font-size: 16px; }
