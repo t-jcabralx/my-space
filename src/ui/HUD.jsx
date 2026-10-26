@@ -1501,7 +1501,7 @@ function FightHUD() {
             <li><span>SPECIALS / SUPERS</span><b>{g.over.stats.specials} / {g.over.stats.supers}</b></li>
           </ul>
           <button className="big" onClick={fightActions.rematch}>↻ REMATCH</button>
-          <button className="big sec" onClick={fightActions.quit}>CHARACTER SELECT</button>
+          <button className="big sec" onClick={() => { try { window.__hubTab = 'fight' } catch { /* ignore */ } fightActions.quit() }}>CHARACTER SELECT</button>
         </div>
       )}
     </div>
@@ -1580,7 +1580,7 @@ function PlayerId() {
   )
 }
 function Hub({ s }) {
-  const [tab, setTab] = useState('home')
+  const [tab, setTab] = useState(() => { try { const t = window.__hubTab; window.__hubTab = null; return t || 'home' } catch { return 'home' } }) // a game can ask the dashboard to open on its own lobby
   const [cat, setCat] = useState('all')
   const [ogame, setOgameRaw] = useState('tetris')
   const [olock, setOlock] = useState(false) // opened from one game's own PLAY WITH FRIENDS button: show only that game
