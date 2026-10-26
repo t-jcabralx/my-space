@@ -143,5 +143,5 @@ console.log('PASS Sumo screen directions, simultaneous keys and canceled steerin
 console.log('PASS Hoop Shot keyboard arc, repeated baskets and canceled flicks')
 
 for(const def of MINI){const r=makeR3(ctx,320,180);r.flat=true;drawMiniPreview(r,def.id,1.25)}
-console.log('PASS all 24 gallery scenes render using the shared models')
+console.log('PASS all gallery scenes render using the shared models')
 console.log('ALL PASS')

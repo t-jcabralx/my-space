@@ -1548,6 +1548,8 @@ function Hub({ s }) {
   const rtRef = useRef(rtS); rtRef.current = rtS
   const [pending, setPending] = useState(null) // a game the player wants to invite friends to while still sitting in another room
   const [q, setQ] = useState('')
+  const [sOpen, setSOpen] = useState(false) // phone search sheet
+  useEffect(() => { if (q && tab === 'home') { const el = document.querySelector('.cards4'); if (el && el.scrollIntoView) el.scrollIntoView({ block: 'start' }) } }, [q, tab])
   const goOnline = (g) => { setOgameRaw(g); setOlock(true); setOnon((n) => n + 1); setTab('online') }
   const openOnline = (g) => { const r = rtRef.current.room; if (r && g && r.game !== g) { setPending(g); return } goOnline(g) }
   const setOgame = (g) => { setOgameRaw(g); setOlock(true); setOnon((n) => n + 1) }
@@ -1605,6 +1607,8 @@ function Hub({ s }) {
             </div>
           </div>
           <JoinBar name={p.name} onJoined={() => setTab('online')} />
+          <button className="search-fab" onClick={() => setSOpen((v) => !v)} aria-label="Search games">{sOpen ? '✕' : '🔎'}</button>
+          {sOpen && <div className="search-pop" onPointerDown={(e) => e.stopPropagation()}><input className="nameIn" type="text" autoFocus value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Enter') setSOpen(false) }} placeholder="Search games… (uno, tetris, race)" />{q && <button onClick={() => setQ('')}>CLEAR</button>}<button onClick={() => setSOpen(false)}>DONE</button></div>}
           <div className="hubsearch"><input className="nameIn" type="text" value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.stopPropagation()} placeholder="🔎 Search games…  (uno, empire, race…)" />{q && <button className="chip" onClick={() => setQ('')}>✕ CLEAR</button>}</div>
           <div className="catchips">{CATS.map(([k, n]) => <button key={k} className={'chip ' + (cat === k ? 'sel' : '')} onClick={() => setCat(k)}>{n}</button>)}</div>
           <div className="cards4">
@@ -1645,7 +1649,7 @@ function Hub({ s }) {
             {show('puzzle', 'sports') && <GameCard cls="c4" title="🔴 CONNECT FOUR" tag="Bot · 2P · online 1v1" hiLabel="WINS" hi={p.c4Wins || 0}
               art={<div className="miniC4"><i /><i /><i /><i /><i /></div>} label="SELECT MODE ▶" onPlay={() => setTab('c4')} onInvite={() => { openOnline('c4') }}
               sub={<><span>GAMES</span><b>{p.c4Games || 0}</b></>} />}
-            {show('action', 'puzzle') && <GameCard cls="mini" title="🕹 MINI GAMES" tag="24 quick games · 3D worlds · phone friendly" hiLabel="PLAYED" hi={p.miniGames || 0}
+            {show('action', 'puzzle') && <GameCard cls="mini" title="🕹 MINI GAMES" tag="27 quick games · 3D worlds · phone friendly" hiLabel="PLAYED" hi={p.miniGames || 0}
               art={<div className="miniSnake"><b>🏗️</b><b>🐤</b><b>🍉</b><b>💎</b><b>🎣</b></div>} label="PICK A GAME ▶" onPlay={() => setTab('mini')} />}
             {show('action') && <GameCard cls="snake" title="🐍 NEON SNAKE" tag="Solo · vs bot · 2 players" hiLabel="BEST" hi={p.snakeBest || 0}
               art={<div className="miniSnake"><i /><i /><i /><i /><b>🍎</b></div>} label="SELECT MODE ▶" onPlay={() => setTab('snake')} onInvite={() => { openOnline('snake') }}
@@ -1876,6 +1880,24 @@ function BomberHUD() {
 }
 
 const fmtTime = (t) => { const m = Math.floor(t / 60), sec = (t % 60).toFixed(1).padStart(4, '0'); return `${m}:${sec}` }
+// on-screen controls for phones: move / soft drop on the left, rotate / hold / hard drop on the right
+function TetrisTouch() {
+  const [touch, setTouch] = useState(false)
+  useEffect(() => { try { setTouch(isTouchPrimary() || window.innerWidth < 760) } catch { /* ignore */ } }, [])
+  if (!touch) return null
+  const tap = (code, hold = false) => ({
+    onPointerDown: (e) => { e.preventDefault(); e.stopPropagation(); try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* ignore */ } engineKey(code, true); if (!hold) setTimeout(() => engineKey(code, false), 60) },
+    onPointerUp: (e) => { e.preventDefault(); if (hold) engineKey(code, false) },
+    onPointerCancel: () => { if (hold) engineKey(code, false) },
+    onContextMenu: (e) => e.preventDefault(),
+  })
+  return (
+    <div className="ttouch" onPointerDown={(e) => e.stopPropagation()}>
+      <div className="tt-l"><button {...tap('KeyA', true)}>◀</button><button {...tap('KeyS', true)}>▼</button><button {...tap('KeyD', true)}>▶</button></div>
+      <div className="tt-r"><button {...tap('KeyE')}>HOLD</button><button {...tap('KeyQ')}>⟲</button><button {...tap('KeyW')}>⟳</button><button className="drop" {...tap('Space')}>DROP</button></div>
+    </div>
+  )
+}
 function TetrisHUD() {
   const g = useSyncExternalStore(subscribeTetris, getTetrisSnap)
   if (!g) return null
@@ -1919,6 +1941,7 @@ function TetrisHUD() {
           {g.phase === 'ready' && g.countdown > 0 && <div className="bcount" key={g.countdown}>{g.countdown > 3 ? 'READY' : g.countdown}</div>}
           <div className="pctl">{solo ? '←→ MOVE · ↓ SOFT · SPACE DROP · ↑/X ROTATE · Z ROTATE LEFT · C HOLD · P PAUSE' : g.type === 'versus' ? 'P1: A D S · W Q SPACE E   |   P2: ← → ↓ · ↑ , ENTER .' : '←→ MOVE · ↓ SOFT · SPACE DROP · ↑ ROTATE · C HOLD · P PAUSE'}</div>
           <div className="scan" />
+          {g.phase !== 'over' && <TetrisTouch />}
         </>
       )}
       {g.paused && <div className="screen pause"><h1>PAUSED</h1><button className="big" onClick={tetrisActions.resume}>RESUME</button><button className="big sec" onClick={() => openHelp('tetris')}>❓ HOW TO PLAY</button><button className="big sec" onClick={tetrisActions.quit}>QUIT TO DASHBOARD</button></div>}

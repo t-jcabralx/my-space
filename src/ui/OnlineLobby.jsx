@@ -94,9 +94,18 @@ export default function OnlineLobby({ s, TopPlayers, initGame, lockGame }) {
   }, [])
   const [copied, setCopied] = useState(false)
   const [pub, setPub] = useState(() => { try { return localStorage.getItem('si_public_url') || '' } catch { return '' } })
-  const baseUrl = () => { const v = (pub || '').trim().replace(/\/+$/, ''); return /^https?:\/\//i.test(v) ? v : location.origin }
+  // the link must open on your friend's phone, so never hand out a localhost address when a real one is known
+  const isLocal = (h) => /^(localhost|127\.|192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.|\[::1\])/.test(h || '')
+  const clean = (v) => { v = (v || '').trim().replace(/\/+$/, ''); if (v && !/^https?:\/\//i.test(v)) v = 'https://' + v; return /^https?:\/\/[^/\s]+\.[^/\s]+/i.test(v) || /^https?:\/\/localhost/i.test(v) ? v : '' }
+  const siteUrl = () => clean(pub) || clean(process.env.NEXT_PUBLIC_SITE_URL) || (isLocal(location.hostname) ? clean(process.env.NEXT_PUBLIC_VERCEL_PROJECT_PRODUCTION_URL) : '') || location.origin
+  const baseUrl = siteUrl
   const setPubUrl = (v) => { setPub(v); try { localStorage.setItem('si_public_url', v) } catch { /* ignore */ } }
-  const copyLink = () => { try { navigator.clipboard.writeText(`${baseUrl()}/?join=${room.code}`); setCopied(true); setTimeout(() => setCopied(false), 1800) } catch { setMsg('Copy failed: share the code instead') } }
+  const copyLink = async () => {
+    const url = `${baseUrl()}/?join=${room.code}`
+    try { const u = new URL(url); if (isLocal(u.hostname)) { setMsg('That link only works on this computer (localhost). Type your public website address in the yellow box first, then copy again. Or just share the code ' + room.code + '.'); return } } catch { /* ignore */ }
+    try { if (navigator.share && /Android|iPhone|iPad/i.test(navigator.userAgent)) { await navigator.share({ title: 'Join my game', text: 'Join my game room ' + room.code, url }); return } } catch { /* cancelled: fall back to copying */ }
+    try { await navigator.clipboard.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 1800); setMsg('') } catch { setMsg('Copy failed. Share this link by hand: ' + url) }
+  }
   useEffect(() => { if (logRef.current) logRef.current.scrollTop = 1e6 }, [rt.chat.length])
 
   const run = async (fn) => { setMsg(''); try { await fn() } catch (e) { setMsg(e.message || 'Something went wrong') } }
@@ -187,7 +196,7 @@ export default function OnlineLobby({ s, TopPlayers, initGame, lockGame }) {
     <div className="lobby">
       <div className="lobbyL">
         <h4>ROOM <b style={{ letterSpacing: 4, fontSize: 22, color: '#ffe84a' }}>{share}</b> · {g ? g[2] : room.game}</h4>
-        {typeof location !== 'undefined' && /^(localhost|127\.|192\.168\.|10\.|\[::1\])/.test(location.hostname) && <div className="lobbyinfo" style={{ color: '#ffb02e' }}><small>⚠ You are on <b>{location.host}</b>, an address only this computer can open. Friends on other computers need your public address (a deployed site such as Vercel, or a tunnel: <b>npx cloudflared tunnel --url http://localhost:3000</b>). Paste it here and the invite link will use it:</small><br /><input className="nameIn" style={{ width: '100%' }} value={pub} placeholder="https://your-public-address" onChange={(e) => setPubUrl(e.target.value)} /></div>}
+        {typeof location !== 'undefined' && isLocal(location.hostname) && !clean(pub) && !clean(process.env.NEXT_PUBLIC_SITE_URL) && <div className="lobbyinfo" style={{ color: '#ffb02e' }}><small>⚠ You are on <b>{location.host}</b>, an address only this computer can open. Friends on other computers need your public address (a deployed site such as Vercel, or a tunnel: <b>npx cloudflared tunnel --url http://localhost:3000</b>). Paste it here and the invite link will use it:</small><br /><input className="nameIn" style={{ width: '100%' }} value={pub} placeholder="https://your-public-address" onChange={(e) => setPubUrl(e.target.value)} /></div>}
         <div className="lobbyinfo"><small>{rt.connected ? '🟢 connected' : '🟠 connecting…'}{Object.keys(rt.p2p || {}).length ? ' · ⚡ direct link' : ' · ☁ relay'} · share the code so friends can join ({room.players.length}/{room.max})</small></div>
         <div className="roomPlayers">
           {room.players.map((p) => <div key={p.id} className="chip sel" style={{ margin: 3 }}>{p.id === room.host ? '👑 ' : '🙂 '}{p.name}{p.id === rt.cid ? ' (you)' : ''}</div>)}

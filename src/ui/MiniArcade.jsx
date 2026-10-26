@@ -19,7 +19,7 @@ function MiniPlayer({ def, onBack }) {
   // on phones the game takes over the whole screen (CSS does the layout; this asks the browser for real fullscreen too)
   useEffect(() => {
     let phone = false
-    try { phone = window.matchMedia('(pointer: coarse)').matches && window.innerWidth <= 900 } catch { /* ignore */ }
+    try { phone = window.matchMedia('(pointer: coarse)').matches || window.innerWidth <= 759 } catch { /* ignore */ }
     if (!phone) return undefined
     try { const p = document.documentElement.requestFullscreen && document.documentElement.requestFullscreen(); if (p && p.catch) p.catch(() => {}) } catch { /* ignore */ }
     return () => { try { if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {}) } catch { /* ignore */ } }
@@ -128,13 +128,13 @@ export default function MiniArcade() {
   if(def)return <MiniPlayer key={def.id} def={def} onBack={()=>setId(null)}/>
   const games=MINI.filter(g=>(category==='All'||MINI_META[g.id].category===category)&&g.name.toLowerCase().includes(query.toLowerCase()))
   return <section className="mini-gallery">
-    <header className="mini-gallery-head"><div><span className="mini-eyebrow">YOUR NEXT HIGH SCORE STARTS HERE</span><h2>The mini arcade<span>24 worlds to play.</span></h2><p>Big characters. Bright worlds. One more round.</p></div><label className="mini-search"><span>Find a game</span><input type="search" placeholder="Search games…" value={query} onChange={e=>setQuery(e.target.value)}/></label></header>
-    <div className="mini-filters" aria-label="Game categories">{['All','Action','Puzzle','Sports','Adventure'].map(c=><button key={c} aria-pressed={category===c} onClick={()=>setCategory(c)}>{c}{c==='All'&&<span>24</span>}</button>)}</div>
+    <header className="mini-gallery-head"><div><span className="mini-eyebrow">YOUR NEXT HIGH SCORE STARTS HERE</span><h2>The mini arcade<span>{MINI.length} worlds to play.</span></h2><p>Big characters. Bright worlds. One more round.</p></div><label className="mini-search"><span>Find a game</span><input type="search" placeholder="Search games…" value={query} onChange={e=>setQuery(e.target.value)}/></label></header>
+    <div className="mini-filters" aria-label="Game categories">{['All','Action','Puzzle','Sports','Adventure'].map(c=><button key={c} aria-pressed={category===c} onClick={()=>setCategory(c)}>{c}{c==='All'&&<span>{MINI.length}</span>}</button>)}</div>
     <div className="mini-grid">{games.map(g=>{const meta={...MINI_META[g.id],color:GAME_ART[g.id]?.color||MINI_META[g.id].color};return <button key={g.id} className="mini-card" style={{'--mini-accent':meta.color}} onClick={()=>{unlockAudio();sfx('ui');setId(g.id)}} aria-label={'Play '+g.name}>
       <div className={"mini-card-art"+(GAME_ART[g.id]?" has-logo":"")}>{GAME_ART[g.id]?<GameArtwork id={g.id} decorative/>:<MiniPreview id={g.id}/>}<span className="mini-category">{meta.category}</span><span className="mini-launch" aria-hidden="true">↗</span></div>
       <div className="mini-card-copy">{GAME_ART[g.id]&&<span className="mini-cover-category">{meta.category}</span>}<b>{g.name}</b><small>{g.desc}</small><div className="mini-card-footer"><em>{best(g.id)>0?'Best '+best(g.id).toLocaleString():'Set your first record'}</em><span>Play →</span></div></div>
     </button>})}</div>
-    {category==='All'&&!query&&<section className="future-art" aria-label="Future game artwork"><div className="future-art-heading"><span className="mini-eyebrow">MORE WORLDS ON THE DRAWING BOARD</span><h3>The next adventures</h3><p>Artwork previews. These three games aren't playable yet.</p></div><div className="future-art-grid">{['ocean','skydash','hoopclash'].map(key=><article key={key}><GameArtwork id={key}/><div><h4>{GAME_ART[key].title}</h4><span>Artwork preview</span></div></article>)}</div></section>}
+    {category==='All'&&!query&&['ocean','skydash','hoopclash'].some(key=>!MINI.some(g=>g.id===key))&&<section className="future-art" aria-label="Future game artwork"><div className="future-art-heading"><span className="mini-eyebrow">MORE WORLDS ON THE DRAWING BOARD</span><h3>The next adventures</h3><p>Artwork previews. These three games aren't playable yet.</p></div><div className="future-art-grid">{['ocean','skydash','hoopclash'].filter(key=>!MINI.some(g=>g.id===key)).map(key=><article key={key}><GameArtwork id={key}/><div><h4>{GAME_ART[key].title}</h4><span>Artwork preview</span></div></article>)}</div></section>}
     {!games.length&&<p className="mini-empty">No games found. Try a different name or category.</p>}
   </section>
 }

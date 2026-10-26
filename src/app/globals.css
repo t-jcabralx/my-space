@@ -1135,7 +1135,7 @@ li.bonus { border-color: var(--gr); color: var(--gr); } li.fail { border-color: 
 
 /* ---- mini games fill the whole phone screen ---- */
 .mini-score-chip { display: none; }
-@media (max-width: 759px) {
+@media (max-width: 759px), (pointer: coarse) and (max-width: 1100px), (pointer: coarse) and (max-height: 560px) {
   .mini-play { position: fixed; inset: 0; z-index: 950; max-width: none; margin: 0; padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); background: radial-gradient(120% 80% at 50% 0%, #1a2a4a, #070b16 75%); display: flex; flex-direction: column; overflow: hidden; }
   .mini-play .mini-top { position: static; margin: 0 0 6px; padding: 4px 4px 8px; border-bottom: 0; gap: 6px; background: transparent; }
   .mini-play .mini-top .mini-back { font-size: 12px; padding: 9px 12px; }
@@ -1144,4 +1144,17 @@ li.bonus { border-color: var(--gr); color: var(--gr); } li.fail { border-color: 
   .mini-layout { display: flex; flex: 1; min-height: 0; max-width: none; margin: 0; gap: 0; align-items: center; justify-content: center; }
   .mini-guide { display: none; }
   .mini-play .mini-stage { width: min(100%, calc((100dvh - 78px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) * 2 / 3)); max-height: calc(100dvh - 78px); border-radius: 14px; margin: 0 auto; }
+}
+
+/* ---- tetris on a phone ---- */
+.ttouch { position: absolute; left: 0; right: 0; bottom: 1.2cqw; display: flex; justify-content: space-between; align-items: flex-end; padding: 0 2cqw; pointer-events: none; z-index: 30; }
+.ttouch button { pointer-events: auto; touch-action: none; user-select: none; -webkit-user-select: none; font: inherit; color: #e8f1ff; background: #0b1230cc; border: 3px solid #3de8ff; border-radius: 16px; min-width: 56px; min-height: 56px; font-size: 18px; box-shadow: 0 4px 0 #09266a; } .ttouch button:active { transform: translateY(3px); background: #1a2a6a; }
+.tt-l, .tt-r { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; max-width: 48%; } .tt-r { justify-content: flex-end; } .tt-r button { font-size: 13px; border-color: #ff4de1; } .tt-r .drop { border-color: #ffe84a; min-width: 84px; font-size: 13px; }
+@media (min-width: 761px) and (hover: hover) and (pointer: fine) { .ttouch { display: none; } }
+
+/* ---- search on phones: a floating button opens a search bar that stays on screen ---- */
+.search-fab { display: none; }
+@media (max-width: 800px), (pointer: coarse) {
+  .search-fab { display: grid; place-items: center; position: fixed; z-index: 700; left: 12px; bottom: max(14px, env(safe-area-inset-bottom)); width: 52px; height: 52px; border-radius: 50%; font-size: 22px; color: #02030a; background: linear-gradient(180deg, #7af0ff, #2fc4e6); border: 0; box-shadow: 0 4px 0 #1a7a96, 0 8px 18px #000a; }
+  .search-pop { position: fixed; z-index: 710; left: 8px; right: 8px; top: max(8px, env(safe-area-inset-top)); display: flex; gap: 8px; align-items: center; background: #0b1230f2; border: 2px solid #3de8ff; border-radius: 14px; padding: 8px; box-shadow: 0 10px 30px #000c; } .search-pop .nameIn { flex: 1; min-width: 0; text-transform: none; font-size: 16px; } .search-pop button { font: inherit; font-size: 11px; color: #fff; background: #1c2a60; border: 1px solid #3de8ff66; border-radius: 10px; padding: 10px 12px; }
 }

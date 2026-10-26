@@ -1353,6 +1353,180 @@ function tesseractTap() {
   return o
 }
 
+// ---------------------------------------------------------------- 25. OCEAN HUNTER (underwater harpoon shooter)
+function oceanHunter() {
+  const KINDS = { fish: { r: 17, pts: 10, hp: 1, c: '#ffb02e', sp: [70, 130] }, tuna: { r: 24, pts: 25, hp: 1, c: '#6ab8ff', sp: [90, 150] }, shark: { r: 36, pts: 70, hp: 3, c: '#8a96a8', sp: [45, 75] }, jelly: { r: 22, pts: -1, hp: 1, c: '#ff7ad8', sp: [30, 50] }, chest: { r: 19, pts: 120, hp: 1, c: '#e0b040', sp: [20, 30] } }
+  const o = { score: 0, over: false, status: '', label: 'TAP TO FIRE THE HARPOON · DO NOT HIT THE JELLYFISH · SHARKS TAKE 3 HITS' }
+  let items, bubbles, spears, fx, t, spawnT, lives, combo, cool, aim
+  o.reset = () => { items = []; bubbles = Array.from({ length: 18 }, (_, i) => ({ x: (i * 53) % W, y: (i * 97) % H, r: 2 + (i % 4), v: 20 + (i % 5) * 9 })); spears = []; fx = []; t = 60; spawnT = 0.3; lives = 3; combo = 0; cool = 0; aim = { x: W / 2, y: H / 2 }; o.score = 0; o.over = false; o.time = 60; o.lives = 3; o.status = '60s' }
+  const spawn = () => {
+    const r0 = Math.random(), k = r0 < 0.4 ? 'fish' : r0 < 0.62 ? 'tuna' : r0 < 0.76 ? 'shark' : r0 < 0.92 ? 'jelly' : 'chest'
+    const d = KINDS[k], dir = Math.random() < 0.5 ? 1 : -1, y = rnd(80, H - 130)
+    items.push({ k, x: dir > 0 ? -50 : W + 50, y: k === 'chest' ? -30 : y, vx: k === 'chest' ? 0 : dir * rnd(d.sp[0], d.sp[1]), vy: k === 'chest' ? rnd(35, 55) : 0, r: d.r, hp: d.hp, ph: rnd(0, 6), z: rnd(-30, 30), dir })
+  }
+  const shoot = (x, y) => {
+    if (o.over || cool > 0) return
+    cool = 0.22; aim = { x, y }; spears.push({ x, y, l: 0.25 })
+    let hit = null
+    for (const it of items) if (Math.hypot(it.x - x, it.y - y) < it.r + 10 && (!hit || it.r < hit.r)) hit = it
+    if (!hit) { combo = 0; puff(fx, x, y, 4, '#bfe9ff', 70); return }
+    hit.hp--; puff(fx, hit.x, hit.y, 8, KINDS[hit.k].c, 160)
+    if (hit.k === 'jelly') { lives--; o.lives = lives; combo = 0; puff(fx, hit.x, hit.y, 16, '#ff7ad8', 240); hit.hp = 0; if (lives <= 0) o.over = true }
+    else if (hit.hp <= 0) { combo++; o.score += Math.round(KINDS[hit.k].pts * (1 + Math.min(1, combo * 0.1))); puff(fx, hit.x, hit.y, 14, '#ffe84a', 220) }
+    items = items.filter((q) => q.hp > 0)
+  }
+  o.down = (x, y) => shoot(x, y); o.move = (x, y) => { aim = { x, y } }
+  o.key = (c) => { if (c === 'ArrowLeft') aim.x = Math.max(0, aim.x - 24); if (c === 'ArrowRight') aim.x = Math.min(W, aim.x + 24); if (c === 'ArrowUp') aim.y = Math.max(0, aim.y - 24); if (c === 'ArrowDown') aim.y = Math.min(H, aim.y + 24); if (c === 'Space') shoot(aim.x, aim.y) }
+  o.update = (dt) => {
+    stepFx(fx, dt); cool -= dt
+    for (const b of bubbles) { b.y -= b.v * dt; if (b.y < -10) { b.y = H + 10; b.x = rnd(0, W) } }
+    for (const sp of spears) sp.l -= dt; spears = spears.filter((q) => q.l > 0)
+    if (o.over) return
+    t -= dt; o.time = Math.max(0, Math.ceil(t)); o.status = o.time + 's' + (combo > 1 ? ' · x' + combo : ''); if (t <= 0) { o.over = true; return }
+    spawnT -= dt; if (spawnT <= 0) { spawn(); spawnT = Math.max(0.35, 0.95 - (60 - t) * 0.01) }
+    for (const it of items) { it.ph += dt * 3; it.x += it.vx * dt; it.y += it.vy * dt + (it.k === 'jelly' ? Math.sin(it.ph) * 0.6 : Math.sin(it.ph) * 0.35) }
+    items = items.filter((it) => it.x > -90 && it.x < W + 90 && it.y < H + 60)
+  }
+  o.draw = (g) => { sky(g, '#0a5a8a', '#021a2e'); for (const it of items) disc(g, it.x, it.y, it.r, KINDS[it.k].c); txt(g, String(Math.floor(o.score)), W / 2, 30, 18, '#fff') }
+  o.draw3 = (r, g) => {
+    r.look(0, 300, -650, 0, 262, 0, 45); r.begin('#1388c0', '#031a30')
+    r.floor(-500, -200, 500, 400, 20, '#c9b27a')
+    for (let k = 0; k < 7; k++) { r.box(-300 + k * 100, 36 + (k % 3) * 14, 90 + (k % 2) * 30, 14, 40 + (k % 3) * 24, 14, k % 2 ? '#ff6a8a' : '#ff9a4a'); r.sphere(-300 + k * 100, 76 + (k % 3) * 24, 90 + (k % 2) * 30, 12, k % 2 ? '#ff6a8a' : '#ff9a4a') }
+    for (let k = 0; k < 4; k++) r.box(-150 + k * 100 + Math.sin(t * 0.5 + k) * 10, 280, 70, 36, 560, 4, '#bfe9ff', { alpha: 0.08, edge: false, rz: 0.18 })
+    for (const b of bubbles) r.sphere(b.x - W / 2, H - b.y, 40, b.r, '#cfeeff', { alpha: 0.55, shine: false })
+    for (const it of items) {
+      const d = KINDS[it.k], x = it.x - W / 2, y = H - it.y, z = it.z, rr = d.r, f = it.dir || 1, wag = Math.sin(it.ph * 2.2) * 0.3
+      if (it.k === 'jelly') { r.sphere(x, y, z, rr, '#ff7ad8', { alpha: 0.85, glow: 1.25 }); for (let q = -1; q <= 1; q++) r.box(x + q * 7, y - rr - 8 + Math.sin(it.ph + q) * 3, z, 3, 18, 3, '#ffb0ee', { alpha: 0.8, edge: false }) }
+      else if (it.k === 'chest') { r.box(x, y, z, rr * 1.8, rr * 1.2, rr * 1.2, '#8a5a2a'); r.box(x, y + rr * 0.7, z, rr * 1.9, rr * 0.5, rr * 1.25, '#e0b040', { glow: 1.2 }); r.sphere(x, y + rr * 0.1, z - rr * 0.65, 3, '#ffe84a', { glow: 1.5, shine: false }) }
+      else { r.shadow(x, z, rr * 0.8, 0.12, 21); r.sphere(x, y, z, rr, d.c); r.pyramid(x - f * rr * 1.15, y - rr * 0.55, z, rr * 0.9, rr * 1.2, rr * 0.3, d.c, { rz: f > 0 ? 1.57 + wag : -1.57 - wag }); if (it.k === 'shark') r.pyramid(x, y + rr * 0.8, z, rr * 0.7, rr * 0.9, rr * 0.2, '#6a7686'); r.sphere(x + f * rr * 0.55, y + rr * 0.25, z - rr * 0.7, Math.max(2, rr * 0.16), '#111', { shine: false }) }
+    }
+    r.fx(fx); r.flush()
+    for (const sp of spears) { g.strokeStyle = 'rgba(255,255,255,' + Math.min(1, sp.l * 4) + ')'; g.lineWidth = 3; g.beginPath(); g.moveTo(W / 2, H); g.lineTo(sp.x, sp.y); g.stroke(); g.lineWidth = 1 }
+    g.strokeStyle = '#ffe84a'; g.lineWidth = 2; g.beginPath(); g.arc(aim.x, aim.y, 14, 0, TAU); g.moveTo(aim.x - 20, aim.y); g.lineTo(aim.x + 20, aim.y); g.moveTo(aim.x, aim.y - 20); g.lineTo(aim.x, aim.y + 20); g.stroke(); g.lineWidth = 1
+    for (let q = 0; q < 3; q++) txt(g, q < lives ? '♥' : '♡', 30 + q * 28, 24, 18, q < lives ? '#ff5a6a' : '#446')
+    txt(g, o.time + 's', W - 40, 24, 12, '#fff'); if (combo > 1) txt(g, 'COMBO x' + combo, W / 2, 56, 12, '#ffe84a')
+  }
+  return o
+}
+
+// ---------------------------------------------------------------- 26. SKY DASH (glide through the clouds)
+function skyDash() {
+  const o = { score: 0, over: false, status: '', label: 'HOLD TO CLIMB · RELEASE TO DIVE · FLY THROUGH THE RINGS · AVOID STORMS AND BIRDS' }
+  let p, things, dist, speed, spawnT, rings, hold, fx, t
+  o.reset = () => { p = { y: 270, vy: 0 }; things = []; dist = 0; speed = 190; spawnT = 0.6; rings = 0; hold = false; fx = []; t = 0; o.score = 0; o.over = false; o.status = '0 rings' }
+  o.down = () => { hold = true }; o.up = () => { hold = false }
+  o.key = (c) => { if (c === 'Space' || c === 'ArrowUp') hold = true }; o.keyup = (c) => { if (c === 'Space' || c === 'ArrowUp') hold = false }
+  o.cancel = () => { hold = false }
+  o.update = (dt) => {
+    stepFx(fx, dt); t += dt
+    if (o.over) return
+    speed = Math.min(380, 190 + dist * 0.01); dist += speed * dt
+    p.vy += (hold ? -1050 : 760) * dt; p.vy = clamp(p.vy, -340, 360); p.y += p.vy * dt
+    if (p.y < 24) { p.y = 24; p.vy = 0 }
+    if (p.y > H - 56) { o.over = true; puff(fx, 90, p.y, 24, '#ff9a3a', 260); return }
+    spawnT -= dt
+    if (spawnT <= 0) {
+      const k = Math.random(), y = rnd(70, H - 120)
+      if (k < 0.42) things.push({ k: 'ring', x: W + 60, y, r: 34 })
+      else if (k < 0.78) things.push({ k: 'storm', x: W + 70, y, r: rnd(28, 42) })
+      else things.push({ k: 'bird', x: W + 40, y, r: 14, ph: rnd(0, 6) })
+      spawnT = Math.max(0.55, 1.15 - dist * 0.00006)
+    }
+    for (const q of things) { q.x -= speed * dt * (q.k === 'bird' ? 1.5 : 1); if (q.k === 'bird') { q.ph += dt * 4; q.y += Math.sin(q.ph) * 60 * dt } }
+    things = things.filter((q) => q.x > -90)
+    for (let i = things.length - 1; i >= 0; i--) {
+      const q = things[i], d = Math.hypot(q.x - 90, q.y - p.y)
+      if (q.k === 'ring') { if (Math.abs(q.x - 90) < 10 && Math.abs(q.y - p.y) < q.r - 4) { rings++; puff(fx, q.x, q.y, 14, '#ffe84a', 220); things.splice(i, 1); o.status = rings + ' rings' } }
+      else if (d < q.r + 12) { o.over = true; puff(fx, 90, p.y, 24, '#ff9a3a', 260); return }
+    }
+    o.score = Math.floor(dist / 10) + rings * 25
+  }
+  o.draw = (g) => { sky(g, '#4aa8ff', '#dff2ff'); disc(g, 90, p.y, 14, '#fff'); for (const q of things) disc(g, q.x, q.y, q.r, q.k === 'ring' ? '#ffe84a' : q.k === 'storm' ? '#555' : '#222') }
+  o.draw3 = (r, g) => {
+    r.look(10, 300, -650, 10, 262, 0, 45); r.begin('#3a9aff', '#bfe6ff')
+    for (let k = 0; k < 6; k++) { const x = ((k * 160 - dist * 0.12) % 960 + 960) % 960 - 480; r.pyramid(x, 0, 220, 170, 130 + (k % 3) * 40, 90, k % 2 ? '#6a8ab0' : '#7a9ac0', { glow: 1.05 }); r.pyramid(x, 100 + (k % 3) * 40, 220, 60, 40, 32, '#ffffff', { edge: false }) }
+    for (let k = 0; k < 9; k++) { const x = ((k * 120 - dist * 0.35) % 1080 + 1080) % 1080 - 540, y = 120 + (k * 71) % 380; r.sphere(x, y, 140, 34, '#ffffff', { alpha: 0.85, shine: false }); r.sphere(x + 30, y - 6, 140, 26, '#ffffff', { alpha: 0.85, shine: false }) }
+    for (const q of things) {
+      const x = q.x - W / 2, y = H - q.y
+      if (q.k === 'ring') { for (let a = 0; a < 16; a++) { const an = (a / 16) * TAU; r.sphere(x, y + Math.sin(an) * q.r, Math.cos(an) * 6, 4.4, '#ffd23a', { glow: 1.4, shine: false }) } }
+      else if (q.k === 'storm') { r.sphere(x, y, 0, q.r, '#5a6070'); r.sphere(x + q.r * 0.7, y - 6, 4, q.r * 0.8, '#4a5060'); r.sphere(x - q.r * 0.6, y - 4, 4, q.r * 0.75, '#4a5060'); if (Math.sin(t * 9 + q.x) > 0.7) r.box(x, y - q.r - 10, -2, 5, 22, 3, '#ffe84a', { glow: 1.8, edge: false, rz: 0.4 }) }
+      else { const fl = Math.sin(t * 16 + q.ph) * 0.7; r.sphere(x, y, 0, q.r, '#2a2a33'); r.box(x - 4, y + fl * 8, 0, 18, 3, 26, '#3a3a46', { rz: fl * 0.5 }); r.pyramid(x + q.r * 0.9, y - 2, 0, 8, 12, 8, '#ffb02e', { rz: -1.57 }) }
+    }
+    const px = 90 - W / 2, py = H - p.y, tilt = clamp(-p.vy / 700, -0.5, 0.5)
+    r.shadow(px, 10, 18, 0.2, 2)
+    r.box(px, py, 0, 40, 12, 12, '#ff5a6a', { rz: tilt }); r.pyramid(px + 24, py - 6 * tilt * 5, 0, 12, 16, 12, '#ffe84a', { rz: -1.57 + tilt }); r.box(px - 2, py + 2, 0, 12, 4, 60, '#3de8ff', { rz: tilt }); r.box(px - 18, py + 8, 0, 8, 12, 4, '#3de8ff', { rz: tilt }); r.box(px + 30, py - 4 * tilt * 5, 0, 3, 28, 3, '#333', { ry: t * 30 })
+    r.fx(fx); r.flush(); txt(g, String(o.score), 36, 28, 16, '#0a3a6a', 'left')
+  }
+  return o
+}
+
+// ---------------------------------------------------------------- 27. HOOP CLASH (shoot-out against the bot)
+function hoopClash() {
+  const o = { score: 0, over: false, status: '', label: 'TAP WHEN THE SLIDER IS IN THE GREEN ZONE · 6 SHOTS EACH · WIN THE MATCH TO ADVANCE' }
+  let round, you, bot, turn, shots, meter, mdir, sweet, zone, pts, anim, result, wait, fx, wins, msg
+  const sweetFor = (p3) => ({ c: rnd(0.3, 0.7), w: p3 ? 0.065 : 0.1 })
+  const nextTurn = () => {
+    if (shots >= 12) { // match over
+      if (you > bot) { wins++; round++; o.score += 20; msg = 'MATCH WON!'; shots = 0; you = 0; bot = 0; turn = 'player'; wait = 1.4 } else { o.over = true; msg = you === bot ? 'DRAW: YOU LOSE THE CLASH' : 'BOT WINS'; }
+      return
+    }
+    turn = shots % 2 === 0 ? 'player' : 'bot'; pts = Math.random() < 0.4 ? 3 : 2; const sw = sweetFor(pts === 3); sweet = sw.c; zone = sw.w; meter = 0; mdir = 1; wait = 0.5
+    if (turn === 'bot') wait = 0.9
+  }
+  o.reset = () => { round = 0; you = 0; bot = 0; shots = 0; wins = 0; fx = []; anim = null; result = ''; msg = ''; o.score = 0; o.over = false; turn = 'player'; pts = 2; const sw = sweetFor(false); sweet = sw.c; zone = sw.w; meter = 0; mdir = 1; wait = 0.4; o.status = 'YOU 0 · BOT 0' }
+  const shoot = (acc) => { // acc 0 = dead centre of the green zone; the ball's flight is decided now and played out
+    const off = acc / zone; let made = off <= 1 ? true : off <= 1.6 ? Math.random() < 0.38 : false
+    anim = { t: 0, made, who: turn, pts, off }
+  }
+  o.down = () => { if (o.over || turn !== 'player' || anim || wait > 0) return; shoot(Math.abs(meter - sweet)) }
+  o.key = (c) => { if (c === 'Space' || c === 'Enter') o.down() }
+  o.update = (dt) => {
+    stepFx(fx, dt)
+    if (o.over && !anim) return
+    if (anim) {
+      anim.t += dt
+      if (anim.t >= 1.15) {
+        if (anim.made) { if (anim.who === 'player') { you += anim.pts; o.score += anim.pts } else bot += anim.pts; puff(fx, 180, 150, 16, '#ffe84a', 220); result = anim.who === 'player' ? '+' + anim.pts : 'BOT +' + anim.pts } else result = 'MISS'
+        shots++; anim = null; o.status = 'YOU ' + you + ' · BOT ' + bot + ' · R' + (round + 1); nextTurn()
+      }
+      return
+    }
+    if (wait > 0) { wait -= dt; if (wait <= 0) msg = ''; return }
+    if (turn === 'player') { meter += mdir * dt * (1.15 + round * 0.18); if (meter > 1) { meter = 1; mdir = -1 } if (meter < 0) { meter = 0; mdir = 1 } }
+    else { const skill = 0.36 + round * 0.06 - (pts === 3 ? 0.1 : 0), acc = Math.random() < skill ? Math.random() * zone * 0.9 : zone * (1.1 + Math.random() * 1.2); meter = sweet; shoot(acc) }
+  }
+  o.draw = (g) => { sky(g, '#2a1a3a', '#120a1c'); txt(g, 'HOOP CLASH', W / 2, 40, 14, '#ffaf39'); txt(g, o.status, W / 2, 70, 10, '#fff') }
+  o.draw3 = (r, g) => {
+    r.look(0, 300, -650, 0, 262, 0, 45); r.begin('#20142f', '#0a0612')
+    r.floor(-500, -300, 500, 700, 0, '#a0662a'); for (let i = -6; i < 7; i++) r.box(i * 64, 0.6, 100, 3, 1, 1200, '#7a4a1c', { alpha: 0.7, edge: false })
+    r.box(0, 330, 150, 560, 300, 16, '#1a1030', { edge: false })
+    for (let i = -2; i <= 2; i++) r.sphere(i * 120, 470, 120, 10, '#fff7c0', { glow: 1.5, shine: false, alpha: 0.9 })
+    const hx = 0, hy = 380
+    r.box(hx, hy + 30, 60, 110, 70, 6, '#ffffff', { alpha: 0.6 }); r.box(hx, hy + 12, 56, 44, 30, 3, '#ff6a2a', { alpha: 0.5, edge: false })
+    for (let q = 0; q < 16; q++) { const a = (q / 16) * TAU; r.sphere(hx + Math.cos(a) * 28, hy, 40 + Math.sin(a) * 16, 3.2, '#ff6a2a', { glow: 1.2, shine: false }) }
+    for (let q = 0; q < 8; q++) { const a = (q / 8) * TAU; r.line([hx + Math.cos(a) * 28, hy, 40 + Math.sin(a) * 16], [hx + Math.cos(a) * 18, hy - 36, 40 + Math.sin(a) * 8], '#ffffffcc', 1.5) }
+    const me = turn === 'player' && !anim
+    r.box(-60, 28, -40, 20, 40, 14, '#3de8ff', { glow: me ? 1.3 : 1 }); r.sphere(-60, 56, -40, 9, '#e8b890', { shine: false }); r.box(60, 28, -40, 20, 40, 14, '#ff5a6a', { glow: !me ? 1.3 : 1 }); r.sphere(60, 56, -40, 9, '#e8b890', { shine: false })
+    r.sphere(-60, 94, -40, 5, '#ffffff', { alpha: 0.0 })
+    const sx = turn === 'player' ? -60 : 60
+    let bx = sx, by = 74, bz = -40, bs = 11
+    if (anim) { const u = Math.min(1, anim.t / 1.1), tx = anim.made ? hx : hx + (anim.off > 3 ? (sx > 0 ? 70 : -70) : (sx > 0 ? 24 : -24)), ty = hy; bx = sx + (tx - sx) * u; by = 74 + (ty - 74) * u + Math.sin(u * Math.PI) * 190; bz = -40 + (anim.made ? 80 : 60) * u; bs = 11 - 3 * u; if (u >= 0.98 && anim.made) by = hy - (anim.t - 1.1) * 400 }
+    r.shadow(bx, bz, 9, 0.35, 0.8); r.sphere(bx, by, bz, bs, '#ff8a2a', { glow: 1.1 })
+    r.fx(fx, (p) => [p.x - W / 2, H - p.y, 0]); r.flush()
+    // the shot slider
+    if (turn === 'player' && !anim && !o.over) {
+      const bx0 = 40, by0 = 470, bw = W - 80
+      g.fillStyle = '#0b1230ee'; g.fillRect(bx0 - 4, by0 - 14, bw + 8, 32); g.fillStyle = '#26336a'; g.fillRect(bx0, by0 - 8, bw, 20); g.fillStyle = '#3dff7a'; g.fillRect(bx0 + (sweet - zone) * bw, by0 - 8, zone * 2 * bw, 20)
+      g.fillStyle = '#ffffff'; g.fillRect(bx0 + meter * bw - 3, by0 - 14, 6, 32)
+      txt(g, 'TAP TO SHOOT · ' + pts + ' PTS', W / 2, by0 + 38, 9, '#ffe84a')
+    }
+    txt(g, 'YOU ' + you, 60, 30, 14, '#3de8ff'); txt(g, 'BOT ' + bot, W - 60, 30, 14, '#ff5a6a'); txt(g, 'ROUND ' + (round + 1) + ' · SHOT ' + Math.min(12, shots + 1) + '/12', W / 2, 30, 8, '#fff')
+    if (result && !anim) txt(g, result, W / 2, 110, 20, result === 'MISS' ? '#ff6a6a' : '#7dff6a')
+    if (msg) txt(g, msg, W / 2, 160, 16, '#ffe84a')
+  }
+  return o
+}
+
 export const MINI = [
   { id: 'stack', icon: '🏗️', name: 'STACK TOWER', desc: 'Time your taps and build the tallest tower', make: wrapR3(stackTower) },
   { id: 'wing', icon: '🐤', name: 'WING DASH', desc: 'Flap through the pipes without a single touch', make: wrapR3(wingDash) },
@@ -1377,5 +1551,8 @@ export const MINI = [
   { id: 'pong', icon: '🏓', name: 'PONG DUEL', desc: 'Classic paddle duel against a speeding bot', make: wrapR3(pongDuel) },
   { id: 'archery', icon: '🏹', name: 'ARCHERY', desc: 'Pull back, read the wind, hit the bullseye', make: wrapR3(archery) },
   { id: 'rift', icon: '⏪', name: 'TIME RIFT', desc: 'Run, jump and rewind time after a crash', make: wrapR3(timeRift) },
+  { id: 'ocean', icon: '🐠', name: 'OCEAN HUNTER', desc: 'Fire your harpoon at fish and sharks. Spare the jellyfish', make: wrapR3(oceanHunter) },
+  { id: 'skydash', icon: '✈️', name: 'SKY DASH', desc: 'Glide through golden rings and dodge the storm clouds', make: wrapR3(skyDash) },
+  { id: 'hoopclash', icon: '🏀', name: 'HOOP CLASH', desc: 'Time your shot against the bot, match after match', make: wrapR3(hoopClash, true) },
   { id: 'tess', icon: '🧊', name: 'TESSERACT TAP', desc: 'A rotating hypercube: catch the glowing vertex', make: wrapR3(tesseractTap) },
 ]

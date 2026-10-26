@@ -27,6 +27,9 @@ export const MINI_META={
   ttt:entry('Puzzle','#92bdcf','A friendly rival waits at the strategy table.','Tap an empty square to place X.','Make a line of three. The bot gets stronger each round.'),
   pong:entry('Sports','#8dc8b3','Challenge the crowned robot beneath the neon arena lights.','Drag or use ← → to move your paddle.','First to seven points wins.'),
   archery:entry('Sports','#b3ca99','Train with the wind in the forest range.','Pull back from the bow, then release. Follow the dotted arc.','You have ten arrows. The center earns 50 points.'),
+  ocean:entry('Action','#46d5ef','A deep-sea hunter takes aim at the reef.','Tap or click where you want to fire. Arrow keys move the crosshair, Space fires.','Hit fish and sharks, grab treasure, spare the jellyfish. 60 seconds.'),
+  skydash:entry('Adventure','#50d2ff','A little red plane races the clouds at sunrise.','Hold the screen, mouse, or Space to climb. Release to dive.','Fly through golden rings and avoid storms and birds.'),
+  hoopclash:entry('Sports','#ffaf39','A late-night street-ball showdown against the arena bot.','Tap or press Space when the slider is in the green zone.','Win each 6-shot match to advance. Lose and the clash is over.'),
   rift:entry('Action','#9fd6dd','Run through a city where time can turn backward.','Tap, Space, or ↑ to jump. Tap twice for a double jump.','A crash spends a rewind. Collect coins for extra chances.'),
   tess:entry('Puzzle','#baa8df','Study the changing shape inside the star observatory.','Tap the gold vertex before its ring disappears.','A 4D hypercube projected into the 3D scene. Three missed targets ends the run.'),
 }
