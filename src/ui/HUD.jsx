@@ -1375,7 +1375,14 @@ function FightLobby({ s }) {
   const c = ROSTER[mine]
   const o = opp === 'random' ? null : ROSTER[opp]
   const show = target === 'you' ? c : (o || c)
-  const pick = (id) => { if (target === 'you') { setMine(id); setFightPick(id) } else setOpp(id) }
+  // keep the scroll position when a tile is tapped (the detail panel changes height; some phones jump back to the top, which looked like leaving the screen)
+  const pick = (id, ev) => {
+    const holders = []; for (let n = ev && ev.currentTarget; n; n = n.parentElement) if (n.scrollHeight > n.clientHeight + 4) holders.push([n, n.scrollTop]); holders.push([document.scrollingElement, document.scrollingElement ? document.scrollingElement.scrollTop : 0])
+    if (ev && ev.preventDefault) ev.preventDefault()
+    if (target === 'you') { setMine(id); setFightPick(id) } else setOpp(id)
+    const back = () => holders.forEach(([n, t]) => { if (n && Math.abs(n.scrollTop - t) > 2) n.scrollTop = t })
+    requestAnimationFrame(back); setTimeout(back, 80); setTimeout(back, 250)
+  }
   const go = () => fightActions.start({ type: mode, p1: mine, p2: mode === 'demo' ? 'random' : opp, diff, rounds })
   return (
     <div className="lobby fightlobby">
@@ -1395,7 +1402,7 @@ function FightLobby({ s }) {
         </div>
         <div className="fgrid">
           {ROSTER.map((r) => (
-            <button key={r.id} className={'ftile ' + (mine === r.id ? 'p1 ' : '') + (opp === r.id ? 'p2 ' : '') + (beaten[r.id] ? 'beat' : '')} style={{ '--el': ELS[r.element].color }} onClick={() => pick(r.id)} title={`${r.name} · ${r.styleName} · ${ELS[r.element].name}`}>
+            <button key={r.id} className={'ftile ' + (mine === r.id ? 'p1 ' : '') + (opp === r.id ? 'p2 ' : '') + (beaten[r.id] ? 'beat' : '')} style={{ '--el': ELS[r.element].color }} onClick={(ev) => pick(r.id, ev)} title={`${r.name} · ${r.styleName} · ${ELS[r.element].name}`}>
               <FighterFace c={r} size={40} /><small>{r.name}</small>{beaten[r.id] && <b className="chk">✓</b>}
             </button>
           ))}
@@ -1404,6 +1411,7 @@ function FightLobby({ s }) {
           <button className="big" onClick={go}>🥊 {mode === 'demo' ? 'WATCH' : 'FIGHT'}!</button>
           <button className="big sec" onClick={() => { setFightPick(mine); window.dispatchEvent(new CustomEvent('si-open-tab', { detail: 'online:fight' })) }}>🌐 INVITE FRIEND</button>
         </div>
+        <div className="fsticky"><FighterFace c={c} size={34} /><span><b>{c.name}</b><small>{o ? 'vs ' + o.name : 'vs random'}</small></span><button className="big" onClick={go}>🥊 {mode === 'demo' ? 'WATCH' : 'FIGHT'}!</button></div>
         <small className="hint">P1: A/D move · W jump · S crouch · J K punch · U I kick · L special · O super (full meter) &nbsp;|&nbsp; P2: arrows · N M punch · , . kick · / special · Right Shift super. Hold back to block. Online: use WASD or arrows.</small>
       </div>
       <div className="lobbyR">

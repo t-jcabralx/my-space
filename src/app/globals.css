@@ -1208,9 +1208,17 @@ button.mjt { cursor: pointer; } button.mjt:disabled { cursor: default; opacity: 
 
 /* a tall game on a portrait phone fills the screen */
 .stage.fill { width: calc(var(--vw, 1vw) * 100); height: calc(var(--vh, 1vh) * 100); aspect-ratio: auto; }
-.stage.fill .tside { top: 2cqw; width: 30cqw; flex-direction: row; gap: 1.2cqw; } .stage.fill .tside.left { left: 1.5cqw; } .stage.fill .tside.right { right: 1.5cqw; } .stage.fill .tstat { min-width: 0; padding: .8cqw 1.6cqw; } .stage.fill .tstat b { font-size: 1.1em; }
+.stage.fill .tside { top: 2cqw; bottom: auto; height: auto; width: 46cqw; flex-direction: row; flex-wrap: wrap; align-items: flex-start; align-content: flex-start; gap: 1.2cqw; } .stage.fill .tside.left { left: 1.5cqw; } .stage.fill .tside.right { right: 1.5cqw; } .stage.fill .tstat { min-width: 0; padding: .8cqw 1.6cqw; } .stage.fill .tstat b { font-size: 1.1em; }
 /* tetris on a portrait phone: the board sits above a fixed control strip so the fingers never cover the stack */
 .stage.fill { height: calc(var(--vh, 1vh) * 100 - 156px); }
 .stage.fill .ttouch { position: fixed; left: 0; right: 0; bottom: max(8px, env(safe-area-inset-bottom)); z-index: 500; padding: 0 10px; }
 .stage.fill .ttouch button { min-width: 62px; min-height: 62px; font-size: 20px; } .stage.fill .tt-r .drop { min-width: 96px; } .stage.fill .tt-l, .stage.fill .tt-r { max-width: 50%; gap: 8px; }
 .wrap:has(.stage.fill) { align-items: start; }
+
+/* iron fists lobby on a phone: the chosen fighter and the FIGHT button stay in reach while you scroll the roster */
+.fsticky { display: none; }
+@media (max-width: 759px), (pointer: coarse) and (max-width: 1100px) {
+  .fsticky { display: flex; align-items: center; gap: 10px; position: sticky; bottom: 6px; z-index: 40; padding: 8px 10px; border-radius: 14px; background: #0b1230f2; border: 2px solid #3de8ff; box-shadow: 0 6px 18px #000a; }
+  .fsticky span { display: flex; flex-direction: column; flex: 1; min-width: 0; } .fsticky small { opacity: .75; }
+  .fsticky .big { margin: 0; padding: 10px 14px; }
+}
