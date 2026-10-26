@@ -2119,7 +2119,7 @@ function RotateHint({ mode }) {
     f(); window.addEventListener('resize', f); window.addEventListener('orientationchange', f)
     return () => { window.removeEventListener('resize', f); window.removeEventListener('orientationchange', f) }
   }, [])
-  const dom = ['menu', 'word', 'merge', 'c4', 'mines', 'cards', 'flames'].includes(mode)
+  const dom = ['menu', 'word', 'merge', 'c4', 'mines', 'cards', 'flames', 'tetris'].includes(mode)
   if (!portrait || dom) return null
   // a phone held upright shows the game in a thin strip: ask for a turn first, with a way to play anyway
   let forced = false

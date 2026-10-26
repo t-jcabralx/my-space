@@ -1209,3 +1209,8 @@ button.mjt { cursor: pointer; } button.mjt:disabled { cursor: default; opacity: 
 /* a tall game on a portrait phone fills the screen */
 .stage.fill { width: calc(var(--vw, 1vw) * 100); height: calc(var(--vh, 1vh) * 100); aspect-ratio: auto; }
 .stage.fill .tside { top: 2cqw; width: 30cqw; flex-direction: row; gap: 1.2cqw; } .stage.fill .tside.left { left: 1.5cqw; } .stage.fill .tside.right { right: 1.5cqw; } .stage.fill .tstat { min-width: 0; padding: .8cqw 1.6cqw; } .stage.fill .tstat b { font-size: 1.1em; }
+/* tetris on a portrait phone: the board sits above a fixed control strip so the fingers never cover the stack */
+.stage.fill { height: calc(var(--vh, 1vh) * 100 - 156px); }
+.stage.fill .ttouch { position: fixed; left: 0; right: 0; bottom: max(8px, env(safe-area-inset-bottom)); z-index: 500; padding: 0 10px; }
+.stage.fill .ttouch button { min-width: 62px; min-height: 62px; font-size: 20px; } .stage.fill .tt-r .drop { min-width: 96px; } .stage.fill .tt-l, .stage.fill .tt-r { max-width: 50%; gap: 8px; }
+.wrap:has(.stage.fill) { align-items: start; }

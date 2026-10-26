@@ -65,7 +65,7 @@ export default function GameApp() {
   }, [])
   // vertical games (Tetris) use the whole portrait screen instead of a thin 16:9 strip
   const fillTall = !!snap && snap.mode === 'tetris' && vp.h > vp.w && vp.w < 900
-  const rotated = fr !== 0 && vp.h > vp.w && !menu && !!snap && snap.mode !== 'flames' && isTouchPrimary()
+  const rotated = fr !== 0 && vp.h > vp.w && !menu && !!snap && snap.mode !== 'flames' && snap.mode !== 'tetris' && isTouchPrimary()
   useEffect(() => { setForceRot(rotated, fr) }, [rotated, fr])
   const set = useSyncExternalStore(subscribeSettings, getSettings)
   const low = set.quality === 'low' || (set.quality === 'auto' && autoLow)
