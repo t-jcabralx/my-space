@@ -268,4 +268,19 @@ export function viewFor(st, seat) {
     visibleCounts: visible, seatWind: seatWindOf(st, seat), prevailing: st.prevailing, wallLeft: liveTilesLeft(st), dealer: st.dealer, turn: st.turn,
   }
 }
+// ---- online play: what one seat is allowed to know, and how a client rebuilds a playable copy from it ----------------------------
+// Other players' concealed tiles are never sent: only their count.
+export function viewState(st, seat) {
+  const c = st.claims
+  return {
+    phase: st.phase, turn: st.turn, dealer: st.dealer, prevailing: st.prevailing, handNo: st.handNo, wallLen: st.wall.length, kongDraw: st.kongDraw,
+    players: st.players.map((p, s) => ({ hand: s === seat ? p.hand : null, handSize: p.hand.length, melds: p.melds, flowers: p.flowers, discards: p.discards })),
+    claims: c ? { tile: c.tile, from: c.from, kind: c.kind, options: c.options[seat] ? { [seat]: c.options[seat] } : {}, decisions: {}, waitingOn: Object.keys(c.options).map(Number).filter((x) => c.decisions[x] === undefined) } : null,
+    result: st.result, lastDiscard: st.lastDiscard,
+  }
+}
+export function stateFromView(v, opts) {
+  const players = v.players.map((p) => ({ hand: p.hand || Array.from({ length: p.handSize }, (_, i) => ({ id: -1 - i, k: '?' })), melds: p.melds, flowers: p.flowers, discards: p.discards }))
+  return { wall: Array.from({ length: v.wallLen }, () => null), players, dealer: v.dealer, prevailing: v.prevailing, turn: v.turn, phase: v.phase, drawn: null, claims: v.claims, result: v.result, log: [], lastDiscard: v.lastDiscard, kongDraw: v.kongDraw, opts, handNo: v.handNo, online: true }
+}
 export { WINDS, countsOf }

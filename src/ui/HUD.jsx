@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import OnlineLobby from './OnlineLobby.jsx'
 import MiniArcade from './MiniArcade.jsx'
+import MahjongUI from './MahjongUI.jsx'
 import { GAME_ART } from '../game/branding.js'
 import { GameArtwork, GameBrandBanner } from './GameArtwork.jsx'
 import { Art3D, GameLogo, splitTitle, hasArt } from './Art3D.jsx'
@@ -1575,7 +1576,7 @@ function Hub({ s }) {
   const doneAch = ACH.filter(([, , g, goal]) => g(p, s.unlocked) >= goal).length
   const GAME_TABS = { pickle: '🏓 PICKLEBALL', bomber: '💣 BOMBER', tetris: '🧱 TETRIS', chomp: '🟡 CHOMP', cards: '🃏 CARDS', race: '🏁 RACE', fight: '🥊 FIGHT', flames: '🔥 FLAMES', hockey: '🏒 AIR HOCKEY', pool: '🎱 BILLIARDS', td: '🛡 DEFENSE', rogue: '🗡 DEPTHS', rhythm: '🎵 BEAT', word: '🔤 WORD HUNT', merge: '🔢 2048', c4: '🔴 CONNECT 4', snake: '🐍 SNAKE', breaker: '🧱 BREAKER', mines: '💣 SWEEP', empire: '🏰 EMPIRE', ssx: '🏂 SNOW RUSH', orb: '🔮 ORB RUSH', garden: '🧟 GARDEN', hunt: '🌙 13 DAYS', climb: '🧗 CLIMBERS', kong: '🦍 GORILLA' }
   // the tab bar stays short: dashboard, the game you opened (if any), and the utility tabs. Games are opened from the dashboard cards.
-  const TABS = [['home', 'DASHBOARD'], ...(GAME_TABS[tab] ? [[tab, GAME_TABS[tab]]] : []), ['mini', '🕹 MINI GAMES'], ['online', '🌐 ONLINE'], ['story', '📖 STORY'], ['top', '🏆 TOP PLAYERS'], ['ship', 'CUSTOMIZE SHIP'], ['levels', 'SPACE LEVELS'], ['skills', 'CONTROLS'], ['settings', '⚙ SETTINGS'], ['awards', `AWARDS ${doneAch}/${ACH.length}`]]
+  const TABS = [['home', 'DASHBOARD'], ...(GAME_TABS[tab] ? [[tab, GAME_TABS[tab]]] : []), ['mahjong', '🀄 MAHJONG'], ['mini', '🕹 MINI GAMES'], ['online', '🌐 ONLINE'], ['story', '📖 STORY'], ['top', '🏆 TOP PLAYERS'], ['ship', 'CUSTOMIZE SHIP'], ['levels', 'SPACE LEVELS'], ['skills', 'CONTROLS'], ['settings', '⚙ SETTINGS'], ['awards', `AWARDS ${doneAch}/${ACH.length}`]]
   const CATS = [['all', 'ALL GAMES'], ['action', '⚔ ACTION'], ['sports', '🏅 SPORTS'], ['strategy', '🧠 STRATEGY'], ['puzzle', '🧩 PUZZLE'], ['cards', '🃏 CARDS'], ['music', '🎵 MUSIC']]
   const show = (...c) => cat === 'all' || c.includes(cat)
   return (
@@ -1649,6 +1650,8 @@ function Hub({ s }) {
             {show('puzzle', 'sports') && <GameCard cls="c4" title="🔴 CONNECT FOUR" tag="Bot · 2P · online 1v1" hiLabel="WINS" hi={p.c4Wins || 0}
               art={<div className="miniC4"><i /><i /><i /><i /><i /></div>} label="SELECT MODE ▶" onPlay={() => setTab('c4')} onInvite={() => { openOnline('c4') }}
               sub={<><span>GAMES</span><b>{p.c4Games || 0}</b></>} />}
+            {show('cards', 'strategy', 'puzzle') && <GameCard cls="mahjong" title="🀄 MAHJONG" tag="Hong Kong style · 144 tiles · 3 AI · tutorial" hiLabel="WINS" hi={(() => { try { return (JSON.parse(localStorage.getItem('si_mj_stats')) || {}).wins || 0 } catch { return 0 } })()}
+              art={<div className="mj-mini"><span>中</span><span>八</span><span>5</span><span>東</span></div>} label="PLAY MAHJONG ▶" onPlay={() => setTab('mahjong')} onInvite={() => openOnline('mahjong')} />}
             {show('action', 'puzzle') && <GameCard cls="mini" title="🕹 MINI GAMES" tag="27 quick games · 3D worlds · phone friendly" hiLabel="PLAYED" hi={p.miniGames || 0}
               art={<div className="miniSnake"><b>🏗️</b><b>🐤</b><b>🍉</b><b>💎</b><b>🎣</b></div>} label="PICK A GAME ▶" onPlay={() => setTab('mini')} />}
             {show('action') && <GameCard cls="snake" title="🐍 NEON SNAKE" tag="Solo · vs bot · 2 players" hiLabel="BEST" hi={p.snakeBest || 0}
@@ -1739,6 +1742,7 @@ function Hub({ s }) {
       {tab === 'c4' && <C4Lobby s={s} TopPlayers={TopPlayers} onInvite={() => { openOnline('c4') }} />}
       {tab === 'snake' && <SnakeLobby s={s} TopPlayers={TopPlayers} />}
       {tab === 'mini' && <MiniArcade />}
+      {tab === 'mahjong' && <MahjongUI />}
       {pending && rtS.room && (
         <div className="confirm-back" onPointerDown={(e) => e.stopPropagation()}>
           <div className="confirm-box">

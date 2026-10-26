@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { fullSet, shuffle, rng, KINDS, BONUS, countsOf, isBonus } from '../src/game/mahjong/tiles.js'
 import { winInfo, waits, chowOptions, canPung, canKongDiscard, concealedKongKinds, shanten } from '../src/game/mahjong/rules.js'
 import { scoreWin, payments, pointsForFan } from '../src/game/mahjong/scoring.js'
+import { viewState, stateFromView, selfDrawScore } from '../src/game/mahjong/engine.js'
 import { newMatch, startHand, drawTile, discardTile, claim, declareKong, declareSelfDrawWin, canSelfDrawWin, finishHandInMatch, liveTilesLeft, pendingClaimSeats, kongOptions, viewFor, DEAD_WALL } from '../src/game/mahjong/engine.js'
 import { advance } from '../src/game/mahjong/session.js'
 import { chooseDiscard, decideClaim } from '../src/game/mahjong/ai.js'
@@ -280,5 +281,26 @@ test('shanten: complete hand -1, ready hand 0', () => {
   assert.equal(shanten(countsOf(mk('m1 m2 m3 p4 p5 p6 s7 s8 s9 we we dr dr'))), 0)
 })
 
+
+// ---------------------------------------------------------------- online views
+test('online view: a client sees only its own tiles but can still reason about its own hand', () => {
+  const m = newMatch({ seed: 31 }); const st = startHand(m)
+  for (const seat of [0, 1, 2, 3]) {
+    const v = JSON.parse(JSON.stringify(viewState(st, seat)))
+    v.players.forEach((p, s) => { if (s === seat) assert.equal(p.hand.length, st.players[s].hand.length); else assert.equal(p.hand, null, 'no hidden tiles are sent') })
+    const c = stateFromView(v, m.opts)
+    assert.equal(c.players[seat].hand.length, st.players[seat].hand.length)
+    c.players.forEach((p, s) => { if (s !== seat) assert.equal(p.hand.length, st.players[s].hand.length); if (s !== seat) assert.ok(p.hand.every((t) => t.k === '?')) })
+    assert.equal(liveTilesLeft(c), liveTilesLeft(st))
+    if (st.turn === seat) assert.deepEqual(JSON.parse(JSON.stringify(selfDrawScore(c, seat))), JSON.parse(JSON.stringify(selfDrawScore(st, seat))))
+  }
+})
+test('online view: claim options reach only the seat that has them', () => {
+  const st = build({ hands: { 0: 'm1 m2 m3 p1 p2 p3 s1 s2 s3 we ws dr dg m5', 1: 'm5 m5 p4 p5 p6 s4 s5 s6 ww wn dw dw m9', 2: 'm5 m7 p4 p5 p6 s4 s5 s6 ww wn dw dw m9' } })
+  discardTile(st, 0, idOf(st, 0, 'm5'))
+  const v1 = viewState(st, 1), v3 = viewState(st, 3)
+  assert.ok(v1.claims.options[1] && v1.claims.options[1].pung); assert.deepEqual(v3.claims.options, {})
+  assert.deepEqual(v1.claims.waitingOn.sort(), Object.keys(st.claims.options).map(Number).sort())
+})
 console.log(fails ? '\n' + fails + ' FAILED' : '\nALL PASS')
 process.exit(fails ? 1 : 0)

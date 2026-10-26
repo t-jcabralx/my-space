@@ -8,6 +8,7 @@ import { hostGame, installGameNet } from '../game/online/gnet.js'
 import '../game/duel.js'
 const DUEL_IDS = ['slug', 'snake', 'breaker', 'merge', 'rhythm', 'td', 'chomp', 'mines', 'word']
 import { hostCardGame, installCardsOnline } from '../game/online/cards-online.js'
+import { hostMahjong } from '../game/online/mahjong-online.js'
 import { hostTetris, installTetrisOnline } from '../game/online/tetris-online.js'
 import { hostPickle, installPickleOnline } from '../game/online/pickle-online.js'
 import { hostBomber, installBomberOnline } from '../game/online/bomber-online.js'
@@ -52,6 +53,7 @@ const GAMES = [
   ['rogue', '🗡', 'NEON DEPTHS CO-OP', 'Fight through the haunted forest together: up to 3 heroes, shared dungeon, your own perks. Pick your hero in the 🗡 DEPTHS tab first.', 3],
   ['c4', '🔴', 'CONNECT FOUR 1V1', 'Drop discs, line up four. The host keeps the board; click a column to play.', 2],
   ['empire', '🏰', 'EMPIRE RISE', 'Build a village into an empire on a huge map against up to 3 other kingdoms (friends or AI) and raiders. Win by conquest or by building the Wonder.', 4],
+  ['mahjong', '🀄', 'MAHJONG', 'Hong Kong style, 2-4 friends, bots fill the empty seats. Everyone sees only their own tiles, the host runs the table.', 4],
   ['uno', '🟥', 'UNO', '2-4 humans, bots fill empty seats. Private hands, host runs the table.', 4],
   ['pusoy', '👑', 'PUSOY DOS', '2-4 humans, bots fill empty seats. First to 40 points.', 4],
   ['tongits', '🀄', 'TONG-ITS', '2-3 humans, bots fill the third seat. Everyone starts with 1000 table chips.', 3],
@@ -136,6 +138,7 @@ export default function OnlineLobby({ s, TopPlayers, initGame, lockGame }) {
     else if (room.game === 'rogue') await hostRogue()
     else if (room.game === 'c4') await hostC4()
     else if (room.game === 'empire') await hostEmpire()
+    else if (room.game === 'mahjong') await hostMahjong({ ...(room.opts || {}), minFan: 1 })
     else await hostCardGame(room.game, { ...room.opts, auto: false, ...(room.game === 'pusoy' ? { target: 40 } : room.game === 'tongits' ? { stake: 50 } : room.game === 'lucky9' ? { bots: room.opts.bots || 0 } : {}) })
   })
   const share = room ? `${room.code}` : ''
@@ -200,7 +203,7 @@ export default function OnlineLobby({ s, TopPlayers, initGame, lockGame }) {
         <div className="lobbyinfo"><small>{rt.connected ? '🟢 connected' : '🟠 connecting…'}{Object.keys(rt.p2p || {}).length ? ' · ⚡ direct link' : ' · ☁ relay'} · share the code so friends can join ({room.players.length}/{room.max})</small></div>
         <div className="roomPlayers">
           {room.players.map((p) => <div key={p.id} className="chip sel" style={{ margin: 3 }}>{p.id === room.host ? '👑 ' : '🙂 '}{p.name}{p.id === rt.cid ? ' (you)' : ''}</div>)}
-          {(room.game === 'uno' || room.game === 'pusoy' || room.game === 'tongits' || room.game === 'space') && Array.from({ length: Math.max(0, room.max - room.players.length) }).map((_, i) => <div key={i} className="chip" style={{ margin: 3, opacity: 0.6 }}>🤖 BOT</div>)}
+          {(room.game === 'mahjong' || room.game === 'uno' || room.game === 'pusoy' || room.game === 'tongits' || room.game === 'space') && Array.from({ length: Math.max(0, room.max - room.players.length) }).map((_, i) => <div key={i} className="chip" style={{ margin: 3, opacity: 0.6 }}>🤖 BOT</div>)}
           {(room.game === 'tetris' || room.game === 'pickle' || room.game === 'fight' || room.game === 'hockey' || room.game === 'pool' || room.game === 'rogue' || room.game === 'c4' || room.game === 'empire' || room.game === 'orb' || room.game === 'garden' || room.game === 'ssx' || DUEL_IDS.includes(room.game)) && room.players.length < 2 && <div className="chip" style={{ margin: 3, opacity: 0.6 }}>… waiting for opponent</div>}
         </div>
         <div className="chips">

@@ -3,11 +3,12 @@
 import { drawTile, discardTile, claim, declareSelfDrawWin, canSelfDrawWin, declareKong, kongOptions, pendingClaimSeats, viewFor } from './engine.js'
 import { chooseDiscard, decideClaim, wantsKong } from './ai.js'
 
-// cfg: { human: seat | null, levels: ['easy'|'normal'|'hard' x4], rand }
+// cfg: { human: seat | null, humans: [seats] (online: several people), levels: ['easy'|'normal'|'hard' x4], rand }
 // returns { need: null | 'discard' | 'claim', events: [...] }; `events` describes what the bots did (the UI plays animations from it)
 export function advance(st, cfg, maxSteps = 4000) {
   const events = []
   const level = (s) => cfg.levels[s] || 'normal'
+  const isHuman = (s) => s === cfg.human || (cfg.humans ? cfg.humans.includes(s) : false)
   for (let i = 0; i < maxSteps; i++) {
     if (st.phase === 'over') return { need: null, events, over: true }
     if (st.phase === 'draw') {
@@ -18,7 +19,7 @@ export function advance(st, cfg, maxSteps = 4000) {
     }
     if (st.phase === 'discard') {
       const seat = st.turn
-      if (seat === cfg.human) return { need: 'discard', events }
+      if (isHuman(seat)) return { need: 'discard', seat, events }
       if (canSelfDrawWin(st, seat)) { declareSelfDrawWin(st, seat); events.push({ ev: 'win', seat, selfDraw: true }); continue }
       const view = viewFor(st, seat)
       const kopt = kongOptions(st, seat).find((o) => wantsKong(view, o, level(seat)))
@@ -31,7 +32,7 @@ export function advance(st, cfg, maxSteps = 4000) {
     }
     if (st.phase === 'claim') {
       for (const seat of pendingClaimSeats(st)) {
-        if (seat === cfg.human) continue
+        if (isHuman(seat)) continue
         if (st.phase !== 'claim') break
         const opts = st.claims.options[seat]
         const view = viewFor(st, seat)
@@ -40,7 +41,7 @@ export function advance(st, cfg, maxSteps = 4000) {
         if (!r.ok) throw new Error('AI made an illegal claim: ' + r.reason)
         if (d.action !== 'pass') events.push({ ev: 'call', seat, action: d.action })
       }
-      if (st.phase === 'claim') { if (pendingClaimSeats(st).includes(cfg.human)) return { need: 'claim', events }; continue }
+      if (st.phase === 'claim') { const waiting = pendingClaimSeats(st).filter(isHuman); if (waiting.length) return { need: 'claim', seats: waiting, events }; continue }
       continue
     }
     throw new Error('unknown phase ' + st.phase)

@@ -623,7 +623,7 @@ export const empireActions = {
       const pk = pickAt(w.x, w.y), sb = bById(EM.sel)
       if (pk && pk.b && pk.b.id === EM.sel && sb && sb.owner === EM.me && MOVABLE.includes(sb.type) && sb.built) EM.mvDrag = { id: sb.id, ax, ay }
     }
-    if (type === 'down') { EM.drag = { ax, ay, cx: EM.cam.x, cy: EM.cam.y, moved: false, button, g0: w, cam0: { x: EM.cam.x, y: EM.cam.y, z: EM.cam.z } } }
+    if (type === 'down') { EM.drag = { t0: Date.now(), ax, ay, cx: EM.cam.x, cy: EM.cam.y, moved: false, button, g0: w, cam0: { x: EM.cam.x, y: EM.cam.y, z: EM.cam.z } } }
     else if (type === 'move' && EM.drag && EM.drag.button !== 2) {
       const dx = ax - EM.drag.ax, dy = ay - EM.drag.ay
       if (Math.hypot(dx, dy) > 1.2) EM.drag.moved = true
@@ -636,6 +636,15 @@ export const empireActions = {
         if (mv && d.moved) { if (localCmd({ k: 'mv', b: mv.id, i: mv.i, j: mv.j })) { sfx('tdBuild'); emitE() } else { sfx('cBad'); EM.msg = { text: 'CANNOT MOVE IT THERE', sub: 'NEEDS FREE GRASS NEAR YOUR TOWN AND A SMALL FEE', color: '#ff8a96', t: 2 } } return }
       }
       if (d.moved && !EM.build) return
+      // phones have no right button: holding a finger on the map, or tapping twice, sends the army (like a right-click)
+      let touch = false
+      try { touch = window.matchMedia('(pointer: coarse)').matches } catch { /* ignore */ }
+      if (touch && d.button !== 2 && !EM.build && !EM.atk) {
+        const now = Date.now(), held = now - (d.t0 || now), onB = pickAt(w.x, w.y)
+        const dbl = EM.lastTap && now - EM.lastTap.t < 380 && Math.hypot(w.x - EM.lastTap.x, w.y - EM.lastTap.y) < 6
+        EM.lastTap = { t: now, x: w.x, y: w.y }
+        if ((held > 450 || dbl) && !(onB && onB.b && onB.b.owner === EM.me)) { EM.lastTap = null; click(w, 2); return }
+      }
       click(w, d.button)
     }
   },

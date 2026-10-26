@@ -146,6 +146,8 @@ export function EmpireHUD({ openHelp }) {
       </div>
       {g.scen && g.hint && !g.build && !g.tale && <div className="mg-hint">💡 {g.hint}</div>}
       {g.build && <div className="mg-hint">{BDEF[g.build].name}: CLICK THE GRASS TO PLACE · SHIFT KEEPS BUILDING · ESC CANCELS</div>}
+      {touch && <button className={'em-sendfab' + (g.atk ? ' on' : '')} onClick={(e) => { e.stopPropagation(); empireActions.attackMode() }} onPointerDown={(e) => e.stopPropagation()}>{g.atk ? '🎯 TAP WHERE TO SEND' : '⚔ SEND ARMY'}</button>}
+      {!g.build && touch && g.t < 90 && <div className="mg-hint">DRAG TO SCROLL · TAP ⚔ SEND ARMY, THEN TAP THE MAP · OR HOLD A FINGER / DOUBLE-TAP THE MAP</div>}
       {!g.build && !touch && g.t < 40 && <div className="mg-hint">DRAG TO SCROLL · PICK A BUILDING BELOW · RIGHT-CLICK SENDS YOUR ARMY</div>}
       {g.mode === 'over' && g.over && !g.tale && (
         <div className="screen victory">
