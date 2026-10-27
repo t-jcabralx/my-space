@@ -583,7 +583,7 @@ function playerAttack(p, dt) {
   const cl = CLASSES[p.cls]
   p.atkT -= dt * (p.buff > 0 ? 1.35 : 1)
   if (p.atkT > 0) return
-  if (!p.hold) return // you attack only when you click / press the attack button / hold J
+  if (!p.hold) return // you attack only when you click / press the attack button / hold J / Z / X
   const ne = nearestEnemy(p.x, p.y, 70)
   let a = ne ? Math.atan2(ne.e.y - p.y, ne.e.x - p.x) : p.face
   if (p.aimPt && G.time - p.aimT < 2.5) a = Math.atan2(p.aimPt.y - p.y, p.aimPt.x - p.x)
@@ -768,7 +768,7 @@ function update(dtRaw) {
     let my = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0) + RG.stick[1]
     const ml = Math.hypot(mx, my); if (ml > 1) { mx /= ml; my /= ml }
     me.inp.mx = mx; me.inp.my = my
-    me.tapT = Math.max(0, (me.tapT || 0) - dt); me.hold = !!(me.holdPtr || keys.KeyJ || me.tapT > 0)
+    me.tapT = Math.max(0, (me.tapT || 0) - dt); me.hold = !!(me.holdPtr || keys.KeyJ || keys.KeyZ || keys.KeyX || me.tapT > 0)
     if (keys.KeyQ || keys.KeyK) skill(me, 0)
     if (keys.KeyE) skill(me, 1)
     if (keys.KeyR) skill(me, 2)
@@ -1084,7 +1084,7 @@ function guestStep(dt) {
   const p = lp()
   const k = 1 - Math.exp(-16 * dt)
   if (p && p.alive) {
-    p.tapT = Math.max(0, (p.tapT || 0) - dt); p.hold = !!(p.holdPtr || keys.KeyJ || p.tapT > 0)
+    p.tapT = Math.max(0, (p.tapT || 0) - dt); p.hold = !!(p.holdPtr || keys.KeyJ || keys.KeyZ || keys.KeyX || p.tapT > 0)
     const mx = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0) + RG.stick[0]
     const my = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0) + RG.stick[1]
     const ml = Math.hypot(mx, my), nx = ml > 1 ? mx / ml : mx, ny = ml > 1 ? my / ml : my

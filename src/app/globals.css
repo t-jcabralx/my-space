@@ -1259,3 +1259,21 @@ div.gcard.gdetail .gtitle small { -webkit-line-clamp: 3; font-size: 12px; }
 .screen.hub { overflow-x: hidden !important; overscroll-behavior-x: none; }
 .screen.hub > *, .hubrow > *, .panel { min-width: 0; max-width: 100%; }
 @media (max-width: 800px) { .hubrow { grid-template-columns: minmax(0, 1fr) !important; } .screen.hub .panel { overflow-wrap: anywhere; } html, body { overflow-x: hidden; } }
+
+/* word hunt, 2048, connect four and the other DOM games: the screen always scrolls when it is taller than the window (desktop, tablet, phone) */
+.screen.mg-dom { overflow-y: auto; overflow-x: hidden; justify-content: flex-start; align-items: center; padding-bottom: 28px; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; touch-action: pan-y; }
+.screen.mg-dom > * { flex-shrink: 0; max-width: 100%; }
+
+/* how-to-play panel: always fits the window and scrolls inside itself (desktop, tablet, phone) */
+.helpwrap { overflow: hidden; padding: 10px; }
+.helpbox { width: min(92vw, 900px); max-height: calc(var(--vh, 1vh) * 100 - 20px); overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; touch-action: pan-y; padding: 14px 16px; gap: 10px; }
+.helpbox .helphead { position: sticky; top: -14px; z-index: 2; background: #070c26; padding: 6px 0; gap: 8px; flex-wrap: wrap; }
+.helpbox .helphead h2 { font-size: clamp(14px, 4vw, 22px); }
+.helpbox .tabs { display: flex; flex-wrap: wrap; gap: 6px; overflow: visible; }
+.helpbox .tabs .tab { flex: 0 0 auto; font-size: 11px; padding: 6px 9px; }
+.helpbox .helpbody { font-size: clamp(11px, 3.1vw, 15px); line-height: 1.6; }
+.helpbox .helpbody ul, .helpbox .helpbody ol { padding-left: 18px; }
+.helpbox .helpbody p { overflow-wrap: anywhere; }
+.helpbox .tabs { flex-wrap: wrap !important; overflow: visible !important; flex: 0 0 auto !important; order: 3 !important; border-top: 1px solid #2a3a78; padding-top: 10px; }
+.helpbox .tabs::before { content: 'OTHER GAMES'; flex: 0 0 100%; font-size: 10px; color: #7f95c8; }
+.helpbox .tabs .tab { white-space: nowrap; }

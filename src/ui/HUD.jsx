@@ -370,7 +370,7 @@ const HELP = {
       <>
         <p><b>The tale:</b> beneath the Grid a haunted forest grew from deleted games. The Last Lantern shattered into five Shards, each held by a guardian. Clear the 5 <b>chapters</b> (Woods, Marsh, Caverns, Ember Ruins, Void Grove), or dive into <b>The Abyss</b>: 50 different rooms.</p>
         <h5>CONTROLS</h5>
-        <p><K>WASD</K> / <K>ARROWS</K> move. <b>Nothing attacks by itself:</b> <b>click</b> (or hold) to attack toward the mouse, or press <K>J</K>. On a phone use the left stick and tap anywhere or the ⚔ button. <K>SPACE</K> dashes, <K>Q</K> <K>E</K> <K>R</K> are your class skills (levels 1, 3, 6), <K>F</K> is your <b>relic skill</b>, <K>1</K> <K>2</K> <K>3</K> pick a perk.</p>
+        <p><K>WASD</K> / <K>ARROWS</K> move. <b>Nothing attacks by itself:</b> <b>click</b> (or hold) to attack toward the mouse, or hold <K>J</K> / <K>Z</K> / <K>X</K> (aims at the nearest enemy). On a phone use the left stick and tap anywhere or the ⚔ button. <K>SPACE</K> dashes, <K>Q</K> <K>E</K> <K>R</K> are your class skills (levels 1, 3, 6), <K>F</K> is your <b>relic skill</b>, <K>1</K> <K>2</K> <K>3</K> pick a perk.</p>
         <h5>GROWING STRONGER</h5>
         <ul>
           <li><b>Levels</b> up to 10. At levels 3, 6 and 9 your hero <b>ascends</b>: a rune ring, then a river of light that flows behind you, then a halo.</li>

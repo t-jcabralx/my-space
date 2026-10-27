@@ -39,6 +39,7 @@ const DIRS = [
 ]
 
 // ---------- state ----------
+const HP_MULT = 1.8 // every fighter has this much more health than the roster number, so rounds last longer
 export const FT = { mode: 'idle', paused: false, phase: 'select', cfg: { type: 'cpu', diff: 2, rounds: 2, p1: 0, p2: 1, stage: 0 }, f: [], proj: [], t: 0, phaseT: 0, round: 1, wins: [0, 0], timer: ROUND_TIME, stop: 0, slow: 1, cine: null, say: null, over: null, emitT: 0, msg: null, hits: 0, stats: {} }
 let snap = null
 const subs = new Set()
@@ -61,7 +62,7 @@ const say = (text, color = '#fff', t = 1.1) => { FT.say = { id: ++G.uid, text, c
 function mkFighter(id, chId, human) {
   const ch = rosterById(chId)
   return {
-    id, ch, human, x: id === 0 ? -16 : 16, y: 0, vx: 0, vy: 0, face: id === 0 ? 1 : -1, hp: ch.hp, maxHp: ch.hp, meter: 0, st: 'idle', t: 0, atk: null, stun: 0, inv: 0, armor: false, crouch: false, block: false,
+    id, ch, human, x: id === 0 ? -16 : 16, y: 0, vx: 0, vy: 0, face: id === 0 ? 1 : -1, hp: Math.round(ch.hp * HP_MULT), maxHp: Math.round(ch.hp * HP_MULT), meter: 0, st: 'idle', t: 0, atk: null, stun: 0, inv: 0, armor: false, crouch: false, block: false,
     combo: 0, hitsDealt: 0, comboT: 0, spCd: 0, buf: null, inp: { dx: 0, up: false, down: false }, aiT: 0, aiBlock: 0, aiPlan: null, flash: 0, vis: 1, lastLimb: 0, held: null, airAtk: false, lean: 0, dizzy: 0,
   }
 }
