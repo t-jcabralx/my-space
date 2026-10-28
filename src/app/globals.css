@@ -1277,3 +1277,11 @@ div.gcard.gdetail .gtitle small { -webkit-line-clamp: 3; font-size: 12px; }
 .helpbox .tabs { flex-wrap: wrap !important; overflow: visible !important; flex: 0 0 auto !important; order: 3 !important; border-top: 1px solid #2a3a78; padding-top: 10px; }
 .helpbox .tabs::before { content: 'OTHER GAMES'; flex: 0 0 100%; font-size: 10px; color: #7f95c8; }
 .helpbox .tabs .tab { white-space: nowrap; }
+
+/* mahjong: drag tiles (discard by dropping on the table, sort by dropping between tiles) */
+.mj-hand .mjt { touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; } .mj-hand.dragging .mjt { cursor: grabbing; }
+.mj-slot { display: inline-flex; align-items: flex-end; position: relative; }
+.mj-ins { display: block; width: 4px; height: 52px; margin: 0 2px; border-radius: 2px; background: #ffe84a; box-shadow: 0 0 10px #ffe84a; align-self: flex-end; }
+.mj-ghost { position: fixed; z-index: 2000; pointer-events: none; transform: translate(-50%, -62%) rotate(-5deg) scale(1.12); filter: drop-shadow(0 10px 12px #0009); }
+.mj-center.drop { outline: 3px dashed #ffe84a; outline-offset: -6px; background: #ffe84a14; } .mj-center.nodrop { outline: 3px dashed #ff6a7a; outline-offset: -6px; }
+.mj-dropmsg { position: absolute; left: 50%; top: 8px; transform: translateX(-50%); z-index: 5; pointer-events: none; font-size: 12px; letter-spacing: .08em; padding: 4px 10px; border-radius: 10px; background: #000a; color: #ffe84a; } .mj-center.nodrop .mj-dropmsg { color: #ff8a96; }

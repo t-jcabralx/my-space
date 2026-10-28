@@ -20,11 +20,11 @@ const ls = { get(k, d) { try { const v = JSON.parse(localStorage.getItem(k)); re
 const EMPTY_STATS = { games: 0, wins: 0, losses: 0, handsWon: 0, selfDraw: 0, discardWins: 0, scoreSum: 0, best: null, patterns: {}, byDiff: { easy: { games: 0, wins: 0 }, normal: { games: 0, wins: 0 }, hard: { games: 0, wins: 0 } }, history: [] }
 
 // ---- a single tile ----------------------------------------------------------------------------------------------------
-function Tile({ k, size = 'm', sel, dim, hot, back, onClick, label, small }) {
+function Tile({ k, size = 'm', sel, dim, hot, back, onClick, label, small, onPointerDown }) {
   if (back) return <span className={'mjt back s-' + size} aria-hidden="true" />
   const f = tileFace(k)
   return (
-    <button type="button" className={'mjt s-' + size + ' su-' + f.suit + (sel ? ' sel' : '') + (dim ? ' dim' : '') + (hot ? ' hot' : '') + (small ? ' sm' : '')} onClick={onClick} disabled={!onClick} title={label || tileName(k)} aria-label={label || tileName(k)} aria-pressed={sel ? 'true' : undefined}>
+    <button type="button" className={'mjt s-' + size + ' su-' + f.suit + (sel ? ' sel' : '') + (dim ? ' dim' : '') + (hot ? ' hot' : '') + (small ? ' sm' : '')} onClick={onClick} onPointerDown={onPointerDown} disabled={!onClick} title={label || tileName(k)} aria-label={label || tileName(k)} aria-pressed={sel ? 'true' : undefined}>
       <span className="mjt-big">{f.big}</span>{f.small && <span className="mjt-small">{f.small}</span>}
     </button>
   )
@@ -161,6 +161,8 @@ export default function MahjongUI() {
   const online = !!(net.active && net.st)
   const [saved, setSaved] = useState(false)
   const [sel, setSel] = useState(null)
+  const [drag, setDrag] = useState(null) // a hand tile being dragged: { id, k, x, y, zone: 'discard' | 'hand', idx }
+  const noClick = useRef(0), api = useRef({})
   const [hintBox, setHintBox] = useState(null)
   const [msg, setMsg] = useState('')
   const [pairPick, setPairPick] = useState(null)
@@ -263,7 +265,32 @@ export default function MahjongUI() {
   const doKong = (k) => { const r = R.current; if (online) { mjActions.kong(k); setSel(null); return } const res = declareKong(r.st, human, k); if (!res.ok) { setMsg(res.reason); return } snd('cSkip'); setSel(null); bump(); save(); finishIfOver() || kick(300) }
   const sortHand = () => { const sst = online ? net.st : R.current.st; if (!sst) return; sst.players[human].hand = sortTiles(sst.players[human].hand); bump() }
   const moveSel = (d) => { const sst = online ? net.st : R.current.st; if (!sst || sel === null) return; const h = sst.players[human].hand, i = h.findIndex((t) => t.id === sel), j = i + d; if (i < 0 || j < 0 || j >= h.length) return;[h[i], h[j]] = [h[j], h[i]]; bump() }
-  const tapTile = (t) => { if (!myTurn) { setSel(t.id === sel ? null : t.id); return } if (sel === t.id) doDiscard(t.id); else { setSel(t.id); snd('ui') } }
+  const reorder = (id, idx) => { const sst = online ? net.st : R.current.st; if (!sst) return; const h = sst.players[human].hand, i = h.findIndex((t) => t.id === id); if (i < 0) return; const [tile] = h.splice(i, 1); h.splice(Math.max(0, Math.min(h.length, idx > i ? idx - 1 : idx)), 0, tile); snd('ui'); bump() }
+  api.current = { discard: (id) => { if (myTurn) doDiscard(id); else { setMsg(myClaim ? 'Answer the call first (pung, chow, kong or pass).' : 'Not your turn yet: you can still drag tiles inside your hand to sort them.'); } }, reorder }
+  // drag a tile: drop it above the hand (on the table) to discard it, or between hand tiles to move it
+  const startDrag = (e, t) => {
+    if (e.button > 0) return
+    const sx = e.clientX, sy = e.clientY
+    let dragging = false
+    const zoneAt = (x, y) => {
+      const h = document.querySelector('.mj-hand'); if (!h) return { zone: 'none' }
+      if (y < h.getBoundingClientRect().top - 14) return { zone: 'discard' }
+      const tiles = [...h.querySelectorAll('.mjt')]; let idx = tiles.length
+      for (let i = 0; i < tiles.length; i++) { const r = tiles[i].getBoundingClientRect(); if (x < r.left + r.width / 2) { idx = i; break } }
+      return { zone: 'hand', idx }
+    }
+    const move = (ev) => { if (!dragging && Math.hypot(ev.clientX - sx, ev.clientY - sy) < 9) return; dragging = true; if (ev.cancelable) ev.preventDefault(); setDrag({ id: t.id, k: t.k, x: ev.clientX, y: ev.clientY, ...zoneAt(ev.clientX, ev.clientY) }) }
+    const up = (ev) => {
+      window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up)
+      if (!dragging) return
+      noClick.current = Date.now(); setDrag(null)
+      if (ev.type === 'pointercancel') return
+      const z = zoneAt(ev.clientX, ev.clientY)
+      if (z.zone === 'discard') api.current.discard(t.id); else if (z.zone === 'hand') api.current.reorder(t.id, z.idx)
+    }
+    window.addEventListener('pointermove', move, { passive: false }); window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up)
+  }
+  const tapTile = (t) => { if (Date.now() - noClick.current < 350) return; if (!myTurn) { setSel(t.id === sel ? null : t.id); return } if (sel === t.id) doDiscard(t.id); else { setSel(t.id); snd('ui') } }
   const askHint = () => {
     const r = { st }; if (!r.st) return
     if (myClaim) { const o = r.st.claims.options[human]; setHintBox(o.hu ? 'You can declare Mahjong now: press Mahjong!' : o.kong ? 'A kong is possible. It gives a replacement draw but exposes the set.' : o.pung ? 'A pung is possible. Claim it if it brings you closer to a winning hand or it is a dragon / wind of value.' : 'You can chow this tile. Compare how many sets you would have afterwards.'); return }
@@ -388,14 +415,15 @@ export default function MahjongUI() {
       </div>
       <div className="mj-board">
         <OppSeat s={rel(2)} cls="mjs-top" /><OppSeat s={rel(3)} cls="mjs-left" /><OppSeat s={rel(1)} cls="mjs-right" />
-        <div className="mj-center">
+        <div className={'mj-center' + (drag && drag.zone === 'discard' ? (myTurn ? ' drop' : ' nodrop') : '')}>{drag && drag.zone === 'discard' && <div className="mj-dropmsg">{myTurn ? 'DROP TO DISCARD' : 'NOT YOUR TURN'}</div>}
           <div className="mj-center-info"><span className="mj-bigwind">{HONOR_ZH[WINDS[st.prevailing]]}</span><small>{st.phase === 'over' ? 'Hand over' : st.phase === 'claim' ? 'Waiting for calls…' : st.turn === human ? 'Your turn' : nameOf(st.turn) + ' is playing'}</small></div>
           <div className="mj-discards"><Discards s={rel(2)} cls="d-top" /><Discards s={rel(3)} cls="d-left" /><Discards s={rel(1)} cls="d-right" /><Discards s={human} cls="d-bottom" /></div>
         </div>
         <div className={'mj-me' + (myTurn ? ' turn' : '')}>
           <div className="mj-plate"><b>You</b><span className="mj-wind">{HONOR_ZH[WINDS[seatWindOf(st, human)]]}{st.dealer === human ? <i>庄</i> : null}</span><span className="mj-sc">{match.scores[human] > 0 ? '+' : ''}{match.scores[human]}</span>{me.flowers.length > 0 && <span className="mj-flowers" title="Your bonus tiles">{me.flowers.map((t) => <Tile key={t.id} k={t.k} size="xs" />)}</span>}</div>
           <div className="mj-melds">{me.melds.map((m, i) => <Meld key={i} m={m} size="s" />)}</div>
-          <div className="mj-hand" role="group" aria-label="Your hand">{me.hand.map((t, i) => <Tile key={t.id} k={t.k} size="m" sel={sel === t.id} hot={hintBox && sel === t.id} onClick={() => tapTile(t)} small={false} label={tileName(t.k) + (sel === t.id && myTurn ? ' (selected, tap again to discard)' : '')} />)}</div>
+          <div className={'mj-hand' + (drag ? ' dragging' : '')} role="group" aria-label="Your hand">{me.hand.map((t, i) => <span key={t.id} className="mj-slot">{drag && drag.zone === 'hand' && drag.idx === i && <i className="mj-ins" />}<Tile k={t.k} size="m" sel={sel === t.id} dim={!!drag && drag.id === t.id} hot={hintBox && sel === t.id} onClick={() => tapTile(t)} onPointerDown={(e) => startDrag(e, t)} small={false} label={tileName(t.k) + (sel === t.id && myTurn ? ' (selected, tap again to discard, or drag it onto the table)' : ' (drag onto the table to discard)')} /></span>)}{drag && drag.zone === 'hand' && drag.idx >= me.hand.length && <i className="mj-ins" />}</div>
+          {drag && <div className="mj-ghost" style={{ left: drag.x, top: drag.y }}><Tile k={drag.k} size="m" /></div>}
         </div>
       </div>
       <div className="mj-actions">

@@ -200,4 +200,22 @@ const tongitsHuman = () => {
   for (let i = 0; i < 60 * 300; i++) update(1 / 60)
   check('tongits bots-only keeps going', CS.mode === 'play', getCardsSnap().info)
 }
+// ---- tong-its fight rules: melds down, nobody laid on them, one full turn after laying down ----
+{
+  const { profile } = await import('../src/game/engine.js')
+  profile.chips = 100000
+  cardsActions.start('tongits', { stake: 50, auto: true })
+  let calls = 0, bad = 0
+  const T = (await import('../src/game/cards/tongits.js')).__T
+  for (let i = 0; i < 60 * 3000 && calls < 25; i++) {
+    update(1 / 60)
+    if (T && T.phase === 'challenge' && T.challenge && !T.challenge.seen) {
+      T.challenge.seen = true; calls++
+      const c = T.players[T.challenge.caller]
+      if (!c.melds.length || c.lapag || (c.meldAt != null && T.turnNo - c.meldAt < 3)) bad++
+    }
+  }
+  check('tongits fight: callers always had melds, no sapaw on them and waited a turn', T && calls > 0 && bad === 0, `calls ${calls} bad ${bad}`)
+}
+
 process.exit(failures ? 1 : 0)
