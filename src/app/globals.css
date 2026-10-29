@@ -1285,3 +1285,6 @@ div.gcard.gdetail .gtitle small { -webkit-line-clamp: 3; font-size: 12px; }
 .mj-ghost { position: fixed; z-index: 2000; pointer-events: none; transform: translate(-50%, -62%) rotate(-5deg) scale(1.12); filter: drop-shadow(0 10px 12px #0009); }
 .mj-center.drop { outline: 3px dashed #ffe84a; outline-offset: -6px; background: #ffe84a14; } .mj-center.nodrop { outline: 3px dashed #ff6a7a; outline-offset: -6px; }
 .mj-dropmsg { position: absolute; left: 50%; top: 8px; transform: translateX(-50%); z-index: 5; pointer-events: none; font-size: 12px; letter-spacing: .08em; padding: 4px 10px; border-radius: 10px; background: #000a; color: #ffe84a; } .mj-center.nodrop .mj-dropmsg { color: #ff8a96; }
+
+/* Space Impact on an upright phone: fill the whole screen instead of a thin strip */
+.stage.fillw { width: calc(var(--vw, 1vw) * 100); height: calc(var(--vh, 1vh) * 100); aspect-ratio: auto; }

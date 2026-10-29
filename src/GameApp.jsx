@@ -65,6 +65,9 @@ export default function GameApp() {
   }, [])
   // vertical games (Tetris) use the whole portrait screen instead of a thin 16:9 strip
   const fillTall = !!snap && snap.mode === 'tetris' && vp.h > vp.w && vp.w < 900
+  // Space Impact / Ground Zero on an upright phone ("play anyway"): the whole screen is the sky, the 16:9 playfield sits in the middle
+  const fillWide = !!snap && ['playing', 'paused', 'clear', 'victory', 'over'].includes(snap.mode) && vp.h > vp.w && vp.w < 900 && isTouchPrimary() && fr === 0
+  G.fitW = fillWide
   const rotated = fr !== 0 && vp.h > vp.w && !menu && !!snap && snap.mode !== 'flames' && snap.mode !== 'tetris' && isTouchPrimary()
   useEffect(() => { setForceRot(rotated, fr) }, [rotated, fr])
   const set = useSyncExternalStore(subscribeSettings, getSettings)
@@ -170,7 +173,7 @@ export default function GameApp() {
 
   return (
     <div className={'wrap' + (rotated ? ' forced ' + (fr > 0 ? 'cw' : 'ccw') : '')} style={rotated ? { '--vw': vp.h / 100 + 'px', '--vh': vp.w / 100 + 'px', '--fw': vp.w + 'px', '--fh': vp.h + 'px' } : undefined}>
-      <div className={'stage' + (low ? ' low' : '') + (menu ? ' menu' : '') + (fillTall ? ' fill' : '')} ref={stage} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} onPointerLeave={onUp}>
+      <div className={'stage' + (low ? ' low' : '') + (menu ? ' menu' : '') + (fillTall ? ' fill' : '') + (fillWide ? ' fillw' : '')} ref={stage} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} onPointerLeave={onUp}>
         <Canvas camera={{ position: [0, 0, 77], fov: 40, near: 1, far: 400 }} dpr={low ? 0.75 : [1, 1.5]} gl={{ antialias: false, powerPreference: 'high-performance' }}>
           <color attach="background" args={['#04050d']} />
           <ambientLight intensity={1.2} />

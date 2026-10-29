@@ -531,7 +531,10 @@ export function Rig() {
       return
     }
     if (state.scene.fog) state.scene.fog = null
-    if (state.camera.fov !== 40 || state.camera.far !== 400) { state.camera.fov = 40; state.camera.far = 400; state.camera.updateProjectionMatrix() }
+    // a tall screen widens the lens so the whole 100-wide playfield stays visible
+    const asp = state.size.width / Math.max(1, state.size.height)
+    const fov = G.fitW && asp < 1.78 ? Math.min(125, 2 * Math.atan(Math.tan(Math.PI / 9) * 1.786 / asp) * 180 / Math.PI) : 40
+    if (Math.abs(state.camera.fov - fov) > 0.05 || state.camera.far !== 400) { state.camera.fov = fov; state.camera.far = 400; state.camera.updateProjectionMatrix() }
     if (rigWasFight) { state.camera.rotation.set(0, 0, 0); rigWasFight = false }
     state.camera.position.x = (Math.random() - 0.5) * s * 1.6
     state.camera.position.y = (Math.random() - 0.5) * s * 1.6
