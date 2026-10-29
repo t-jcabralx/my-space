@@ -1288,3 +1288,9 @@ div.gcard.gdetail .gtitle small { -webkit-line-clamp: 3; font-size: 12px; }
 
 /* Space Impact on an upright phone: fill the whole screen instead of a thin strip */
 .stage.fillw { width: calc(var(--vw, 1vw) * 100); height: calc(var(--vh, 1vh) * 100); aspect-ratio: auto; }
+
+/* help on a phone: a card with room around it, tap the dark area to see the game behind, never the whole screen */
+@media (max-width: 700px), (max-height: 520px) {
+  .helpwrap { position: fixed; inset: 0; z-index: 900; padding: 14px 12px; }
+  .helpbox { width: min(92vw, 560px); max-height: calc(var(--vh, 1vh) * 100 * .72); border-width: 2px; }
+}
