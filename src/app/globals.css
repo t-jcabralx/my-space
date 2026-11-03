@@ -1294,3 +1294,44 @@ div.gcard.gdetail .gtitle small { -webkit-line-clamp: 3; font-size: 12px; }
   .helpwrap { position: fixed; inset: 0; z-index: 900; padding: 14px 12px; }
   .helpbox { width: min(92vw, 560px); max-height: calc(var(--vh, 1vh) * 100 * .72); border-width: 2px; }
 }
+
+/* ===== Clean "Roblox-style" dashboard: flat dark greys, soft rounded cards, plain sans-serif, no neon glow ===== */
+.screen.hub, .screen.hub button, .screen.hub input, .gdetail-back, .gdetail-back button { font-family: 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif !important; letter-spacing: 0 !important; text-shadow: none !important; }
+.screen.hub { background: #191a1d !important; color: #f2f3f5; font-size: 15px; padding-top: 10px; }
+.screen.hub * { text-shadow: none !important; }
+.screen.hub .hubtop { background: #232527; border-radius: 12px; padding: 8px 12px; gap: 10px; box-shadow: none; border: 0; }
+.screen.hub .logo2 { color: #fff; font-weight: 800; font-size: 15px; } .screen.hub .logo2 small { color: #bdbebe; font-weight: 600; letter-spacing: .12em !important; }
+.screen.hub .tabs { gap: 4px; }
+.screen.hub .tab { font-size: 14px !important; font-weight: 600; color: #bdbebe; background: transparent; border: 0; border-radius: 8px; padding: 8px 14px; box-shadow: none; }
+.screen.hub .tab:hover { background: #393b3d; color: #fff; }
+.screen.hub .tab.sel { background: #fff; color: #191a1d; box-shadow: none; }
+.screen.hub .hero { background: #232527; border: 0; border-radius: 14px; box-shadow: none; }
+.screen.hub .hero b, .screen.hub .hero-stats b { color: #fff; font-weight: 700; } .screen.hub .hero small { color: #bdbebe; font-weight: 500; }
+.screen.hub .hero-av { background: #335fff; color: #fff; box-shadow: none; border: 0; }
+.screen.hub .hero-bar { background: #393b3d; border-radius: 99px; } .screen.hub .hero-bar i { background: #00b06f; border-radius: 99px; box-shadow: none; }
+.screen.hub .hero-stats > div { background: #2b2d31; border: 0; border-radius: 10px; }
+.screen.hub button.big { background: #00b06f; color: #fff; border: 0; border-radius: 10px; font-size: 16px; font-weight: 700; box-shadow: none; text-shadow: none; }
+.screen.hub button.big:hover { background: #00c97e; }
+.screen.hub button.big.sec { background: #393b3d; color: #fff; } .screen.hub button.big.sec:hover { background: #4a4c4f; }
+.screen.hub .newtag { background: #335fff; color: #fff; border-radius: 99px; font-size: 11px; padding: 2px 8px; }
+.screen.hub .hubsearch input, .screen.hub .nameIn { background: #232527; color: #fff; border: 1px solid #393b3d; border-radius: 99px; font-size: 15px; padding: 10px 16px; box-shadow: none; }
+.screen.hub .chip { font-size: 14px !important; font-weight: 600; color: #bdbebe; background: #2b2d31; border: 0; border-radius: 99px; padding: 8px 16px; box-shadow: none; }
+.screen.hub .chip:hover { background: #393b3d; color: #fff; } .screen.hub .chip.sel { background: #fff; color: #191a1d; box-shadow: none; }
+div.gcard.glite { background: transparent !important; border: 0 !important; box-shadow: none !important; border-radius: 12px; padding: 0 !important; gap: 8px; transition: transform .12s; }
+div.gcard.glite:hover { transform: translateY(-3px); box-shadow: none !important; }
+div.gcard.glite > .gart { border-radius: 12px; box-shadow: none; background: #232527; }
+div.gcard.glite h3, div.gcard.glite .gname { font-family: 'Segoe UI', system-ui, -apple-system, Arial, sans-serif !important; font-size: 14px; font-weight: 700; color: #fff; letter-spacing: 0; text-align: left; line-height: 1.25; }
+div.gcard.gdetail, .gdetail-back .gdetail { background: #232527 !important; border: 0 !important; border-radius: 16px !important; box-shadow: 0 20px 60px #000a !important; color: #f2f3f5; font-family: 'Segoe UI', system-ui, -apple-system, Arial, sans-serif; }
+div.gcard.gdetail button { font-family: inherit !important; border-radius: 10px; letter-spacing: 0; }
+div.gcard.gdetail .chip { background: #393b3d; color: #fff; border: 0; border-radius: 99px; } div.gcard.gdetail .chip.sel { background: #fff; color: #191a1d; }
+.gdetail-back { background: #000a !important; backdrop-filter: blur(4px); }
+.screen.hub .hubtop { flex-wrap: nowrap; align-items: center; } .screen.hub .hubtop .tabs { flex-wrap: nowrap !important; overflow-x: auto; scrollbar-width: none; } .screen.hub .hubtop .tabs::-webkit-scrollbar { display: none; }
+.screen.hub .tab { white-space: nowrap; padding: 8px 12px; }
+.screen.hub .logo2 .gart, .screen.hub .logo2 img, .screen.hub .logo2 canvas { width: 34px !important; height: 34px !important; border-radius: 8px; }
+.screen.hub .joinbar { background: #232527 !important; border: 0 !important; border-radius: 12px; box-shadow: none !important; color: #f2f3f5; }
+.screen.hub .joinbar input { background: #191a1d; }
+@media (max-width: 700px) {
+  .screen.hub .hubtop { flex-wrap: wrap; } .screen.hub .hubtop .tabs { order: 5; flex: 0 0 100%; }
+  .screen.hub .hubtop .soundbtn, .screen.hub .hubtop > button { white-space: nowrap; flex: 0 0 auto; }
+  .screen.hub .catchips { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; } .screen.hub .chip { white-space: nowrap; flex: 0 0 auto; }
+}
