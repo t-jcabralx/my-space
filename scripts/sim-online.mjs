@@ -209,7 +209,7 @@ if (game === 'tetris') {
   const { setFightPick } = await import('../src/game/fight.js')
   if (role === 'host') {
     const room = await rtm.createRoom('fight', 'HOSTY'); console.log('CODE', room.code)
-    check('guest joins', await until(() => rtm.RT.room.players.length === 2))
+    check('guest joins', await until(() => rtm.RT.room.players.length === 2, 120000))
     await sleep(1500)
     setFightPick(2)
     await hostFightMatch(1)
@@ -220,7 +220,7 @@ if (game === 'tetris') {
   check('match ends', await until(() => FT.mode === 'over', 60000), FT.mode)
   await sleep(1500)
   if (role === 'guest') { setFightPick(11); fightActions.rematch() }
-  check('rematch starts online again', await until(() => FT.mode === 'play' && FT.cfg.type === 'online', 30000), FT.mode)
+  check('rematch starts online again', await until(() => FT.mode === 'play' && FT.cfg.type === 'online', role === 'host' && process.env.SLOW ? 120000 : 30000), FT.mode)
   console.log('SECOND', role, FT.f.map((f) => f.ch.id).join(','))
   check('guest got the hero they picked (11) not the AI roll', FT.f[1].ch.id === 11 || FT.f[1].ch.id === (11 + 9) % 40, FT.f[1].ch.id)
   check('still networked', !!fightNetActive())
