@@ -106,13 +106,16 @@ export default function GameApp() {
     return () => window.removeEventListener('pointerdown', buzz, true)
   }, [])
   useEffect(() => {
+    // typing in a name / code / chat box must never reach the game hotkeys (Enter, Space, letters start games)
+    const typing = (e) => { const t = e.target; return !!(t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) }
     const down = (e) => {
+      if (typing(e)) return
       if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault()
       if ((e.code === 'F1' || e.key === '?') && !e.repeat) { e.preventDefault(); openHelp(); return }
       if (e.code === 'KeyM' && !e.repeat) { unlockAudio(); setMuted(!isMuted()) }
       if (!e.repeat) onKey(e.code, true)
     }
-    const up = (e) => onKey(e.code, false)
+    const up = (e) => { if (typing(e)) return; onKey(e.code, false) }
     const vis = () => { if (document.hidden && G.mode === 'playing' && !G.net) togglePause() }
     const unlock = () => unlockAudio()
     window.addEventListener('pointerdown', unlock, true)
