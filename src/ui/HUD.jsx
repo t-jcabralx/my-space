@@ -1595,7 +1595,7 @@ function Hub({ s }) {
   const openOnline = (g) => { const r = rtRef.current.room; if (r && g && r.game !== g) { setPending(g); return } goOnline(g) }
   const setOgame = (g) => { setOgameRaw(g); setOlock(true); setOnon((n) => n + 1) }
   useEffect(() => { const h = (e) => { const [t, g] = String(e.detail || '').split(':'); if (g && t === 'online') { const r = rtRef.current.room; if (r && r.game !== g) { setPending(g); return } } if (g) { setOgameRaw(g); setOlock(true); setOnon((n) => n + 1) } if (t) setTab(t) }; window.addEventListener('si-open-tab', h); return () => window.removeEventListener('si-open-tab', h) }, [])
-  useEffect(() => { try { const q = new URLSearchParams(location.search); if (q.get('join')) setTab('online'); else { const g = GAMES_SEO.find((x) => x.slug === q.get('play')); if (g && g.tab !== 'space') setTab(g.tab) } } catch { /* ignore */ } }, [])
+  useEffect(() => { try { const q = new URLSearchParams(location.search); if (q.get('join')) setTab('online'); else { const g = GAMES_SEO.find((x) => x.slug === q.get('play')); if (g && g.tab !== 'space' && g.tab !== 'slug') setTab(g.tab) } } catch { /* ignore */ } }, [])
   const [pmode, setPmode] = useState('bot')
   const [pdiff, setPdiff] = useState(2)
   const [ptarget, setPtarget] = useState(11)

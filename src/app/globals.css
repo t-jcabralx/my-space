@@ -1335,3 +1335,5 @@ div.gcard.gdetail .chip { background: #393b3d; color: #fff; border: 0; border-ra
   .screen.hub .hubtop .soundbtn, .screen.hub .hubtop > button { white-space: nowrap; flex: 0 0 auto; }
   .screen.hub .catchips { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; } .screen.hub .chip { white-space: nowrap; flex: 0 0 auto; }
 }
+.mini-photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+.mini-card-art.has-photo::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 55%, #0008); pointer-events: none; }

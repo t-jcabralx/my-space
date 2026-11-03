@@ -5,6 +5,8 @@ import { makeMiniWebGL } from '../game/mini/webgl.js'
 import { profile, saveProfile, recordScore } from '../game/engine.js'
 import { sfx, unlockAudio } from '../game/audio.js'
 import { MINI_META, MiniPreview } from './MiniPreview.jsx'
+// Unsplash photos (free to use) for the mini game tiles
+const PHOTO = new Set('stack wing bubble runner slice gems memory mole miner traffic blob blocks simon fishing hoops sumo knife fruit hop ttt pong archery rift ocean skydash hoopclash tess'.split(' '))
 import { GAME_ART } from '../game/branding.js'
 import { GameArtwork, ArtworkPicker } from './GameArtwork.jsx'
 
@@ -131,7 +133,7 @@ export default function MiniArcade() {
     <header className="mini-gallery-head"><div><span className="mini-eyebrow">YOUR NEXT HIGH SCORE STARTS HERE</span><h2>The mini arcade<span>{MINI.length} worlds to play.</span></h2><p>Big characters. Bright worlds. One more round.</p></div><label className="mini-search"><span>Find a game</span><input type="search" placeholder="Search games…" value={query} onChange={e=>setQuery(e.target.value)}/></label></header>
     <div className="mini-filters" aria-label="Game categories">{['All','Action','Puzzle','Sports','Adventure'].map(c=><button key={c} aria-pressed={category===c} onClick={()=>setCategory(c)}>{c}{c==='All'&&<span>{MINI.length}</span>}</button>)}</div>
     <div className="mini-grid">{games.map(g=>{const meta={...MINI_META[g.id],color:GAME_ART[g.id]?.color||MINI_META[g.id].color};return <button key={g.id} className="mini-card" style={{'--mini-accent':meta.color}} onClick={()=>{unlockAudio();sfx('ui');setId(g.id)}} aria-label={'Play '+g.name}>
-      <div className={"mini-card-art"+(GAME_ART[g.id]?" has-logo":"")}>{GAME_ART[g.id]?<GameArtwork id={g.id} decorative/>:<MiniPreview id={g.id}/>}<span className="mini-category">{meta.category}</span><span className="mini-launch" aria-hidden="true">↗</span></div>
+      <div className={"mini-card-art"+(PHOTO.has(g.id)?" has-photo":GAME_ART[g.id]?" has-logo":"")}>{PHOTO.has(g.id)?<img className="mini-photo" src={"/art/photos/"+g.id+".jpg"} alt="" loading="lazy" draggable={false}/>:GAME_ART[g.id]?<GameArtwork id={g.id} decorative/>:<MiniPreview id={g.id}/>}<span className="mini-category">{meta.category}</span><span className="mini-launch" aria-hidden="true">↗</span></div>
       <div className="mini-card-copy">{GAME_ART[g.id]&&<span className="mini-cover-category">{meta.category}</span>}<b>{g.name}</b><small>{g.desc}</small><div className="mini-card-footer"><em>{best(g.id)>0?'Best '+best(g.id).toLocaleString():'Set your first record'}</em><span>Play →</span></div></div>
     </button>})}</div>
     {category==='All'&&!query&&['ocean','skydash','hoopclash'].some(key=>!MINI.some(g=>g.id===key))&&<section className="future-art" aria-label="Future game artwork"><div className="future-art-heading"><span className="mini-eyebrow">MORE WORLDS ON THE DRAWING BOARD</span><h3>The next adventures</h3><p>Artwork previews. These three games aren't playable yet.</p></div><div className="future-art-grid">{['ocean','skydash','hoopclash'].filter(key=>!MINI.some(g=>g.id===key)).map(key=><article key={key}><GameArtwork id={key}/><div><h4>{GAME_ART[key].title}</h4><span>Artwork preview</span></div></article>)}</div></section>}
