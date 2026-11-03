@@ -110,11 +110,12 @@ export default function OnlineLobby({ s, TopPlayers, initGame, lockGame }) {
   }
   useEffect(() => { if (logRef.current) logRef.current.scrollTop = 1e6 }, [rt.chat.length])
 
+  const needName = () => { try { const i = document.querySelector('input.nameIn[placeholder="NAME"]'); if (i) { i.focus(); i.scrollIntoView({ block: 'center', behavior: 'smooth' }); i.classList.add('need'); setTimeout(() => i.classList.remove('need'), 1800) } } catch { /* ignore */ } throw new Error('Type a nickname first so your friends know who joined') }
   const run = async (fn) => { setMsg(''); try { await fn() } catch (e) { setMsg(e.message || 'Something went wrong') } }
   const hasName = () => { const n = cleanN(); return !!(name || '').trim() && n !== 'PLAYER' }
-  const create = () => run(async () => { if (!hasName()) throw new Error('Enter your name first'); setName && setName(cleanN()); await createRoom(game, cleanN(), game === 'uno' ? { target, stack, sevenZero: seven } : game === 'lucky9' ? { bots: lbots } : {}) })
+  const create = () => run(async () => { if (!hasName()) needName(); setName && setName(cleanN()); await createRoom(game, cleanN(), game === 'uno' ? { target, stack, sevenZero: seven } : game === 'lucky9' ? { bots: lbots } : {}) })
   const join = (c) => run(async () => {
-    if (!hasName()) throw new Error('Enter your name first')
+    if (!hasName()) needName()
     setName && setName(cleanN()); setInvite(''); await joinRoom(c, cleanN())
   })
   const isHost = !!room && room.host === rt.cid

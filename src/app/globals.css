@@ -1339,3 +1339,5 @@ div.gcard.gdetail .chip { background: #393b3d; color: #fff; border: 0; border-ra
 .mini-card-art.has-photo::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 55%, #0008); pointer-events: none; }
 .gamepick .gp-photo { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 8px; display: block; margin-bottom: 6px; }
 .fpick-online { max-height: 34vh; overflow-y: auto; width: min(92%, 760px); touch-action: pan-y; }
+.nameIn.need { outline: 3px solid #ff5a6a; outline-offset: 2px; animation: nameshake .35s 2; }
+@keyframes nameshake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }

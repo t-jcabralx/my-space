@@ -1145,7 +1145,7 @@ function JoinBar({ name, onJoined }) {
   const [err, setErr] = useState('')
   const [nm, setNm] = useState(name && name !== 'PLAYER' ? name : '')
   if (rt.room) return <div className="joinbar"><span>🌐 You are in room <b>{rt.room.code}</b></span><button className="chip sel" onClick={() => onJoined()}>OPEN ROOM ▶</button></div>
-  const go = async () => { setErr(''); const n = nm.replace(/[^\w ]/g, '').trim().slice(0, 12).toUpperCase(); if (!n || n === 'PLAYER') { setErr('Enter your name first'); return } try { await joinRoom(code, n); onJoined() } catch (e) { setErr(e.message) } }
+  const go = async () => { setErr(''); const n = nm.replace(/[^\w ]/g, '').trim().slice(0, 12).toUpperCase(); if (!n || n === 'PLAYER') { setErr('Type a nickname first so your friends know who joined'); try { const i = document.querySelector('.joinbar input.nameIn'); if (i) { i.focus(); i.classList.add('need'); setTimeout(() => i.classList.remove('need'), 1800) } } catch { /* ignore */ } return } try { await joinRoom(code, n); onJoined() } catch (e) { setErr(e.message) } }
   return (
     <div className="joinbar">
       <span>🌐 FRIEND SENT YOU A ROOM CODE?</span>
