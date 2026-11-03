@@ -36,6 +36,8 @@ const { hostBomber, installBomberOnline } = await import('../src/game/online/bom
 const { hostSpace, installSpaceOnline } = await import('../src/game/online/space-online.js')
 const { FT, fightActions } = await import('../src/game/fight.js')
 const { hostFightMatch, installFightOnline } = await import('../src/game/online/fight-online.js')
+const { fightNet } = await import('../src/game/fight.js')
+const fightNetActive = () => fightNet.active()
 const { RC, raceActions } = await import('../src/game/race.js')
 const { hostRaceMatch, installRaceOnline } = await import('../src/game/online/race-online.js')
 const { HK, hockeyActions } = await import('../src/game/hockey.js')
@@ -203,6 +205,26 @@ if (game === 'tetris') {
   clearInterval(drive); clearInterval(watch)
   console.log('RESULT', role, FT.over && FT.over.name, JSON.stringify(FT.wins))
   await sleep(2500)
+} else if (game === 'fightre') {
+  const { setFightPick } = await import('../src/game/fight.js')
+  if (role === 'host') {
+    const room = await rtm.createRoom('fight', 'HOSTY'); console.log('CODE', room.code)
+    check('guest joins', await until(() => rtm.RT.room.players.length === 2))
+    await sleep(1500)
+    setFightPick(2)
+    await hostFightMatch(1)
+  } else { await sleep(500); setFightPick(7); await rtm.joinRoom(code, 'GUESTY') }
+  check('first match starts on both sides', await until(() => FT.mode === 'play' && FT.cfg.type === 'online'), FT.mode)
+  console.log('FIRST', role, FT.f.map((f) => f.ch.id).join(','))
+  if (role === 'host') { await sleep(1500); FT.f[1].hp = 0 }
+  check('match ends', await until(() => FT.mode === 'over', 60000), FT.mode)
+  await sleep(1500)
+  if (role === 'guest') { setFightPick(11); fightActions.rematch() }
+  check('rematch starts online again', await until(() => FT.mode === 'play' && FT.cfg.type === 'online', 30000), FT.mode)
+  console.log('SECOND', role, FT.f.map((f) => f.ch.id).join(','))
+  check('guest got the hero they picked (11) not the AI roll', FT.f[1].ch.id === 11 || FT.f[1].ch.id === (11 + 9) % 40, FT.f[1].ch.id)
+  check('still networked', !!fightNetActive())
+  await sleep(1500)
 } else if (game === 'space') {
   const eng = await import('../src/game/engine.js')
   if (role === 'host') {
