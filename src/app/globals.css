@@ -1350,3 +1350,5 @@ div.gcard.gdetail .chip { background: #393b3d; color: #fff; border: 0; border-ra
 .screen.hub { justify-content: flex-start !important; }
 .screen.hub > .hubtop { margin-top: 0 !important; }
 .screen.hub > .hubtop { top: 6px !important; z-index: 30; background: #232527 !important; }
+.gamepick .gp-logo { width: 100%; max-width: 150px; aspect-ratio: 1; object-fit: cover; border-radius: 14px; display: block; margin: 0 auto 6px; }
+.gamepick .gp-logo[src$=".jpg"] { max-width: none; aspect-ratio: 16 / 9; }

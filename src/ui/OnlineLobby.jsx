@@ -1,11 +1,16 @@
 'use client'
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { RT, subscribeRt, getRt, createRoom, joinRoom, leaveRoom, listRooms, roomAction, sendChat } from '../game/online/rt.js'
+import { GAME_ART } from '../game/branding.js'
+import { GameArtwork } from './GameArtwork.jsx'
 import '../game/hunt.js'
 import '../game/climb.js'
 import '../game/kong.js'
 import { hostGame, installGameNet } from '../game/online/gnet.js'
 import '../game/duel.js'
+// each game shows its own logo (card games use the Card Room photos); the emoji is only a fallback
+const CARD_PHOTO = new Set(['uno', 'pusoy', 'lucky9', 'tongits', 'baccarat', 'poker'])
+function GameIcon({ id, ico }) { if (CARD_PHOTO.has(id)) return <img className="gp-logo" src={'/art/cards/' + id + '.jpg'} alt="" draggable={false} />; if (GAME_ART[id]) return <GameArtwork id={id} decorative className="gp-logo" />; return <span className="ico">{ico}</span> }
 const DUEL_IDS = ['slug', 'snake', 'breaker', 'merge', 'rhythm', 'td', 'chomp', 'mines', 'word']
 import { hostCardGame, installCardsOnline } from '../game/online/cards-online.js'
 import { hostMahjong } from '../game/online/mahjong-online.js'
@@ -166,7 +171,7 @@ export default function OnlineLobby({ s, TopPlayers, initGame, lockGame }) {
           <h4>1 · YOUR NAME</h4>
           <div className="chips"><input className="nameIn" value={name} maxLength={12} onChange={(e) => setNm(e.target.value)} placeholder="NAME" /></div>
           <h4>2 · PICK A GAME</h4>
-          <div className="gamepick">{(lockGame && !showAll && GAMES.some((x) => x[0] === game) ? GAMES.filter((x) => x[0] === game) : GAMES).map(([k, ico, n, d]) => <button key={k} className={game === k ? 'sel' : ''} onClick={() => setGame(k)}><span className="ico">{ico}</span><strong>{n}</strong><small>{d}</small></button>)}</div>
+          <div className="gamepick">{(lockGame && !showAll && GAMES.some((x) => x[0] === game) ? GAMES.filter((x) => x[0] === game) : GAMES).map(([k, ico, n, d]) => <button key={k} className={game === k ? 'sel' : ''} onClick={() => setGame(k)}><GameIcon id={k} ico={ico} /><strong>{n}</strong><small>{d}</small></button>)}</div>
           {lockGame && !showAll && GAMES.some((x) => x[0] === game) && <div className="chips"><button className="chip" onClick={() => setShowAll(true)}>↔ CHOOSE A DIFFERENT GAME</button></div>}
           {game === 'uno' && (
             <div className="lobbyopts">
