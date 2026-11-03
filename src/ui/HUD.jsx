@@ -1115,7 +1115,7 @@ function CardRoomLobby({ s, onOnline }) {
     <div className="lobby">
       <div className="lobbyL">
         <h4>1 · PICK A GAME</h4>
-        <div className="gamepick">{GAMES.map(([k, ico, n, d]) => <button key={k} className={game === k ? 'sel' : ''} onClick={() => setGame(k)}><span className="ico">{ico}</span><strong>{n}</strong><small>{d}</small></button>)}</div>
+        <div className="gamepick">{GAMES.map(([k, ico, n, d]) => <button key={k} className={game === k ? 'sel' : ''} onClick={() => setGame(k)}><img className="gp-photo" src={'/art/cards/' + k + '.jpg'} alt="" draggable={false} /><strong>{n}</strong><small>{d}</small></button>)}</div>
         <h4>2 · OPTIONS</h4>
         <div className="lobbyopts">
           {game === 'uno' && <>
