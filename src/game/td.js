@@ -29,17 +29,56 @@ const ENEMY = {
   swarm: { hp: 11, spd: 8, gold: 2, c: '#7aff6a', r: 1.0 },
   flyer: { hp: 42, spd: 7, gold: 8, c: '#ff8ad8', r: 1.5, air: true },
   boss: { hp: 650, spd: 3.4, gold: 90, c: '#ff3a3a', r: 3.2, boss: true },
+  armored: { hp: 95, spd: 5, gold: 10, c: '#9fb0c8', r: 1.7, armor: 7, body: 'grunt', tag: 'ARMOURED: shrugs off weak hits, use Cannon / Sniper' },
+  healer: { hp: 60, spd: 5.5, gold: 9, c: '#7affc8', r: 1.5, heal: 0.1, body: 'grunt', tag: 'HEALER: mends the pack, kill it first' },
+  splitter: { hp: 75, spd: 5, gold: 6, c: '#d46bff', r: 2.0, split: 3, body: 'tank', tag: 'SPLITTER: bursts into a swarm' },
+  dasher: { hp: 34, spd: 7, gold: 5, c: '#ff7a2a', r: 1.3, dash: true, body: 'runner', tag: 'DASHER: sprints in bursts' },
 }
+const COST = { grunt: 1, runner: 1, swarm: 0.35, tank: 4, flyer: 1.8, armored: 3, healer: 2.5, splitter: 2.5, dasher: 1.4 }
+const FROM = { grunt: 1, runner: 1, swarm: 1, dasher: 2, flyer: 3, tank: 4, splitter: 4, armored: 3, healer: 5 }
+// each map favours a different mix, so every level plays differently
+const BIAS = [
+  { grunt: 3, runner: 2, swarm: 2, dasher: 1, flyer: 1, tank: 1, splitter: 1, armored: 1, healer: 0.5 },
+  { grunt: 1, runner: 2, swarm: 1, dasher: 3, flyer: 3, tank: 1, splitter: 1, armored: 1, healer: 1 },
+  { grunt: 1, runner: 1, swarm: 1, dasher: 1, flyer: 1, tank: 3, splitter: 1, armored: 3, healer: 2 },
+  { grunt: 1, runner: 1, swarm: 2, dasher: 1, flyer: 2, tank: 2, splitter: 3, armored: 2, healer: 3 },
+  { grunt: 1, runner: 1, swarm: 1, dasher: 2, flyer: 2, tank: 2, splitter: 2, armored: 2, healer: 2 },
+]
+const THEMES = [
+  ['MIXED ASSAULT', null, 3], ['SWARM RUSH', ['swarm', 'runner', 'dasher'], 2], ['AIR RAID', ['flyer', 'dasher'], 2],
+  ['ARMOURED COLUMN', ['armored', 'tank', 'healer'], 2], ['SPLIT & HEAL', ['splitter', 'healer', 'grunt'], 2], ['SIEGE', ['tank', 'armored', 'splitter'], 1.5],
+]
+function rngOf(seed) { let a = seed >>> 0; return () => { a = (a + 0x6d2b79f5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296 } }
+const pickW = (rnd, items) => { const sum = items.reduce((a, [, w]) => a + w, 0); let r = rnd() * sum; for (const [v, w] of items) { r -= w; if (r <= 0) return v } return items[0][0] }
 export const WAVES = 25
 function waveList(w) {
+  const rnd = rngOf((TD.seed || 1) + w * 7919 + (TD.map || 0) * 104729)
   const L = []
-  const add = (type, n, gap) => { for (let i = 0; i < n; i++) L.push({ type, t: i * gap * 1.5 }) }
-  const off = () => (L.length ? L[L.length - 1].t + 1.5 : 0)
-  if (w % 5 === 0) { add('boss', Math.max(1, Math.floor(w / 10)), 4); const o = off(); for (let i = 0; i < 4 + w / 2; i++) L.push({ type: w % 10 === 0 ? 'tank' : 'grunt', t: o + i * 0.9 }) }
-  else if (w % 4 === 3) add('flyer', 4 + Math.floor(w * 0.7), 1.1)
-  else if (w % 3 === 0) add('swarm', 12 + w * 2, 0.35)
-  else if (w % 3 === 1) { add('runner', 5 + w, 0.7); if (w > 6) { const o = off(); for (let i = 0; i < w / 3; i++) L.push({ type: 'tank', t: o + i * 1.8 }) } }
-  else { add('grunt', 6 + w, 0.8); if (w > 4) { const o = off(); for (let i = 0; i < w / 3; i++) L.push({ type: 'tank', t: o + i * 1.6 }) } }
+  let budget = 6 + w * 2.4 + (w > 10 ? (w - 10) * 1.2 : 0)
+  const boss = w % 5 === 0
+  const bias = BIAS[(TD.map || 0) % BIAS.length]
+  // the first waves of a level stay readable; later waves can be themed
+  const early = w <= 2
+  const th = early ? THEMES[0] : (boss ? THEMES[0] : (w > 2 && rnd() < 0.55 ? pickW(rnd, THEMES.slice(1).map((x) => [x, x[2]])) : THEMES[0]))
+  if (boss) { const nb = Math.max(1, Math.floor(w / 10)); for (let i = 0; i < nb; i++) L.push({ type: 'boss', t: i * 6 }); budget -= 12 }
+  const pool = Object.keys(COST).filter((t) => w >= FROM[t] && (!early || t === 'grunt' || t === 'runner') && (!th[1] || th[1].includes(t))).map((t) => [t, (bias[t] || 1) * (t === 'flyer' && th[1] ? 1.5 : 1)])
+  const use = pool.length ? pool : [['grunt', 1]]
+  const kinds = []
+  const nk = early ? 1 : 2 + (rnd() < 0.5 ? 1 : 0)
+  for (let k = 0; k < nk; k++) { const t = pickW(rnd, use.filter(([x]) => !kinds.includes(x)).length ? use.filter(([x]) => !kinds.includes(x)) : use); if (!kinds.includes(t)) kinds.push(t) }
+  const shares = kinds.map(() => 0.4 + rnd()); const sum = shares.reduce((a, b) => a + b, 0)
+  const style = rnd() < 0.5 ? 'stream' : 'groups'
+  let cursor = 0
+  kinds.forEach((t, k) => {
+    const n = Math.max(1, Math.min(t === 'swarm' ? 10 + w * 3 : 99, Math.floor(budget * (shares[k] / sum) / COST[t])))
+    const gap = (t === 'swarm' ? 0.45 : t === 'tank' || t === 'splitter' ? 1.9 : t === 'flyer' ? 1.3 : 0.85) * (0.8 + rnd() * 0.5)
+    const start = style === 'stream' ? rnd() * 3 : cursor
+    for (let i = 0; i < n; i++) L.push({ type: t, t: start + i * gap })
+    cursor = start + n * gap + 1.2
+  })
+  L.sort((a, b) => a.t - b.t)
+  L.theme = boss ? 'BOSS + ESCORT' : th[0]
+  L.kinds = kinds
   return L
 }
 const hpScale = (w) => Math.pow(1.13, w - 1) * (1 + (w > 15 ? (w - 15) * 0.08 : 0))
@@ -67,7 +106,7 @@ function pathRaster(path) {
 }
 function start(cfg = {}) {
   const m = clamp(cfg.map | 0, 0, MAPS.length - 1)
-  TD.map = m; TD.goal = clamp(cfg.goal | 0 || MAPS[m].goal || WAVES, 3, WAVES)
+  TD.seed = (cfg.seed != null ? cfg.seed : Math.floor(Math.random() * 2147483647)); TD.map = m; TD.goal = clamp(cfg.goal | 0 || MAPS[m].goal || WAVES, 3, WAVES)
   COLS = MAPS[m].cols; ROWS = MAPS[m].rows; TD.cols = COLS; TD.rows = ROWS
   TD.wp = MAPS[m].path.map(([i, j]) => [cx(i), cy(j)])
   TD.wp[0][0] -= 4; TD.wp[TD.wp.length - 1][0] += 4
@@ -92,10 +131,12 @@ function posAt(d) {
   const f = clamp(d / TD.seg[k], 0, 1), a = TD.wp[k], b = TD.wp[k + 1]
   return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f]
 }
-function spawnEnemy(type) {
+function spawnEnemy(type, at) {
   const def = ENEMY[type], hp = def.hp * hpScale(TD.wave) * (def.boss ? 1 + TD.wave / 8 : 1)
   const e = { type, hp, max: hp, d: 0, slow: 0, slowT: 0, def, x: TD.wp[0][0], y: TD.wp[0][1], dead: false, jig: Math.random() * 6 }
   if (def.air) { e.x = TD.wp[0][0]; e.y = TD.wp[0][1]; e.fy = R(-14, 14); e.t = 0 }
+  if (at) { e.d = at.d; const [x, y] = posAt(e.d); e.x = x; e.y = y }
+  e.healT = 1.6; e.dT = Math.random() * 4
   TD.enemies.push(e)
 }
 function nextWave() {
@@ -107,7 +148,7 @@ function nextWave() {
     TD.nextT = 0
     { const bt = TDCAMP[TD.map].beats && TDCAMP[TD.map].beats[TD.wave]; if (bt && TD.story) { const w = TDWHO[bt[0][0]]; TD.beat = { text: w[0], sub: bt[0][1], color: w[1], t: 5 }; if (bt.length > 1) TD.beat2 = bt.slice(1) } }
     const boss = TD.wave % 5 === 0
-    TD.msg = { text: boss ? 'BOSS WAVE ' + TD.wave : 'WAVE ' + TD.wave, sub: TD.spawn.list.length + ' ENEMIES', color: boss ? '#ff4a5a' : '#ffe84a', t: 2 }
+    TD.msg = { text: boss ? 'BOSS WAVE ' + TD.wave : 'WAVE ' + TD.wave, sub: (TD.spawn.list.theme || '') + ' · ' + TD.spawn.list.length + ' ENEMIES', color: boss ? '#ff4a5a' : '#ffe84a', t: 2 }
     sfx(boss ? 'rgBoss' : 'tdWave'); if (boss) { speak('Boss incoming', 0.4, 0.95); shake(1) }
     emitT()
   }
@@ -119,9 +160,11 @@ function kill(e, byStrike) {
   popup(e.x, e.y + 2, '+' + e.def.gold, [1, 0.9, 0.3])
   const c = col(e.def.c); for (let i = 0; i < (e.def.boss ? 30 : 8); i++) part(e.x, e.y, R(-30, 30), R(-30, 30), R(0.2, 0.6), c, R(0.8, 1.6))
   if (e.def.boss) { shake(1.5); flash(0.3, [1, 0.6, 0.4]); sfx('tdBoom') }
+  if (e.def.split && !e.def.air) for (let i = 0; i < e.def.split; i++) spawnEnemy('swarm', { d: Math.max(0, e.d - i * 1.4) })
 }
 function hurt(e, d, t) {
   if (e.dead) return
+  if (e.def.armor) d = Math.max(d * 0.25, d - e.def.armor)
   e.hp -= d; e.flash = 0.08
   if (e.hp <= 0) { if (t) t.kills++; kill(e) }
 }
@@ -181,7 +224,9 @@ function update(dtRaw) {
     if (e.dead) continue
     e.slowT -= dt; if (e.slowT <= 0) e.slow = 0
     e.flash = Math.max(0, (e.flash || 0) - dt)
-    const sp = e.def.spd * (1 - e.slow)
+    e.dT = (e.dT || 0) + dt
+    const sp = e.def.spd * (1 - e.slow) * (e.def.dash ? (e.dT % 4 < 1 ? 2.3 : 0.75) : 1)
+    if (e.def.heal) { e.healT -= dt; if (e.healT <= 0) { e.healT = 1.6; let n = 0; for (const q of TD.enemies) if (!q.dead && q !== e && q.hp < q.max && Math.hypot(q.x - e.x, q.y - e.y) < 12) { q.hp = Math.min(q.max, q.hp + q.max * e.def.heal); n++ } if (n) ring(e.x, e.y, 10, 22, [col('#7affc8')]) } }
     if (e.def.air) {
       e.t += dt * sp / 100; const span = TD.wp[TD.wp.length - 1][0] - TD.wp[0][0]
       e.x = TD.wp[0][0] + span * e.t; e.y = e.fy + Math.sin(e.t * 18 + e.jig) * 3

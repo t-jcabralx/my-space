@@ -82,7 +82,7 @@ function drawEnemy(api, e, time, ENEMY) {
   const fl = e.flash > 0 ? 2.4 : 1, ice = e.slow > 0
   const cr = (k) => (ice ? 0.7 * k : c[0] * k * fl), cg = (k) => (ice ? 1.4 * k : c[1] * k * fl), cb = (k) => (ice ? 2.2 * k : c[2] * k * fl)
   const ph = time * (d.spd > 14 ? 16 : d.spd > 8 ? 10 : 6) * (ice ? 0.5 : 1) + e.jig, wk = Math.sin(ph), bob = Math.abs(wk) * 0.4
-  const type = e.type
+  const type = d.body || e.type
   if (d.air) {
     const hv = 5 + Math.sin(time * 3 + e.jig) * 0.6, fl2 = Math.sin(time * 26 + e.jig) * 0.9
     putS(X + 0.5, 0.05, Z + 0.5, 2.2, 0.1, 2.2, 0.02, 0.02, 0.03)
