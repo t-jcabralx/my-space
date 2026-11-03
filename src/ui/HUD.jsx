@@ -1618,6 +1618,21 @@ function Hub({ s }) {
   const doneAch = ACH.filter(([, , g, goal]) => g(p, s.unlocked) >= goal).length
   const GAME_TABS = { pickle: '🏓 PICKLEBALL', bomber: '💣 BOMBER', tetris: '🧱 TETRIS', chomp: '🟡 CHOMP', cards: '🃏 CARDS', race: '🏁 RACE', fight: '🥊 FIGHT', flames: '🔥 FLAMES', hockey: '🏒 AIR HOCKEY', pool: '🎱 BILLIARDS', td: '🛡 DEFENSE', rogue: '🗡 DEPTHS', rhythm: '🎵 BEAT', word: '🔤 WORD HUNT', merge: '🔢 2048', c4: '🔴 CONNECT 4', snake: '🐍 SNAKE', breaker: '🧱 BREAKER', mines: '💣 SWEEP', empire: '🏰 EMPIRE', ssx: '🏂 SNOW RUSH', orb: '🔮 ORB RUSH', garden: '🧟 GARDEN', hunt: '🌙 13 DAYS', climb: '🧗 CLIMBERS', kong: '🦍 GORILLA' }
   // the tab bar stays short: dashboard, the game you opened (if any), and the utility tabs. Games are opened from the dashboard cards.
+  const tabsRef = useRef(null)
+  // the tab strip scrolls sideways with the mouse wheel, by dragging, and by touch
+  useEffect(() => {
+    const el = tabsRef.current
+    if (!el) return
+    const wheel = (e) => { if (el.scrollWidth <= el.clientWidth) return; const d = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY; el.scrollLeft += d; e.preventDefault() }
+    let down = null, moved = false
+    const pd = (e) => { if (e.pointerType === 'mouse') { down = { x: e.clientX, l: el.scrollLeft }; moved = false } }
+    const pm = (e) => { if (!down) return; const dx = e.clientX - down.x; if (Math.abs(dx) > 5) { moved = true; el.scrollLeft = down.l - dx } }
+    const pu = () => { down = null }
+    const click = (e) => { if (moved) { e.stopPropagation(); e.preventDefault(); moved = false } }
+    el.addEventListener('wheel', wheel, { passive: false })
+    el.addEventListener('pointerdown', pd); window.addEventListener('pointermove', pm); window.addEventListener('pointerup', pu); el.addEventListener('click', click, true)
+    return () => { el.removeEventListener('wheel', wheel); el.removeEventListener('pointerdown', pd); window.removeEventListener('pointermove', pm); window.removeEventListener('pointerup', pu); el.removeEventListener('click', click, true) }
+  })
   const TABS = [['home', 'DASHBOARD'], ...(GAME_TABS[tab] ? [[tab, GAME_TABS[tab]]] : []), ['mahjong', '🀄 MAHJONG'], ['mini', '🕹 MINI GAMES'], ['online', '🌐 ONLINE'], ['story', '📖 STORY'], ['top', '🏆 TOP PLAYERS'], ['ship', 'CUSTOMIZE SHIP'], ['levels', 'SPACE LEVELS'], ['skills', 'CONTROLS'], ['settings', '⚙ SETTINGS'], ['awards', `AWARDS ${doneAch}/${ACH.length}`]]
   const CATS = [['all', 'ALL GAMES'], ['action', '⚔ ACTION'], ['sports', '🏅 SPORTS'], ['strategy', '🧠 STRATEGY'], ['puzzle', '🧩 PUZZLE'], ['cards', '🃏 CARDS'], ['music', '🎵 MUSIC']]
   const show = (...c) => cat === 'all' || c.includes(cat)
@@ -1625,7 +1640,7 @@ function Hub({ s }) {
     <div className="screen hub">
       <div className="hubtop">
         <div className="logo2 arcade-brand"><GameArtwork id="brand" eager/><span>MY SPACE<small>ARCADE</small></span></div>
-        <div className="tabs">{TABS.map(([k, n]) => <button key={k} className={'tab ' + (tab === k ? 'sel' : '')} onClick={() => { if (k === 'online') { setOlock(false); setOnon((n) => n + 1) } setTab(k) }}>{n}</button>)}</div>
+        <div className="tabs" ref={tabsRef}>{TABS.map(([k, n]) => <button key={k} className={'tab ' + (tab === k ? 'sel' : '')} onClick={() => { if (k === 'online') { setOlock(false); setOnon((n) => n + 1) } setTab(k) }}>{n}</button>)}</div>
         <SoundBtn />
         <button className="tab" title="Fullscreen" onClick={() => { try { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen() } catch { /* ignore */ } }}>⛶</button>
       </div>
