@@ -1457,6 +1457,7 @@ function FightHUD() {
   const g = useSyncExternalStore(subscribeFight, getFightSnap)
   const [portrait, setPortrait] = useState(false)
   const [dismissed, setDismissed] = useState(false)
+  const [repick, setRepick] = useState(null) // online: choose another hero without leaving the room
   useEffect(() => {
     const f = () => { try { setPortrait(window.innerHeight > window.innerWidth && (isTouchPrimary())) } catch { /* ignore */ } }
     f(); window.addEventListener('resize', f); window.addEventListener('orientationchange', f)
@@ -1500,8 +1501,9 @@ function FightHUD() {
             <li><span>BIGGEST COMBO</span><b>{g.over.stats.maxCombo}</b></li>
             <li><span>SPECIALS / SUPERS</span><b>{g.over.stats.specials} / {g.over.stats.supers}</b></li>
           </ul>
-          <button className="big" onClick={fightActions.rematch}>↻ REMATCH</button>
-          <button className="big sec" onClick={() => { try { window.__hubTab = 'fight' } catch { /* ignore */ } fightActions.quit() }}>CHARACTER SELECT</button>
+          {g.type === 'online' && repick !== null && <div className="fgrid fpick-online">{ROSTER.map((r) => <button key={r.id} className={'ftile ' + (repick === r.id ? 'p1' : '')} style={{ '--el': ELS[r.element].color }} onClick={() => { setRepick(r.id); setFightPick(r.id) }} title={r.name}><FighterFace c={r} size={36} /><small>{r.name}</small></button>)}</div>}
+          <button className="big" onClick={() => { setRepick(null); fightActions.rematch() }}>↻ REMATCH{g.type === 'online' && repick !== null ? ' AS ' + ROSTER[repick].name : ''}</button>
+          <button className="big sec" onClick={() => { if (g.type === 'online') { setRepick(repick === null ? (() => { const k = getSnap().profile.fightPick; return typeof k === 'number' ? k : 0 })() : null); return } try { window.__hubTab = 'fight' } catch { /* ignore */ } fightActions.quit() }}>{g.type === 'online' ? (repick === null ? 'CHANGE FIGHTER' : 'HIDE FIGHTERS') : 'CHARACTER SELECT'}</button>
         </div>
       )}
     </div>
