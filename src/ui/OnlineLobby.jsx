@@ -10,7 +10,8 @@ import { hostGame, installGameNet } from '../game/online/gnet.js'
 import '../game/duel.js'
 // each game shows its own logo (card games use the Card Room photos); the emoji is only a fallback
 const CARD_PHOTO = new Set(['uno', 'pusoy', 'lucky9', 'tongits', 'baccarat', 'poker'])
-function GameIcon({ id, ico }) { if (CARD_PHOTO.has(id)) return <img className="gp-logo" src={'/art/cards/' + id + '.jpg'} alt="" draggable={false} />; if (GAME_ART[id]) return <GameArtwork id={id} decorative className="gp-logo" />; return <span className="ico">{ico}</span> }
+const ONLINE_PHOTO = new Set(['slug', 'bomber', 'mahjong'])
+function GameIcon({ id, ico }) { if (CARD_PHOTO.has(id) || ONLINE_PHOTO.has(id)) return <img className="gp-logo" src={'/art/' + (CARD_PHOTO.has(id) ? 'cards' : 'online') + '/' + id + '.jpg'} alt="" draggable={false} />; if (GAME_ART[id]) return <GameArtwork id={id} decorative className="gp-logo" />; return <span className="ico">{ico}</span> }
 const DUEL_IDS = ['slug', 'snake', 'breaker', 'merge', 'rhythm', 'td', 'chomp', 'mines', 'word']
 import { hostCardGame, installCardsOnline } from '../game/online/cards-online.js'
 import { hostMahjong } from '../game/online/mahjong-online.js'
