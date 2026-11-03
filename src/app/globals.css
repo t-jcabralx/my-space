@@ -1341,3 +1341,8 @@ div.gcard.gdetail .chip { background: #393b3d; color: #fff; border: 0; border-ra
 .fpick-online { max-height: 34vh; overflow-y: auto; width: min(92%, 760px); touch-action: pan-y; }
 .nameIn.need { outline: 3px solid #ff5a6a; outline-offset: 2px; animation: nameshake .35s 2; }
 @keyframes nameshake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+/* header on every width: logo + sound on the first line, the tabs on their own scrolling line */
+.screen.hub .hubtop { flex-wrap: wrap; row-gap: 6px; }
+.screen.hub .hubtop .logo2 { margin-right: auto; }
+.screen.hub .hubtop .tabs { order: 5; flex: 0 0 100%; flex-wrap: nowrap !important; overflow-x: auto; -webkit-mask-image: linear-gradient(90deg, #000 94%, transparent); mask-image: linear-gradient(90deg, #000 94%, transparent); padding-right: 24px; }
+.screen.hub .hubtop .tabs .tab { flex: 0 0 auto; }
