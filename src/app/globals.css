@@ -1346,3 +1346,7 @@ div.gcard.gdetail .chip { background: #393b3d; color: #fff; border: 0; border-ra
 .screen.hub .hubtop .logo2 { margin-right: auto; }
 .screen.hub .hubtop .tabs { order: 5; flex: 0 0 100%; flex-wrap: nowrap !important; overflow-x: auto; -webkit-mask-image: linear-gradient(90deg, #000 94%, transparent); mask-image: linear-gradient(90deg, #000 94%, transparent); padding-right: 24px; }
 .screen.hub .hubtop .tabs .tab { flex: 0 0 auto; }
+/* a centred column that is taller than the window cuts off its top (the header): start from the top instead */
+.screen.hub { justify-content: flex-start !important; }
+.screen.hub > .hubtop { margin-top: 0 !important; }
+.screen.hub > .hubtop { top: 6px !important; z-index: 30; background: #232527 !important; }
